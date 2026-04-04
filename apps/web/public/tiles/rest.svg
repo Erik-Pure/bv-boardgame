@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="138.653" height="146.621" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 138.653 146.621">
+  <defs>
+    <linearGradient id="d" x1="3" y1="77.295" x2="135.653" y2="77.295" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#006838"/>
+      <stop offset=".083" stop-color="#39b54a"/>
+      <stop offset=".913" stop-color="#39b54a"/>
+      <stop offset="1" stop-color="#006838"/>
+    </linearGradient>
+    <linearGradient id="e" x1="3" y1="69.327" x2="135.653" y2="69.327" gradientUnits="userSpaceOnUse">
+      <stop offset=".123" stop-color="#d4ffd9"/>
+      <stop offset=".477" stop-color="#f1f2f2"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+    <linearGradient id="f" x1="2" y1="69.327" x2="136.653" y2="69.327" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8faff"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+  </defs>
+  <g id="c" data-name="Layer 1">
+    <g>
+      <rect x="3" y="10.968" width="132.653" height="132.653" rx="24.013" ry="24.013" fill="url(#d)"/>
+      <rect x="3" y="3" width="132.653" height="132.653" rx="24.013" ry="24.013" fill="url(#e)" stroke="url(#f)" stroke-miterlimit="10" stroke-width="2"/>
+      <path d="M111.64,3c13.262,0,24.013,10.751,24.013,24.013v92.594c0,13.262-10.751,24.013-24.013,24.013H27.013c-13.262,0-24.013-10.751-24.013-24.013V27.013C3,13.751,13.751,3,27.013,3h84.626M111.64,0H27.013C12.118,0,0,12.118,0,27.013v92.594c0,14.895,12.118,27.013,27.013,27.013h84.626c14.895,0,27.013-12.118,27.013-27.013V27.013c0-14.895-12.118-27.013-27.013-27.013h0Z" fill="#009444"/>
+      <g>
+        <path d="M51.513,60.343l9.054-13.564h-9.054v-5.687h16.768v5.033l-9.054,13.563h9.054v5.688h-16.768v-5.033Z" fill="#009444"/>
+        <path d="M72.726,67.722l7.093-8.072h-7.452v-5.034h14.773v4.511l-7.093,8.073h7.093v5.033h-14.414v-4.511Z" fill="#009444"/>
+        <path d="M57.125,85.569l5.894-6.708h-6.193v-4.184h12.277v3.749l-5.894,6.709h5.894v4.183h-11.978v-3.749Z" fill="#009444"/>
+      </g>
+    </g>
+  </g>
+</svg>

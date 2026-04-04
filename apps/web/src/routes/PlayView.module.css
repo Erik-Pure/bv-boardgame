@@ -1,0 +1,407 @@
+.page {
+  position: relative;
+  /* #root is flex; without width:100% the item shrink-wraps to min-content (smal tom föremålsruta). */
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+  box-sizing: border-box;
+  text-align: start;
+  /* Tydlig kontrast mot regnbågsbakgrund och root:s grå default-text. */
+  color: #ffffff;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+.headerPlayersBtn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  margin: 0;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.headerPlayersBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.headerPlayersBtn:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 3px;
+}
+
+/* HP / pant / klunk — full bredd inuti spelarsektionen (breakout mot sidopadding). */
+.statsStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: calc(100% + 28px);
+  margin-left: -14px;
+  margin-right: -14px;
+  box-sizing: border-box;
+}
+
+.statsCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  min-width: 0;
+  position: relative;
+  overflow: visible;
+}
+
+.statsCellIconSlot {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.statsCellRadial {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78px;
+  height: 78px;
+  margin: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5);
+}
+
+.statsCellRadialRun {
+  animation: statsRadialPop 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.statsRadialHpDown {
+  background: radial-gradient(
+    circle,
+    rgba(252, 165, 165, 0.65) 0%,
+    rgba(239, 68, 68, 0.35) 42%,
+    rgba(220, 38, 38, 0) 72%
+  );
+}
+
+.statsRadialHpUp {
+  background: radial-gradient(
+    circle,
+    rgba(134, 239, 172, 0.6) 0%,
+    rgba(34, 197, 94, 0.32) 42%,
+    rgba(22, 163, 74, 0) 72%
+  );
+}
+
+.statsRadialPantDown {
+  background: radial-gradient(
+    circle,
+    rgba(253, 224, 200, 0.58) 0%,
+    rgba(245, 158, 11, 0.3) 42%,
+    rgba(217, 119, 6, 0) 72%
+  );
+}
+
+.statsRadialPantUp {
+  background: radial-gradient(
+    circle,
+    rgba(253, 230, 138, 0.65) 0%,
+    rgba(250, 204, 21, 0.38) 42%,
+    rgba(202, 138, 4, 0) 72%
+  );
+}
+
+.statsRadialKlunkDown {
+  background: radial-gradient(
+    circle,
+    rgba(196, 181, 253, 0.55) 0%,
+    rgba(139, 92, 246, 0.28) 42%,
+    rgba(109, 40, 217, 0) 72%
+  );
+}
+
+.statsRadialKlunkUp {
+  background: radial-gradient(
+    circle,
+    rgba(216, 180, 254, 0.58) 0%,
+    rgba(167, 139, 250, 0.34) 42%,
+    rgba(124, 58, 237, 0) 72%
+  );
+}
+
+.statsCellIconBare {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+
+.statIconWobble {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  animation: statIconWobble 0.58s ease-in-out;
+}
+
+@keyframes statsRadialPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.45);
+  }
+  42% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.38);
+  }
+}
+
+@keyframes statIconWobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  18% {
+    transform: rotate(-11deg);
+  }
+  36% {
+    transform: rotate(9deg);
+  }
+  54% {
+    transform: rotate(-5deg);
+  }
+  72% {
+    transform: rotate(3deg);
+  }
+}
+
+.statsCellValue {
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #fff;
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 720px) {
+  .statsStrip {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+.bottomSheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 44px; /* above debug footer */
+  z-index: 70;
+  /* Glas: låt regnbåge/innehåll synas igenom, sudda det som ligger bakom */
+  background: rgba(11, 18, 38, 0.55);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: none;
+  box-shadow: 0 -14px 44px rgba(0, 0, 0, 0.38);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bottomSheet {
+    background: rgba(11, 18, 38, 0.92);
+  }
+}
+
+.bottomSheetInner {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 14px 16px 16px;
+  color: #ffffff;
+}
+
+.equipmentGridWrap {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  box-sizing: border-box;
+}
+
+.equipmentGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.inventoryEmpty {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  place-items: center;
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Samma vertikala rytm: tärning + resultatrad (även tom före kast) så knappar inte hoppar */
+.sheetDiceBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sheetDiceCaption {
+  width: 100%;
+  min-height: 3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+  line-height: 1.35;
+  opacity: 0.9;
+}
+
+/* Inline flow — undvik flex-items per fragment (då försvinner mellanslag kring <b>). */
+.sheetDiceCaptionText {
+  display: inline-block;
+  max-width: 100%;
+  text-align: center;
+  white-space: normal;
+}
+
+.bottomSheetEnter {
+  animation: slideUpSheet 240ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+/* På inner så slide-up-animationen på .bottomSheet inte skrivs över */
+.bottomSheetInnerFlash {
+  position: relative;
+}
+
+.bottomSheetInnerFlash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  pointer-events: none;
+  animation: sheetRollFlashOverlay 0.92s linear forwards;
+}
+
+@keyframes sheetRollFlashOverlay {
+  0% {
+    opacity: 0;
+    background: transparent;
+  }
+  /* Snabb uppstigning */
+  5% {
+    opacity: 1;
+    background: rgba(255, 103, 221, 0.44);
+  }
+  12% {
+    opacity: 1;
+    background: rgba(70, 226, 255, 0.32);
+  }
+  /* Långsam utslockning */
+  35% {
+    opacity: 0.45;
+    background: rgba(70, 226, 255, 0.14);
+  }
+  65% {
+    opacity: 0.18;
+    background: rgba(70, 226, 255, 0.06);
+  }
+  100% {
+    opacity: 0;
+    background: transparent;
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottomSheetInnerFlash::before {
+    animation: none;
+  }
+
+  .bottomSheetEnter {
+    animation: none;
+  }
+
+  .statsCellRadialRun {
+    animation: statsRadialPopReduced 0.35s ease-out forwards;
+  }
+
+  .statIconWobble {
+    animation: none;
+  }
+}
+
+@keyframes statsRadialPopReduced {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 720px) {
+  .equipmentGridWrap {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+

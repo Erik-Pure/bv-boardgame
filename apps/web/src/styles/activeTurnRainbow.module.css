@@ -1,0 +1,63 @@
+/**
+ * Mobil (PlayView): fullskärmsbakgrund när det är din tur m.m. — roterande regnbågsgradient + puls.
+ * Kräver att direkta barn har position + z-index > 0 (t.ex. 1) så UI ligger ovanpå.
+ */
+.activeTurn {
+  position: relative;
+  isolation: isolate;
+}
+
+.activeTurn::before {
+  content: "";
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 260vmin;
+  height: 260vmin;
+  margin: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    hsl(350, 95%, 58%),
+    hsl(300, 92%, 56%),
+    hsl(250, 90%, 58%),
+    hsl(200, 88%, 52%),
+    hsl(150, 85%, 48%),
+    hsl(100, 88%, 50%),
+    hsl(50, 95%, 54%),
+    hsl(350, 95%, 58%)
+  );
+  filter: blur(38px) saturate(1.45);
+  mix-blend-mode: screen;
+  opacity: 0.4;
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: activeTurnRainbowSpin 11s linear infinite, activeTurnRainbowPulse 2s ease-in-out infinite;
+}
+
+@keyframes activeTurnRainbowSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes activeTurnRainbowPulse {
+  0%,
+  100% {
+    opacity: 0.24;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activeTurn::before {
+    animation: activeTurnRainbowPulse 3.2s ease-in-out infinite;
+    transform: translate(-50%, -50%);
+  }
+}

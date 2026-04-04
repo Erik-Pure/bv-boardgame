@@ -1,0 +1,205 @@
+.scene {
+  --dice-size: 72px;
+  --half: calc(var(--dice-size) / 2);
+  position: relative;
+  overflow: visible;
+  perspective: 480px;
+  perspective-origin: 50% 40%;
+  display: grid;
+  place-items: center;
+  width: var(--dice-size);
+  height: var(--dice-size);
+}
+
+.sceneStack {
+  position: relative;
+  width: var(--dice-size);
+  height: var(--dice-size);
+  display: grid;
+  place-items: center;
+}
+
+.rollValueOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  pointer-events: none;
+  font-size: calc(var(--dice-size) * 0.46);
+  font-weight: 900;
+  line-height: 1;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.cube {
+  width: var(--dice-size);
+  height: var(--dice-size);
+  position: relative;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid #0f172a;
+  border-radius: 12px;
+  background: linear-gradient(155deg, #f8fafc 0%, #e2e8f0 45%, #cbd5e1 100%);
+  backface-visibility: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 -6px 14px rgba(15, 23, 42, 0.12);
+  display: grid;
+  place-items: center;
+  padding: 6px;
+}
+
+/* Face positions: 1 +Z, 6 -Z, 3 +X, 4 -X, 2 +Y, 5 -Y */
+.f1 {
+  transform: rotateY(0deg) translateZ(var(--half));
+}
+.f6 {
+  transform: rotateY(180deg) translateZ(var(--half));
+}
+.f3 {
+  transform: rotateY(90deg) translateZ(var(--half));
+}
+.f4 {
+  transform: rotateY(-90deg) translateZ(var(--half));
+}
+.f2 {
+  transform: rotateX(90deg) translateZ(var(--half));
+}
+.f5 {
+  transform: rotateX(-90deg) translateZ(var(--half));
+}
+
+.spinLoop {
+  animation: spinLoop 1.35s linear infinite;
+  will-change: transform;
+}
+
+/* Pulserande radial glow bakom kuben (idle-snurr) */
+.sceneSpinPulse::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 0;
+  width: calc(var(--dice-size) * 2.25);
+  height: calc(var(--dice-size) * 2.25);
+  margin: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at 42% 40%,
+    rgba(251, 207, 232, 0.68) 0%,
+    rgba(233, 213, 255, 0.45) 16%,
+    rgba(192, 132, 252, 0.26) 32%,
+    rgba(139, 92, 246, 0.1) 48%,
+    rgba(99, 102, 241, 0.03) 62%,
+    transparent 72%
+  );
+  /* Extra mjuk kanttoning: hela lagret dör ut mot ellipsens ytterkant */
+  -webkit-mask-image: radial-gradient(
+    ellipse 92% 92% at 42% 40%,
+    #000 0%,
+    #000 38%,
+    rgba(0, 0, 0, 0.45) 62%,
+    rgba(0, 0, 0, 0.12) 82%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 92% 92% at 42% 40%,
+    #000 0%,
+    #000 38%,
+    rgba(0, 0, 0, 0.45) 62%,
+    rgba(0, 0, 0, 0.12) 82%,
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: diceRadialGlowPulse 1.35s ease-in-out infinite;
+  will-change: transform, opacity, filter;
+}
+
+.sceneSpinPulse .cube {
+  z-index: 1;
+}
+
+@keyframes diceRadialGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.88);
+    filter: blur(0.5px);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.12);
+    filter: blur(1.5px);
+  }
+}
+
+/* Pulserande lila/rosa ytor medan idle-snurr är aktivt */
+.sceneSpinPulse .face {
+  border-color: rgba(91, 33, 182, 0.45);
+  background: linear-gradient(
+    128deg,
+    #ede9fe 0%,
+    #fae8ff 14%,
+    #fbcfe8 28%,
+    #e9d5ff 42%,
+    #f5d0fe 56%,
+    #ddd6fe 70%,
+    #fce7f3 84%,
+    #ede9fe 100%
+  );
+  background-size: 420% 420%;
+  animation: diceFaceGradientPulse 1.15s ease-in-out infinite;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -10px 20px rgba(91, 33, 182, 0.14),
+    0 0 14px rgba(217, 70, 239, 0.2);
+}
+
+@keyframes spinLoop {
+  to {
+    transform: rotateX(360deg) rotateY(540deg);
+  }
+}
+
+@keyframes diceFaceGradientPulse {
+  0%,
+  100% {
+    background-position: 8% 22%;
+    filter: brightness(1) saturate(1.08);
+  }
+  50% {
+    background-position: 92% 78%;
+    filter: brightness(1.14) saturate(1.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinLoop {
+    animation: none;
+  }
+
+  .sceneSpinPulse::before {
+    animation: none;
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(1px);
+  }
+
+  .sceneSpinPulse .face {
+    animation: none;
+    background: linear-gradient(145deg, #ede9fe, #fae8ff, #fbcfe8);
+    background-size: 100% 100%;
+    filter: none;
+  }
+}

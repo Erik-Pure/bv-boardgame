@@ -1,0 +1,427 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "event_gold",
+      "kind": "event",
+      "title": "Hittelön!",
+      "text": "Du hittar några mynt på golvet. +3 pant.",
+      "artKey": "event/gold",
+      "effects": [{ "type": "gold", "amount": 3 }]
+    },
+    {
+      "id": "event_spill",
+      "kind": "event",
+      "title": "Spill!",
+      "text": "Du halkar i ett spill. Ta 2 skada.",
+      "artKey": "event/spill",
+      "effects": [{ "type": "damage", "amount": 2, "source": "spill" }]
+    },
+    {
+      "id": "event_klunk",
+      "kind": "event",
+      "title": "Straffklunk",
+      "text": "Du åker på en straffklunk. +1 klunk.",
+      "artKey": "event/klunk",
+      "effects": [{ "type": "klunkar", "amount": 1 }]
+    },
+    {
+      "id": "rest_brewery",
+      "kind": "rest",
+      "title": "Vila på bryggeriet",
+      "text": "Du återhämtar dig. +3 HP (upp till max).",
+      "artKey": "tile/rest",
+      "effects": [{ "type": "heal", "amount": 3 }]
+    },
+    {
+      "id": "treasure_cache",
+      "kind": "treasure",
+      "title": "Skatt!",
+      "text": "Du hittar en gömma. +{gold} pant.",
+      "artKey": "tile/treasure",
+      "effects": [{ "type": "goldRoll", "base": 3, "die": 6 }]
+    },
+    {
+      "id": "combat_monster",
+      "kind": "combat",
+      "title": "Strid",
+      "text": "Ett monster dyker upp. Slå för att vinna.",
+      "artKey": "combat/monster",
+      "effects": []
+    },
+    {
+      "id": "choice_drink_or_damage",
+      "kind": "event",
+      "title": "Barkäbbel",
+      "text": "Välj: ta 1 klunk eller ta 1 skada.",
+      "artKey": "event/choice",
+      "choices": [
+        {
+          "id": "drink",
+          "label": "Ta 1 klunk",
+          "effects": [{ "type": "klunkar", "amount": 1 }]
+        },
+        {
+          "id": "damage",
+          "label": "Ta 1 skada",
+          "effects": [{ "type": "damage", "amount": 1, "source": "brawl" }]
+        }
+      ]
+    },
+    {
+      "id": "event_find_item_heal",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar en läkedryck. Behåll den och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "healing_potion" }]
+    },
+    {
+      "id": "event_find_item_sleep",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar ett sömnmedel. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "sleep_potion" }]
+    },
+    {
+      "id": "event_find_item_sip",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar ett straffklunk-kort. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "sip_card" }]
+    },
+    {
+      "id": "event_find_item_weak",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar en svag öl. Behåll den och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "weak_beer" }]
+    },
+    {
+      "id": "event_find_item_pretzel",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar en brezel. Behåll den och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "pretzel_snack" }]
+    },
+    {
+      "id": "event_find_item_coin",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar en penningpung. Behåll den och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "coin_purse" }]
+    },
+    {
+      "id": "event_find_item_hops",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar Dubbelhumle. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "double_hops" }]
+    },
+    {
+      "id": "event_find_item_hype",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar Monsterpepp. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "monster_hype" }]
+    },
+    {
+      "id": "event_find_item_sabotage",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar Jäst-sabotage. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "yeast_sabotage" }]
+    },
+    {
+      "id": "event_find_item_bro",
+      "kind": "event",
+      "title": "Hittade ett föremål!",
+      "text": "Du hittar ett Ölkompis-kort. Behåll det och använd senare.",
+      "artKey": "event/item",
+      "effects": [{ "type": "item", "itemId": "beer_bro" }]
+    },
+    {
+      "id": "event_quench",
+      "kind": "event",
+      "title": "Släck törsten",
+      "text": "Du sveper en kall. Ta 1 klunk och läka 2 HP.",
+      "artKey": "event/quench",
+      "effects": [
+        { "type": "klunkar", "amount": 1 },
+        { "type": "heal", "amount": 2 }
+      ]
+    },
+    {
+      "id": "event_friendly_offering",
+      "kind": "event",
+      "title": "En vänlig gest",
+      "text": "Välj en spelare: den tar 1 klunk och läker 2 HP.",
+      "artKey": "event/offering",
+      "effects": [],
+      "choices": [
+        { "id": "choose", "label": "Välj en spelare", "effects": [] }
+      ]
+    },
+    {
+      "id": "event_loser_wins",
+      "kind": "event",
+      "title": "Sista klunken är bäst",
+      "text": "Du tar 2 klunkar. Spelaren med minst HP läker 2 HP.",
+      "artKey": "event/loser-wins",
+      "effects": []
+    },
+    {
+      "id": "event_cheers",
+      "kind": "event",
+      "title": "Skål!",
+      "text": "Skål! Ta 1 klunk.",
+      "artKey": "event/cheers",
+      "effects": [{ "type": "klunkar", "amount": 1 }]
+    },
+    {
+      "id": "event_apocalypse",
+      "kind": "event",
+      "title": "Bryggpokalypse",
+      "text": "Tappkranarna löper amok. Alla tar 1 klunk.",
+      "artKey": "event/apocalypse",
+      "effects": []
+    },
+    {
+      "id": "event_gift_sip",
+      "kind": "event",
+      "title": "Gåva från baren",
+      "text": "Välj en spelare: den måste ta 1 klunk.",
+      "artKey": "event/gift",
+      "effects": [],
+      "choices": [
+        { "id": "choose", "label": "Välj en spelare", "effects": [] }
+      ]
+    },
+    {
+      "id": "event_round_on_me",
+      "kind": "event",
+      "title": "Rundan är på mig!",
+      "text": "Du känner dig generös. Alla (inklusive du) läker 1 HP.",
+      "artKey": "event/round",
+      "effects": []
+    },
+    {
+      "id": "event_spilled_pints",
+      "kind": "event",
+      "title": "Spillda öl",
+      "text": "Golv är en enda röra. Ta 1 skada och +1 klunk.",
+      "artKey": "event/spilled",
+      "effects": [
+        { "type": "damage", "amount": 1, "source": "spill" },
+        { "type": "klunkar", "amount": 1 }
+      ]
+    },
+    {
+      "id": "treasure_item_weak",
+      "kind": "treasure",
+      "title": "Skatt: föremålskort",
+      "text": "Du hittar ett föremålskort: Svag öl.",
+      "artKey": "tile/treasure",
+      "effects": [{ "type": "item", "itemId": "weak_beer" }]
+    },
+    {
+      "id": "treasure_item_heal",
+      "kind": "treasure",
+      "title": "Skatt: föremålskort",
+      "text": "Du hittar ett föremålskort: Läkedryck.",
+      "artKey": "tile/treasure",
+      "effects": [{ "type": "item", "itemId": "healing_potion" }]
+    },
+    {
+      "id": "treasure_item_hops",
+      "kind": "treasure",
+      "title": "Skatt: föremålskort",
+      "text": "Du hittar ett föremålskort: Dubbelhumle.",
+      "artKey": "tile/treasure",
+      "effects": [{ "type": "item", "itemId": "double_hops" }]
+    },
+    {
+      "id": "item_healing_potion",
+      "kind": "item",
+      "title": "Läkedryck",
+      "text": "Använd: återställ 3 HP.",
+      "artKey": "item/heal",
+      "effects": [{ "type": "heal", "amount": 3 }]
+    },
+    {
+      "id": "item_sleep_potion",
+      "kind": "item",
+      "title": "Sömnmedel",
+      "text": "Använd på en annan spelare: den hoppar över sin nästa tur.",
+      "artKey": "item/sleep",
+      "effects": []
+    },
+    {
+      "id": "item_sip_card",
+      "kind": "item",
+      "title": "Straffklunk",
+      "text": "Använd på en annan spelare: den får +1 klunk.",
+      "artKey": "item/sip",
+      "effects": []
+    },
+    {
+      "id": "item_weak_beer",
+      "kind": "item",
+      "title": "Druckit för mycket",
+      "text": "Stridsreaktion: −2 på vald spelares attack (annars angripare). Påverkar spelare, inte monstret.",
+      "artKey": "item/weak",
+      "effects": []
+    },
+    {
+      "id": "item_light_beer",
+      "kind": "item",
+      "title": "Lättöl",
+      "text": "Stridsreaktion: +1 på vald spelares attack (annars angripare).",
+      "artKey": "item/light-beer",
+      "effects": []
+    },
+    {
+      "id": "item_folk_beer",
+      "kind": "item",
+      "title": "Folköl",
+      "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare).",
+      "artKey": "item/folk-beer",
+      "effects": []
+    },
+    {
+      "id": "item_tripwire",
+      "kind": "item",
+      "title": "Krokben",
+      "text": "Stridsreaktion: −1 på vald spelares attack (annars angripare).",
+      "artKey": "item/tripwire",
+      "effects": []
+    },
+    {
+      "id": "item_pretzel_snack",
+      "kind": "item",
+      "title": "Brezel",
+      "text": "Använd: återställ 2 HP.",
+      "artKey": "item/pretzel",
+      "effects": [{ "type": "heal", "amount": 2 }]
+    },
+    {
+      "id": "item_coin_purse",
+      "kind": "item",
+      "title": "Penningpung",
+      "text": "Använd: få +4 pant.",
+      "artKey": "item/coin",
+      "effects": [{ "type": "gold", "amount": 4 }]
+    },
+    {
+      "id": "item_double_hops",
+      "kind": "item",
+      "title": "Dubbelhumle",
+      "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare). Påverkar spelare, inte monstret.",
+      "artKey": "item/hops",
+      "effects": []
+    },
+    {
+      "id": "item_beer_bomb",
+      "kind": "item",
+      "title": "Ölbomb",
+      "text": "Stridsreaktion: +3 på vald spelares attack (annars angripare).",
+      "artKey": "item/beer-bomb",
+      "effects": []
+    },
+    {
+      "id": "item_beard_back",
+      "kind": "item",
+      "title": "Skägget rakt bak",
+      "text": "Använd innan du slår rörelsetärning: +2 steg på nästa slag.",
+      "artKey": "item/beard-back",
+      "effects": []
+    },
+    {
+      "id": "item_hangover",
+      "kind": "item",
+      "title": "Baksmälla",
+      "text": "Stridsreaktion: −3 på vald spelares attack (annars angripare).",
+      "artKey": "item/hangover",
+      "effects": []
+    },
+    {
+      "id": "item_monster_hype",
+      "kind": "item",
+      "title": "Monsterpepp",
+      "text": "Stridsreaktion: +2 på monstrets styrka. Påverkar inte spelarnas attack.",
+      "artKey": "item/hype",
+      "effects": []
+    },
+    {
+      "id": "item_yeast_sabotage",
+      "kind": "item",
+      "title": "Jäst-sabotage",
+      "text": "Stridsreaktion: −2 på monstrets styrka. Påverkar inte spelarnas attack.",
+      "artKey": "item/sabotage",
+      "effects": []
+    },
+    {
+      "id": "item_beer_bro",
+      "kind": "item",
+      "title": "Ölkompis",
+      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada.",
+      "artKey": "item/bro",
+      "effects": []
+    }
+  ],
+  "decks": {
+    "event": [
+      "event_gold",
+      "event_spill",
+      "event_klunk",
+      "choice_drink_or_damage",
+      "event_find_item_heal",
+      "event_find_item_sleep",
+      "event_find_item_sip",
+      "event_find_item_weak",
+      "event_find_item_pretzel",
+      "event_find_item_coin",
+      "event_find_item_hops",
+      "event_find_item_hype",
+      "event_find_item_sabotage",
+      "event_find_item_bro",
+      "event_quench",
+      "event_friendly_offering",
+      "event_loser_wins",
+      "event_cheers",
+      "event_apocalypse",
+      "event_gift_sip",
+      "event_round_on_me",
+      "event_spilled_pints"
+    ],
+    "rest": ["rest_brewery"],
+    "treasure": ["treasure_cache", "treasure_item_weak", "treasure_item_heal", "treasure_item_hops"],
+    "item": [
+      "item_healing_potion",
+      "item_sleep_potion",
+      "item_sip_card",
+      "item_weak_beer",
+      "item_light_beer",
+      "item_folk_beer",
+      "item_tripwire",
+      "item_pretzel_snack",
+      "item_coin_purse",
+      "item_double_hops",
+      "item_beer_bomb",
+      "item_beard_back",
+      "item_hangover",
+      "item_monster_hype",
+      "item_yeast_sabotage",
+      "item_beer_bro"
+    ]
+  }
+}
+

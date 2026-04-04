@@ -1,0 +1,53 @@
+import type { Effect } from "./types.js";
+import type { GameState, Player } from "../types.js";
+import { rollDie } from "../rng.js";
+import { applyDamage } from "../damage.js";
+
+function newInstanceId(rng: () => number): string {
+  return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
+}
+
+export function applyEffects(params: {
+  state: GameState;
+  player: Player;
+  effects: Effect[];
+  rng: () => number;
+  out?: Record<string, number>;
+}): Record<string, number> {
+  const out = params.out ?? {};
+  for (const e of params.effects) {
+    if (e.type === "gold") {
+      params.player.gold += e.amount;
+      out.gold = (out.gold ?? 0) + e.amount;
+    } else if (e.type === "goldRoll") {
+      const g = e.base + rollDie(params.rng, e.die);
+      params.player.gold += g;
+      out.gold = (out.gold ?? 0) + g;
+    } else if (e.type === "klunkar") {
+      params.player.klunkar += e.amount;
+      out.klunkar = (out.klunkar ?? 0) + e.amount;
+    } else if (e.type === "item") {
+      params.player.inventory ??= [];
+      params.player.inventory.push({
+        instanceId: newInstanceId(params.rng),
+        itemId: e.itemId as any,
+      });
+      out.item = (out.item ?? 0) + 1;
+    } else if (e.type === "heal") {
+      const before = params.player.hp;
+      params.player.hp = Math.min(params.player.maxHp, params.player.hp + e.amount);
+      out.heal = (out.heal ?? 0) + (params.player.hp - before);
+    } else if (e.type === "damage") {
+      const before = params.player.hp;
+      const res = applyDamage({
+        state: params.state,
+        player: params.player,
+        amount: e.amount,
+      });
+      out.damage = (out.damage ?? 0) + (before - params.player.hp);
+      out.prevented = (out.prevented ?? 0) + res.prevented;
+    }
+  }
+  return out;
+}
+
