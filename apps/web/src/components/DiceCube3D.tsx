@@ -43,9 +43,10 @@ function BlankFaces() {
   );
 }
 
+/** `oneAsMonsterIcon`: på etta visas monster-ikon (monsterstrid), inte siffran. */
 export type DiceCube3DProps =
   | { idleSpin: true; spinning?: boolean; size?: number }
-  | { idleSpin?: false; value?: number | null; size?: number };
+  | { idleSpin?: false; value?: number | null; size?: number; oneAsMonsterIcon?: boolean };
 
 export function DiceCube3D(props: DiceCube3DProps) {
   const size = props.size ?? 72;
@@ -53,8 +54,8 @@ export function DiceCube3D(props: DiceCube3DProps) {
     const spinning = props.spinning !== false;
     return <DiceIdleSpin size={size} spinning={spinning} />;
   }
-  const { value } = props;
-  return <DiceRollResult value={value} size={size} />;
+  const { value, oneAsMonsterIcon } = props;
+  return <DiceRollResult value={value} size={size} oneAsMonsterIcon={!!oneAsMonsterIcon} />;
 }
 
 function DiceIdleSpin({ size, spinning }: { size: number; spinning: boolean }) {
@@ -72,7 +73,15 @@ function DiceIdleSpin({ size, spinning }: { size: number; spinning: boolean }) {
   );
 }
 
-function DiceRollResult({ value, size }: { value?: number | null; size: number }) {
+function DiceRollResult({
+  value,
+  size,
+  oneAsMonsterIcon,
+}: {
+  value?: number | null;
+  size: number;
+  oneAsMonsterIcon: boolean;
+}) {
   const face = useMemo(() => toFaceValue(value), [value]);
   const finalT = FINAL_TRANSFORM[face] ?? FINAL_TRANSFORM[1]!;
 
@@ -83,7 +92,16 @@ function DiceRollResult({ value, size }: { value?: number | null; size: number }
           <BlankFaces />
         </div>
         <div className={styles.rollValueOverlay} aria-hidden>
-          {face}
+          {face === 1 && oneAsMonsterIcon ? (
+            <img
+              src="/icons/monster-icon.svg"
+              alt=""
+              className={styles.rollOverlayMonster}
+              draggable={false}
+            />
+          ) : (
+            face
+          )}
         </div>
       </div>
     </div>

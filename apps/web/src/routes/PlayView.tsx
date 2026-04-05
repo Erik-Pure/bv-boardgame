@@ -1,26 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  combatReactionsAllAnswered,
   MONSTERS,
   monsterLossKlunkTotal,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
+  type EquipmentSlot,
   type GameState,
   type Pending,
   type Player,
   type ShopItem,
 } from "@bv/game-core";
 import { isGameState } from "../lib/gameTypes";
-import { createClient, type ServerMessage } from "../lib/ws";
+import { type ServerMessage } from "../lib/ws";
+import { useWsGameClient } from "../lib/useWsGameClient";
 import { CombatLoseCard } from "../components/CombatLoseCard";
+import { CombatOutcomeThumb } from "../components/CombatOutcomeThumb";
 import { CombatWinCard } from "../components/CombatWinCard";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
+import { WsReconnectOverlay } from "../components/WsReconnectOverlay";
 import styles from "./PlayView.module.css";
 import activeTurnRainbow from "../styles/activeTurnRainbow.module.css";
 import { artImageSrc } from "../lib/cardArt";
@@ -75,6 +80,31 @@ function monsterFromCardId(cardId: string) {
 
 type StatFlash = "up" | "down" | null;
 
+/** Rensa flash efter radial + vobble; håll ≥ animationernas längd i PlayView.module.css */
+const STAT_FLASH_MS = 1300;
+
+const EQUIP_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
+
+const emptyEquipFlash = (): Record<EquipmentSlot, StatFlash> => ({
+  weapon: null,
+  armor: null,
+  helmet: null,
+  accessory: null,
+});
+
+const emptyEquipFlashKey = (): Record<EquipmentSlot, number> => ({
+  weapon: 0,
+  armor: 0,
+  helmet: 0,
+  accessory: 0,
+});
+
+function lootRadialToneClass(flash: StatFlash): string | null {
+  if (flash === "up") return styles.statsRadialPantUp;
+  if (flash === "down") return styles.statsRadialHpDown;
+  return null;
+}
+
 function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string | null {
   const map: Partial<Record<StatIconKind, Record<"up" | "down", string>>> = {
     hp: { up: styles.statsRadialHpUp, down: styles.statsRadialHpDown },
@@ -93,7 +123,6 @@ export function PlayView() {
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const name = sp.get("name") ?? "Bryggare";
 
-  const [status, setStatus] = useState("connecting");
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
@@ -113,12 +142,12 @@ export function PlayView() {
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
 
-  const client = useMemo(() => {
-    return createClient({
+  const { status, reconnectAttemptN, overlayPhase, clientRef, requestReconnect, showReconnectOverlay } =
+    useWsGameClient({
       roomCode: room,
       playerName: name,
       as: "controller",
-      onStatus: setStatus,
+      connectTimeoutMs: 10_000,
       onMessage: (m: ServerMessage) => {
         if (m.type === "helloAck") setMyId(m.playerId);
         if (m.type === "error") setErr(m.message);
@@ -128,11 +157,8 @@ export function PlayView() {
         }
       },
     });
-  }, [room, name]);
-
-  useEffect(() => () => client.close(), [client]);
   useEffect(() => {
-    if (status === "connected") setErr(null);
+    if (status === "connected" || status === "connecting") setErr(null);
   }, [status]);
 
   const me = findMe(state, myId);
@@ -140,12 +166,30 @@ export function PlayView() {
   const prevHpRef = useRef<number | undefined>(undefined);
   const prevGoldRef = useRef<number | undefined>(undefined);
   const prevKlunkRef = useRef<number | undefined>(undefined);
+  const pendingStatFlashRef = useRef<{ hp: StatFlash; pant: StatFlash; klunk: StatFlash }>({
+    hp: null,
+    pant: null,
+    klunk: null,
+  });
   const [hpFlash, setHpFlash] = useState<StatFlash>(null);
   const [pantFlash, setPantFlash] = useState<StatFlash>(null);
   const [klunkFlash, setKlunkFlash] = useState<StatFlash>(null);
   const [hpFlashKey, setHpFlashKey] = useState(0);
   const [pantFlashKey, setPantFlashKey] = useState(0);
   const [klunkFlashKey, setKlunkFlashKey] = useState(0);
+
+  const prevEquipNamesRef = useRef<Partial<Record<EquipmentSlot, string>>>({});
+  const prevInvCountsRef = useRef<Record<string, number>>({});
+  const lootPrimedRef = useRef(false);
+  const pendingLootFlashRef = useRef<{
+    equip: Partial<Record<EquipmentSlot, true>>;
+    items: Record<string, true>;
+  }>({ equip: {}, items: {} });
+
+  const [equipFlash, setEquipFlash] = useState<Record<EquipmentSlot, StatFlash>>(() => emptyEquipFlash());
+  const [equipFlashKey, setEquipFlashKey] = useState<Record<EquipmentSlot, number>>(() => emptyEquipFlashKey());
+  const [itemFlash, setItemFlash] = useState<Record<string, StatFlash>>({});
+  const [itemFlashKey, setItemFlashKey] = useState<Record<string, number>>({});
 
   useEffect(() => {
     prevHpRef.current = undefined;
@@ -154,58 +198,16 @@ export function PlayView() {
     setHpFlash(null);
     setPantFlash(null);
     setKlunkFlash(null);
+    pendingStatFlashRef.current = { hp: null, pant: null, klunk: null };
+    prevEquipNamesRef.current = {};
+    prevInvCountsRef.current = {};
+    lootPrimedRef.current = false;
+    pendingLootFlashRef.current = { equip: {}, items: {} };
+    setEquipFlash(emptyEquipFlash());
+    setEquipFlashKey(emptyEquipFlashKey());
+    setItemFlash({});
+    setItemFlashKey({});
   }, [myId]);
-
-  useEffect(() => {
-    const self = findMe(state, myId);
-    if (!self) {
-      prevHpRef.current = undefined;
-      return;
-    }
-    const prev = prevHpRef.current;
-    const next = self.hp;
-    prevHpRef.current = next;
-    if (prev === undefined) return;
-    if (prev === next) return;
-    setHpFlash(next < prev ? "down" : "up");
-    setHpFlashKey((k) => k + 1);
-    const t = window.setTimeout(() => setHpFlash(null), 720);
-    return () => window.clearTimeout(t);
-  }, [state, myId]);
-
-  useEffect(() => {
-    const self = findMe(state, myId);
-    if (!self) {
-      prevGoldRef.current = undefined;
-      return;
-    }
-    const prev = prevGoldRef.current;
-    const next = self.gold;
-    prevGoldRef.current = next;
-    if (prev === undefined) return;
-    if (prev === next) return;
-    setPantFlash(next < prev ? "down" : "up");
-    setPantFlashKey((k) => k + 1);
-    const t = window.setTimeout(() => setPantFlash(null), 720);
-    return () => window.clearTimeout(t);
-  }, [state, myId]);
-
-  useEffect(() => {
-    const self = findMe(state, myId);
-    if (!self) {
-      prevKlunkRef.current = undefined;
-      return;
-    }
-    const prev = prevKlunkRef.current;
-    const next = self.klunkar;
-    prevKlunkRef.current = next;
-    if (prev === undefined) return;
-    if (prev === next) return;
-    setKlunkFlash(next < prev ? "down" : "up");
-    setKlunkFlashKey((k) => k + 1);
-    const t = window.setTimeout(() => setKlunkFlash(null), 720);
-    return () => window.clearTimeout(t);
-  }, [state, myId]);
 
   const groupedInventoryEntries = useMemo(() => {
     if (!me) return [] as [string, { count: number; firstInstanceId: string }][];
@@ -221,6 +223,7 @@ export function PlayView() {
   }, [me]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
+  const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
   const pending = state?.pending ?? null;
   const onRollDieScreen = !!isMyTurn && !pending;
   useEffect(() => {
@@ -337,7 +340,7 @@ export function PlayView() {
     setErr(null);
     // eslint-disable-next-line no-console
     console.log("[play] send action", action);
-    client.send({ type: "action", action });
+    clientRef.current?.send({ type: "action", action });
   };
 
   const interaction = (() => {
@@ -480,8 +483,8 @@ export function PlayView() {
                 flexWrap: "wrap",
               }}
             >
-              <DiceCube3D value={die} size={76} />
-              {broDie != null ? <DiceCube3D value={broDie} size={76} /> : null}
+              <DiceCube3D value={die} size={76} oneAsMonsterIcon />
+              {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
             </div>
             <div className={styles.sheetDiceCaption}>
               <span className={styles.sheetDiceCaptionText}>
@@ -523,8 +526,8 @@ export function PlayView() {
                 flexWrap: "wrap",
               }}
             >
-              <DiceCube3D value={die} size={76} />
-              {broDie != null ? <DiceCube3D value={broDie} size={76} /> : null}
+              <DiceCube3D value={die} size={76} oneAsMonsterIcon />
+              {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
             </div>
             <div className={styles.sheetDiceCaption}>
               <span className={styles.sheetDiceCaptionText}>
@@ -586,7 +589,7 @@ export function PlayView() {
       const mod = pending.attackMods?.[pending.attackerId] ?? 0;
       const isEligibleReactor = pending.reactors?.includes(me.id) ?? false;
       const hasPassed = pending.reacted?.[me.id] === "pass";
-      const everyoneDone = (pending.reactors ?? []).every((id) => pending.reacted?.[id] === "pass");
+      const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
       const deadlineAt = pending.reactionsDeadlineAt ?? 0;
       const secondsLeft = deadlineAt > 0 ? Math.max(0, Math.ceil((deadlineAt - nowTick) / 1000)) : 0;
       const reactionOpen = deadlineAt <= 0 || secondsLeft > 0;
@@ -615,7 +618,7 @@ export function PlayView() {
             <div className={styles.sheetDiceBlock}>
               {myTeamRoll ? (
                 <>
-                  <DiceCube3D value={myTeamRoll.die} size={76} />
+                  <DiceCube3D value={myTeamRoll.die} size={76} oneAsMonsterIcon />
                   <div className={styles.sheetDiceCaption}>
                     <span className={styles.sheetDiceCaptionText}>
                       {sv.play.yourD6TotalWeapon(myTeamRoll.die, myTeamRoll.total)}
@@ -1019,7 +1022,7 @@ export function PlayView() {
             </div>
           </div>
           <div style={{ display: "grid", gap: 10 }}>
-            {pending.items.map((it) => (
+            {pending.items.slice(0, 4).map((it) => (
               <ArcadeButton
                 key={it.id}
                 onClick={() => requestMerchantBuy(it)}
@@ -1146,6 +1149,218 @@ export function PlayView() {
     return null;
   })();
 
+  /** Fullskärmsmodal, straffklunk eller nedersta sheet (strid/handlare/tärning …) — stat-animation under ska vänta tills detta är borta. */
+  const blocksStatFlashOverlay =
+    !!me &&
+    state?.phase === "playing" &&
+    (!!hasBlockingSipNotice ||
+      !!(myPending && pending?.type === "card") ||
+      !!interaction);
+
+  useEffect(() => {
+    const self = findMe(state, myId);
+    if (!self) {
+      prevHpRef.current = undefined;
+      return;
+    }
+    const prev = prevHpRef.current;
+    const next = self.hp;
+    prevHpRef.current = next;
+    if (prev === undefined) return;
+    if (prev === next) return;
+    const dir: StatFlash = next < prev ? "down" : "up";
+    if (blocksStatFlashOverlay) {
+      pendingStatFlashRef.current.hp = dir;
+      return;
+    }
+    pendingStatFlashRef.current.hp = null;
+    setHpFlash(dir);
+    setHpFlashKey((k) => k + 1);
+    const t = window.setTimeout(() => setHpFlash(null), STAT_FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [state, myId, blocksStatFlashOverlay]);
+
+  useEffect(() => {
+    const self = findMe(state, myId);
+    if (!self) {
+      prevGoldRef.current = undefined;
+      return;
+    }
+    const prev = prevGoldRef.current;
+    const next = self.gold;
+    prevGoldRef.current = next;
+    if (prev === undefined) return;
+    if (prev === next) return;
+    const dir: StatFlash = next < prev ? "down" : "up";
+    if (blocksStatFlashOverlay) {
+      pendingStatFlashRef.current.pant = dir;
+      return;
+    }
+    pendingStatFlashRef.current.pant = null;
+    setPantFlash(dir);
+    setPantFlashKey((k) => k + 1);
+    const t = window.setTimeout(() => setPantFlash(null), STAT_FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [state, myId, blocksStatFlashOverlay]);
+
+  useEffect(() => {
+    const self = findMe(state, myId);
+    if (!self) {
+      prevKlunkRef.current = undefined;
+      return;
+    }
+    const prev = prevKlunkRef.current;
+    const next = self.klunkar;
+    prevKlunkRef.current = next;
+    if (prev === undefined) return;
+    if (prev === next) return;
+    const dir: StatFlash = next < prev ? "down" : "up";
+    if (blocksStatFlashOverlay) {
+      pendingStatFlashRef.current.klunk = dir;
+      return;
+    }
+    pendingStatFlashRef.current.klunk = null;
+    setKlunkFlash(dir);
+    setKlunkFlashKey((k) => k + 1);
+    const t = window.setTimeout(() => setKlunkFlash(null), STAT_FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [state, myId, blocksStatFlashOverlay]);
+
+  useEffect(() => {
+    const self = findMe(state, myId);
+    if (!self) {
+      prevEquipNamesRef.current = {};
+      prevInvCountsRef.current = {};
+      lootPrimedRef.current = false;
+      return;
+    }
+
+    const counts: Record<string, number> = {};
+    for (const it of self.inventory ?? []) {
+      const k = String(it.itemId);
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+
+    if (!lootPrimedRef.current) {
+      lootPrimedRef.current = true;
+      for (const slot of EQUIP_SLOTS) {
+        prevEquipNamesRef.current[slot] = self.equipment[slot]?.name ?? "";
+      }
+      prevInvCountsRef.current = { ...counts };
+      return;
+    }
+
+    const timers: ReturnType<typeof window.setTimeout>[] = [];
+
+    const flashEquipUp = (slot: EquipmentSlot) => {
+      if (blocksStatFlashOverlay) {
+        pendingLootFlashRef.current.equip[slot] = true;
+        return;
+      }
+      delete pendingLootFlashRef.current.equip[slot];
+      setEquipFlash((e) => ({ ...e, [slot]: "up" }));
+      setEquipFlashKey((e) => ({ ...e, [slot]: (e[slot] ?? 0) + 1 }));
+      timers.push(
+        window.setTimeout(() => setEquipFlash((e) => ({ ...e, [slot]: null })), STAT_FLASH_MS),
+      );
+    };
+
+    const flashItemUp = (itemId: string) => {
+      if (blocksStatFlashOverlay) {
+        pendingLootFlashRef.current.items[itemId] = true;
+        return;
+      }
+      delete pendingLootFlashRef.current.items[itemId];
+      setItemFlash((m) => ({ ...m, [itemId]: "up" }));
+      setItemFlashKey((m) => ({ ...m, [itemId]: (m[itemId] ?? 0) + 1 }));
+      timers.push(
+        window.setTimeout(() => {
+          setItemFlash((m) => {
+            const n = { ...m };
+            delete n[itemId];
+            return n;
+          });
+        }, STAT_FLASH_MS),
+      );
+    };
+
+    for (const slot of EQUIP_SLOTS) {
+      const name = self.equipment[slot]?.name ?? "";
+      const prevName = prevEquipNamesRef.current[slot] ?? "";
+      if (name === prevName) continue;
+      prevEquipNamesRef.current[slot] = name;
+      if (name) flashEquipUp(slot);
+    }
+
+    for (const [itemId, n] of Object.entries(counts)) {
+      const p = prevInvCountsRef.current[itemId] ?? 0;
+      if (n > p) flashItemUp(itemId);
+    }
+    prevInvCountsRef.current = { ...counts };
+
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [state, myId, blocksStatFlashOverlay]);
+
+  useEffect(() => {
+    if (blocksStatFlashOverlay) return;
+    const q = pendingStatFlashRef.current;
+    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    if (q.hp) {
+      const d = q.hp;
+      q.hp = null;
+      setHpFlash(d);
+      setHpFlashKey((k) => k + 1);
+      timers.push(window.setTimeout(() => setHpFlash(null), STAT_FLASH_MS));
+    }
+    if (q.pant) {
+      const d = q.pant;
+      q.pant = null;
+      setPantFlash(d);
+      setPantFlashKey((k) => k + 1);
+      timers.push(window.setTimeout(() => setPantFlash(null), STAT_FLASH_MS));
+    }
+    if (q.klunk) {
+      const d = q.klunk;
+      q.klunk = null;
+      setKlunkFlash(d);
+      setKlunkFlashKey((k) => k + 1);
+      timers.push(window.setTimeout(() => setKlunkFlash(null), STAT_FLASH_MS));
+    }
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [blocksStatFlashOverlay]);
+
+  useEffect(() => {
+    if (blocksStatFlashOverlay) return;
+    const q = pendingLootFlashRef.current;
+    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    for (const slot of EQUIP_SLOTS) {
+      if (!q.equip[slot]) continue;
+      delete q.equip[slot];
+      setEquipFlash((e) => ({ ...e, [slot]: "up" }));
+      setEquipFlashKey((e) => ({ ...e, [slot]: (e[slot] ?? 0) + 1 }));
+      timers.push(
+        window.setTimeout(() => setEquipFlash((e) => ({ ...e, [slot]: null })), STAT_FLASH_MS),
+      );
+    }
+    const pendingItemIds = Object.keys(q.items);
+    for (const itemId of pendingItemIds) {
+      if (!q.items[itemId]) continue;
+      delete q.items[itemId];
+      setItemFlash((m) => ({ ...m, [itemId]: "up" }));
+      setItemFlashKey((m) => ({ ...m, [itemId]: (m[itemId] ?? 0) + 1 }));
+      timers.push(
+        window.setTimeout(() => {
+          setItemFlash((m) => {
+            const n = { ...m };
+            delete n[itemId];
+            return n;
+          });
+        }, STAT_FLASH_MS),
+      );
+    }
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [blocksStatFlashOverlay]);
+
   return (
     <div
       className={[styles.page, highlightPulse ? activeTurnRainbow.activeTurn : ""].filter(Boolean).join(" ")}
@@ -1153,7 +1368,8 @@ export function PlayView() {
         width: "100%",
         maxWidth: 740,
         margin: "0 auto",
-        padding: "76px 16px 78px",
+        /* Headerhöjd (namn + stat-rad med 11px padding upp/ned) + ~20px luft innan utrustning */
+        padding: `${showHeaderStatsBar ? 160 : 76}px 16px 78px`,
         boxSizing: "border-box",
       }}
     >
@@ -1163,52 +1379,114 @@ export function PlayView() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 60,
-          background: me?.color ?? "rgba(30, 41, 59, 0.96)",
-          borderBottom: "1px solid rgba(0, 0, 0, 0.2)",
+          zIndex: 40,
           boxShadow: "0 6px 24px rgba(0, 0, 0, 0.22)",
         }}
       >
         <div
           style={{
-            maxWidth: 740,
-            margin: "0 auto",
-            padding: "12px 16px",
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
+            background: me?.color ?? "rgba(30, 41, 59, 0.96)",
+            borderBottom: showHeaderStatsBar ? undefined : "1px solid rgba(0, 0, 0, 0.2)",
           }}
         >
           <div
             style={{
-              fontFamily: "var(--heading)",
-              fontWeight: 500,
-              fontSize: 22,
-              lineHeight: 1.05,
-              letterSpacing: 0.04,
-              color: "#ffffff",
-              textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
-              flex: "1 1 auto",
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              maxWidth: 740,
+              margin: "0 auto",
+              padding: "12px 16px",
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
             }}
           >
-            {me?.name ?? name}
+            <div
+              style={{
+                fontFamily: "var(--heading)",
+                fontWeight: 500,
+                fontSize: 22,
+                lineHeight: 1.05,
+                letterSpacing: 0.04,
+                color: "#ffffff",
+                textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
+                flex: "1 1 auto",
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {me?.name ?? name}
+            </div>
+            <button
+              type="button"
+              aria-label={sv.play.players}
+              title={sv.play.players}
+              disabled={!state}
+              onClick={() => setShowPlayers(true)}
+              className={styles.headerPlayersBtn}
+            >
+              <UserMenuIcon size={26} />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label={sv.play.players}
-            title={sv.play.players}
-            disabled={!state}
-            onClick={() => setShowPlayers(true)}
-            className={styles.headerPlayersBtn}
-          >
-            <UserMenuIcon size={26} />
-          </button>
         </div>
+        {showHeaderStatsBar && me ? (
+          <div className={styles.headerStatsBar}>
+            <div className={styles.headerStatsInner}>
+              <div className={styles.statsStrip}>
+                <PlayerStatCell
+                  ariaLabel={`HP ${me.hp}/${me.maxHp}`}
+                  value={`${me.hp}/${me.maxHp}`}
+                  icon="hp"
+                  flash={hpFlash}
+                  flashKey={hpFlashKey}
+                  iconSize={36}
+                />
+                <PlayerStatCell
+                  ariaLabel={`${sv.play.pant} ${me.gold}`}
+                  value={String(me.gold)}
+                  icon="pant"
+                  flash={pantFlash}
+                  flashKey={pantFlashKey}
+                  iconSize={36}
+                />
+                <PlayerStatCell
+                  ariaLabel={`${sv.play.klunkar} ${me.klunkar}`}
+                  value={String(me.klunkar)}
+                  icon="klunk"
+                  flash={klunkFlash}
+                  flashKey={klunkFlashKey}
+                  iconSize={36}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
+
+      {/* Utanför .content så fixed-modaler inte fastnar under header (z 60) i .content:s stacking context */}
+      {state?.phase === "playing" && me && myPending && pending?.type === "card" && (
+        <CardModal
+          title={pending.title}
+          text={pending.text}
+          artKey={pending.artKey}
+          kind={pending.kind}
+          cardId={pending.cardId}
+          combatWin={pending.combatWin}
+          combatLoss={pending.combatLoss}
+          viewerName={me.name}
+          choices={pending.choices}
+          onChoose={(choiceId) => send({ type: "chooseCardOption", playerId: me.id, choiceId })}
+          onConfirm={() => send({ type: "confirmCard", playerId: me.id })}
+        />
+      )}
+
+      {state?.phase === "playing" && me && mySipNotice && (
+        <SipNoticeCardModal
+          recipientName={me.name}
+          fromPlayerName={mySipNotice.fromPlayerName}
+          onConfirm={() => send({ type: "sipNoticeAck", playerId: me.id })}
+        />
+      )}
 
       <div className={styles.content}>
         {err && <div style={{ color: "#b91c1c", marginBottom: 12 }}>{err}</div>}
@@ -1220,9 +1498,6 @@ export function PlayView() {
             {(!me || state.phase !== "lobby") && (
               <section
                 style={{
-                  padding: 14,
-                  border: "1px solid #3333",
-                  borderRadius: 16,
                   marginBottom: 12,
                   width: "100%",
                   minWidth: 0,
@@ -1240,54 +1515,38 @@ export function PlayView() {
                       gridTemplateColumns: "minmax(0, 1fr)",
                     }}
                   >
-                    <div className={styles.statsStrip}>
-                      <PlayerStatCell
-                        ariaLabel={`HP ${me.hp}/${me.maxHp}`}
-                        value={`${me.hp}/${me.maxHp}`}
-                        icon="hp"
-                        flash={hpFlash}
-                        flashKey={hpFlashKey}
-                      />
-                      <PlayerStatCell
-                        ariaLabel={`${sv.play.pant} ${me.gold}`}
-                        value={String(me.gold)}
-                        icon="pant"
-                        flash={pantFlash}
-                        flashKey={pantFlashKey}
-                      />
-                      <PlayerStatCell
-                        ariaLabel={`${sv.play.klunkar} ${me.klunkar}`}
-                        value={String(me.klunkar)}
-                        icon="klunk"
-                        flash={klunkFlash}
-                        flashKey={klunkFlashKey}
-                      />
-                    </div>
-
                     <div className={styles.equipmentGridWrap}>
                       <div className={styles.equipmentGrid}>
                         <EquipButton
                           slot="weapon"
                           equipped={!!me.equipment.weapon}
                           equippedName={me.equipment.weapon?.name}
+                          lootFlash={equipFlash.weapon}
+                          lootFlashKey={equipFlashKey.weapon}
                           onClick={() => setEquipDetail({ slot: "weapon" })}
                         />
                         <EquipButton
                           slot="armor"
                           equipped={!!me.equipment.armor}
                           equippedName={me.equipment.armor?.name}
+                          lootFlash={equipFlash.armor}
+                          lootFlashKey={equipFlashKey.armor}
                           onClick={() => setEquipDetail({ slot: "armor" })}
                         />
                         <EquipButton
                           slot="helmet"
                           equipped={!!me.equipment.helmet}
                           equippedName={me.equipment.helmet?.name}
+                          lootFlash={equipFlash.helmet}
+                          lootFlashKey={equipFlashKey.helmet}
                           onClick={() => setEquipDetail({ slot: "helmet" })}
                         />
                         <EquipButton
                           slot="accessory"
                           equipped={!!me.equipment.accessory}
                           equippedName={me.equipment.accessory?.name}
+                          lootFlash={equipFlash.accessory}
+                          lootFlashKey={equipFlashKey.accessory}
                           onClick={() => setEquipDetail({ slot: "accessory" })}
                         />
                       </div>
@@ -1320,6 +1579,8 @@ export function PlayView() {
                           <div className={styles.equipmentGrid}>
                             {groupedInventoryEntries.map(([itemId, info]) => {
                               const tone = itemCardTone(itemMeta(itemId).target);
+                              const iflash = itemFlash[itemId] ?? null;
+                              const iflashKey = itemFlashKey[itemId] ?? 0;
                               return (
                                 <button
                                   key={itemId}
@@ -1337,42 +1598,53 @@ export function PlayView() {
                                     background: tone.background,
                                     boxShadow: tone.boxShadow,
                                     position: "relative",
-                                    overflow: "hidden",
+                                    overflow: iflash ? "visible" : "hidden",
                                     padding: 8,
                                     cursor: "pointer",
                                   }}
                                 >
-                                  <img
-                                    src={itemImageSrc(itemId)}
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
-                                    }}
-                                    alt=""
-                                    aria-hidden
-                                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }}
-                                  />
-                                  {info.count > 1 ? (
-                                    <span
-                                      style={{
-                                        position: "absolute",
-                                        right: 6,
-                                        top: 6,
-                                        minWidth: 20,
-                                        height: 20,
-                                        borderRadius: 999,
-                                        border: "1px solid #ffffff55",
-                                        background: "rgba(11,18,38,0.88)",
-                                        color: "#fff",
-                                        fontSize: 12,
-                                        fontWeight: 800,
-                                        display: "grid",
-                                        placeItems: "center",
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      {info.count}
-                                    </span>
-                                  ) : null}
+                                  <LootFlashShell flash={iflash} flashKey={iflashKey}>
+                                    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0 }}>
+                                      <img
+                                        src={itemImageSrc(itemId)}
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                                        }}
+                                        alt=""
+                                        aria-hidden
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                          borderRadius: 8,
+                                          display: "block",
+                                        }}
+                                      />
+                                      {info.count > 1 ? (
+                                        <span
+                                          style={{
+                                            position: "absolute",
+                                            right: 6,
+                                            top: 6,
+                                            minWidth: 20,
+                                            height: 20,
+                                            borderRadius: 999,
+                                            border: "1px solid #ffffff55",
+                                            background: "rgba(11,18,38,0.88)",
+                                            color: "#fff",
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            display: "grid",
+                                            placeItems: "center",
+                                            padding: "0 4px",
+                                            zIndex: 2,
+                                          }}
+                                        >
+                                          {info.count}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </LootFlashShell>
                                 </button>
                               );
                             })}
@@ -1401,29 +1673,6 @@ export function PlayView() {
                 <div style={{ opacity: 0.8, marginBottom: 8 }}>{sv.play.lobbyReadyLine(readyCount, state.players.length)}</div>
                 <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.lobbyBottomHint}</div>
               </section>
-            )}
-
-            {state.phase === "playing" && me && myPending && pending?.type === "card" && (
-              <CardModal
-                title={pending.title}
-                text={pending.text}
-                artKey={pending.artKey}
-                kind={pending.kind}
-                cardId={pending.cardId}
-                combatWin={pending.combatWin}
-                combatLoss={pending.combatLoss}
-                viewerName={me.name}
-                choices={pending.choices}
-                onChoose={(choiceId) => send({ type: "chooseCardOption", playerId: me.id, choiceId })}
-                onConfirm={() => send({ type: "confirmCard", playerId: me.id })}
-              />
-            )}
-
-            {state.phase === "playing" && me && mySipNotice && (
-              <SipNoticeCardModal
-                fromPlayerName={mySipNotice.fromPlayerName}
-                onConfirm={() => send({ type: "sipNoticeAck", playerId: me.id })}
-              />
             )}
 
             {state.phase === "ended" && (
@@ -1456,7 +1705,7 @@ export function PlayView() {
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 60,
+          zIndex: 40,
           borderTop: "1px solid #ffffff22",
           background: "rgba(11, 18, 38, 0.75)",
           backdropFilter: "blur(10px)",
@@ -1677,6 +1926,17 @@ export function PlayView() {
           })()}
         </Modal>
       )}
+
+      <WsReconnectOverlay
+        show={showReconnectOverlay}
+        phase={overlayPhase}
+        attempt={reconnectAttemptN}
+        connectingLabel={sv.play.wsConnecting}
+        waitingRetryLabel={sv.play.wsWaitingRetry}
+        attemptLabel={sv.play.wsReconnectAttempt}
+        retryLabel={sv.play.wsRetry}
+        onRetry={requestReconnect}
+      />
     </div>
   );
 }
@@ -1711,10 +1971,52 @@ function PlayerStatCell(props: {
   );
 }
 
+/** Radial + vobble som för HP/pant/klunk, för ny utrustning / nytt föremål */
+function LootFlashShell(props: { flash: StatFlash | null; flashKey: number; children: ReactNode }) {
+  const tone = props.flash ? lootRadialToneClass(props.flash) : null;
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+        overflow: "visible",
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      {props.flash && tone ? (
+        <div
+          key={props.flashKey}
+          className={`${styles.statsCellRadial} ${tone} ${styles.statsCellRadialRun}`}
+          aria-hidden
+        />
+      ) : null}
+      <div
+        className={props.flash ? styles.statIconWobble : undefined}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          height: "100%",
+          display: "grid",
+          placeItems: "center",
+          minHeight: 0,
+        }}
+      >
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
 function EquipButton(props: {
   slot: "weapon" | "armor" | "helmet" | "accessory";
   equipped: boolean;
   equippedName?: string;
+  lootFlash: StatFlash | null;
+  lootFlashKey: number;
   onClick: () => void;
 }) {
   const label =
@@ -1726,6 +2028,7 @@ function EquipButton(props: {
           ? sv.play.equipHelmet
           : sv.play.equipAccessory;
   const disabled = !props.equipped;
+  const lf = props.lootFlash;
   return (
     <button
       type="button"
@@ -1748,10 +2051,14 @@ function EquipButton(props: {
         placeItems: "center",
         padding: 0,
         opacity: disabled ? 0.55 : 1,
+        position: "relative",
+        overflow: lf ? "visible" : "hidden",
         transition: "transform 120ms ease, filter 120ms ease, opacity 120ms ease",
       }}
     >
-      <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
+      <LootFlashShell flash={lf} flashKey={props.lootFlashKey}>
+        <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
+      </LootFlashShell>
     </button>
   );
 }
@@ -1979,7 +2286,7 @@ function Modal(props: { title: string; onClose: () => void; children: React.Reac
         display: "grid",
         placeItems: "center",
         padding: 16,
-        zIndex: 80,
+        zIndex: 120,
       }}
       onMouseDown={props.onClose}
     >
@@ -2059,8 +2366,13 @@ function CardArtFrame({ artKey }: { artKey?: string }) {
   );
 }
 
-function SipNoticeCardModal(props: { fromPlayerName: string; onConfirm: () => void }) {
-  const quoted = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
+function SipNoticeCardModal(props: {
+  recipientName: string;
+  fromPlayerName: string;
+  onConfirm: () => void;
+}) {
+  const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
+  const recipient = props.recipientName?.trim() || "—";
   return (
     <div
       style={{
@@ -2070,7 +2382,7 @@ function SipNoticeCardModal(props: { fromPlayerName: string; onConfirm: () => vo
         display: "grid",
         placeItems: "center",
         padding: 16,
-        zIndex: 90,
+        zIndex: 110,
       }}
     >
       <div
@@ -2080,21 +2392,52 @@ function SipNoticeCardModal(props: { fromPlayerName: string; onConfirm: () => vo
           border: "1px solid #ffffff22",
           background: "#0b1226",
           padding: 16,
-          textAlign: "left",
+          textAlign: "center",
           boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
           color: "#ffffff",
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, color: "#ffffff" }}>{sv.sipNotice.title}</div>
-        <CardArtFrame />
-        <div style={{ opacity: 0.98, color: "#ffffff", marginBottom: 14, fontSize: 15, lineHeight: 1.5 }}>
-          {sv.sipNotice.beforeName}
-          <b>«{quoted}»</b>
-          {sv.sipNotice.afterName}
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: 17,
+            marginBottom: 10,
+            textAlign: "left",
+            width: "100%",
+            color: "#ffffff",
+          }}
+        >
+          {sv.sipNotice.title}
         </div>
-        <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
-          {sv.sipNotice.cheers}
-        </ArcadeButton>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
+            padding: "4px 0 8px",
+          }}
+        >
+          <CombatOutcomeThumb outcome="klunk" />
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 16,
+              fontWeight: 600,
+              margin: 0,
+              lineHeight: 1.45,
+              opacity: 0.96,
+              maxWidth: 400,
+            }}
+          >
+            {sv.sipNotice.line(recipient, from)}
+          </p>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
+            {sv.sipNotice.cheers}
+          </ArcadeButton>
+        </div>
       </div>
     </div>
   );
@@ -2143,7 +2486,7 @@ function CardModal(props: {
         display: "grid",
         placeItems: "center",
         padding: 16,
-        zIndex: 50,
+        zIndex: 100,
       }}
     >
       <div

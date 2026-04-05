@@ -10,7 +10,6 @@ const ICON = {
   reward: "/icons/reward-icon.svg",
   klunk: "/icons/klunk-icon.svg",
   heart: "/icons/heart-icon.svg",
-  monster: "/icons/monster-icon.svg",
 };
 
 /** Svarta SVG:er → ljusa ikoner på mörka eller mättade bakgrunder. */
@@ -58,10 +57,24 @@ function MaskedStatIcon({ src, color, size = 22 }: { src: string; color: string;
 
 function StatChip({ kind, value }: { kind: keyof typeof STAT_ICON_TINT; value: number }) {
   const src = ICON[kind];
+  const label = value === 0 ? "-" : String(value);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} />
-      <span style={{ fontWeight: 900, fontSize: 20, lineHeight: 1, color: "#fff" }}>{value}</span>
+      <span
+        style={{
+          fontWeight: 900,
+          fontSize: 20,
+          lineHeight: 1,
+          color: "#fff",
+          fontVariantNumeric: "tabular-nums",
+          minWidth: "1.1em",
+          display: "inline-block",
+          textAlign: "center",
+        }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -178,7 +191,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <MaskedStatIcon
-            src={ICON.monster}
+            src={ICON.combat}
             color={MONSTER_HEADER_ICON_COLOR}
             size={MONSTER_HEADER_ICON_SIZE}
           />
@@ -264,8 +277,8 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
                 ICON.thumbUp,
                 THUMB_BADGE_WIN_BG,
                 -1.5,
-                props.winGold > 0 ? <StatChip kind="pant" value={props.winGold} /> : null,
-                props.winItems > 0 ? <StatChip kind="reward" value={props.winItems} /> : null,
+                <StatChip kind="pant" value={props.winGold} />,
+                <StatChip kind="reward" value={props.winItems} />,
               )
             : null}
           {hasLoss
@@ -275,8 +288,8 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
                 ICON.thumbDown,
                 THUMB_BADGE_LOSS_BG,
                 1.5,
-                props.lossDamage > 0 ? <StatChip kind="heart" value={props.lossDamage} /> : null,
-                props.lossKlunks > 0 ? <StatChip kind="klunk" value={props.lossKlunks} /> : null,
+                <StatChip kind="heart" value={props.lossDamage} />,
+                <StatChip kind="klunk" value={props.lossKlunks} />,
               )
             : null}
         </div>

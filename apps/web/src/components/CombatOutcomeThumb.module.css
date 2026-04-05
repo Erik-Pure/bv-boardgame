@@ -1,0 +1,79 @@
+@keyframes combatThumbRockIn {
+  0% {
+    opacity: 0;
+    transform: rotate(-26deg) scale(0.86);
+  }
+  28% {
+    opacity: 1;
+    transform: rotate(16deg) scale(1.05);
+  }
+  48% {
+    transform: rotate(-11deg) scale(1);
+  }
+  66% {
+    transform: rotate(7deg);
+  }
+  82% {
+    transform: rotate(-3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transform-origin: 50% 50%;
+  animation: combatThumbRockIn 0.78s cubic-bezier(0.33, 1.15, 0.53, 1) forwards;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.win {
+  background: #6f8f74;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+}
+
+.loss {
+  background: #b4232c;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+}
+
+/* Straffklunk — samma vagga-in som tumme, färgglad ölglas-SVG */
+.klunk {
+  background: linear-gradient(165deg, #3d2a5c 0%, #1e1530 100%);
+  border: 2px solid rgba(251, 176, 64, 0.45);
+}
+
+.icon {
+  width: 30px;
+  height: 30px;
+  display: block;
+  filter: brightness(0) invert(1);
+  pointer-events: none;
+  user-select: none;
+}
+
+.klunkIcon {
+  height: 46px;
+  width: auto;
+  max-width: 34px;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

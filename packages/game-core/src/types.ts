@@ -75,7 +75,7 @@ export interface Tile {
   combatValue?: number;
   /** Dörr: kräv brewerLevel >= detta för att gå vidare */
   doorMinLevel?: number;
-  /** Mål-nivåindex 0..2 när man passerar dörr */
+  /** Mål-nivåindex (t.ex. 0..3) när man passerar dörr */
   doorTargetLevelIndex?: number;
   bossName?: string;
 }

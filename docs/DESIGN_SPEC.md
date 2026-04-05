@@ -4,14 +4,14 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.9 |
-| Senast uppdaterad | 2026-04-03 |
+| Version | 0.10 |
+| Senast uppdaterad | 2026-04-02 |
 
 ---
 
 ## 1. Produktvision
 
-Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, tre nivåer med dörrar däremellan, **pant och affärer**, utrustning, monsterdueller, **PvP-dueller** och **straffklunkar** som räknas och kan modifiera kort/händelser.
+Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, **flera våningsplan** med dörrar däremellan, **pant och affärer**, utrustning, monsterdueller, **PvP-dueller** och **straffklunkar** som räknas och kan modifiera kort/händelser.
 
 **Varumärke och ton:** spelet är tänkt att vara **kopplat till Bryggverket**, ölbryggeri i **Umeå** (copy, visuell identitet och referenser till verkliga sorter). **Avtal och tydlighet kring varumärkesanvändning** behövs innan publik lansering.
 
@@ -106,12 +106,17 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 - Banan byggs av **tiles** (kvadrat eller hex — **ett** system för hela projektet).
 - **Slumpad uppbyggnad** per parti med **server-side seed** (reproducerbar för debug).
+- **Yttre ring per våning:** rektangulär **ram** runt ett tomt hål; antal rutor på ringen är **`4·s−4`** där `s` är innerkantens sidlängd i rutnät (i nuvarande data t.ex. **`s = 5` → 16 rutor** per våning). Varje ruta har ett **index** `0 … n−1` i den ordning som banan genereras — samma ordning ska **storskärmsklienten** använda när den placerar rutor (`ringPos` m.m.).
+- **Synk mellan server och bord:** om ett partis `levels[i].tiles.length` skiljer sig från en hårdkodad layout (t.ex. äldre sparad state med färre rutor) måste klienten **härleda `s` från `tiles.length`** så att **visuella steg längs ringen** stämmer med **serverns rörelse** (modulo `n`). Annars kan målmarkeringar och spelarnas intuition för tärningsrörelse feltolkas trots att servern räknar rätt.
+- **Bordsvy (`/table`):** våningsplanen visas **horisontellt i rad** (sida vid sida) med mellanrum; pan, zoom och auto-fokus tar **hela brädets bredd** i beaktande.
+- **Bakgrund per våning (valfritt):** under tile-lagret kan en **bakgrundsbild** visas för vissa våningar; tillgångar levereras gärna som **komprimerad WebP** (t.ex. under `public/backgrounds/`) för rimlig filstorlek.
 
-### 7.2 Tre nivåer
+### 7.2 Nivåer (våningsplan)
 
-- **Nivå 1:** lättare möten och grundloot.
-- **Nivå 2:** svårare fiender, bättre rewards, mer sabotage-potential.
-- **Nivå 3:** väg till **slutboss**; boss **slumpas** ur **4 fördefinierade** bossar (var och en med tydlig särskiljande mekanik i design).
+- Spelet använder **fyra** våningsplan i följd (visas som **Nivå 1–4** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
+- **Nivå 1 (första brädet):** lättare möten och grundloot.
+- **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
+- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **4 fördefinierade** bossar (var och en med tydlig särskiljande mekanik i design).
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
 ### 7.3 Dörrar mellan nivåer
@@ -144,6 +149,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ## 8. Rörelse
 
 - Spelaren **slår tärning** (eller server slår) och **rör sig exakt så många steg** som resultatet visar längs giltiga banor på den nivå spelaren befinner sig på.
+- **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6** plus **rörelsebonus** från accessoar eller föremål som *Skägget rakt bak*) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
 - **Modifiers** från kort, items, status eller klunk-regler kan **minska eller öka** antal steg (eller ändra riktning/giltiga rutor). Alla sådana effekter ska **resolveras på servern** och loggas i spelloggen.
 
 ---
@@ -203,6 +209,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Ölbomb**: stridsreaktion, **+3 spelarattack**.
 - **Baksmälla**: stridsreaktion, **−3 spelarattack**.
 - **Skägget rakt bak**: används innan rörelseslag, **+2 steg på nästa rörelseslag**.
+- **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
 
 ---
 
@@ -234,7 +241,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Straffklunk-räknare** per spelare (heltal ≥ 0).
 - Kort och händelser kan **öka** motspelares klunkar eller påverkas av antal klunkar (modifiers på slag, kort som låses upp, etc.).
 - **Säkerhet och inkludering:** tydlig text att **alkohol är valfritt** (vatten räknas som klunk om gruppen vill). Spelet ska kunna spelas som **rent social räknare** utan krav på konsumtion.
-- **Konsekvent wording på monsterkort:** klunkstraff uttrycks som **“Vid förlust: ta X klunk.”** (inte “Vid träff”).
+- **Konsekvent wording på monsterkort:** klunkstraff uttrycks som **“Vid förlust: ta X klunk.”** Skaderelaterade effekter och val (t.ex. Bryggtrollkarl/Surhäxan) inleds med **“Vid skada:”** (inte “Vid träff”).
 
 ---
 
@@ -264,6 +271,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Storskärmskamera** (pan/zoom, fokus på aktiv spelare) ska kunna implementeras som **transform på ett omslutande lager** kring brädet utan att ändra Illustrator-filernas interna koordinater i onödan (se [TECH_SPEC.md](./TECH_SPEC.md) §3.2).
 - **Karaktärer:** gemensam **generisk kropp** + **separata huvuden** (ev. hjälm som separat lager ovanpå).
 - Exporterade SVG:er bör **förenklas** (rimlig filstorlek, undvik onödiga filter om webbläsaren ska skala många instanser).
+- **Stora bakgrundsbilder** för brädet bör **komprimeras** (t.ex. WebP med rimlig upplösning) så laddning och minne hålls i schack på storskärm och surfplatta.
 
 ---
 
@@ -284,7 +292,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 **MVP**
 
 - Lobby med kod, upp till 6 spelare, konfigurerbar turtid.
-- Slumpad bana, tre nivåer, dörrar med level-krav, **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
+- Slumpad bana, flera våningsplan (fyra ringar med dörrar uppåt), dörrar med level-krav, **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
 - **Storskärm:** pan, zoom, **auto-fokus anpassad till viewport** och **målrutor vid rörelseval** (§2.1); tur-rad under meny.
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **PvP** (§9.2) med vinnarval **föremål eller pant**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
@@ -342,4 +350,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.7 | 2026-03-31 | Loot uppdaterad: nästan alla monster droppar items utom de svagaste; chans på 2 items i team battle/farliga monster; nya items (Lättöl, Folköl, Krokben, Ölbomb, Skägget rakt bak, Baksmälla) samt omdöpning till Druckit för mycket |
 | 0.8 | 2026-03-31 | Fasta monsterrewards (pant + antal rewards), mixad drop-pool med utrustning + items, flera reaktionskort möjliga innan “gör inget”, handlare tillåter flera köp per besök, samt konsekvent wording “Vid förlust” för klunkstraff |
 | 0.9 | 2026-04-03 | Mobil: regnbågsbakgrund (rotation + puls) vid aktiv tur, endast `/play`; lobby döljer liv/pant/klunk/utrustning/föremål tills start; lobbytext centrerad; monsterkort visar stats längst ner med ikon över siffra (mobil + bord overlay) |
+| 0.10 | 2026-04-02 | Bord: våningar i rad, ringstorlek `4s−4` och krav på att klient härleder grid från `tiles.length`; WebP-bakgrunder per våning; rörelse §8 förtydligad (ring, modulo, specialfall n/2); fyra våningsplan i §7.2; Pantpåse (namnbyte); grafiknot om komprimering av bakgrundsbilder |
 

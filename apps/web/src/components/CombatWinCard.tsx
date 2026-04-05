@@ -1,5 +1,6 @@
 import type { CombatWinSummary } from "@bv/game-core";
 import { ArcadeButton } from "./ArcadeButton";
+import { CombatOutcomeThumb } from "./CombatOutcomeThumb";
 import { CombatSheetFrame } from "./CombatResultSheet";
 import { sv } from "../lib/uiStrings";
 
@@ -92,6 +93,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
       >
         {sv.play.combatWinTitle}
       </h1>
+      <CombatOutcomeThumb outcome="win" />
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>
         {subtitle}
       </p>

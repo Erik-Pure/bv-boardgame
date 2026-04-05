@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import { clientMessageSchema, type ServerMessage } from "./protocol.js";
 import {
   broadcastState,
@@ -22,7 +22,32 @@ await app.listen({ port: PORT, host: HOST });
 
 const wss = new WebSocketServer({ server: app.server });
 
+/** Stäng halvöppna klienter (t.ex. mobil i bakgrund) så att onclose triggas och de kan återansluta. */
+type TrackedWs = WebSocket & { isAlive?: boolean };
+const PING_INTERVAL_MS = 20_000;
+setInterval(() => {
+  for (const client of wss.clients) {
+    const ws = client as TrackedWs;
+    if (ws.readyState !== ws.OPEN) continue;
+    if (ws.isAlive === false) {
+      ws.terminate();
+      continue;
+    }
+    ws.isAlive = false;
+    try {
+      ws.ping();
+    } catch {
+      // ignore
+    }
+  }
+}, PING_INTERVAL_MS).unref?.();
+
 wss.on("connection", (ws) => {
+  const tracked = ws as TrackedWs;
+  tracked.isAlive = true;
+  ws.on("pong", () => {
+    tracked.isAlive = true;
+  });
   let joined:
     | { roomCode: string; playerId: string; conn: Parameters<typeof removeConn>[0] }
     | null = null;

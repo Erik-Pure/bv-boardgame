@@ -10,9 +10,11 @@ import {
   resolveEventCardOnLand,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
+import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG } from "./equipmentDefs.js";
 import { pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
+import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import type {
   ApplyResult,
   ClientAction,
@@ -262,6 +264,8 @@ function applyCombatLoss(
     teamBattleRequired?: boolean;
     enemyName: string;
     sipMitigation: boolean;
+    /** Minst en spelart6 var 1 — förlust oavsett total mot styrka. */
+    critFailOnOne?: boolean;
   },
   log: (s: GameState, m: string) => void,
   rng: () => number,
@@ -333,7 +337,12 @@ function applyCombatLoss(
   const imperialAdjacentSplash =
     monsterId === "imperial_dragon_stout" ? applyAdjacentSplashDamage(next, p, 1) : false;
 
-  log(next, `${p.name} förlorar striden (slag ${pr}<${need}).`);
+  log(
+    next,
+    ctx.critFailOnOne
+      ? `${p.name} förlorar striden (etta på t6 — kritisk miss; totalt ${pr} mot styrka ${need}).`
+      : `${p.name} förlorar striden (slag ${pr}<${need}).`,
+  );
   const damageTaken = before - p.hp;
   const klunkGained = p.klunkar - beforeSips;
   showCard(next, {
@@ -376,6 +385,9 @@ function finalizeCombatAfterRollPreview(
   const rewardGold = pending.rewardGold ?? 4;
   const rewardItems = pending.rewardItems ?? 1;
   const previewWon = pending.previewWon ?? false;
+  const critFailOnOne =
+    (pending.previewDie ?? 1) === 1 ||
+    (pending.previewBroDie != null && pending.previewBroDie === 1);
 
   if (!p) {
     next.pending = null;
@@ -471,6 +483,7 @@ function finalizeCombatAfterRollPreview(
         teamBattleRequired,
         enemyName: pending.enemyName,
         sipMitigation: false,
+        critFailOnOne,
       },
       log,
       rng,
@@ -576,7 +589,9 @@ function shuffleArrayInPlace<T>(arr: T[], rng: () => number) {
   }
 }
 
-/** Exakt fyra varor i sortimentet: pool = mäskpaddel + burkrustning + läkning + två slumpade från katalogen, sedan slumpad delmängd (4 st). Köp per besök är obegränsat tills spelaren lämnar. Ingen nivå-tier — fast effekt, högre pris. */
+/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + läkning + två slumpade från katalogen (5 st), sedan `slice(0, 4)` efter blandning. Köp per besök tills spelaren lämnar. */
+const MERCHANT_SHELF_SLOTS = 4;
+
 function rollMerchantItems(rng: () => number): ShopItem[] {
   const items: ShopItem[] = [
     {
@@ -616,7 +631,7 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
     });
   }
   shuffleArrayInPlace(items, rng);
-  return items.slice(0, 4);
+  return items.slice(0, MERCHANT_SHELF_SLOTS);
 }
 
 function findOpponentOnTile(state: GameState, mover: Player): Player | null {
@@ -999,7 +1014,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inst.itemId === "healing_potion") {
       const before = user.hp;
       user.hp = Math.min(user.maxHp, user.hp + 3);
-      log(next, `${user.name} använder en läkedryck (+${user.hp - before} HP).`);
+      log(next, `${user.name} använder en helande brygd (+${user.hp - before} HP).`);
       inv.splice(idx, 1);
       user.inventory = inv;
       return { state: next, events: ["state"] };
@@ -1036,7 +1051,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const targetId = action.targetPlayerId ?? pending.attackerId;
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 2;
-      log(next, `${user.name} spelar Svag öl: −2 attack i striden.`);
+      log(next, `${user.name} spelar Druckit för mycket: −2 attack i striden.`);
       // Mark this reactor as having acted (so attacker can roll once everyone either acted or passed).
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) {
@@ -1167,7 +1182,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (inst.itemId === "coin_purse") {
       user.gold += 4;
-      log(next, `${user.name} använder en penningpung (+4 pant).`);
+      log(next, `${user.name} använder en pantpåse (+4 pant).`);
       inv.splice(idx, 1);
       user.inventory = inv;
       return { state: next, events: ["state"] };
@@ -1228,10 +1243,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== cp.id && !(isTeamBattle && action.playerId === pending.assistId)) {
       return { state, events: [], error: "Inte din tur" };
     }
-    // If there are eligible reactors, wait until everyone has either passed or intervened.
+    // If there are eligible reactors, wait until everyone has either passed or slutfört ingripande (kort).
     const reactors = pending.reactors ?? [];
     const reacted = pending.reacted ?? {};
-    const allDone = reactors.every((id) => reacted[id] === "pass");
+    const allDone = combatReactionsAllAnswered(reactors, reacted);
     const reactionsTimedOut =
       (pending.reactionsDeadlineAt ?? 0) > 0 && Date.now() > (pending.reactionsDeadlineAt ?? 0);
     if (reactors.length > 0 && !allDone && !reactionsTimedOut) {
@@ -1282,6 +1297,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const previewBroDie = assistRollObj?.die ?? null;
     const pr = prBase + (assistRoll ?? 0);
     const need = pending.need + (pending.needMod ?? 0);
+    /** Kritisk miss: spelarnas t6 får inte vara 1 — då förlorar de oavsett total mot styrka. */
+    const critFailOnOne =
+      attackerRoll.die === 1 || (previewBroDie !== null && previewBroDie === 1);
 
     next.pending = {
       type: "combat",
@@ -1313,7 +1331,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       previewAssistRoll: assistRoll,
       previewTotal: pr,
       previewNeed: need,
-      previewWon: pr >= need,
+      previewWon: !critFailOnOne && pr >= need,
     };
 
     return { state: next, events: ["state"] };
@@ -1354,6 +1372,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         : `${p.name} takes the full force of ${pending.enemyName}'s attack (no sip).`,
     );
     next.pending = null;
+    const critFailOnOneMit =
+      (pending.previewDie ?? 1) === 1 ||
+      (pending.previewBroDie != null && pending.previewBroDie === 1);
     applyCombatLoss(
       next,
       {
@@ -1368,6 +1389,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         teamBattleRequired: pending.teamBattleRequired,
         enemyName: pending.enemyName,
         sipMitigation,
+        critFailOnOne: critFailOnOneMit,
       },
       log,
       rng,
@@ -1673,8 +1695,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const level = next.levels[cp.levelIndex];
   if (!level) return { state, events: [], error: "Level not found" };
   const n = level.tiles.length;
-  const cw = (cp.tileIndex + totalDice) % n;
-  const ccw = (cp.tileIndex - (totalDice % n) + n) % n;
+  const cw = clockwiseTileIndex(cp.tileIndex, totalDice, n);
+  const ccw = counterClockwiseTileIndex(cp.tileIndex, totalDice, n);
   const cwTile = level.tiles[cw]!;
   const ccwTile = level.tiles[ccw]!;
   log(next, `${cp.name} slår ${dice}${bonus ? ` (+${bonus})` : ""}. Välj en riktning.`);

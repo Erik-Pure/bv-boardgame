@@ -26,15 +26,8 @@ function rememberPlayerId(roomCode: string, playerId: string): void {
   }
 }
 
-function devUseViteWsProxy(): boolean {
-  if (!import.meta.env.DEV) return false;
-  const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return false;
-  return true;
-}
-
 export function wsUrl(): string {
-  // ?ws=… tvingar direktanslutning till port 3001 (kräver ofta öppen brandvägg från mobilen)
+  // ?ws=… tvingar annan WebSocket-URL (t.ex. wss://…)
   try {
     const u = new URL(window.location.href);
     const qp = u.searchParams.get("ws");
@@ -49,13 +42,7 @@ export function wsUrl(): string {
   if (fromEnv) return fromEnv;
 
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
-
-  // Mobil på LAN + Vite dev: WebSocket via :5173/bv-ws (proxy → localhost:3001)
-  if (devUseViteWsProxy()) {
-    const port = window.location.port || "5173";
-    return `${proto}://${window.location.hostname}:${port}/bv-ws`;
-  }
-
+  /** Samma värd som sidan; spelserver alltid port 3001 (lyssnar 0.0.0.0 — funkar från mobil på LAN om brandvägg tillåter). */
   const host = window.location.hostname === "localhost" ? "127.0.0.1" : window.location.hostname;
   return `${proto}://${host}:3001`;
 }
@@ -67,13 +54,30 @@ export function createClient(params: {
   config?: { turnSeconds?: number; gameMode?: "bossKill" | "goldenBeerEscape" };
   onMessage: (msg: ServerMessage) => void;
   onStatus: (s: WsStatus) => void;
-}): { send: (payload: unknown) => void; close: () => void } {
+  /** Standard 15s; kortare värde ger snabbare återförsök vid dåligt nät (t.ex. mobil). */
+  connectTimeoutMs?: number;
+}): {
+  send: (payload: unknown) => void;
+  close: () => void;
+  /** WebSocket.CONNECTING | OPEN | CLOSING | CLOSED — för mobil / visibility-kontroller */
+  getReadyState: () => number;
+} {
   const url = wsUrl();
   params.onStatus("connecting");
   const ws = new WebSocket(url);
   const rememberedId = params.as === "controller" ? getRememberedPlayerId(params.roomCode) : null;
 
-  const connectTimeoutMs = 15000;
+  const connectTimeoutMs = params.connectTimeoutMs ?? 15000;
+  let helloAcked = false;
+  let handshakeTimeoutId: number | null = null;
+
+  const clearHandshakeTimeout = () => {
+    if (handshakeTimeoutId != null) {
+      window.clearTimeout(handshakeTimeoutId);
+      handshakeTimeoutId = null;
+    }
+  };
+
   const timeoutId = window.setTimeout(() => {
     if (ws.readyState === WebSocket.CONNECTING) {
       // eslint-disable-next-line no-console
@@ -83,7 +87,7 @@ export function createClient(params: {
       params.onMessage({
         type: "error",
         message:
-          "Kunde inte ansluta till spelservern. Kontrollera att `npm run dev` (eller server på port 3001) körs. På mobil: öppna sidan utan ?ws=… i adressen så används port 5173 för WebSocket.",
+          "Kunde inte ansluta till spelservern. Kontrollera att den körs på port 3001 (t.ex. `npm run dev` eller `npm run -w server start`). På mobil: samma Wi‑Fi, öppna http://<datorns-IP>:5173 — WebSocket går till ws://<samma-IP>:3001 (tillåt inkommande på 3001 i brandväggen om det behövs).",
       });
     }
   }, connectTimeoutMs);
@@ -92,9 +96,23 @@ export function createClient(params: {
 
   ws.onopen = () => {
     clearConnTimeout();
-    params.onStatus("connected");
+    // Viktigt: inte "connected" förrän helloAck — annars tror mobil-UI att allt är OK när TCP-zombie är OPEN.
     // eslint-disable-next-line no-console
     console.log("[ws] open", { as: params.as, roomCode: params.roomCode });
+    handshakeTimeoutId = window.setTimeout(() => {
+      handshakeTimeoutId = null;
+      if (!helloAcked && ws.readyState === WebSocket.OPEN) {
+        // eslint-disable-next-line no-console
+        console.warn("[ws] handshake timeout (no helloAck)", url);
+        ws.close();
+        params.onStatus("disconnected");
+        params.onMessage({
+          type: "error",
+          message:
+            "Anslutningen svarade inte (hello). Kontrollera spelservern eller försök igen.",
+        });
+      }
+    }, connectTimeoutMs);
     ws.send(
       JSON.stringify({
         type: "hello",
@@ -109,12 +127,14 @@ export function createClient(params: {
 
   ws.onclose = () => {
     clearConnTimeout();
+    clearHandshakeTimeout();
     params.onStatus("disconnected");
     // eslint-disable-next-line no-console
     console.log("[ws] close");
   };
   ws.onerror = () => {
     clearConnTimeout();
+    clearHandshakeTimeout();
     params.onStatus("disconnected");
     // eslint-disable-next-line no-console
     console.log("[ws] error");
@@ -125,8 +145,15 @@ export function createClient(params: {
       const msg = JSON.parse(String(ev.data)) as ServerMessage;
       // eslint-disable-next-line no-console
       console.log("[ws] recv", msg);
-      if (msg.type === "helloAck" && params.as === "controller") {
-        rememberPlayerId(params.roomCode, msg.playerId);
+      if (msg.type === "helloAck") {
+        if (!helloAcked) {
+          helloAcked = true;
+          clearHandshakeTimeout();
+          params.onStatus("connected");
+        }
+        if (params.as === "controller") {
+          rememberPlayerId(params.roomCode, msg.playerId);
+        }
       }
       params.onMessage(msg);
     } catch {
@@ -135,6 +162,7 @@ export function createClient(params: {
   };
 
   return {
+    getReadyState: () => ws.readyState,
     send: (payload) => {
       if (ws.readyState !== WebSocket.OPEN) {
         // eslint-disable-next-line no-console
@@ -151,6 +179,7 @@ export function createClient(params: {
     },
     close: () => {
       clearConnTimeout();
+      clearHandshakeTimeout();
       ws.close();
     },
   };

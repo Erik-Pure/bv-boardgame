@@ -72,7 +72,7 @@
       "id": "event_find_item_heal",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar en läkedryck. Behåll den och använd senare.",
+      "text": "Du hittar en helande brygd. Behåll den och använd senare.",
       "artKey": "event/item",
       "effects": [{ "type": "item", "itemId": "healing_potion" }]
     },
@@ -96,7 +96,7 @@
       "id": "event_find_item_weak",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar en svag öl. Behåll den och använd senare.",
+      "text": "Du hittar kortet Druckit för mycket. Behåll det och använd senare.",
       "artKey": "event/item",
       "effects": [{ "type": "item", "itemId": "weak_beer" }]
     },
@@ -112,7 +112,7 @@
       "id": "event_find_item_coin",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar en penningpung. Behåll den och använd senare.",
+      "text": "Du hittar en pantpåse. Behåll den och använd senare.",
       "artKey": "event/item",
       "effects": [{ "type": "item", "itemId": "coin_purse" }]
     },
@@ -228,7 +228,7 @@
       "id": "treasure_item_weak",
       "kind": "treasure",
       "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: Svag öl.",
+      "text": "Du hittar ett föremålskort: Druckit för mycket.",
       "artKey": "tile/treasure",
       "effects": [{ "type": "item", "itemId": "weak_beer" }]
     },
@@ -236,7 +236,7 @@
       "id": "treasure_item_heal",
       "kind": "treasure",
       "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: Läkedryck.",
+      "text": "Du hittar ett föremålskort: Helande brygd.",
       "artKey": "tile/treasure",
       "effects": [{ "type": "item", "itemId": "healing_potion" }]
     },
@@ -251,7 +251,7 @@
     {
       "id": "item_healing_potion",
       "kind": "item",
-      "title": "Läkedryck",
+      "title": "Helande brygd",
       "text": "Använd: återställ 3 HP.",
       "artKey": "item/heal",
       "effects": [{ "type": "heal", "amount": 3 }]
@@ -315,7 +315,7 @@
     {
       "id": "item_coin_purse",
       "kind": "item",
-      "title": "Penningpung",
+      "title": "Pantpåse",
       "text": "Använd: få +4 pant.",
       "artKey": "item/coin",
       "effects": [{ "type": "gold", "amount": 4 }]

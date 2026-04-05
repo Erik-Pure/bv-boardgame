@@ -1,5 +1,6 @@
 import type { CombatLoseSummary } from "@bv/game-core";
 import { ArcadeButton } from "./ArcadeButton";
+import { CombatOutcomeThumb } from "./CombatOutcomeThumb";
 import { CombatSheetFrame } from "./CombatResultSheet";
 import { sv } from "../lib/uiStrings";
 
@@ -83,6 +84,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
       >
         {sv.play.combatLoseTitle}
       </h1>
+      <CombatOutcomeThumb outcome="loss" />
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>
         {sv.play.combatLoseSubtitle(data.playerName, enemyLabel)}
       </p>

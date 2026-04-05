@@ -8,6 +8,31 @@ const BOSS_NAMES = [
   "Golden Cap",
 ] as const;
 
+/** Yttre kant på “hålet” i mitten: 5×5 → 4·5−4 = 16 rutor per våning. */
+export const BOARD_RING_GRID_SIZE = 5;
+
+export function ringTileCount(gridSize: number): number {
+  return 4 * gridSize - 4;
+}
+
+/**
+ * Invers till {@link ringTileCount}: antal rutor på ringen → grid-storlek (hål i mitten).
+ * Ogiltigt värde → {@link BOARD_RING_GRID_SIZE} (fallback vid korrupt eller okänt state).
+ */
+export function ringGridSizeFromTileCount(tileCount: number): number {
+  if (!Number.isFinite(tileCount) || tileCount < 4) {
+    return BOARD_RING_GRID_SIZE;
+  }
+  const s = (tileCount + 4) / 4;
+  if (!Number.isInteger(s) || s < 2) {
+    return BOARD_RING_GRID_SIZE;
+  }
+  if (ringTileCount(s) !== tileCount) {
+    return BOARD_RING_GRID_SIZE;
+  }
+  return s;
+}
+
 function makeTile(
   id: string,
   type: TileType,
@@ -16,33 +41,74 @@ function makeTile(
   return { id, type, ...extra };
 }
 
+/** Typfördelning per våning; summan ska bli `ringTileCount(BOARD_RING_GRID_SIZE)` (16). */
+function tileCountsForLevel(li: number): Record<TileType, number> {
+  if (li === 0) {
+    return {
+      empty: 0,
+      event: 5,
+      combat: 4,
+      merchant: 2,
+      door: 1,
+      rest: 2,
+      treasure: 2,
+      boss: 0,
+    };
+  }
+  if (li === 1) {
+    return {
+      empty: 0,
+      event: 4,
+      combat: 5,
+      merchant: 2,
+      door: 1,
+      rest: 2,
+      treasure: 2,
+      boss: 0,
+    };
+  }
+  if (li === 2) {
+    return {
+      empty: 0,
+      event: 4,
+      combat: 6,
+      merchant: 2,
+      door: 1,
+      rest: 1,
+      treasure: 2,
+      boss: 0,
+    };
+  }
+  return {
+    empty: 0,
+    event: 4,
+    combat: 5,
+    merchant: 2,
+    door: 0,
+    rest: 2,
+    treasure: 2,
+    boss: 1,
+  };
+}
+
 export function generateLevels(seed: number): LevelBoard[] {
   const rng = createRng(seed);
   const levels: LevelBoard[] = [];
+  const n = ringTileCount(BOARD_RING_GRID_SIZE);
 
-  for (let li = 0; li < 3; li++) {
-    // Square ring board: perimeter of a 7x7 grid (hole in the middle) => 24 tiles.
-    const n = 24;
+  /** Nivå 0 = källare; 1–3 övriga våningar. */
+  const NUM_LEVELS = 4;
+
+  for (let li = 0; li < NUM_LEVELS; li++) {
     const tiles: Tile[] = [];
     const types: TileType[] = [];
 
-    const counts: Record<TileType, number> = {
-      empty: 0,
-      event: 6,
-      combat: li === 0 ? 6 : li === 1 ? 7 : 6,
-      merchant: 3,
-      door: li < 2 ? 1 : 0,
-      rest: 2,
-      treasure: 3,
-      boss: li === 2 ? 1 : 0,
-    };
+    const counts = tileCountsForLevel(li);
 
     for (const [t, c] of Object.entries(counts) as [TileType, number][]) {
       for (let i = 0; i < c; i++) types.push(t);
     }
-    // No empty tiles in this variant: top up with events/combat (biased to events).
     while (types.length < n) types.push(rng() < 0.6 ? "event" : "combat");
-    // shuffle
     for (let i = types.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [types[i], types[j]] = [types[j]!, types[i]!];

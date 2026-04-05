@@ -74,9 +74,13 @@ export const sv = {
     join: "Anslut",
     tip: "Tips: öppna brädet på en dator och anslut som spelare på mobiler.",
     lanHint:
-      "Samma Wi‑Fi: kör `npm run dev` och öppna Network-URL:en i mobilen (t.ex. http://192.168.x.x:5173). Du behöver inte lägga till ?ws=… — WebSocket går via samma port som sidan. (Parametern ?ws= används bara om du avsiktligt ska ansluta direkt till port 3001.)",
+      "Samma Wi‑Fi: kör `npm run dev` (Vite + spelserver). Öppna sidan på mobilen via http://192.168.x.x:5173 — klienten ansluter till spelservern på ws://192.168.x.x:3001. Tillåt inkommande anslutningar på port 3001 i datorns brandvägg om det krånglar. ?ws=… byter WebSocket-URL manuellt.",
   },
   play: {
+    wsConnecting: "Ansluter till spelet…",
+    wsWaitingRetry: "Försöker igen om en stund…",
+    wsRetry: "Försök igen",
+    wsReconnectAttempt: (n: number) => `Återanslutning · försök ${n}`,
     notConnected: "Inte ansluten till servern (WebSocket).",
     lobbySheet: (ready: number, total: number) => `Lobby — redo: ${ready} / ${total}`,
     unready: "Ångra redo",
@@ -124,8 +128,8 @@ export const sv = {
     intervene: "Ingrip",
     doNothing: "Gör inget",
     rolledBonus: (base: number, bonus: number, total: number) =>
-      `Du slog ${base} + ${bonus} rörelsebonus = ${total} steg. Välj:`,
-    rolledSteps: (n: number) => `Du slog ${n}. Välj:`,
+      `Tärning ${base} + ${bonus} rörelsebonus → ${total} steg längs ringen. Välj riktning:`,
+    rolledSteps: (n: number) => `${n} steg längs ringen. Välj riktning:`,
     encounterChoose: "Möte — välj:",
     pvpBothRoll: "PvP (båda slår)",
     resolveTileNoPvp: "Lös rutan (ingen PvP)",
@@ -220,6 +224,10 @@ export const sv = {
     combatLoseImperialSplash: "En spelare på intilliggande ruta tog 1 skada (drakstänk).",
   },
   table: {
+    wsConnecting: "Ansluter till bordet…",
+    wsWaitingRetry: "Försöker igen om en stund…",
+    wsRetry: "Försök igen",
+    wsReconnectAttempt: (n: number) => `Återanslutning · försök ${n}`,
     combatOverlayTitle: "Bräde — strid",
     combatPhase1: "1 — Möte",
     combatPhaseTeam: "0 — Välj medkämpe",
@@ -242,6 +250,7 @@ export const sv = {
     winner: "Vinnare",
     winnerChoosesLoot: "Vinnaren väljer byte på sin mobil…",
     board: "Bräde",
+    floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
     lastState: "senaste tillstånd",
@@ -262,7 +271,7 @@ export const sv = {
     showPanel: "Visa sidopanel",
   },
   items: {
-    healing_potion: { title: "Läkedryck", text: "Återställ 3 HP." },
+    healing_potion: { title: "Helande brygd", text: "Återställ 3 HP." },
     sleep_potion: { title: "Sömnmedel", text: "Målet hoppar över sin nästa tur." },
     sip_card: { title: "Straffklunk", text: "Ge +1 klunk till ett mål." },
     weak_beer: {
@@ -298,7 +307,7 @@ export const sv = {
       text: "Stridsreaktion: −3 på vald spelares attack (angripare om du inte väljer).",
     },
     pretzel_snack: { title: "Brezel", text: "Återställ 2 HP." },
-    coin_purse: { title: "Penningpung", text: "+4 pant." },
+    coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Monsterpepp",
       text: "Stridsreaktion: +2 på monstrets styrka (svårare för spelarna). Påverkar inte spelarnas attack.",
@@ -314,8 +323,7 @@ export const sv = {
   },
   sipNotice: {
     title: "Straffklunk",
-    beforeName: "Du fick just en klunk från ",
-    afterName: ".",
+    line: (recipient: string, from: string) => `${recipient} fick just en klunk från «${from}».`,
     cheers: "Skål!",
     fallbackFrom: "en annan spelare",
   },
