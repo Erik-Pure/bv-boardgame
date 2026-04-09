@@ -1,3 +1,5 @@
+import type { MonsterId } from "./monsters.js";
+
 export type TileType =
   | "empty"
   | "event"
@@ -26,7 +28,12 @@ export type ItemId =
   | "double_hops"
   | "monster_hype"
   | "yeast_sabotage"
-  | "beer_bro";
+  | "beer_bro"
+  | "split_the_g"
+  | "canman"
+  | "not_my_round"
+  | "spill_intentional"
+  | "early_night";
 
 export interface ItemInstance {
   instanceId: string;
@@ -36,6 +43,8 @@ export interface ItemInstance {
 export interface Weapon {
   name: string;
   power: number;
+  /** Bonus om spelaren tar 1 klunk vid slag (auto-aktiveras i nuläget). */
+  sipAttackBonus?: number;
 }
 
 export interface ArmorPiece {
@@ -73,9 +82,9 @@ export interface Tile {
   type: TileType;
   /** Stridsvärde för monster / boss */
   combatValue?: number;
-  /** Dörr: kräv brewerLevel >= detta för att gå vidare */
+  /** Nivå upp-ruta: kräv brewerLevel >= detta för att gå vidare */
   doorMinLevel?: number;
-  /** Mål-nivåindex (t.ex. 0..3) när man passerar dörr */
+  /** Mål-nivåindex (t.ex. 0..3) när man passerar nivå-upp-rutan */
   doorTargetLevelIndex?: number;
   bossName?: string;
 }
@@ -91,6 +100,7 @@ export interface ShopItem {
   price: number;
   /** vapen */
   power?: number;
+  sipAttackBonus?: number;
   /** rustning */
   bonusHp?: number;
   damageNegate?: number;
@@ -109,6 +119,8 @@ export interface CombatWinSummary {
   rewardGold: number;
   rewardItems: number;
   teammateName?: string;
+  /** Enhörning m.fl.: namn på spelare som fick straffklunk vid vinst. */
+  randomOtherSipRecipientName?: string;
 }
 
 /** Visning av förlust efter strid (`cardId === "combat_lose"`). */
@@ -122,7 +134,7 @@ export interface CombatLoseSummary {
   assistRollNote?: string;
   redirectNote?: string;
   lostEquipmentName?: string;
-  /** Imperial Drak-Stout: granne på brädet tog 1 skada. */
+  /** Stoorn (imperial_dragon_stout): granne på brädet tog 1 skada. */
   imperialAdjacentSplash?: boolean;
 }
 
@@ -188,6 +200,14 @@ export type Pending =
       playerId: string;
       targetLevelIndex: number;
       costs: { gold: number; sips: number };
+    }
+  | {
+      type: "levelUpOffer";
+      playerId: string;
+      targetLevelIndex: number;
+      costs: { gold: number; sips: number };
+      /** True om prompten triggas precis när turen annars skulle gått vidare. */
+      deferTurnAdvance?: boolean;
     }
   | {
       type: "combat";
@@ -256,10 +276,14 @@ export interface Player {
   inventory: ItemInstance[];
   /** Engångsbonus till nästa rörelseslag från items. */
   nextMoveBonus: number;
+  /** Tillfällig modifierare på nästa stridsslag för spelaren. */
+  nextCombatModifier: number;
+  /** Canman: +1 pant per drag så länge > 0. */
+  canmanTurnsRemaining: number;
   skippedTurns: number;
 }
 
-export type GameMode = "bossKill" | "goldenBeerEscape";
+export type GameMode = "bossKill";
 
 export interface GameConfig {
   turnSeconds: number;
@@ -287,6 +311,10 @@ export interface GameState {
   winnerId: string | null;
   winnerName: string | null;
   goldenBeerCarrierId: string | null;
+  /** Slutboss på sista nivån (en av {@link FINAL_BOSS_IDS}); sätts vid spelstart. */
+  finalBossMonsterId: MonsterId | null;
+  /** Liv kvar för slutbossen (start 3); delas av alla spelare, minskar vid vunnet slag. */
+  finalBossLivesRemaining: number | null;
   /** tileKey: `${levelIndex}-${tileIndex}` för skatter som tömts */
   treasureTaken: Record<string, true>;
   /** Senaste tärningsslag (visning) */
@@ -299,7 +327,7 @@ export interface GameState {
 export type ClientAction =
   | { type: "setReady"; playerId: string; ready: boolean }
   | { type: "startGame"; playerId: string }
-  | { type: "setConfig"; playerId: string; turnSeconds: number; gameMode: GameMode }
+  | { type: "setConfig"; playerId: string; turnSeconds: number }
   | { type: "rollMove"; playerId: string }
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
   | { type: "chooseEncounter"; playerId: string; choice: "pvp" | "tile" }
@@ -308,7 +336,8 @@ export type ClientAction =
   | { type: "chooseCardOption"; playerId: string; choiceId: string }
   | { type: "merchantBuy"; playerId: string; itemId: string | null }
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
-  | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | EquipmentSlot }
+  | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
+  | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string }
   | { type: "combatRoll"; playerId: string }
   | { type: "combatIntroAck"; playerId: string }

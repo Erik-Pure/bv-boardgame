@@ -15,7 +15,9 @@ import { DiceCube3D } from "../components/DiceCube3D";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
+import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
+import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artImageSrc } from "../lib/cardArt";
 import {
   combatLossKlunksForDisplay,
@@ -24,13 +26,28 @@ import {
   resolveCombatLossViewer,
   resolveCombatWinViewer,
 } from "../lib/combatUi";
-import { sv, wsStatusLabel, phaseLabelSv, pendingTypeLabelSv, tileTypeSv } from "../lib/uiStrings";
-import { WsReconnectOverlay } from "../components/WsReconnectOverlay";
+import { sv, wsStatusLabel, pendingTypeLabelSv, tileTypeSv } from "../lib/uiStrings";
+import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 
 type Cam = { x: number; y: number; scale: number };
 
 /** Vänta så kameran hinner panorera innan kortmodal på bordet visas. */
 const TABLE_CARD_MODAL_DELAY_MS = 950;
+
+const TABLE_BOARD_MODAL_OVERLAY_ANIMATION =
+  "bvTableOverlayFadeIn 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both";
+const TABLE_BOARD_MODAL_CARD_ANIMATION =
+  "bvTableCardIn 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) both";
+
+/** Måste finnas i DOM när strids- och kortöverlägg animeras (keyframes är inte globala i Vite). */
+const TABLE_BOARD_MODAL_KEYFRAMES_CSS = `@keyframes bvTableOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bvTableCardIn {
+  from { opacity: 0; transform: translateY(-36px) scale(0.96); filter: blur(3px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}`;
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -45,7 +62,7 @@ const TILE_SVG: Record<TileType, string> = {
   event: "/tiles/event.svg",
   combat: "/tiles/combat.svg",
   merchant: "/tiles/merchant.svg",
-  door: "/tiles/empty.svg",
+  door: "/tiles/levelup.svg",
   rest: "/tiles/rest.svg",
   treasure: "/tiles/treasure.svg",
   boss: "/tiles/boss.svg",
@@ -110,14 +127,16 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
         zIndex: 42,
         display: "grid",
         placeItems: "start center",
-        paddingTop: 20,
+        paddingTop: 70,
         paddingLeft: 12,
         paddingRight: 12,
+        background: "rgba(2, 6, 23, 0.24)",
+        animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
       }}
     >
       <div
         style={{
-          width: "min(720px, 94vw)",
+          width: "min(720px, 92vw)",
           borderRadius: 16,
           border: "1px solid #ffffff22",
           background: "rgba(11, 18, 38, 0.94)",
@@ -125,6 +144,8 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
           textAlign: "left",
           boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
           overflow: "visible",
+          animation: TABLE_BOARD_MODAL_CARD_ANIMATION,
+          transformOrigin: "top center",
         }}
       >
         <div style={{ opacity: 0.8, fontSize: 12, marginBottom: 6 }}>{sv.table.combatOverlayTitle}</div>
@@ -142,14 +163,14 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
         <div style={{ fontSize: 14, opacity: 0.9, marginBottom: 8 }}>
           <b>{attacker?.name ?? "?"}</b> {sv.table.isFighting}
         </div>
-        {pending.teamBattleRequired ? (
+        {pending.teamBattleRequired && !pending.assistId ? (
           <div style={{ opacity: 0.88, marginBottom: 8 }}>
-            Team battle:{" "}
-            <b>
-              {pending.assistId
-                ? (state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd")
-                : "väntar på val av medkämpe"}
-            </b>
+            Team battle: <b>väntar på val av medkämpe</b>
+          </div>
+        ) : pending.assistId ? (
+          <div style={{ opacity: 0.88, marginBottom: 8 }}>
+            {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
+            <b>{state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}</b>
           </div>
         ) : null}
         {showMonsterCard ? (
@@ -190,7 +211,7 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
               Totalt <b>{pending.previewTotal ?? 0}</b> mot styrka <b>{pending.previewNeed ?? need}</b>
               {pending.phase === "chooseHitMitigation" ? (
                 <span style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-                  {sv.table.attackerChoosesHit(pending.monsterId === "brewizard" ? 3 : 2)}
+                  {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
                 </span>
               ) : null}
             </div>
@@ -341,6 +362,49 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
   );
 }
 
+type TableLobbyPlayer = GameState["players"][number];
+
+function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          background: p.color,
+          borderRadius: 10,
+          padding: "8px 12px",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 800,
+            color: "#fafafa",
+            textShadow: "0 1px 2px rgba(0,0,0,0.75)",
+          }}
+        >
+          {p.name}
+          {p.isHost ? " (värd)" : ""}
+        </span>
+      </div>
+      <span
+        title={p.ready ? sv.play.ready : sv.play.unready}
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: p.ready ? "#22c55e" : "#ef4444",
+          border: "1px solid rgba(255,255,255,0.35)",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
+        }}
+        aria-label={p.ready ? sv.play.ready : sv.play.unready}
+      />
+    </div>
+  );
+}
+
 function tablePlayersAtTile(
   players: GameState["players"] | undefined,
   levelIndex: number,
@@ -359,12 +423,12 @@ export function TableView() {
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const name = sp.get("name") ?? "Bord";
-  const modeParam = sp.get("mode");
 
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [lastStateAt, setLastStateAt] = useState<number | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
 
   const stackLevels = state?.levels?.length ? state.levels : [];
 
@@ -414,14 +478,11 @@ export function TableView() {
   const logRef = useRef<HTMLDivElement | null>(null);
   const boardViewportRef = useRef<HTMLDivElement | null>(null);
   const [boardViewportPx, setBoardViewportPx] = useState({ w: 0, h: 0 });
+  /** Kamera: ny tur → hel våning; rörelseval → inzoom mot målrutor; landning → följ ny ruta. */
+  const prevTurnIndexForCamRef = useRef<number | null>(null);
+  const turnStartTileKeyForCamRef = useRef<string | null>(null);
 
-  const tableConfig = useMemo(
-    () =>
-      modeParam === "goldenBeerEscape" || modeParam === "bossKill"
-        ? { gameMode: modeParam as "bossKill" | "goldenBeerEscape" }
-        : undefined,
-    [modeParam],
-  );
+  const tableConfig = useMemo(() => ({ gameMode: "bossKill" as const }), []);
 
   const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay } =
     useWsGameClient({
@@ -444,12 +505,14 @@ export function TableView() {
   }, [status]);
 
   useEffect(() => {
+    // Under spel styr tur-byten kameran per våning — undvik att hoppa till alla våningars mitt.
+    if (state?.phase === "playing") return;
     targetCam.current = {
       ...targetCam.current,
       x: -(totalSvgWidth / 2),
       y: -(boardHeight / 2),
     };
-  }, [boardWidth, boardHeight, totalSvgWidth]);
+  }, [boardWidth, boardHeight, totalSvgWidth, state?.phase]);
 
   useEffect(() => {
     // Två lägen:
@@ -520,82 +583,123 @@ export function TableView() {
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  // Auto-fokus på aktiv spelare: centrera/zooma så att valbara tiles ryms i viewport.
   useEffect(() => {
-    if (!state || state.phase !== "playing") return;
+    if (!state || state.phase !== "playing") {
+      prevTurnIndexForCamRef.current = null;
+      turnStartTileKeyForCamRef.current = null;
+      return;
+    }
     const p = activePlayer(state);
     if (!p) return;
     const lvls = state.levels;
     if (!lvls?.length) return;
-    const xForLevel = (levelIndex: number) =>
-      levelIndex * (boardWidth + RING_STACK_GAP);
-
-    const ringMargin = targetRingOutset + 6;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    const includeTile = (levelIndex: number, tileIndex: number) => {
-      const level = lvls[levelIndex];
-      if (!level || tileIndex < 0 || tileIndex >= level.tiles.length) return;
-      const xOff = xForLevel(levelIndex);
-      const { col, row } = ringPos(gridSize, tileIndex);
-      const left = xOff + boardPad + col * tileSize - ringMargin;
-      const top = boardPad + row * tileSize - ringMargin;
-      const right = xOff + boardPad + (col + 1) * tileSize + ringMargin;
-      const bottom = boardPad + (row + 1) * tileSize + ringMargin;
-      minX = Math.min(minX, left);
-      minY = Math.min(minY, top);
-      maxX = Math.max(maxX, right);
-      maxY = Math.max(maxY, bottom);
-    };
-
-    includeTile(p.levelIndex, p.tileIndex);
-
-    if (state.pending?.type === "moveChoice") {
-      for (const o of state.pending.options) {
-        includeTile(o.target.levelIndex, o.target.tileIndex);
-      }
-    }
-
-    const pend = state.pending;
-    if (pend?.type === "card") {
-      const owner = state.players.find((x) => x.id === pend.playerId);
-      if (owner) {
-        includeTile(owner.levelIndex, owner.tileIndex);
-      }
-    }
-
-    const contentW = Math.max(1, maxX - minX);
-    const contentH = Math.max(1, maxY - minY);
-    const breathe = tileSize * 0.2;
-    const boxW = contentW + breathe;
-    const boxH = contentH + breathe;
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
 
     const { w: viewW, h: viewH } = boardViewportPx;
     if (viewW < 48 || viewH < 48) return;
 
-    const fitMargin = 0.9;
-    const desiredScale = clamp(
-      Math.min((viewW * fitMargin) / boxW, (viewH * fitMargin) / boxH),
-      0.45,
-      1.85,
-    );
+    const turnChanged = prevTurnIndexForCamRef.current !== state.currentTurnIndex;
+    const pend = state.pending;
 
-    // translate(cam) scale(s) med origin 0,0: skärmposition = offset + s*p ⇒ centrera med cam = -s*center
-    targetCam.current = {
-      ...targetCam.current,
-      x: -desiredScale * centerX,
-      y: -desiredScale * centerY,
-      scale: desiredScale,
+    const xForLevel = (levelIndex: number) => levelIndex * (boardWidth + RING_STACK_GAP);
+    const ringMargin = targetRingOutset + 6;
+
+    const applyTightCam = (mode: "player" | "moveChoice" | "card") => {
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      const includeTile = (levelIndex: number, tileIndex: number) => {
+        const level = lvls[levelIndex];
+        if (!level || tileIndex < 0 || tileIndex >= level.tiles.length) return;
+        const xOff = xForLevel(levelIndex);
+        const { col, row } = ringPos(gridSize, tileIndex);
+        const left = xOff + boardPad + col * tileSize - ringMargin;
+        const top = boardPad + row * tileSize - ringMargin;
+        const right = xOff + boardPad + (col + 1) * tileSize + ringMargin;
+        const bottom = boardPad + (row + 1) * tileSize + ringMargin;
+        minX = Math.min(minX, left);
+        minY = Math.min(minY, top);
+        maxX = Math.max(maxX, right);
+        maxY = Math.max(maxY, bottom);
+      };
+
+      includeTile(p.levelIndex, p.tileIndex);
+      if (mode === "moveChoice" && pend?.type === "moveChoice") {
+        for (const o of pend.options) {
+          includeTile(o.target.levelIndex, o.target.tileIndex);
+        }
+      }
+      if (mode === "card" && pend?.type === "card") {
+        const owner = state.players.find((x) => x.id === pend.playerId);
+        if (owner) includeTile(owner.levelIndex, owner.tileIndex);
+      }
+
+      if (!Number.isFinite(minX)) return;
+
+      const contentW = Math.max(1, maxX - minX);
+      const contentH = Math.max(1, maxY - minY);
+      const breathe = tileSize * 0.2;
+      const boxW = contentW + breathe;
+      const boxH = contentH + breathe;
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const fitMargin = 0.9;
+      const desiredScale = clamp(
+        Math.min((viewW * fitMargin) / boxW, (viewH * fitMargin) / boxH),
+        0.45,
+        1.85,
+      );
+      targetCam.current = {
+        ...targetCam.current,
+        x: -desiredScale * centerX,
+        y: -desiredScale * centerY,
+        scale: desiredScale,
+      };
     };
+
+    if (pend?.type === "moveChoice") {
+      applyTightCam("moveChoice");
+      if (turnChanged) prevTurnIndexForCamRef.current = state.currentTurnIndex;
+      return;
+    }
+
+    if (pend?.type === "card") {
+      applyTightCam("card");
+      if (turnChanged) prevTurnIndexForCamRef.current = state.currentTurnIndex;
+      return;
+    }
+
+    if (turnChanged) {
+      prevTurnIndexForCamRef.current = state.currentTurnIndex;
+      turnStartTileKeyForCamRef.current = `${p.levelIndex}-${p.tileIndex}`;
+      const xOff = p.levelIndex * (boardWidth + RING_STACK_GAP);
+      const centerX = xOff + boardWidth / 2;
+      const centerY = boardHeight / 2;
+      const fitMargin = 0.92;
+      const desiredScale = clamp(
+        Math.min((viewW * fitMargin) / boardWidth, (viewH * fitMargin) / boardHeight),
+        0.45,
+        2,
+      );
+      targetCam.current = {
+        ...targetCam.current,
+        x: -desiredScale * centerX,
+        y: -desiredScale * centerY,
+        scale: desiredScale,
+      };
+      return;
+    }
+
+    const tileKey = `${p.levelIndex}-${p.tileIndex}`;
+    if (tileKey !== turnStartTileKeyForCamRef.current) {
+      applyTightCam("player");
+      turnStartTileKeyForCamRef.current = tileKey;
+    }
   }, [
     state?.currentTurnIndex,
     state?.phase,
     state?.pending,
-    state?.levels,
+    state?.players,
     boardPad,
     boardWidth,
     boardHeight,
@@ -625,6 +729,33 @@ export function TableView() {
     const t = window.setTimeout(() => setTableCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [tableCardPendingKey]);
+
+  const tableCombatSessionKey =
+    state?.pending?.type === "combat"
+      ? `${state.pending.attackerId}-${state.pending.levelIndex}-${state.pending.tileIndex}-${state.pending.monsterId}`
+      : null;
+  const [tableCombatModalReady, setTableCombatModalReady] = useState(false);
+  const prevCombatSessionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!tableCombatSessionKey) {
+      setTableCombatModalReady(false);
+      prevCombatSessionKeyRef.current = null;
+      return;
+    }
+    if (prevCombatSessionKeyRef.current === tableCombatSessionKey) {
+      return;
+    }
+    prevCombatSessionKeyRef.current = tableCombatSessionKey;
+    const pend = state?.pending;
+    if (!pend || pend.type !== "combat") return;
+    if (pend.phase === "chooseTeammate") {
+      setTableCombatModalReady(true);
+      return;
+    }
+    setTableCombatModalReady(false);
+    const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [tableCombatSessionKey, state?.pending]);
   const moveTargets =
     state?.pending?.type === "moveChoice"
       ? new Set(state.pending.options.map((o) => `${o.target.levelIndex}-${o.target.tileIndex}`))
@@ -755,24 +886,47 @@ export function TableView() {
             style={{
               background: cur!.color,
               padding: "6px 12px",
-              textAlign: "center",
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
               minWidth: 0,
             }}
           >
-            <h1
+            <div
               style={{
-                margin: 0,
-                fontSize: "clamp(1.05rem, 3.5vmin, 1.65rem)",
-                fontWeight: 900,
-                lineHeight: 1.15,
-                color: "#fafafa",
-                textShadow: "0 1px 3px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.8)",
-                letterSpacing: "-0.02em",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexWrap: "wrap",
+                gap: "8px 18px",
+                textAlign: "center",
               }}
             >
-              {cur!.name}
-            </h1>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "clamp(1.05rem, 3.5vmin, 1.65rem)",
+                  fontWeight: 900,
+                  lineHeight: 1.15,
+                  color: "#fafafa",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.8)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {cur!.name}
+              </h1>
+              <span
+                style={{
+                  fontSize: "clamp(0.8rem, 2.4vmin, 1.05rem)",
+                  fontWeight: 800,
+                  lineHeight: 1.2,
+                  color: "#fafafa",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.65)",
+                  opacity: 0.95,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {pendingTypeLabelSv(state?.pending?.type)}
+              </span>
+            </div>
           </div>
         ) : null}
       </div>
@@ -977,18 +1131,20 @@ export function TableView() {
                                 </g>
                               </g>
                             ) : null}
-                            <text
-                              x={x + 6 + w / 2}
-                              y={y + 6 + 18}
-                              textAnchor="middle"
-                              fill="#f8fafc"
-                              fontSize={13}
-                              fontWeight={700}
-                              opacity={0.95}
-                              style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.75)", strokeWidth: 3 }}
-                            >
-                              {tileTypeLabel(t.type)}
-                            </text>
+                            {showTileTypeLabels ? (
+                              <text
+                                x={x + 6 + w / 2}
+                                y={y + 6 + 18}
+                                textAnchor="middle"
+                                fill="#f8fafc"
+                                fontSize={13}
+                                fontWeight={700}
+                                opacity={0.95}
+                                style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.75)", strokeWidth: 3 }}
+                              >
+                                {tileTypeLabel(t.type)}
+                              </text>
+                            ) : null}
                           </g>
                         );
                       })}
@@ -1061,6 +1217,138 @@ export function TableView() {
               })}
             </svg>
           </div>
+
+          {state?.phase === "lobby" ? (
+            <div
+              role="dialog"
+              aria-label={sv.table.lobby}
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "min(20px, 4vw)",
+                boxSizing: "border-box",
+                background: "rgba(7, 11, 24, 0.9)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div
+                style={{
+                  width: "min(440px, 100%)",
+                  maxHeight: "min(88dvh, 100%)",
+                  overflow: "auto",
+                  borderRadius: 16,
+                  border: "1px solid #ffffff2e",
+                  background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)",
+                  padding: "clamp(22px, 4.5vmin, 36px)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "clamp(2.4rem, 10vmin, 4rem)",
+                    fontWeight: 900,
+                    letterSpacing: "0.14em",
+                    lineHeight: 1.05,
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                    color: "#f8fafc",
+                    textShadow: "0 2px 16px rgba(0,0,0,0.55)",
+                    textAlign: "center",
+                    marginBottom: 4,
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {room}
+                </div>
+                <h2
+                  style={{
+                    margin: "12px 0 6px",
+                    fontSize: "clamp(1.2rem, 3.2vmin, 1.55rem)",
+                    fontWeight: 900,
+                    textAlign: "center",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {sv.table.lobby}
+                </h2>
+                <div
+                  style={{
+                    textAlign: "center",
+                    opacity: 0.88,
+                    fontSize: "clamp(0.9rem, 2.4vmin, 1rem)",
+                    fontWeight: 700,
+                    marginBottom: 18,
+                  }}
+                >
+                  {sv.table.readyAll(readyCount, state.players.length)}
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {state.players.map((p) => (
+                    <TableLobbyPlayerRow key={p.id} p={p} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : state?.phase === "ended" ? (
+            <div
+              role="dialog"
+              aria-label={sv.play.gameOver}
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "min(20px, 4vw)",
+                boxSizing: "border-box",
+                background: "rgba(7, 11, 24, 0.92)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <div
+                style={{
+                  width: "min(480px, 100%)",
+                  maxHeight: "min(88dvh, 100%)",
+                  overflow: "auto",
+                  borderRadius: 16,
+                  border: "1px solid #ffffff2e",
+                  background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
+                  padding: "clamp(22px, 4.5vmin, 36px)",
+                  color: "#f8fafc",
+                }}
+              >
+                <h2 style={{ marginTop: 0, textAlign: "center" }}>{sv.play.gameOver}</h2>
+                <p style={{ textAlign: "center", marginBottom: 16 }}>
+                  {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
+                </p>
+                <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{sv.play.scoreboardTitle}</h3>
+                <p style={{ margin: "0 0 12px", opacity: 0.8, fontSize: 13 }}>{sv.play.scoreboardHint}</p>
+                <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 10, fontSize: 15 }}>
+                  {[...state.players]
+                    .sort((a, b) => {
+                      const w = state.winnerId;
+                      if (w) {
+                        if (a.id === w) return -1;
+                        if (b.id === w) return 1;
+                      }
+                      if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
+                      if (b.gold !== a.gold) return b.gold - a.gold;
+                      return a.name.localeCompare(b.name, "sv");
+                    })
+                    .map((p) => (
+                      <li key={p.id} style={{ fontWeight: p.id === state.winnerId ? 800 : 600 }}>
+                        {sv.play.scoreboardRow(p.name, p.klunkar, p.gold, p.hp, p.maxHp)}
+                        {p.id === state.winnerId ? " 🏆" : ""}
+                      </li>
+                    ))}
+                </ol>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <button
@@ -1122,46 +1410,36 @@ export function TableView() {
 
           {state && (
             <>
-              <div style={{ display: "grid", gap: 8 }}>
-                <div>
-                  <b>{sv.table.phase}:</b> {phaseLabelSv(state.phase)}
-                </div>
-                <div>
-                  <b>{sv.table.players}:</b> {state.players.length}
-                </div>
-                {state.phase === "lobby" && <div>{sv.table.readyAll(readyCount, state.players.length)}</div>}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <div>
-                    <b>{sv.table.die}:</b>{" "}
-                    {state.lastDiceRollerId ? `${state.lastDiceRollerId.slice(0, 4)}… = ${state.lastDiceRoll}` : "—"}
-                  </div>
-                  {state.pending?.type === "moveChoice" && (
-                    <DiceCube3D
-                      value={
-                        typeof state.pending.baseDie === "number" && Number.isFinite(state.pending.baseDie)
-                          ? state.pending.baseDie
-                          : state.pending.die
-                      }
-                      size={48}
-                    />
-                  )}
-                </div>
-                <div>
-                  <b>{sv.table.pending}:</b> {pendingTypeLabelSv(state.pending?.type)}
-                </div>
-              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 12,
+                  cursor: "pointer",
+                  userSelect: "none",
+                  fontSize: 14,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showTileTypeLabels}
+                  onChange={(e) => setShowTileTypeLabels(e.target.checked)}
+                  aria-label={sv.table.tileTypeLabels}
+                />
+                <span>{sv.table.tileTypeLabels}</span>
+              </label>
 
-              <h3>{sv.table.lobbyList}</h3>
-              <div style={{ display: "grid", gap: 6 }}>
-                {state.players.map((p) => (
-                  <div key={p.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 99, background: p.color, display: "inline-block" }} />
-                    <div style={{ flex: 1 }}>
-                      {p.name} {p.isHost ? "(värd)" : ""} {p.ready ? "✅" : "…"}
-                    </div>
+              {state.phase !== "lobby" ? (
+                <>
+                  <h3>{sv.table.lobbyList}</h3>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {state.players.map((p) => (
+                      <TableLobbyPlayerRow key={p.id} p={p} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              ) : null}
 
               <h3>{sv.table.log}</h3>
               <div
@@ -1192,7 +1470,9 @@ export function TableView() {
 
       {state?.pending?.type === "pvp" && <TablePvpBoardPanel state={state} />}
 
-      {state?.pending?.type === "combat" && <TableCombatBoardPanel state={state} />}
+      <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
+
+      {state?.pending?.type === "combat" && tableCombatModalReady && <TableCombatBoardPanel state={state} />}
 
       {state?.pending?.type === "card" && tableCardModalReady && (
         <div
@@ -1205,7 +1485,7 @@ export function TableView() {
             paddingTop: 70,
             zIndex: 40,
             background: "rgba(2, 6, 23, 0.24)",
-            animation: "bvTableOverlayFadeIn 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
+            animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
         >
           <div
@@ -1216,7 +1496,7 @@ export function TableView() {
               background: "rgba(11, 18, 38, 0.92)",
               padding: 16,
               textAlign: "left",
-              animation: "bvTableCardIn 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
+              animation: TABLE_BOARD_MODAL_CARD_ANIMATION,
               transformOrigin: "top center",
             }}
           >
@@ -1258,28 +1538,68 @@ export function TableView() {
                   </div>
                 );
               }
+              if (isFoundItemRevealCard(p.cardId)) {
+                return (
+                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
+                    <CombatSheetFrame
+                      sheetTitle={sv.table.hiddenItemFoundTitle}
+                      titleStyle={{ textAlign: "center", fontSize: 30, letterSpacing: "0.03em", marginBottom: 14 }}
+                    >
+                      <TableHiddenItemRevealCardContent />
+                    </CombatSheetFrame>
+                  </div>
+                );
+              }
+              if (p.kind === "treasure") {
+                return (
+                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
+                    <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
+                      <TreasureCardContent title={p.title} text={p.text} cardId={p.cardId} />
+                    </CombatSheetFrame>
+                  </div>
+                );
+              }
+              if (p.cardId === "door_locked") {
+                return (
+                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
+                    <CombatSheetFrame
+                      sheetTitle={p.title}
+                      titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
+                    >
+                      <TableLevelUpLockedCardContent text={p.text} />
+                    </CombatSheetFrame>
+                  </div>
+                );
+              }
               return (
                 <>
                   <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>{p.title}</div>
-                  <div
-                    style={{
-                      width: "92%",
-                      margin: "0 auto 10px",
-                      aspectRatio: "4/3",
-                      borderRadius: 14,
-                      overflow: "hidden",
-                      border: "1px solid #ffffff22",
-                      background: "rgba(255,255,255,0.92)",
-                    }}
-                  >
-                    <img
-                      src={artImageSrc(p.artKey)}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                  <div style={{ width: "100%", margin: "0 0 10px", boxSizing: "border-box" }}>
+                    <div
+                      style={{
+                        aspectRatio: "4/3",
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        border: "1px solid #ffffff22",
+                        background: "transparent",
                       }}
-                      alt={sv.table.cardArtAlt}
-                      style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                    />
+                    >
+                      <img
+                        src={artImageSrc(p.artKey)}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                        }}
+                        alt={sv.table.cardArtAlt}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          objectPosition: "center",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                    <CardArtAttribution artKey={p.artKey} />
                   </div>
                   <div style={{ opacity: 0.98, color: "#e5e7eb", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
                     {p.text}
@@ -1292,29 +1612,151 @@ export function TableView() {
             )}
             <div style={{ opacity: 0.65, fontSize: 12, marginTop: 10 }}>{sv.table.waitingConfirmPhone}</div>
           </div>
-          <style>
-            {`@keyframes bvTableOverlayFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes bvTableCardIn {
-  from { opacity: 0; transform: translateY(-36px) scale(0.96); filter: blur(3px); }
-  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-}`}
-          </style>
         </div>
       )}
 
-      <WsReconnectOverlay
-        show={showReconnectOverlay}
-        phase={overlayPhase}
-        attempt={reconnectAttemptN}
-        connectingLabel={sv.table.wsConnecting}
-        waitingRetryLabel={sv.table.wsWaitingRetry}
-        attemptLabel={sv.table.wsReconnectAttempt}
-        retryLabel={sv.table.wsRetry}
-        onRetry={requestReconnect}
-      />
+      {showReconnectOverlay ? (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 90,
+            borderTop: "1px solid #ffffff22",
+            background: "rgba(11, 18, 38, 0.92)",
+            backdropFilter: "blur(8px)",
+            padding: "8px 16px",
+            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            minWidth: 0,
+            fontSize: 12,
+            color: "#f8fafc",
+          }}
+        >
+          <div
+            style={{
+              minWidth: 0,
+              flex: "1 1 auto",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              opacity: 0.92,
+            }}
+          >
+            {sv.table.lobby}: {room} · {wsStatusLabel(status)}
+          </div>
+          <WsReconnectFooterHint
+            phase={overlayPhase}
+            attempt={reconnectAttemptN}
+            connectingShort={sv.table.wsReconnectFooterConnecting}
+            waitingShort={sv.table.wsReconnectFooterWaiting}
+            retryLabel={sv.table.wsRetry}
+            onRetry={requestReconnect}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TableLevelUpLockedCardContent(props: { text: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+        color: "#fff",
+        padding: "8px 4px 0",
+        gap: 14,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 112,
+          height: 112,
+          borderRadius: "50%",
+          display: "grid",
+          placeItems: "center",
+          background: "rgba(255,255,255,0.1)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.2)",
+        }}
+      >
+        <img
+          src="/icons/lvlup.svg"
+          alt=""
+          className="lvlup-lock-icon lvlup-lock-icon-down"
+          style={{
+            width: 36,
+            height: 36,
+            filter: "brightness(0) invert(1)",
+            opacity: 0.96,
+          }}
+        />
+      </div>
+      <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
+        {props.text}
+      </p>
+    </div>
+  );
+}
+
+function isFoundItemRevealCard(cardId: string): boolean {
+  return cardId.startsWith("event_find_item_") || cardId.startsWith("treasure_item_");
+}
+
+function TableHiddenItemRevealCardContent() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+        color: "#fff",
+        padding: "8px 4px 0",
+        gap: 14,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 112,
+          height: 112,
+          borderRadius: "50%",
+          display: "grid",
+          placeItems: "center",
+          background: "radial-gradient(circle at 32% 28%, #d9a21f 0%, #b97908 58%, #8b5e07 100%)",
+          boxShadow: "inset 0 0 0 4px #facc15, 0 4px 16px rgba(0,0,0,0.35)",
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 58,
+            height: 58,
+            display: "inline-block",
+            backgroundColor: "#ffffff",
+            maskImage: "url(/icons/reward-icon.svg)",
+            WebkitMaskImage: "url(/icons/reward-icon.svg)",
+            maskSize: "contain",
+            WebkitMaskSize: "contain",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+            maskPosition: "center",
+            WebkitMaskPosition: "center",
+          }}
+        />
+      </div>
+      <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
+        {sv.table.hiddenItemFoundBody}
+      </p>
     </div>
   );
 }

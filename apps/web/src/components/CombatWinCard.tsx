@@ -138,6 +138,19 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
             <RewardLine iconSrc={REWARD_ICON} tint={REWARD_TINT} value={data.rewardItems} showPlus />
           ) : null}
         </div>
+        {data.randomOtherSipRecipientName ? (
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 15,
+              margin: "14px 0 0",
+              opacity: 0.9,
+              lineHeight: 1.4,
+            }}
+          >
+            {sv.play.combatWinRandomOtherSip(data.randomOtherSipRecipientName)}
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -1,20 +1,21 @@
 export type MonsterId =
-  | "beerwolf"
-  | "ipa_ssassin"
-  | "beer_serker"
-  | "yeast_beast"
+  | "skum_banan"
+  | "folke_bengtsson"
+  | "rabarbapappa"
+  | "brottningsmatch"
   | "keg_lifter"
   | "imperial_dragon_stout"
-  | "hopvern"
-  | "sip_snatcher"
-  | "brewizard"
-  | "sourceress"
-  | "giant_spider"
-  | "fruit_fly_swarm"
+  | "megasouruz"
+  | "belgisk_munk"
+  | "kapten_interrobang"
+  | "sura_bar"
+  | "barsfisk"
+  | "humlan"
   | "bottling_bot"
-  | "barrel_colossus"
+  | "pimp"
   | "fermentation_hydra"
-  | "taproom_titan";
+  | "taproom_titan"
+  | "unicorn";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -37,55 +38,63 @@ export interface MonsterDef {
   rewardItems: number;
   /** Placeholder key for future art */
   artKey: string;
+  /** Vid vinst: slumpa mottagare (annan levande spelare, ej angripare/medhjälpare) och ge straffklunk per enhet. */
+  winRandomOtherSips?: number;
 }
+
+/**
+ * Global höjning av straffklunk vid monsterförlust (alla monster: tidigare 0→1, 1→2, …).
+ * Utöver {@link MonsterDef.lossSipsOnLose} och team-regeln (+1 vid team battle).
+ */
+export const MONSTER_LOSS_SIP_FLAT = 1;
 
 /** Klunk vid förlust enligt monster + ev. extra vid team battle (motorspelet lägger +1). */
 export function monsterLossKlunkTotal(m: Pick<MonsterDef, "lossSipsOnLose" | "teamBattleRequired">): number {
-  return (m.lossSipsOnLose ?? 0) + (m.teamBattleRequired ? 1 : 0);
+  return (m.lossSipsOnLose ?? 0) + (m.teamBattleRequired ? 1 : 0) + MONSTER_LOSS_SIP_FLAT;
 }
 
 export const MONSTERS: MonsterDef[] = [
   {
-    id: "beerwolf",
-    name: "Ölvarg",
+    id: "skum_banan",
+    name: "Skum banan",
     strength: 3,
     baseDamage: 2,
     rulesText: "Om klockan är efter 20:30: ta 3 skada i stället.",
     rewardGold: 4,
     rewardItems: 1,
-    artKey: "monster/beerwolf",
+    artKey: "monster/skum-banan",
   },
   {
-    id: "ipa_ssassin",
-    name: "IPA-lönnmördare",
+    id: "folke_bengtsson",
+    name: "Folke Bengtsson",
     strength: 2,
     baseDamage: 1,
     rulesText: "Om du har fler än 5 klunkar: ta 3 skada i stället.",
     rewardGold: 3,
     rewardItems: 0,
-    artKey: "monster/ipa-ssassin",
+    artKey: "monster/folke-bengtsson",
   },
   {
-    id: "beer_serker",
-    name: "Öl-bärsärk",
+    id: "rabarbapappa",
+    name: "Rabarbapappa",
     strength: 4,
     baseDamage: 3,
     rulesText:
       "Om du slår 1: den svingar och missar dig men träffar en slumpmässig annan spelare i stället.",
     rewardGold: 5,
     rewardItems: 1,
-    artKey: "monster/beer-serker",
+    artKey: "monster/rabarbapappa",
   },
   {
-    id: "yeast_beast",
-    name: "Jästbest",
+    id: "brottningsmatch",
+    name: "Brottningsmatch",
     strength: 3,
     baseDamage: 3,
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
-    artKey: "monster/yeast-beast",
+    artKey: "monster/brottningsmatch",
   },
   {
     id: "keg_lifter",
@@ -99,82 +108,82 @@ export const MONSTERS: MonsterDef[] = [
   },
   {
     id: "imperial_dragon_stout",
-    name: "Imperial Drak-Stout",
+    name: "Stoorn",
     strength: 5,
     baseDamage: 6,
     rulesText: "Vid skada: alla intilliggande spelare tar 1 skada.",
     lossSipsOnLose: 1,
     rewardGold: 7,
     rewardItems: 2,
-    artKey: "monster/imperial-dragon-stout",
+    artKey: "monster/stoorn",
   },
   {
-    id: "hopvern",
-    name: "Humledrake",
+    id: "megasouruz",
+    name: "Megasouruz",
     strength: 3,
     baseDamage: 3,
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
-    artKey: "monster/hopvern",
+    artKey: "monster/megasouruz",
   },
   {
-    id: "sip_snatcher",
-    name: "Klunkkaparen",
+    id: "belgisk_munk",
+    name: "Belgisk munk",
     strength: 2,
     baseDamage: 1,
     rulesText: "Ta en klunk så försvinner den — eller slåss som med vilket monster som helst.",
     rewardGold: 3,
     rewardItems: 0,
-    artKey: "monster/sip-snatcher",
+    artKey: "monster/belgisk-munk",
   },
   {
-    id: "brewizard",
-    name: "Bryggtrollkarlen",
+    id: "kapten_interrobang",
+    name: "Kapten Interrobang",
     strength: 4,
     baseDamage: 5,
     rulesText:
       "Vid skada: du får ta en klunk för att minska skadan med 3 — eller ta full skada utan att dricka.",
     rewardGold: 5,
     rewardItems: 1,
-    artKey: "monster/brewizard",
+    artKey: "monster/kapten-interrobang",
   },
   {
-    id: "sourceress",
-    name: "Surhäxan",
+    id: "sura_bar",
+    name: "Sura bär",
     strength: 4,
     baseDamage: 4,
     rulesText:
       "Vid skada: Ta en klunk för att minska skadan med 2 — eller ta full skada utan att dricka.",
     rewardGold: 5,
     rewardItems: 1,
-    artKey: "monster/sourceress",
+    artKey: "monster/sura-bar",
   },
   {
-    id: "giant_spider",
-    name: "Fatspindeln",
+    id: "barsfisk",
+    name: "Bärsfisk",
     strength: 3,
     baseDamage: 3,
     rulesText: "",
     rewardGold: 4,
     rewardItems: 1,
-    artKey: "monster/barrel-spider",
+    artKey: "monster/barsfisk",
   },
   {
-    id: "fruit_fly_swarm",
-    name: "Fruktflugesvärm",
+    id: "humlan",
+    name: "Humlan",
     strength: 2,
     baseDamage: 1,
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 3,
     rewardItems: 0,
-    artKey: "monster/fruit-fly-swarm",
+    artKey: "monster/humlan",
   },
   {
     id: "bottling_bot",
-    name: "Buteljeringsbot",
+    name: "Rally robot",
     strength: 3,
     baseDamage: 2,
     rulesText: "",
@@ -184,8 +193,8 @@ export const MONSTERS: MonsterDef[] = [
     artKey: "monster/bottling-bot",
   },
   {
-    id: "barrel_colossus",
-    name: "Fatkolossen",
+    id: "pimp",
+    name: "Pimp",
     strength: 8,
     baseDamage: 5,
     rulesText: "Team battle: välj en medkämpe. Vid förlust dricker båda 1 klunk.",
@@ -193,7 +202,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleBonusGold: 2,
     rewardGold: 8,
     rewardItems: 2,
-    artKey: "monster/barrel-colossus",
+    artKey: "monster/pimp",
   },
   {
     id: "fermentation_hydra",
@@ -219,5 +228,20 @@ export const MONSTERS: MonsterDef[] = [
     rewardItems: 2,
     artKey: "monster/taproom-titan",
   },
+  {
+    id: "unicorn",
+    name: "Enhörning",
+    strength: 3,
+    baseDamage: 2,
+    rulesText: "Vid vinst: en slumpmässig annan spelare får en straffklunk.",
+    lossSipsOnLose: 1,
+    rewardGold: 2,
+    rewardItems: 1,
+    artKey: "monster/unicorn",
+    winRandomOtherSips: 1,
+  },
 ];
+
+/** Slutboss — exakt en per spel, slumpas vid start (måste finnas i {@link MONSTERS}). */
+export const FINAL_BOSS_IDS: readonly MonsterId[] = ["pimp", "fermentation_hydra", "taproom_titan"];
 

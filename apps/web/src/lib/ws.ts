@@ -51,7 +51,7 @@ export function createClient(params: {
   roomCode: string;
   playerName: string;
   as: "table" | "controller";
-  config?: { turnSeconds?: number; gameMode?: "bossKill" | "goldenBeerEscape" };
+  config?: { turnSeconds?: number; gameMode?: "bossKill" };
   onMessage: (msg: ServerMessage) => void;
   onStatus: (s: WsStatus) => void;
   /** Standard 15s; kortare värde ger snabbare återförsök vid dåligt nät (t.ex. mobil). */

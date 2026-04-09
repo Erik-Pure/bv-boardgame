@@ -88,6 +88,40 @@ p {
   margin: 0;
 }
 
+@keyframes lvlupPendulum {
+  0% {
+    transform: translateY(-2px) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(2px) rotate(8deg);
+  }
+  100% {
+    transform: translateY(-2px) rotate(-8deg);
+  }
+}
+
+.lvlup-lock-icon {
+  transform-origin: 50% 8%;
+  animation: lvlupPendulum 1.8s ease-in-out infinite;
+}
+
+.lvlup-lock-icon-down {
+  transform-origin: 50% 50%;
+  animation-name: lvlupPendulumDown;
+}
+
+@keyframes lvlupPendulumDown {
+  0% {
+    transform: translateY(-2px) rotate(172deg);
+  }
+  50% {
+    transform: translateY(2px) rotate(188deg);
+  }
+  100% {
+    transform: translateY(-2px) rotate(172deg);
+  }
+}
+
 code,
 .counter {
   font-family: var(--mono);

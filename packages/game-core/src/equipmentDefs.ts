@@ -3,6 +3,8 @@ import type { EquipmentSlot, ShopItem } from "./types.js";
 export type EquipmentShopItem = ShopItem & { slot: EquipmentSlot };
 
 export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
+  { id: "ew_doublepipe", slot: "weapon", name: "Dubbelpipa", price: 15, power: 2, sipAttackBonus: 3 },
+  { id: "ew_singlepipe", slot: "weapon", name: "Enkelpipa", price: 11, power: 1, sipAttackBonus: 2 },
   // Your originals (renamed a bit)
   { id: "eh_stoutcap", slot: "helmet", name: "Stouthjälm", price: 7, damageNegate: 1 },
   { id: "ea_canplate", slot: "armor", name: "Burkplåtsbrynja", price: 9, bonusHp: 0, damageNegate: 1 },

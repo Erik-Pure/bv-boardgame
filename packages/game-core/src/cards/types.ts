@@ -6,7 +6,8 @@ export type Effect =
   | { type: "damage"; amount: number; source?: string }
   | { type: "heal"; amount: number }
   | { type: "klunkar"; amount: number }
-  | { type: "item"; itemId: string };
+  | { type: "item"; itemId: string }
+  | { type: "nextCombatMod"; amount: number };
 
 export interface CardChoice {
   id: string;

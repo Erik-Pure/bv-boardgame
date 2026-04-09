@@ -2,12 +2,13 @@ import { generateLevels } from "./board.js";
 import { createRng, pick, rollDie } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
 import { drawFromDeck, getCard } from "./cards/db.js";
-import { MONSTERS, type MonsterId } from "./monsters.js";
+import { FINAL_BOSS_IDS, MONSTERS, MONSTER_LOSS_SIP_FLAT, type MonsterId } from "./monsters.js";
 import {
   handleCardConfirm,
   handleCardOption,
   enterMonsterCombatFromTile,
   resolveEventCardOnLand,
+  createFinalBossCombatPending,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
@@ -55,6 +56,8 @@ export function createEmptyLobby(roomCode: string): GameState {
     winnerId: null,
     winnerName: null,
     goldenBeerCarrierId: null,
+    finalBossMonsterId: null,
+    finalBossLivesRemaining: null,
     treasureTaken: {},
     lastDiceRoll: null,
     lastDiceRollerId: null,
@@ -69,6 +72,14 @@ function log(state: GameState, message: string): void {
 
 export function brewerLevel(p: Player): number {
   return 1 + Math.min(9, Math.floor(p.xp / 5));
+}
+
+export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: number; sips: number } {
+  const step = Math.max(0, targetLevelIndex - 1);
+  return {
+    gold: 10 + step * 5,
+    sips: 5 + step * 3,
+  };
 }
 
 function maxHpFor(p: Player): number {
@@ -120,6 +131,14 @@ function removeRandomEquipment(p: Player, rng: () => number): string | null {
   }
   return label;
 }
+
+function randomEquippedSlot(p: Player, rng: () => number): "weapon" | "armor" | "helmet" | "accessory" | null {
+  const slots: Array<"weapon" | "armor" | "helmet" | "accessory"> = ["weapon", "armor", "helmet", "accessory"];
+  const have = slots.filter((s) => !!p.equipment[s]);
+  if (have.length === 0) return null;
+  return pick(rng, have);
+}
+
 
 const COMBAT_REWARD_ITEMS: ItemId[] = [
   "healing_potion",
@@ -199,24 +218,24 @@ function computeMonsterDamage(
   monsterId: MonsterId,
   p: Player,
   die: number,
-  /** Brewizard / Sourceress: true = take sip for reduced damage, false = full base damage */
+  /** Kapten Interrobang / Sura bär: true = take sip for reduced damage, false = full base damage */
   sipMitigation?: boolean,
 ): { damage: number; redirected: boolean } {
-  if (monsterId === "beerwolf") return { damage: isAfter2030() ? 3 : 2, redirected: false };
-  if (monsterId === "ipa_ssassin") return { damage: p.klunkar > 5 ? 3 : 1, redirected: false };
-  if (monsterId === "brewizard") {
-    const base = MONSTERS.find((m) => m.id === "brewizard")!.baseDamage;
+  if (monsterId === "skum_banan") return { damage: isAfter2030() ? 3 : 2, redirected: false };
+  if (monsterId === "folke_bengtsson") return { damage: p.klunkar > 5 ? 3 : 1, redirected: false };
+  if (monsterId === "kapten_interrobang") {
+    const base = MONSTERS.find((m) => m.id === "kapten_interrobang")!.baseDamage;
     return sipMitigation === true
       ? { damage: Math.max(0, base - 3), redirected: false }
       : { damage: base, redirected: false };
   }
-  if (monsterId === "sourceress") {
-    const base = MONSTERS.find((m) => m.id === "sourceress")!.baseDamage;
+  if (monsterId === "sura_bar") {
+    const base = MONSTERS.find((m) => m.id === "sura_bar")!.baseDamage;
     return sipMitigation === true
       ? { damage: Math.max(0, base - 2), redirected: false }
       : { damage: base, redirected: false };
   }
-  if (monsterId === "beer_serker" && die === 1) return { damage: 3, redirected: true };
+  if (monsterId === "rabarbapappa" && die === 1) return { damage: 3, redirected: true };
   const def = MONSTERS.find((m) => m.id === monsterId);
   return { damage: def?.baseDamage ?? 3, redirected: false };
 }
@@ -249,7 +268,7 @@ function showCard(
   };
 }
 
-/** Efter förlorat slag: skada, monster-effekter, förlustkort. `sipMitigation` gäller bara Brewizard/Sourceress. */
+/** Efter förlorat slag: skada, monster-effekter, förlustkort. `sipMitigation` gäller bara Kapten Interrobang/Sura bär. */
 function applyCombatLoss(
   next: GameState,
   ctx: {
@@ -274,17 +293,17 @@ function applyCombatLoss(
   const before = p.hp;
   const beforeSips = p.klunkar;
   const sipForMonster =
-    monsterId === "brewizard" || monsterId === "sourceress" ? ctx.sipMitigation : undefined;
+    monsterId === "kapten_interrobang" || monsterId === "sura_bar" ? ctx.sipMitigation : undefined;
   const dmgOut = computeMonsterDamage(monsterId, p, die, sipForMonster);
   let redirectedTargetName: string | null = null;
 
-  if (monsterId === "beer_serker" && dmgOut.redirected && next.players.length > 1) {
+  if (monsterId === "rabarbapappa" && dmgOut.redirected && next.players.length > 1) {
     const others = next.players.filter((x) => x.id !== p.id);
     const target = pick(rng, others);
     redirectedTargetName = target.name;
     const tb = target.hp;
     applyDamage({ state: next, player: target, amount: dmgOut.damage, log });
-    log(next, `${p.name} slog 1 — Öl-bärsärken missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
+    log(next, `${p.name} slog 1 — Rabarbapappan missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
   } else {
     applyDamage({ state: next, player: p, amount: dmgOut.damage, log });
   }
@@ -298,16 +317,14 @@ function applyCombatLoss(
   }
 
   const def = MONSTERS.find((m) => m.id === monsterId);
-  const lossSips = def?.lossSipsOnLose ?? 0;
-  if (lossSips > 0) {
-    p.klunkar += lossSips;
-    pushSipNotice(next, p.id, ctx.enemyName);
-    if (assistId) {
-      const bro = next.players.find((x) => x.id === assistId) ?? null;
-      if (bro) {
-        bro.klunkar += lossSips;
-        pushSipNotice(next, bro.id, ctx.enemyName);
-      }
+  const lossSips = (def?.lossSipsOnLose ?? 0) + MONSTER_LOSS_SIP_FLAT;
+  p.klunkar += lossSips;
+  pushSipNotice(next, p.id, ctx.enemyName);
+  if (assistId) {
+    const bro = next.players.find((x) => x.id === assistId) ?? null;
+    if (bro) {
+      bro.klunkar += lossSips;
+      pushSipNotice(next, bro.id, ctx.enemyName);
     }
   }
   if (ctx.teamBattleRequired) {
@@ -322,7 +339,7 @@ function applyCombatLoss(
     }
   }
 
-  if ((monsterId === "brewizard" || monsterId === "sourceress") && ctx.sipMitigation) {
+  if ((monsterId === "kapten_interrobang" || monsterId === "sura_bar") && ctx.sipMitigation) {
     p.klunkar += 1;
     pushSipNotice(next, p.id, ctx.enemyName);
   }
@@ -349,7 +366,7 @@ function applyCombatLoss(
     playerId: p.id,
     kind: "combat",
     cardId: "combat_lose",
-    title: tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Strid",
+    title: tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Dålig batch",
     text: "",
     combatLoss: {
       playerName: p.name,
@@ -361,7 +378,7 @@ function applyCombatLoss(
       assistRollNote:
         assistRoll !== null ? `Ölkompis-slag inkluderat: +${assistRoll}.` : undefined,
       redirectNote: redirectedTargetName
-        ? `Öl-bärsärken slog om till: ${redirectedTargetName}.`
+        ? `Rabarbapappan slog om till: ${redirectedTargetName}.`
         : undefined,
       lostEquipmentName,
       imperialAdjacentSplash: imperialAdjacentSplash ? true : undefined,
@@ -401,6 +418,29 @@ function finalizeCombatAfterRollPreview(
   }
 
   if (previewWon) {
+    if (tile.type === "boss") {
+      const prevLives = next.finalBossLivesRemaining ?? 3;
+      const newLives = prevLives - 1;
+      next.finalBossLivesRemaining = newLives;
+      if (newLives > 0) {
+        next.pending = null;
+        const bd = MONSTERS.find((m) => m.id === next.finalBossMonsterId);
+        log(
+          next,
+          `${p.name} vinner en runda mot slutbossen! ${newLives} liv kvar (slag ${pr}≥${need}).`,
+        );
+        showCard(next, {
+          playerId: p.id,
+          kind: "combat",
+          cardId: "boss_round_win",
+          title: "Runda vunnet!",
+          text: `Slutbossen har ${newLives} liv kvar. Bekräfta för att gå vidare till nästa runda.`,
+          artKey: bd?.artKey ?? "combat/boss",
+        });
+        return;
+      }
+    }
+
     next.pending = null;
     p.gold += rewardGold;
     let assistName: string | null = null;
@@ -426,6 +466,32 @@ function finalizeCombatAfterRollPreview(
         }
       }
     }
+
+    let randomOtherSipRecipientName: string | undefined;
+    if (tile.type !== "boss") {
+      const winMonsterId = pending.monsterId as MonsterId;
+      const winDef = MONSTERS.find((m) => m.id === winMonsterId);
+      const sipCount = winDef?.winRandomOtherSips ?? 0;
+      if (sipCount > 0) {
+        const exclude = new Set<string>([p.id]);
+        if (assistId) exclude.add(assistId);
+        for (let s = 0; s < sipCount; s++) {
+          const candidates = next.players.filter((pl) => pl.hp > 0 && !exclude.has(pl.id));
+          if (candidates.length === 0) break;
+          const victim = pick(rng, candidates);
+          victim.klunkar += 1;
+          pushSipNotice(next, victim.id, p.name);
+          randomOtherSipRecipientName = victim.name;
+        }
+        if (randomOtherSipRecipientName) {
+          log(
+            next,
+            `${randomOtherSipRecipientName} får straffklunk (${p.name} vann mot ${pending.enemyName}).`,
+          );
+        }
+      }
+    }
+
     if (teamBattleRequired && assistName) {
       log(
         next,
@@ -438,7 +504,7 @@ function finalizeCombatAfterRollPreview(
       playerId: p.id,
       kind: "combat",
       cardId: "combat_win",
-      title: tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Strid",
+      title: tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Dålig batch",
       text: "",
       combatWin: {
         winnerName: p.name,
@@ -448,23 +514,20 @@ function finalizeCombatAfterRollPreview(
         rewardGold,
         rewardItems,
         teammateName: assistName ?? undefined,
+        randomOtherSipRecipientName,
       },
     });
     if (tile.type === "boss") {
-      if (next.config.gameMode === "goldenBeerEscape") {
-        next.goldenBeerCarrierId = p.id;
-        log(next, `${p.name} bär nu den gyllene ölen — tillbaka till start (ruta 1 på nivå 1)!`);
-      } else {
-        next.phase = "ended";
-        next.winnerId = p.id;
-        next.winnerName = p.name;
-        log(next, `🏆 ${p.name} vinner genom att besegra bossen!`);
-        next.pending = null;
-      }
+      next.phase = "ended";
+      next.winnerId = p.id;
+      next.winnerName = p.name;
+      log(next, `🏆 ${p.name} har besegrat slutbossen och vinner spelet!`);
+      next.goldenBeerCarrierId = p.id;
+      log(next, `${p.name} får den gyllene ölen!`);
     }
   } else {
     const monsterId = pending.monsterId as MonsterId;
-    if (monsterId === "brewizard" || monsterId === "sourceress") {
+    if (monsterId === "kapten_interrobang" || monsterId === "sura_bar") {
       next.pending = { ...pending, phase: "chooseHitMitigation" };
       return;
     }
@@ -496,6 +559,46 @@ function currentPlayer(state: GameState): Player | null {
   return state.players.find((p) => p.id === id) ?? null;
 }
 
+function canOfferLevelUp(state: GameState, p: Player): {
+  targetLevelIndex: number;
+  costs: { gold: number; sips: number };
+} | null {
+  const targetLevelIndex = p.levelIndex + 1;
+  if (targetLevelIndex >= state.levels.length) return null;
+  const costs = levelUpCostsForTargetLevel(targetLevelIndex);
+  if (p.gold < costs.gold && p.klunkar < costs.sips) return null;
+  return { targetLevelIndex, costs };
+}
+
+function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance = false): boolean {
+  if (state.pending || state.phase !== "playing") return false;
+  const offer = canOfferLevelUp(state, p);
+  if (!offer) return false;
+  state.pending = {
+    type: "levelUpOffer",
+    playerId: p.id,
+    targetLevelIndex: offer.targetLevelIndex,
+    costs: offer.costs,
+    deferTurnAdvance,
+  };
+  log(
+    state,
+    `${p.name} har nått kraven för nivå ${offer.targetLevelIndex + 1} och kan välja att stiga direkt.`,
+  );
+  return true;
+}
+
+function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
+  if (state.phase !== "playing") return;
+  const cp = currentPlayer(state);
+  if (!cp || cp.id !== activePlayerId) {
+    advanceTurn(state);
+    return;
+  }
+  if (maybeCreateLevelUpOffer(state, cp, true)) return;
+  advanceTurn(state);
+}
+
 function cloneState(s: GameState): GameState {
   // Node/TS-lib kan sakna structuredClone beroende på target/lib.
   return JSON.parse(JSON.stringify(s)) as GameState;
@@ -518,7 +621,7 @@ export function lobbyAddPlayer(
     ready: false,
     levelIndex: 0,
     tileIndex: 0,
-    gold: 5,
+    gold: 0,
     klunkar: 0,
     hp: 10,
     maxHp: 10,
@@ -526,6 +629,8 @@ export function lobbyAddPlayer(
     equipment: {},
     inventory: [],
     nextMoveBonus: 0,
+    nextCombatModifier: 0,
+    canmanTurnsRemaining: 0,
     skippedTurns: 0,
   };
   next.players.push(p);
@@ -556,6 +661,20 @@ export function startGame(
   }
   next.seed = seed;
   next.levels = generateLevels(seed);
+  const bossRng = createRng(seed ^ 0x9e3779b9);
+  const pickedBoss = FINAL_BOSS_IDS[Math.floor(bossRng() * FINAL_BOSS_IDS.length)]!;
+  next.finalBossMonsterId = pickedBoss;
+  next.finalBossLivesRemaining = 3;
+  const bossMonster = MONSTERS.find((m) => m.id === pickedBoss);
+  const topLevel = next.levels[next.levels.length - 1];
+  if (bossMonster && topLevel) {
+    for (const t of topLevel.tiles) {
+      if (t.type === "boss") {
+        t.combatValue = bossMonster.strength;
+        t.bossName = bossMonster.name;
+      }
+    }
+  }
   next.phase = "playing";
   next.turnOrder = next.players.map((p) => p.id);
   next.currentTurnIndex = 0;
@@ -565,6 +684,8 @@ export function startGame(
     p.hp = maxHpFor(p);
     p.maxHp = maxHpFor(p);
     p.nextMoveBonus = 0;
+    p.nextCombatModifier = 0;
+    p.canmanTurnsRemaining = 0;
   }
   next.pending = null;
   next.winnerId = null;
@@ -575,6 +696,12 @@ export function startGame(
   next.lastDiceRollerId = null;
   next.sipNotices = [];
   log(next, `— Bryggmästarens väg börjar! (seed ${seed}) —`);
+  if (bossMonster) {
+    log(
+      next,
+      `Slutboss på sista nivån: ${bossMonster.name} — tre liv, vinn tre rundor för att besegra den.`,
+    );
+  }
   const cur = currentPlayer(next);
   if (cur) log(next, `${cur.name}s tur. Slå tärningen.`);
   return { state: next, events: ["gameStarted"] };
@@ -628,6 +755,8 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
       damageNegate: it.damageNegate,
       negateAllOnce: it.negateAllOnce,
       moveBonus: it.moveBonus,
+      power: it.power,
+      sipAttackBonus: it.sipAttackBonus,
     });
   }
   shuffleArrayInPlace(items, rng);
@@ -693,6 +822,16 @@ function combatReactorsFor(state: GameState, attackerId: string, assistId?: stri
       ),
     )
     .map((x) => x.id);
+}
+
+/** Reaktor som använder *vilket* föremål som helst under reaktionsfasen måste markeras så angriparen får slå. */
+function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string): void {
+  const pending = state.pending;
+  if (!pending || pending.type !== "combat" || pending.phase !== "reactions") return;
+  if (!pending.reactors?.includes(reactorId)) return;
+  pending.reacted ??= {};
+  if (pending.reacted[reactorId] === "pass" || pending.reacted[reactorId] === "intervened") return;
+  pending.reacted[reactorId] = "intervened";
 }
 
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
@@ -792,43 +931,17 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         return;
       }
 
-      // Open a reaction window so other players can affect combat.
-      const enemyName = tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Monster";
-      const reactors = state.players
-        .filter((x) => x.id !== p.id)
-        .filter((x) =>
-          (x.inventory ?? []).some((it) =>
-            [
-              "weak_beer",
-              "light_beer",
-              "folk_beer",
-              "tripwire",
-              "double_hops",
-              "beer_bomb",
-              "hangover",
-              "beer_bro",
-              "monster_hype",
-              "yeast_sabotage",
-            ].includes(String(it.itemId)),
-          ),
-        )
-        .map((x) => x.id);
-      state.pending = {
-        type: "combat",
-        attackerId: p.id,
-        levelIndex: p.levelIndex,
-        tileIndex: p.tileIndex,
-        monsterId: "boss",
-        enemyName,
-        need: tile.combatValue ?? 5,
-        needMod: 0,
-        baseDamage: 3,
-        phase: "enemyIntro",
-        attackMods: {},
-        reactors,
-        reacted: {},
-      };
-      log(state, `${p.name} möter ${enemyName}.`);
+      const pendingBoss = createFinalBossCombatPending(state, p);
+      if (!pendingBoss) {
+        log(state, `${p.name} kan inte möta slutbossen (konfigurationsfel).`);
+        break;
+      }
+      state.pending = pendingBoss;
+      const lives = state.finalBossLivesRemaining ?? 3;
+      log(
+        state,
+        `${p.name} möter slutbossen ${tile.bossName ?? pendingBoss.enemyName} (${lives} liv kvar).`,
+      );
       return;
     }
     case "merchant": {
@@ -837,23 +950,26 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         items: rollMerchantItems(rng),
         playerId: p.id,
       };
-      log(state, `${p.name} träffar en handlare.`);
+      log(state, `${p.name} kommer till Panta burkar.`);
       return;
     }
     case "door": {
       const target = tile.doorTargetLevelIndex ?? p.levelIndex + 1;
-      const costs = { gold: 10, sips: 5 };
+      const costs = levelUpCostsForTargetLevel(target);
       const canGold = p.gold >= costs.gold;
       const canSips = p.klunkar >= costs.sips;
       if (!canGold && !canSips) {
-        log(state, `Dörren är låst — behöver ${costs.gold} pant eller ${costs.sips}+ klunkar.`);
+        log(
+          state,
+          `${p.name} når inte nästa nivå — behöver ${costs.gold} pant eller ${costs.sips}+ klunkar.`,
+        );
         showCard(state, {
           playerId: p.id,
           kind: "event",
           cardId: "door_locked",
-          title: "Dörren är låst",
-          text: `Du behöver ${costs.gold} pant eller ${costs.sips}+ klunkar för att gå upp.`,
-          artKey: "tile/door",
+          title: "Nivån är stängd",
+          text: `Som bryggmästare behöver du ${costs.gold} pant eller minst ${costs.sips} klunkar för att stiga till nästa våning.`,
+          artKey: "tile/levelup",
         });
         break;
       }
@@ -863,21 +979,16 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         targetLevelIndex: target,
         costs,
       };
-      log(state, `${p.name} kan gå till nivå ${target + 1} (betala ${costs.gold} pant eller ha ${costs.sips}+ klunkar).`);
+      log(
+        state,
+        `${p.name} kan stiga till nivå ${target + 1} som bryggmästare (${costs.gold} pant eller ${costs.sips}+ klunkar).`,
+      );
       return;
     }
     default:
       break;
   }
 
-  if (state.config.gameMode === "goldenBeerEscape" && state.goldenBeerCarrierId === p.id) {
-    if (p.levelIndex === 0 && p.tileIndex === 0) {
-      state.phase = "ended";
-      state.winnerId = p.id;
-      state.winnerName = p.name;
-      log(state, `🏆 ${p.name} vinner genom att fly med den gyllene ölen!`);
-    }
-  }
 }
 
 function resolveLanding(state: GameState, p: Player, rng: () => number): void {
@@ -912,7 +1023,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const p = next.players.find((x) => x.id === action.playerId);
       if (!p?.isHost) return { state, events: [], error: "Endast värd" };
       next.config.turnSeconds = Math.min(120, Math.max(30, action.turnSeconds));
-      next.config.gameMode = action.gameMode;
       return { state: next, events: ["lobbyUpdate"] };
     }
     return { state, events: [], error: "Ogiltig lobby-åtgärd" };
@@ -1017,6 +1127,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} använder en helande brygd (+${user.hp - before} HP).`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1028,6 +1139,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} använder sömnmedel på ${target.name} (hoppar över nästa tur).`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1040,6 +1152,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1059,6 +1172,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1070,11 +1184,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const targetId = action.targetPlayerId ?? pending.attackerId;
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 1;
-      log(next, `${user.name} spelar Lättöl: +1 attack i striden.`);
+      log(next, `${user.name} spelar Energidryck: +1 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1086,11 +1201,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const targetId = action.targetPlayerId ?? pending.attackerId;
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
-      log(next, `${user.name} spelar Folköl: +2 attack i striden.`);
+      log(next, `${user.name} spelar 8-bit beer: +2 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1102,11 +1218,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const targetId = action.targetPlayerId ?? pending.attackerId;
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 1;
-      log(next, `${user.name} spelar Krokben: −1 attack i striden.`);
+      log(next, `${user.name} spelar Halt golv: −1 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1118,13 +1235,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const targetId = action.targetPlayerId ?? pending.attackerId;
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
-      log(next, `${user.name} spelar Dubbelhumle: +2 attack i striden.`);
+      log(next, `${user.name} spelar En hjälpande hand: +2 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) {
         pending.reacted[user.id] = "intervened";
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1141,6 +1259,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1152,6 +1271,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} använder Skägget rakt bak: +2 steg på nästa rörelseslag.`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1168,15 +1288,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "pretzel_snack") {
       const before = user.hp;
       user.hp = Math.min(user.maxHp, user.hp + 2);
-      log(next, `${user.name} äter en brezel (+${user.hp - before} HP).`);
+      log(next, `${user.name} äter en pretzel (+${user.hp - before} HP).`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1185,6 +1307,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} använder en pantpåse (+4 pant).`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1199,6 +1322,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1213,6 +1337,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1222,12 +1347,119 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
       if (pending.assistId) return { state, events: [], error: "En Ölkompis hjälper redan" };
-      pending.assistId = user.id;
-      log(next, `${user.name} blir en Ölkompis och hänger på i striden!`);
-      pending.reacted ??= {};
+      const broId = action.targetPlayerId;
+      if (!broId || broId === pending.attackerId) {
+        return { state, events: [], error: "Välj en annan spelare som Ölkompis" };
+      }
+      const bro = next.players.find((x) => x.id === broId) ?? null;
+      if (!bro) return { state, events: [], error: "Spelaren finns inte" };
+      pending.assistId = broId;
+      log(next, `${user.name} drar med ${bro.name} som Ölkompis i striden!`);
+      pending.reactors = combatReactorsFor(next, pending.attackerId, bro.id);
+      const reacted = { ...(pending.reacted ?? {}) };
+      for (const rid of Object.keys(reacted)) {
+        if (!pending.reactors.includes(rid)) delete reacted[rid];
+      }
+      pending.reacted = reacted;
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
+      return { state: next, events: ["state"] };
+    }
+
+
+    if (inst.itemId === "split_the_g") {
+      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      const steal = Math.floor((target.gold ?? 0) / 2);
+      target.gold -= steal;
+      user.gold += steal;
+      log(next, `${user.name} spelar Split the G och tar ${steal} pant från ${target.name}.`);
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "canman") {
+      user.canmanTurnsRemaining = 10;
+      log(next, `${user.name} aktiverar Canman: +1 pant per drag i 10 rundor.`);
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "not_my_round") {
+      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if ((target.inventory ?? []).length > 0) {
+        const ti = Math.floor(rng() * target.inventory.length);
+        const stolen = target.inventory.splice(ti, 1)[0]!;
+        user.inventory ??= [];
+        user.inventory.push(stolen);
+        log(next, `${user.name} stjäl ${String(stolen.itemId)} från ${target.name}.`);
+      } else {
+        const slot = randomEquippedSlot(target, rng);
+        if (!slot) return { state, events: [], error: "Målet har inget att stjäla" };
+        const piece = target.equipment[slot]!;
+        target.equipment[slot] = undefined as any;
+        if (slot === "armor") {
+          target.maxHp = maxHpFor(target);
+          if (target.hp > target.maxHp) target.hp = target.maxHp;
+          user.equipment.armor = { ...(piece as any) };
+          user.maxHp = maxHpFor(user);
+          if (user.hp > user.maxHp) user.hp = user.maxHp;
+        } else if (slot === "weapon") {
+          user.equipment.weapon = { ...(piece as any) };
+        } else if (slot === "helmet") {
+          user.equipment.helmet = { ...(piece as any) };
+        } else {
+          user.equipment.accessory = { ...(piece as any) };
+        }
+        log(next, `${user.name} stjäl ${piece.name ?? slot} (${slot}) från ${target.name}.`);
+      }
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "spill_intentional") {
+      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if ((target.inventory ?? []).length > 0) {
+        const ti = Math.floor(rng() * target.inventory.length);
+        const ruined = target.inventory.splice(ti, 1)[0]!;
+        log(next, `${user.name} spiller med flit och förstör ${String(ruined.itemId)} hos ${target.name}.`);
+      } else {
+        const slot = randomEquippedSlot(target, rng);
+        if (!slot) return { state, events: [], error: "Målet har inget att förstöra" };
+        const piece = target.equipment[slot]!;
+        target.equipment[slot] = undefined as any;
+        if (slot === "armor") {
+          target.maxHp = maxHpFor(target);
+          if (target.hp > target.maxHp) target.hp = target.maxHp;
+        }
+        log(next, `${user.name} spiller med flit och förstör ${piece.name ?? slot} hos ${target.name}.`);
+      }
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "early_night") {
+      const pending = next.pending;
+      if (!pending || pending.type !== "combat" || (pending.phase !== "enemyIntro" && pending.phase !== "reactions")) {
+        return { state, events: [], error: "Kan bara användas under ett pågående monstermöte" };
+      }
+      if (pending.attackerId !== user.id) return { state, events: [], error: "Endast angriparen kan skippa mötet" };
+      log(next, `${user.name} spelar Vaska direkt och skippar monstret.`);
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      next.pending = null;
+      endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1236,11 +1468,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "combatRoll" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
     const pending = next.pending;
-    const isTeamBattle = !!pending.teamBattleRequired && !!pending.assistId;
+    const assistId = pending.assistId;
+    const needsAssistRoll = !!assistId;
     const canRollForTeam =
-      action.playerId === pending.attackerId || (isTeamBattle && action.playerId === pending.assistId);
+      action.playerId === pending.attackerId || (needsAssistRoll && action.playerId === assistId);
     if (!canRollForTeam) return { state, events: [], error: "Du är inte med i den här striden" };
-    if (action.playerId !== cp.id && !(isTeamBattle && action.playerId === pending.assistId)) {
+    if (action.playerId !== cp.id && !(needsAssistRoll && action.playerId === assistId)) {
       return { state, events: [], error: "Inte din tur" };
     }
     // If there are eligible reactors, wait until everyone has either passed or slutfört ingripande (kort).
@@ -1250,7 +1483,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const reactionsTimedOut =
       (pending.reactionsDeadlineAt ?? 0) > 0 && Date.now() > (pending.reactionsDeadlineAt ?? 0);
     if (reactors.length > 0 && !allDone && !reactionsTimedOut) {
-      return { state, events: [], error: "Waiting for other players" };
+      return { state, events: [], error: "Väntar på att alla reaktioner är klara (ingrip eller gör inget)." };
     }
     if (reactors.length > 0 && !allDone && reactionsTimedOut) {
       log(next, "Reaktionsfönstret tog slut — striden fortsätter.");
@@ -1263,17 +1496,26 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     const roller = next.players.find((x) => x.id === action.playerId);
     if (!roller) return { state, events: [], error: "Player not found" };
-    const mod = pending.attackMods?.[roller.id] ?? 0;
+    const tempMod = roller.nextCombatModifier ?? 0;
+    roller.nextCombatModifier = 0;
+    const mod = (pending.attackMods?.[roller.id] ?? 0) + tempMod;
     const die = rollDie(rng, 6);
-    const total = die + weaponPower(roller) + mod;
+    let sipBoost = 0;
+    const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
+    if (sipBonus > 0) {
+      roller.klunkar += 1;
+      sipBoost = sipBonus;
+      log(next, `${roller.name} tar en klunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`);
+    }
+    const total = die + weaponPower(roller) + mod + sipBoost;
 
     pending.teamRolls ??= {};
     if (pending.teamRolls[action.playerId]) return { state, events: [], error: "Du har redan slagit" };
     pending.teamRolls[action.playerId] = { die, total };
 
-    if (isTeamBattle) {
+    if (needsAssistRoll) {
       const aRoll = pending.teamRolls[pending.attackerId];
-      const bRoll = pending.assistId ? pending.teamRolls[pending.assistId] : undefined;
+      const bRoll = assistId ? pending.teamRolls[assistId] : undefined;
       if (!aRoll || !bRoll) {
         return { state: next, events: ["state"] };
       }
@@ -1282,15 +1524,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const p = next.players.find((x) => x.id === pending.attackerId);
     if (!p) return { state, events: [], error: "Player not found" };
     const attackerRoll = pending.teamRolls[pending.attackerId]!;
-    const assistId = pending.assistId;
-    if (!isTeamBattle && assistId && !pending.teamRolls[assistId]) {
-      const bro = next.players.find((x) => x.id === assistId) ?? null;
-      if (bro) {
-        const broMod = pending.attackMods?.[bro.id] ?? 0;
-        const broDie = rollDie(rng, 6);
-        pending.teamRolls[assistId] = { die: broDie, total: broDie + weaponPower(bro) + broMod };
-      }
-    }
     const assistRollObj = assistId ? pending.teamRolls[assistId] : undefined;
     const prBase = attackerRoll.total;
     const assistRoll = assistRollObj?.total ?? null;
@@ -1417,7 +1650,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     next.pending = null;
 
     resolveLanding(next, p, rng);
-    if (!next.pending && next.phase === "playing") advanceTurn(next);
+    if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, p.id);
     return { state: next, events: ["state"] };
   }
 
@@ -1432,11 +1665,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const handled = handleCardConfirm({ state: next, pending, rng, log });
     if (handled.handled) {
       next.pending = handled.startCombat ?? null;
-      if (!next.pending && next.phase === "playing") advanceTurn(next);
+      if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, pending.playerId);
       return { state: next, events: ["state"] };
     }
     next.pending = null;
-    if (next.phase === "playing") advanceTurn(next);
+    if (next.phase === "playing") endTurnOrOfferLevelUp(next, pending.playerId);
     return { state: next, events: ["state"] };
   }
 
@@ -1456,7 +1689,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (optRes.completeCard) {
         next.pending = null;
-        if (next.phase === "playing") advanceTurn(next);
+        if (next.phase === "playing") endTurnOrOfferLevelUp(next, pending.playerId);
         return { state: next, events: ["state"] };
       }
       return { state: next, events: ["state"] };
@@ -1496,7 +1729,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${mover.name} chooses the tile (no PvP).`);
       next.pending = null;
       resolveTileLanding(next, mover, rng);
-      if (!next.pending && next.phase === "playing") advanceTurn(next);
+      if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, mover.id);
       return { state: next, events: ["state"] };
     }
 
@@ -1558,14 +1791,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "merchantBuy" && next.pending?.type === "merchant") {
     if (action.playerId !== next.pending.playerId) {
-      return { state, events: [], error: "Inte din handlare" };
+      return { state, events: [], error: "Inte du som är vid Panta burkar" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
     if (action.itemId === null) {
-      log(next, `${p.name} leaves the merchant.`);
+      log(next, `${p.name} lämnar Panta burkar.`);
       next.pending = null;
-      advanceTurn(next);
+      endTurnOrOfferLevelUp(next, p.id);
       return { state: next, events: ["state"] };
     }
     const item = next.pending.items.find((i) => i.id === action.itemId);
@@ -1573,7 +1806,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (p.gold < item.price) return { state, events: [], error: "För lite pant" };
     p.gold -= item.price;
     if (item.slot === "weapon") {
-      p.equipment.weapon = { name: item.name, power: item.power ?? 1 };
+      p.equipment.weapon = { name: item.name, power: item.power ?? 1, sipAttackBonus: item.sipAttackBonus };
     } else if (item.slot === "armor") {
       p.equipment.armor = {
         name: item.name,
@@ -1599,7 +1832,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "useDoor" && next.pending?.type === "door") {
     if (action.playerId !== next.pending.playerId) {
-      return { state, events: [], error: "Inte din dörr" };
+      return { state, events: [], error: "Inte din tur att välja nivå" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
@@ -1609,15 +1842,53 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       p.gold -= costs.gold;
       p.levelIndex = next.pending.targetLevelIndex;
       p.tileIndex = 0;
-      log(next, `${p.name} betalar ${costs.gold} pant och går upp till nivå ${p.levelIndex + 1}.`);
+      log(next, `${p.name} betalar ${costs.gold} pant och stiger till nivå ${p.levelIndex + 1} som bryggmästare.`);
     } else if (action.method === "sips") {
       if (p.klunkar < costs.sips) return { state, events: [], error: "För få klunkar" };
       // Requirement-based: does not consume sips.
       p.levelIndex = next.pending.targetLevelIndex;
       p.tileIndex = 0;
-      log(next, `${p.name} har ${p.klunkar} klunkar och går upp till nivå ${p.levelIndex + 1}.`);
+      log(next, `${p.name} har ${p.klunkar} klunkar och stiger till nivå ${p.levelIndex + 1} som bryggmästare.`);
     } else {
       log(next, `${p.name} stannar.`);
+    }
+    next.pending = null;
+    endTurnOrOfferLevelUp(next, p.id);
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "levelUpDecision" && next.pending?.type === "levelUpOffer") {
+    const pending = next.pending;
+    if (action.playerId !== pending.playerId) {
+      return { state, events: [], error: "Inte du som väljer nivåuppstigning" };
+    }
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    if (action.choice === "stay") {
+      log(next, `${p.name} stannar kvar och kan gå upp via nivå-rutan senare.`);
+      next.pending = null;
+      if (pending.deferTurnAdvance) advanceTurn(next);
+      return { state: next, events: ["state"] };
+    }
+    const costs = pending.costs;
+    const canBySips = p.klunkar >= costs.sips;
+    const canByGold = p.gold >= costs.gold;
+    if (!canBySips && !canByGold) {
+      return { state, events: [], error: "Du uppfyller inte längre kraven för nivå upp" };
+    }
+    if (canBySips) {
+      // Requirement-based path: klunkar förbrukas inte.
+      p.levelIndex = pending.targetLevelIndex;
+      p.tileIndex = 0;
+      log(next, `${p.name} använder sin bryggarerfarenhet och stiger till nivå ${p.levelIndex + 1}.`);
+    } else {
+      p.gold -= costs.gold;
+      p.levelIndex = pending.targetLevelIndex;
+      p.tileIndex = 0;
+      log(
+        next,
+        `${p.name} använder sin bryggarerfarenhet och ${costs.gold} pant för att stiga till nivå ${p.levelIndex + 1}.`,
+      );
     }
     next.pending = null;
     advanceTurn(next);
@@ -1641,6 +1912,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       loser.klunkar += 1;
       pushSipNotice(next, loser.id, winner.name);
       log(next, `${winner.name} ger ${loser.name} en straffklunk (+1 klunk).`);
+    } else if (action.choice === "damage") {
+      const beforeHp = loser.hp;
+      applyDamage({ state: next, player: loser, amount: 2, source: "pvp", log });
+      log(next, `${winner.name} ger ${loser.name} 2 skada i PvP (HP ${beforeHp} → ${loser.hp}).`);
     } else {
       const slot = action.choice;
       const validSlots = ["weapon", "armor", "helmet", "accessory"] as const;
@@ -1670,7 +1945,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     }
     next.pending = null;
-    advanceTurn(next);
+    endTurnOrOfferLevelUp(next, winner.id);
     return { state: next, events: ["state"] };
   }
 
@@ -1684,6 +1959,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.playerId !== cp.id) {
     return { state, events: [], error: "Inte din tur" };
+  }
+
+  if ((cp.canmanTurnsRemaining ?? 0) > 0) {
+    cp.gold += 1;
+    cp.canmanTurnsRemaining -= 1;
+    log(next, `${cp.name} får +1 pant från Canman (${cp.canmanTurnsRemaining} rundor kvar).`);
   }
 
   const dice = rollDie(rng, 6);
@@ -1737,6 +2018,7 @@ function advanceTurn(state: GameState): void {
       continue;
     }
     log(state, `— ${n.name}'s turn —`);
+    maybeCreateLevelUpOffer(state, n, false);
     break;
   }
 }

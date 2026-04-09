@@ -10,7 +10,7 @@ type Args = {
   roomCode: string;
   playerName: string;
   as: "table" | "controller";
-  config?: { turnSeconds?: number; gameMode?: "bossKill" | "goldenBeerEscape" };
+  config?: { turnSeconds?: number; gameMode?: "bossKill" };
   connectTimeoutMs?: number;
   onMessage: (m: ServerMessage) => void;
 };

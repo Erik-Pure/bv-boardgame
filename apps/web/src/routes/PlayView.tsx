@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   combatReactionsAllAnswered,
+  levelUpCostsForTargetLevel,
   MONSTERS,
   monsterLossKlunkTotal,
   type ClientAction,
@@ -19,15 +20,18 @@ import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import { CombatLoseCard } from "../components/CombatLoseCard";
 import { CombatOutcomeThumb } from "../components/CombatOutcomeThumb";
+import { CombatSheetFrame } from "../components/CombatResultSheet";
 import { CombatWinCard } from "../components/CombatWinCard";
+import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
-import { WsReconnectOverlay } from "../components/WsReconnectOverlay";
+import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import styles from "./PlayView.module.css";
 import activeTurnRainbow from "../styles/activeTurnRainbow.module.css";
+import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artImageSrc } from "../lib/cardArt";
 import {
   combatLossKlunksForDisplay,
@@ -49,6 +53,7 @@ function isMyPending(pending: Pending | null, me: Player | null) {
   if (pending.type === "card") return pending.playerId === me.id;
   if (pending.type === "merchant") return pending.playerId === me.id;
   if (pending.type === "door") return pending.playerId === me.id;
+  if (pending.type === "levelUpOffer") return pending.playerId === me.id;
   if (pending.type === "encounterChoice") return pending.moverId === me.id;
   if (pending.type === "pvp") {
     if (pending.phase === "awaitingRolls") return pending.attackerId === me.id || pending.defenderId === me.id;
@@ -117,6 +122,7 @@ function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string 
 /** Samma ton som `EquipIcon` för generiska siluetter (vit + lätt blå glow). */
 const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
+const LEVEL_UP_ICON = "/icons/lvlup.svg";
 
 export function PlayView() {
   const [sp] = useSearchParams();
@@ -133,6 +139,7 @@ export function PlayView() {
   const [itemDetail, setItemDetail] = useState<{ instanceId: string } | null>(null);
   const [itemTargetId, setItemTargetId] = useState<string | null>(null);
   const [wantsIntervene, setWantsIntervene] = useState(false);
+  const [beerBroPickInstance, setBeerBroPickInstance] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [rollDiceSpinning, setRollDiceSpinning] = useState(true);
   const [combatDiceSpinning, setCombatDiceSpinning] = useState(true);
@@ -224,6 +231,16 @@ export function PlayView() {
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
+  const levelUpProgress = useMemo(() => {
+    if (!state || !me || state.phase !== "playing") return null;
+    const targetLevelIndex = me.levelIndex + 1;
+    if (targetLevelIndex >= state.levels.length) return null;
+    const costs = levelUpCostsForTargetLevel(targetLevelIndex);
+    const pant = Math.max(0, Math.min(1, me.gold / Math.max(1, costs.gold)));
+    const klunk = Math.max(0, Math.min(1, me.klunkar / Math.max(1, costs.sips)));
+    return { targetLevelIndex, costs, pant, klunk };
+  }, [state, me]);
+  const headerTopPad = showHeaderStatsBar ? (levelUpProgress ? 176 : 160) : 76;
   const pending = state?.pending ?? null;
   const onRollDieScreen = !!isMyTurn && !pending;
   useEffect(() => {
@@ -231,15 +248,15 @@ export function PlayView() {
     setRollDiceSpinning(true);
   }, [onRollDieScreen]);
 
-  const combatAttackerSheet =
+  const combatFighterSheet =
     !!me &&
     pending?.type === "combat" &&
     pending.phase === "reactions" &&
-    pending.attackerId === me.id;
+    (pending.attackerId === me.id || pending.assistId === me.id);
   useEffect(() => {
-    if (combatAttackerSheet) return;
+    if (combatFighterSheet) return;
     setCombatDiceSpinning(true);
-  }, [combatAttackerSheet]);
+  }, [combatFighterSheet]);
 
   const pvpRollSheet =
     !!me &&
@@ -287,6 +304,11 @@ export function PlayView() {
     if (pending?.type !== "merchant") setMerchantReplaceItem(null);
   }, [pending?.type]);
 
+  const combatReactionsPhase = pending?.type === "combat" && pending.phase === "reactions";
+  useEffect(() => {
+    if (!combatReactionsPhase) setBeerBroPickInstance(null);
+  }, [combatReactionsPhase]);
+
   const myPending = isMyPending(pending, me);
   const readyCount = state?.players?.filter((p) => p.ready).length ?? 0;
   const totalPlayers = state?.players?.length ?? 0;
@@ -295,14 +317,14 @@ export function PlayView() {
   const highlightPulse = !!isMyTurn || state?.phase === "lobby" || !!canStart;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
-  const isItemPlayableNow = (target: "self" | "other" | "combat") => {
-    if (isMyTurn) return target !== "combat" || inCombat;
-    if (inCombatReactions) return target === "combat";
+  const isItemPlayableNow = (target: ItemUseTarget) => {
+    if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
+    if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
   };
-  const itemCardTone = (target: "self" | "other" | "combat") => {
+  const itemCardTone = (target: ItemUseTarget) => {
     const playable = isItemPlayableNow(target);
-    if (playable && target === "combat") {
+    if (playable && (target === "combat" || target === "combat_bro")) {
       return {
         border: "2px solid rgba(96,165,250,0.95)",
         background: "rgba(37,99,235,0.13)",
@@ -512,8 +534,8 @@ export function PlayView() {
       const total = pending.previewTotal ?? 0;
       const need = pending.previewNeed ?? 0;
       const broDie = pending.previewBroDie;
-      const reduce = pending.monsterId === "brewizard" ? 3 : 2;
-      const full = pending.monsterId === "brewizard" ? 5 : 4;
+      const reduce = pending.monsterId === "kapten_interrobang" ? 3 : 2;
+      const full = pending.monsterId === "kapten_interrobang" ? 5 : 4;
       return (
         <div style={{ display: "grid", gap: 10 }}>
           <div className={styles.sheetDiceBlock}>
@@ -568,8 +590,8 @@ export function PlayView() {
 
     if (pending?.type === "combat" && pending.phase === "reactions") {
       const isAttacker = pending.attackerId === me.id;
-      const isTeamMate = !!pending.teamBattleRequired && pending.assistId === me.id;
-      const isTeamFighter = isAttacker || isTeamMate;
+      const isAssistPartner = pending.assistId === me.id;
+      const isTeamFighter = isAttacker || isAssistPartner;
       const hasAnyReaction = (me.inventory ?? []).some((it) =>
         [
           "weak_beer",
@@ -596,18 +618,24 @@ export function PlayView() {
       const myTeamRoll = pending.teamRolls?.[me.id];
       const attackerRoll = pending.teamRolls?.[pending.attackerId];
       const teammateRoll = pending.assistId ? pending.teamRolls?.[pending.assistId] : undefined;
-      const bothTeamRolled = !!attackerRoll && (!!teammateRoll || !pending.teamBattleRequired);
+      const bothTeamRolled = !!attackerRoll && (!pending.assistId || !!teammateRoll);
+      const otherFighterName =
+        me.id === pending.attackerId
+          ? (teammate?.name ?? "")
+          : (attacker?.name ?? sv.play.theAttacker);
 
       if (isTeamFighter) {
         return (
           <div style={{ display: "grid", gap: 10 }}>
             <div style={{ textAlign: "center", opacity: 0.9 }}>
-              Strid — {pending.enemyName} (styrka <b>{pending.need + (pending.needMod ?? 0)}</b>)
+              {sv.play.combatCardSheetTitle} — {pending.enemyName} (styrka{" "}
+              <b>{pending.need + (pending.needMod ?? 0)}</b>)
             </div>
-            {pending.teamBattleRequired && teammate ? (
+            {teammate ? (
               <div style={{ textAlign: "center", opacity: 0.82, fontSize: 12 }}>
-                Team battle: {attacker?.name ?? "—"} {attackerRoll ? "har slagit" : "har inte slagit"} ·{" "}
-                {teammate.name} {teammateRoll ? "har slagit" : "har inte slagit"}
+                {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
+                {attacker?.name ?? "—"} {attackerRoll ? "har slagit" : "har inte slagit"} · {teammate.name}{" "}
+                {teammateRoll ? "har slagit" : "har inte slagit"}
               </div>
             ) : null}
             {mod !== 0 && (
@@ -637,9 +665,11 @@ export function PlayView() {
                 {sv.play.waitIntervene}
                 {deadlineAt > 0 ? ` (${secondsLeft}s)` : ""}
               </div>
-            ) : pending.teamBattleRequired && !bothTeamRolled && myTeamRoll ? (
+            ) : pending.assistId && !bothTeamRolled && myTeamRoll ? (
               <div style={{ textAlign: "center", opacity: 0.82 }}>
-                {teammate ? sv.play.waitTeammateCombatRoll(teammate.name) : sv.play.waitTeamSecondRoll}
+                {otherFighterName
+                  ? sv.play.waitTeammateCombatRoll(otherFighterName)
+                  : sv.play.waitTeamSecondRoll}
               </div>
             ) : (
               <ArcadeButton
@@ -658,37 +688,128 @@ export function PlayView() {
         );
       }
 
+      if (isEligibleReactor && !hasAnyReaction && attacker) {
+        if (!reactionOpen) {
+          return <div style={{ textAlign: "center", opacity: 0.75 }}>Reaktionsfönstret har stängt.</div>;
+        }
+        if (hasPassed) {
+          return (
+            <div style={{ textAlign: "center", opacity: 0.78 }}>
+              Du har redan valt. Väntar på att striden fortsätter…
+            </div>
+          );
+        }
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.inCombat(attacker.name)}</div>
+            <div style={{ textAlign: "center", opacity: 0.85, fontSize: 14, lineHeight: 1.45 }}>
+              {sv.play.noInterveneCards}
+            </div>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatReact", playerId: me.id, choice: "pass" })}
+            >
+              {sv.play.doNothing}
+            </ArcadeButton>
+          </div>
+        );
+      }
+
       if (isEligibleReactor && hasAnyReaction && attacker) {
         if (!reactionOpen) {
           return <div style={{ textAlign: "center", opacity: 0.75 }}>Reaktionsfönstret har stängt.</div>;
         }
         if (wantsIntervene) {
+          const interveneItems = (me.inventory ?? []).filter((it) =>
+            [
+              "weak_beer",
+              "light_beer",
+              "folk_beer",
+              "tripwire",
+              "double_hops",
+              "beer_bomb",
+              "hangover",
+              "monster_hype",
+              "yeast_sabotage",
+              "beer_bro",
+            ].includes(String(it.itemId)),
+          );
+          if (interveneItems.length === 0) {
+            return (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.interveneNoCardsPlayable}</div>
+                <ArcadeButton
+                  variant="gray"
+                  fullWidth
+                  onClick={() => {
+                    send({ type: "combatReact", playerId: me.id, choice: "pass" });
+                    setWantsIntervene(false);
+                  }}
+                >
+                  {sv.play.doNothing}
+                </ArcadeButton>
+              </div>
+            );
+          }
+          if (beerBroPickInstance) {
+            const broInst = interveneItems.find((x) => x.instanceId === beerBroPickInstance);
+            const broCandidates = state.players.filter((p) => p.id !== pending.attackerId);
+            if (!broInst) {
+              return (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ textAlign: "center", opacity: 0.85 }}>{sv.play.itemNotFound}</div>
+                  <ArcadeButton variant="gray" fullWidth onClick={() => setBeerBroPickInstance(null)}>
+                    {sv.play.back}
+                  </ArcadeButton>
+                </div>
+              );
+            }
+            return (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.chooseBeerBroPartner}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {broCandidates.map((p) => (
+                    <ArcadeButton
+                      key={p.id}
+                      variant="pink"
+                      fullWidth
+                      onClick={() => {
+                        send({
+                          type: "useItem",
+                          playerId: me.id,
+                          instanceId: broInst.instanceId,
+                          targetPlayerId: p.id,
+                        });
+                        setBeerBroPickInstance(null);
+                        setWantsIntervene(false);
+                      }}
+                    >
+                      {p.name}
+                    </ArcadeButton>
+                  ))}
+                </div>
+                <ArcadeButton variant="gray" fullWidth onClick={() => setBeerBroPickInstance(null)}>
+                  {sv.play.back}
+                </ArcadeButton>
+              </div>
+            );
+          }
           return (
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.intervenePickCard}</div>
               <div style={{ display: "grid", gap: 8 }}>
-                {(me.inventory ?? [])
-                  .filter((it) =>
-                    [
-                      "weak_beer",
-                      "light_beer",
-                      "folk_beer",
-                      "tripwire",
-                      "double_hops",
-                      "beer_bomb",
-                      "hangover",
-                      "monster_hype",
-                      "yeast_sabotage",
-                      "beer_bro",
-                    ].includes(String(it.itemId)),
-                  )
-                  .map((it) => (
+                {interveneItems.map((it) => (
                     <ArcadeButton
                       key={it.instanceId}
                       variant="blue"
                       fullWidth
                       onClick={() => {
                         const id = String(it.itemId);
+                        if (id === "beer_bro") {
+                          setBeerBroPickInstance(it.instanceId);
+                          return;
+                        }
                         const targetPlayerId =
                           [
                             "weak_beer",
@@ -719,8 +840,15 @@ export function PlayView() {
                     </ArcadeButton>
                   ))}
               </div>
-              <ArcadeButton variant="gray" fullWidth onClick={() => setWantsIntervene(false)}>
-                {sv.play.back}
+              <ArcadeButton
+                variant="gray"
+                fullWidth
+                onClick={() => {
+                  send({ type: "combatReact", playerId: me.id, choice: "pass" });
+                  setWantsIntervene(false);
+                }}
+              >
+                {sv.play.interveneCancelPass}
               </ArcadeButton>
             </div>
           );
@@ -762,23 +890,11 @@ export function PlayView() {
 
     if (pending?.type === "moveChoice" && pending.playerId === me.id) {
       const hasBaseDie = typeof pending.baseDie === "number" && Number.isFinite(pending.baseDie);
-      const bonus = hasBaseDie ? pending.die - pending.baseDie : 0;
       const diceFaceValue = hasBaseDie ? pending.baseDie : pending.die;
       return (
         <div style={{ display: "grid", gap: 10 }}>
           <div className={styles.sheetDiceBlock}>
             <DiceCube3D value={diceFaceValue} size={76} />
-            <div className={styles.sheetDiceCaption}>
-              {bonus > 0 && hasBaseDie ? (
-                <span className={styles.sheetDiceCaptionText}>
-                  {sv.play.rolledBonus(pending.baseDie!, bonus, pending.die)}
-                </span>
-              ) : (
-                <span className={styles.sheetDiceCaptionText}>
-                  {sv.play.rolledSteps(pending.die)}
-                </span>
-              )}
-            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {pending.options.map((o) => (
@@ -872,9 +988,7 @@ export function PlayView() {
     if (pending?.type === "door" && myPending) {
       return (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>
-            Dörr — gå till nivå <b>{pending.targetLevelIndex + 1}</b>?
-          </div>
+          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
           <div style={{ display: "grid", gap: 10 }}>
             <ArcadeButton
               variant="blue"
@@ -898,6 +1012,27 @@ export function PlayView() {
               onClick={() => send({ type: "useDoor", playerId: me.id, method: "stay" })}
             >
               {sv.play.stay}
+            </ArcadeButton>
+          </div>
+        </div>
+      );
+    }
+
+    if (pending?.type === "levelUpOffer" && myPending) {
+      return (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ textAlign: "center", opacity: 0.95 }}>
+            {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>
+            {sv.play.levelUpOfferHint}
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "now" })}>
+              {sv.play.levelUpNow}
+            </ArcadeButton>
+            <ArcadeButton variant="gray" fullWidth onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "stay" })}>
+              {sv.play.levelUpStayForTile}
             </ArcadeButton>
           </div>
         </div>
@@ -1105,6 +1240,13 @@ export function PlayView() {
               onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "sip" })}
             >
               {sv.play.givePenaltyKlunk}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "damage" })}
+            >
+              {sv.play.pvpDeal2Damage}
             </ArcadeButton>
             {availableSlots.length > 0 ? (
               availableSlots.map((slot) => (
@@ -1369,7 +1511,7 @@ export function PlayView() {
         maxWidth: 740,
         margin: "0 auto",
         /* Headerhöjd (namn + stat-rad med 11px padding upp/ned) + ~20px luft innan utrustning */
-        padding: `${showHeaderStatsBar ? 160 : 76}px 16px 78px`,
+        padding: `${headerTopPad}px 16px 78px`,
         boxSizing: "border-box",
       }}
     >
@@ -1458,6 +1600,22 @@ export function PlayView() {
                   iconSize={36}
                 />
               </div>
+              {levelUpProgress ? (
+                <div
+                  className={styles.levelProgressWrap}
+                  aria-label={sv.play.levelUpProgressAria(levelUpProgress.targetLevelIndex + 1)}
+                >
+                  <div className={styles.levelProgressRow}>
+                    <div className={styles.levelProgressStack}>
+                      <LevelProgressBar ratio={levelUpProgress.pant} tintClass={styles.levelProgressPant} />
+                      <LevelProgressBar ratio={levelUpProgress.klunk} tintClass={styles.levelProgressKlunk} />
+                    </div>
+                    <div className={styles.levelProgressBadge} aria-hidden>
+                      <img src={LEVEL_UP_ICON} alt="" className={styles.levelProgressBadgeIcon} />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1620,6 +1778,7 @@ export function PlayView() {
                                           display: "block",
                                         }}
                                       />
+                                      <ItemInventoryEffectBadge itemId={itemId} />
                                       {info.count > 1 ? (
                                         <span
                                           style={{
@@ -1677,10 +1836,42 @@ export function PlayView() {
 
             {state.phase === "ended" && (
               <section style={{ padding: 12, border: "1px solid #3333", borderRadius: 12 }}>
-              <h2 style={{ marginTop: 0 }}>{sv.play.gameOver}</h2>
-              <div>
-                {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
-              </div>
+                <h2 style={{ marginTop: 0 }}>{sv.play.gameOver}</h2>
+                <div style={{ marginBottom: 10 }}>
+                  {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
+                </div>
+                <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>{sv.play.scoreboardTitle}</h3>
+                <p style={{ margin: "0 0 10px", opacity: 0.78, fontSize: 12, lineHeight: 1.4 }}>
+                  {sv.play.scoreboardHint}
+                </p>
+                <ol
+                  style={{
+                    margin: 0,
+                    paddingLeft: 20,
+                    display: "grid",
+                    gap: 8,
+                    fontSize: 14,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {[...state.players]
+                    .sort((a, b) => {
+                      const w = state.winnerId;
+                      if (w) {
+                        if (a.id === w) return -1;
+                        if (b.id === w) return 1;
+                      }
+                      if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
+                      if (b.gold !== a.gold) return b.gold - a.gold;
+                      return a.name.localeCompare(b.name, "sv");
+                    })
+                    .map((p) => (
+                      <li key={p.id} style={{ fontWeight: p.id === state.winnerId ? 800 : 600 }}>
+                        {sv.play.scoreboardRow(p.name, p.klunkar, p.gold, p.hp, p.maxHp)}
+                        {p.id === state.winnerId ? " 🏆" : ""}
+                      </li>
+                    ))}
+                </ol>
               </section>
             )}
           </>
@@ -1705,10 +1896,11 @@ export function PlayView() {
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 40,
+          zIndex: showReconnectOverlay ? 90 : 40,
           borderTop: "1px solid #ffffff22",
           background: "rgba(11, 18, 38, 0.75)",
           backdropFilter: "blur(10px)",
+          paddingBottom: "max(10px, env(safe-area-inset-bottom))",
         }}
       >
         <div
@@ -1719,12 +1911,40 @@ export function PlayView() {
             fontSize: 12,
             color: "#ffffff",
             opacity: 0.92,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
+            minWidth: 0,
           }}
         >
-          {sv.play.lobbyHeader(room, wsStatusLabel(status))}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                minWidth: 0,
+                flex: "1 1 auto",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {sv.play.lobbyHeader(room, wsStatusLabel(status))}
+            </div>
+            {showReconnectOverlay ? (
+              <WsReconnectFooterHint
+                phase={overlayPhase}
+                attempt={reconnectAttemptN}
+                connectingShort={sv.play.wsReconnectFooterConnecting}
+                waitingShort={sv.play.wsReconnectFooterWaiting}
+                retryLabel={sv.play.wsRetry}
+                onRetry={requestReconnect}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -1854,13 +2074,18 @@ export function PlayView() {
             const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
             if (!inst) return <div>{sv.play.itemNotFound}</div>;
             const meta = itemMeta(inst.itemId);
-            const needsTarget = meta.target === "other";
+            const broPick = meta.target === "combat_bro";
+            const needsTarget = meta.target === "other" || broPick;
             const canUse = isItemPlayableNow(meta.target);
+            const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
             const candidates =
-              meta.target === "other"
-                ? state.players.filter((p) => p.id !== me.id)
-                : [];
+              broPick && combatAttackerId
+                ? state.players.filter((p) => p.id !== combatAttackerId)
+                : meta.target === "other"
+                  ? state.players.filter((p) => p.id !== me.id)
+                  : [];
             const chosen = needsTarget ? itemTargetId : null;
+            const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
             return (
               <div style={{ display: "grid", gap: 10 }}>
                 <div style={{ fontWeight: 900 }}>{meta.title}</div>
@@ -1887,7 +2112,7 @@ export function PlayView() {
                 <div style={{ opacity: 0.9 }}>{meta.text}</div>
                 {needsTarget && (
                   <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.chooseTarget}</div>
+                    <div style={{ opacity: 0.75, fontSize: 12 }}>{targetPrompt}</div>
                     <div style={{ display: "grid", gap: 8 }}>
                       {candidates.map((p) => (
                         <ArcadeButton
@@ -1905,7 +2130,7 @@ export function PlayView() {
                 <ArcadeButton
                   variant="blue"
                   fullWidth
-                  disabled={!canUse || (needsTarget && !chosen)}
+                  disabled={!canUse || (needsTarget && !chosen) || (broPick && !combatAttackerId)}
                   onClick={() => {
                     send({
                       type: "useItem",
@@ -1927,16 +2152,6 @@ export function PlayView() {
         </Modal>
       )}
 
-      <WsReconnectOverlay
-        show={showReconnectOverlay}
-        phase={overlayPhase}
-        attempt={reconnectAttemptN}
-        connectingLabel={sv.play.wsConnecting}
-        waitingRetryLabel={sv.play.wsWaitingRetry}
-        attemptLabel={sv.play.wsReconnectAttempt}
-        retryLabel={sv.play.wsRetry}
-        onRetry={requestReconnect}
-      />
     </div>
   );
 }
@@ -1967,6 +2182,15 @@ function PlayerStatCell(props: {
         </div>
       </div>
       <span className={styles.statsCellValue}>{props.value}</span>
+    </div>
+  );
+}
+
+function LevelProgressBar(props: { ratio: number; tintClass: string }) {
+  const widthPct = `${Math.round(Math.max(0, Math.min(1, props.ratio)) * 100)}%`;
+  return (
+    <div className={styles.levelProgressTrack}>
+      <div className={`${styles.levelProgressFill} ${props.tintClass}`} style={{ width: widthPct }} />
     </div>
   );
 }
@@ -2066,6 +2290,8 @@ function EquipButton(props: {
 function equipmentUniqueImageSrc(name?: string): string | null {
   if (!name) return null;
   const map: Record<string, string> = {
+    Dubbelpipa: "/equipment/unique/dubbelpipa.png",
+    Enkelpipa: "/equipment/unique/enkelpipa.png",
     Stouthjälm: "/equipment/unique/stouthjalm.png",
     Burkplåtsbrynja: "/equipment/unique/burkplatsbrynja.png",
     Pilsnersköld: "/equipment/unique/pilsnerskold.png",
@@ -2223,7 +2449,9 @@ function MerchantShopTypeIcon(props: { item: ShopItem }) {
   return null;
 }
 
-const ITEM_TARGET: Record<string, "self" | "other" | "combat"> = {
+type ItemUseTarget = "self" | "other" | "combat" | "combat_bro";
+
+const ITEM_TARGET: Record<string, ItemUseTarget> = {
   healing_potion: "self",
   sleep_potion: "other",
   sip_card: "other",
@@ -2239,10 +2467,98 @@ const ITEM_TARGET: Record<string, "self" | "other" | "combat"> = {
   coin_purse: "self",
   monster_hype: "combat",
   yeast_sabotage: "combat",
-  beer_bro: "combat",
+  beer_bro: "combat_bro",
+  split_the_g: "other",
+  canman: "self",
+  not_my_round: "other",
+  spill_intentional: "other",
+  early_night: "combat",
 };
 
-function itemMeta(itemId: any): { title: string; text: string; target: "self" | "other" | "combat" } {
+const ITEM_EFFECT_BADGE_ICONS = {
+  heart: "/icons/heart-icon.svg",
+  monster: "/icons/monster-icon.svg",
+  attack: "/icons/combat-icon.svg",
+  klunk: "/icons/klunk-icon.svg",
+  pant: "/icons/pant-icon.svg",
+} as const;
+
+/** Snabb överblick i inventory-rutan: ikon + tal (läk, pant, monster, spelar-attack i strid). */
+function itemInventoryEffectBadge(itemId: string): { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string } | null {
+  const m: Record<string, { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string }> = {
+    healing_potion: { icon: "heart", label: "+3" },
+    pretzel_snack: { icon: "heart", label: "+2" },
+    coin_purse: { icon: "pant", label: "+4" },
+    weak_beer: { icon: "attack", label: "−2" },
+    light_beer: { icon: "attack", label: "+1" },
+    folk_beer: { icon: "attack", label: "+2" },
+    tripwire: { icon: "attack", label: "−1" },
+    double_hops: { icon: "attack", label: "+2" },
+    beer_bomb: { icon: "attack", label: "+3" },
+    hangover: { icon: "attack", label: "−3" },
+    monster_hype: { icon: "monster", label: "+2" },
+    yeast_sabotage: { icon: "monster", label: "−2" },
+    sip_card: { icon: "klunk", label: "+1" },
+    split_the_g: { icon: "pant", label: "½" },
+    canman: { icon: "pant", label: "+10" },
+    early_night: { icon: "monster", label: "skip" },
+    beer_bro: { icon: "attack", label: "×2" },
+  };
+  return m[String(itemId)] ?? null;
+}
+
+function ItemInventoryEffectBadge({ itemId }: { itemId: string }) {
+  const b = itemInventoryEffectBadge(itemId);
+  if (!b) return null;
+  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        bottom: 0,
+        right: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        padding: "3px 5px 3px 5px",
+        borderRadius: "8px 0 8px 0",
+        background: "rgba(11,18,38,0.92)",
+        border: "1px solid rgba(255,255,255,0.2)",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
+        zIndex: 2,
+        pointerEvents: "none",
+      }}
+    >
+      <img
+        src={src}
+        alt=""
+        width={15}
+        height={15}
+        draggable={false}
+        style={{
+          display: "block",
+          objectFit: "contain",
+          filter: "brightness(0) invert(1)",
+        }}
+      />
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 900,
+          fontVariantNumeric: "tabular-nums",
+          color: "#f8fafc",
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {b.label}
+      </span>
+    </span>
+  );
+}
+
+function itemMeta(itemId: any): { title: string; text: string; target: ItemUseTarget } {
   const id = String(itemId);
   const row = (sv.items as Record<string, { title: string; text: string } | undefined>)[id];
   if (row) return { title: row.title, text: row.text, target: ITEM_TARGET[id] ?? "self" };
@@ -2260,8 +2576,8 @@ function itemImageSrc(itemId: any): string {
     sleep_potion: "/items/sleep-potion.png",
     sip_card: "/items/sip-card.png",
     weak_beer: "/items/drunk-too-much.png",
-    light_beer: "/items/light-beer.png",
-    folk_beer: "/items/folk-beer.png",
+    light_beer: "/items/energy-drink.png",
+    folk_beer: "/items/8-bit-beer.png",
     tripwire: "/items/tripwire.png",
     pretzel_snack: "/items/brezel.png",
     coin_purse: "/items/coin-purse.png",
@@ -2272,6 +2588,11 @@ function itemImageSrc(itemId: any): string {
     monster_hype: "/items/monster-hype.png",
     yeast_sabotage: "/items/yeast-sabotage.png",
     beer_bro: "/items/beer-bro.png",
+    split_the_g: "/card-placeholder.png",
+    canman: "/card-placeholder.png",
+    not_my_round: "/items/not_my_round.png",
+    spill_intentional: "/card-placeholder.png",
+    early_night: "/card-placeholder.png",
   };
   return m[id] ?? "/card-placeholder.png";
 }
@@ -2343,25 +2664,32 @@ function MoveOptionLabel(props: {
 
 function CardArtFrame({ artKey }: { artKey?: string }) {
   return (
-    <div
-      style={{
-        width: "92%",
-        margin: "0 auto 10px",
-        aspectRatio: "4/3",
-        borderRadius: 14,
-        overflow: "hidden",
-        border: "1px solid #ffffff22",
-        background: "rgba(255,255,255,0.92)",
-      }}
-    >
-      <img
-        src={artImageSrc(artKey)}
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+    <div style={{ width: "100%", margin: "0 0 10px", boxSizing: "border-box" }}>
+      <div
+        style={{
+          aspectRatio: "4/3",
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid #ffffff22",
+          background: "transparent",
         }}
-        alt=""
-        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-      />
+      >
+        <img
+          src={artImageSrc(artKey)}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+          }}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "center",
+            display: "block",
+          }}
+        />
+      </div>
+      <CardArtAttribution artKey={artKey} />
     </div>
   );
 }
@@ -2457,6 +2785,8 @@ function CardModal(props: {
   onChoose: (choiceId: string) => void;
   onConfirm: () => void;
 }) {
+  const foundItemArtKey = foundItemArtKeyForCardId(props.cardId);
+  const effectiveArtKey = foundItemArtKey ?? props.artKey;
   const mon = props.kind === "combat" ? monsterFromCardId(props.cardId) : undefined;
   const useMonsterLayout = !!mon;
   const effectiveWin =
@@ -2475,7 +2805,9 @@ function CardModal(props: {
         )
       : null;
   const showCombatLose = !!effectiveLoss;
-  const centeredCombatOutcome = showCombatWin || showCombatLose;
+  const showTreasure = props.kind === "treasure" && !showCombatWin && !showCombatLose;
+  const showDoorLocked = props.cardId === "door_locked";
+  const centeredCombatOutcome = showCombatWin || showCombatLose || showTreasure;
 
   return (
     <div
@@ -2504,6 +2836,57 @@ function CardModal(props: {
           <CombatWinCard data={effectiveWin} onContinue={props.onConfirm} />
         ) : showCombatLose && effectiveLoss ? (
           <CombatLoseCard data={effectiveLoss} onContinue={props.onConfirm} />
+        ) : showDoorLocked ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            <CombatSheetFrame
+              sheetTitle={props.title}
+              titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
+            >
+              <LevelUpLockedCardContent text={props.text} />
+            </CombatSheetFrame>
+            <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
+              <span
+                style={{
+                  fontStyle: "italic",
+                  letterSpacing: "0.12em",
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  fontSize: 15,
+                }}
+              >
+                {sv.play.combatWinContinue}
+              </span>
+            </ArcadeButton>
+          </div>
+        ) : showTreasure ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
+              <TreasureCardContent title={props.title} text={props.text} cardId={props.cardId} />
+            </CombatSheetFrame>
+            {props.choices && props.choices.length > 0 ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {props.choices.map((c) => (
+                  <ArcadeButton key={c.id} variant="blue" fullWidth onClick={() => props.onChoose(c.id)}>
+                    {c.label}
+                  </ArcadeButton>
+                ))}
+              </div>
+            ) : (
+              <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
+                <span
+                  style={{
+                    fontStyle: "italic",
+                    letterSpacing: "0.12em",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    fontSize: 15,
+                  }}
+                >
+                  {sv.play.combatWinContinue}
+                </span>
+              </ArcadeButton>
+            )}
+          </div>
         ) : (
           <>
             {!useMonsterLayout ? (
@@ -2513,7 +2896,7 @@ function CardModal(props: {
               <div style={{ marginBottom: 12 }}>
                 <MonsterEncounterCard
                   title={props.title}
-                  artKey={props.artKey}
+                  artKey={effectiveArtKey}
                   combatStrength={mon.strength}
                   winGold={mon.rewardGold}
                   winItems={mon.rewardItems}
@@ -2524,7 +2907,7 @@ function CardModal(props: {
               </div>
             ) : (
               <>
-                <CardArtFrame artKey={props.artKey} />
+                <CardArtFrame artKey={effectiveArtKey} />
                 <div style={{ opacity: 0.98, color: "#ffffff", marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
                   {props.text}
                 </div>
@@ -2546,6 +2929,69 @@ function CardModal(props: {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function foundItemArtKeyForCardId(cardId: string): string | undefined {
+  const m: Record<string, string> = {
+    event_find_item_heal: "item/heal",
+    event_find_item_sleep: "item/sleep",
+    event_find_item_sip: "item/sip",
+    event_find_item_weak: "item/weak",
+    event_find_item_pretzel: "item/pretzel",
+    event_find_item_coin: "item/coin",
+    event_find_item_hops: "item/hops",
+    event_find_item_hype: "item/hype",
+    event_find_item_sabotage: "item/sabotage",
+    event_find_item_bro: "item/bro",
+    treasure_item_weak: "item/weak",
+    treasure_item_heal: "item/heal",
+    treasure_item_hops: "item/hops",
+  };
+  return m[cardId];
+}
+
+function LevelUpLockedCardContent(props: { text: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+        color: "#fff",
+        padding: "8px 4px 0",
+        gap: 14,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width: 112,
+          height: 112,
+          borderRadius: "50%",
+          display: "grid",
+          placeItems: "center",
+          background: "rgba(255,255,255,0.1)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.2)",
+        }}
+      >
+        <img
+          src="/icons/lvlup.svg"
+          alt=""
+          className="lvlup-lock-icon lvlup-lock-icon-down"
+          style={{
+            width: 36,
+            height: 36,
+            filter: "brightness(0) invert(1)",
+            opacity: 0.96,
+          }}
+        />
+      </div>
+      <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
+        {props.text}
+      </p>
     </div>
   );
 }

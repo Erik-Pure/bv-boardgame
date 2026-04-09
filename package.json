@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "build": "npm run -w @bv/game-core build && npm run -w server build && npm run -w web build",
-    "dev": "concurrently -n server,web -c magenta,green \"npm run -w server dev\" \"npm run -w web dev\"",
+    "dev": "npm run -w @bv/game-core build && concurrently -n server,web -c magenta,green \"npm run -w server dev\" \"npm run -w web dev\"",
     "dev:server": "npm run -w server dev",
     "dev:web": "npm run -w web dev"
   },

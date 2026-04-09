@@ -1,4 +1,11 @@
-import { MONSTERS, type CombatLoseSummary, type CombatWinSummary, type Pending } from "@bv/game-core";
+import {
+  MONSTERS,
+  MONSTER_LOSS_SIP_FLAT,
+  monsterLossKlunkTotal,
+  type CombatLoseSummary,
+  type CombatWinSummary,
+  type Pending,
+} from "@bv/game-core";
 
 /** Ersätter kvarleva "Du" i payload (gamla sparningar) med kortägarens namn. */
 export function resolveCombatWinViewer(
@@ -52,7 +59,7 @@ export function parseLegacyCombatLoseText(text: string, viewerName?: string): Co
   const roll = /Slag:\s*(\d+)\s*\(krävde[s]?\s*(\d+)\)/i.exec(t);
   if (!roll) return null;
   const assist = /Ölkompis-slag[^\n]*/i.exec(t);
-  const redirect = /Öl-bärsärken[^\n]*/i.exec(t);
+  const redirect = /(?:Öl-bärsärken|Rabarbapappan)[^\n]*/i.exec(t);
   return {
     playerName: viewerName?.trim() || "Du",
     enemyName: "",
@@ -71,9 +78,8 @@ export function combatLossKlunksForDisplay(p: Extract<Pending, { type: "combat" 
   if (p.monsterId && p.monsterId !== "boss") {
     const def = MONSTERS.find((m) => m.id === p.monsterId);
     if (def) {
-      const base = p.lossSipsOnLose ?? def.lossSipsOnLose ?? 0;
-      return base + extraTeam;
+      return monsterLossKlunkTotal(def);
     }
   }
-  return (p.lossSipsOnLose ?? 0) + extraTeam;
+  return (p.lossSipsOnLose ?? 0) + extraTeam + MONSTER_LOSS_SIP_FLAT;
 }

@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { CardArtAttribution } from "./CardArtAttribution";
 import { artImageSrc } from "../lib/cardArt";
 import { monsterSpecialRulesForDisplay } from "../lib/monsterCardCopy";
 
 const ICON = {
   combat: "/icons/combat-icon.svg",
+  monster: "/icons/monster-icon.svg",
   thumbUp: "/icons/thumbup-icon.svg",
   thumbDown: "/icons/thumbdown-icon.svg",
   pant: "/icons/pant-icon.svg",
@@ -19,7 +21,6 @@ const THUMB_BADGE_WIN_BG = "#16a34a";
 const THUMB_BADGE_LOSS_BG = "#dc2626";
 
 const MONSTER_HEADER_ICON_SIZE = 24;
-const MONSTER_HEADER_ICON_COLOR = "#ef4444";
 
 /** ~55% av tidigare badge — lite större än exakt hälften. */
 const THUMB_BADGE_SIZE = 22;
@@ -190,10 +191,18 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <MaskedStatIcon
-            src={ICON.combat}
-            color={MONSTER_HEADER_ICON_COLOR}
-            size={MONSTER_HEADER_ICON_SIZE}
+          <img
+            src={ICON.monster}
+            alt=""
+            width={MONSTER_HEADER_ICON_SIZE}
+            height={MONSTER_HEADER_ICON_SIZE}
+            draggable={false}
+            style={{
+              display: "block",
+              flexShrink: 0,
+              objectFit: "contain",
+              filter: ICON_LIGHT,
+            }}
           />
           <div
             style={{
@@ -260,6 +269,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           }}
         />
       </div>
+      <CardArtAttribution artKey={props.artKey} />
 
       {hasWin || hasLoss ? (
         <div

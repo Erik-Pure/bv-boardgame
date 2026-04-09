@@ -4,10 +4,15 @@
     {
       "id": "event_gold",
       "kind": "event",
-      "title": "Hittelön!",
-      "text": "Du hittar några mynt på golvet. +3 pant.",
+      "title": "Tomburkar!",
+      "text": "Du hittar några tomma burkar på golvet.",
       "artKey": "event/gold",
-      "effects": [{ "type": "gold", "amount": 3 }]
+      "effects": [
+        {
+          "type": "gold",
+          "amount": 3
+        }
+      ]
     },
     {
       "id": "event_spill",
@@ -15,23 +20,69 @@
       "title": "Spill!",
       "text": "Du halkar i ett spill. Ta 2 skada.",
       "artKey": "event/spill",
-      "effects": [{ "type": "damage", "amount": 2, "source": "spill" }]
+      "effects": [
+        {
+          "type": "damage",
+          "amount": 2,
+          "source": "spill"
+        }
+      ]
     },
     {
       "id": "event_klunk",
       "kind": "event",
-      "title": "Straffklunk",
+      "title": "Ölprovning",
       "text": "Du åker på en straffklunk. +1 klunk.",
       "artKey": "event/klunk",
-      "effects": [{ "type": "klunkar", "amount": 1 }]
+      "effects": [
+        {
+          "type": "klunkar",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "event_astronomisk_fylla",
+      "kind": "event",
+      "title": "Astronomisk fylla",
+      "text": "Händelsen slår till. Du måste dricka 2 straffklunkar (+2 klunkar).",
+      "artKey": "event/astronomisk-fylla",
+      "effects": [
+        {
+          "type": "klunkar",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "event_ljuset_i_tunneln",
+      "kind": "event",
+      "title": "Ljuset i tunneln",
+      "text": "Du ser ljuset längst bort. Andas ut, läk 2 HP och plocka upp 2 pant på vägen ut.",
+      "artKey": "event/ljuset-i-tunneln",
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 2
+        },
+        {
+          "type": "gold",
+          "amount": 2
+        }
+      ]
     },
     {
       "id": "rest_brewery",
       "kind": "rest",
       "title": "Vila på bryggeriet",
       "text": "Du återhämtar dig. +3 HP (upp till max).",
-      "artKey": "tile/rest",
-      "effects": [{ "type": "heal", "amount": 3 }]
+      "artKey": "event/rest",
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 3
+        }
+      ]
     },
     {
       "id": "treasure_cache",
@@ -39,7 +90,13 @@
       "title": "Skatt!",
       "text": "Du hittar en gömma. +{gold} pant.",
       "artKey": "tile/treasure",
-      "effects": [{ "type": "goldRoll", "base": 3, "die": 6 }]
+      "effects": [
+        {
+          "type": "goldRoll",
+          "base": 3,
+          "die": 6
+        }
+      ]
     },
     {
       "id": "combat_monster",
@@ -47,6 +104,14 @@
       "title": "Strid",
       "text": "Ett monster dyker upp. Slå för att vinna.",
       "artKey": "combat/monster",
+      "effects": []
+    },
+    {
+      "id": "boss_round_win",
+      "kind": "combat",
+      "title": "Runda vunnet!",
+      "text": "Slutbossen har fortfarande liv kvar. Bekräfta för nästa runda.",
+      "artKey": "combat/boss",
       "effects": []
     },
     {
@@ -59,12 +124,23 @@
         {
           "id": "drink",
           "label": "Ta 1 klunk",
-          "effects": [{ "type": "klunkar", "amount": 1 }]
+          "effects": [
+            {
+              "type": "klunkar",
+              "amount": 1
+            }
+          ]
         },
         {
           "id": "damage",
           "label": "Ta 1 skada",
-          "effects": [{ "type": "damage", "amount": 1, "source": "brawl" }]
+          "effects": [
+            {
+              "type": "damage",
+              "amount": 1,
+              "source": "brawl"
+            }
+          ]
         }
       ]
     },
@@ -74,7 +150,12 @@
       "title": "Hittade ett föremål!",
       "text": "Du hittar en helande brygd. Behåll den och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "healing_potion" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "healing_potion"
+        }
+      ]
     },
     {
       "id": "event_find_item_sleep",
@@ -82,7 +163,12 @@
       "title": "Hittade ett föremål!",
       "text": "Du hittar ett sömnmedel. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "sleep_potion" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "sleep_potion"
+        }
+      ]
     },
     {
       "id": "event_find_item_sip",
@@ -90,23 +176,38 @@
       "title": "Hittade ett föremål!",
       "text": "Du hittar ett straffklunk-kort. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "sip_card" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "sip_card"
+        }
+      ]
     },
     {
       "id": "event_find_item_weak",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar kortet Druckit för mycket. Behåll det och använd senare.",
+      "text": "Du hittar Druckit för mycket. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "weak_beer" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "weak_beer"
+        }
+      ]
     },
     {
       "id": "event_find_item_pretzel",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar en brezel. Behåll den och använd senare.",
+      "text": "Du hittar en pretzel. Behåll den och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "pretzel_snack" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "pretzel_snack"
+        }
+      ]
     },
     {
       "id": "event_find_item_coin",
@@ -114,31 +215,51 @@
       "title": "Hittade ett föremål!",
       "text": "Du hittar en pantpåse. Behåll den och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "coin_purse" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "coin_purse"
+        }
+      ]
     },
     {
       "id": "event_find_item_hops",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar Dubbelhumle. Behåll det och använd senare.",
+      "text": "Du hittar En hjälpande hand. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "double_hops" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "double_hops"
+        }
+      ]
     },
     {
       "id": "event_find_item_hype",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar Monsterpepp. Behåll det och använd senare.",
+      "text": "Du hittar Okontrollerad jäsning. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "monster_hype" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "monster_hype"
+        }
+      ]
     },
     {
       "id": "event_find_item_sabotage",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar Jäst-sabotage. Behåll det och använd senare.",
+      "text": "Du hittar Skakad öl. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "yeast_sabotage" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "yeast_sabotage"
+        }
+      ]
     },
     {
       "id": "event_find_item_bro",
@@ -146,17 +267,45 @@
       "title": "Hittade ett föremål!",
       "text": "Du hittar ett Ölkompis-kort. Behåll det och använd senare.",
       "artKey": "event/item",
-      "effects": [{ "type": "item", "itemId": "beer_bro" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "beer_bro"
+        }
+      ]
     },
     {
       "id": "event_quench",
       "kind": "event",
       "title": "Släck törsten",
-      "text": "Du sveper en kall. Ta 1 klunk och läka 2 HP.",
+      "text": "Du sveper en kall. Ta 1 klunk och få 2 HP.",
       "artKey": "event/quench",
       "effects": [
-        { "type": "klunkar", "amount": 1 },
-        { "type": "heal", "amount": 2 }
+        {
+          "type": "klunkar",
+          "amount": 1
+        },
+        {
+          "type": "heal",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "event_sotsug",
+      "kind": "event",
+      "title": "Sötsug",
+      "text": "Du får sötsug. Drick 2 klunkar och läk 2 HP.",
+      "artKey": "event/munchies",
+      "effects": [
+        {
+          "type": "klunkar",
+          "amount": 2
+        },
+        {
+          "type": "heal",
+          "amount": 2
+        }
       ]
     },
     {
@@ -167,7 +316,11 @@
       "artKey": "event/offering",
       "effects": [],
       "choices": [
-        { "id": "choose", "label": "Välj en spelare", "effects": [] }
+        {
+          "id": "choose",
+          "label": "Välj en spelare",
+          "effects": []
+        }
       ]
     },
     {
@@ -184,7 +337,12 @@
       "title": "Skål!",
       "text": "Skål! Ta 1 klunk.",
       "artKey": "event/cheers",
-      "effects": [{ "type": "klunkar", "amount": 1 }]
+      "effects": [
+        {
+          "type": "klunkar",
+          "amount": 1
+        }
+      ]
     },
     {
       "id": "event_apocalypse",
@@ -202,7 +360,11 @@
       "artKey": "event/gift",
       "effects": [],
       "choices": [
-        { "id": "choose", "label": "Välj en spelare", "effects": [] }
+        {
+          "id": "choose",
+          "label": "Välj en spelare",
+          "effects": []
+        }
       ]
     },
     {
@@ -216,12 +378,19 @@
     {
       "id": "event_spilled_pints",
       "kind": "event",
-      "title": "Spillda öl",
-      "text": "Golv är en enda röra. Ta 1 skada och +1 klunk.",
+      "title": "Spilld öl",
+      "text": "Golvet är en enda röra. Ta 1 skada och +1 klunk.",
       "artKey": "event/spilled",
       "effects": [
-        { "type": "damage", "amount": 1, "source": "spill" },
-        { "type": "klunkar", "amount": 1 }
+        {
+          "type": "damage",
+          "amount": 1,
+          "source": "spill"
+        },
+        {
+          "type": "klunkar",
+          "amount": 1
+        }
       ]
     },
     {
@@ -230,7 +399,12 @@
       "title": "Skatt: föremålskort",
       "text": "Du hittar ett föremålskort: Druckit för mycket.",
       "artKey": "tile/treasure",
-      "effects": [{ "type": "item", "itemId": "weak_beer" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "weak_beer"
+        }
+      ]
     },
     {
       "id": "treasure_item_heal",
@@ -238,15 +412,25 @@
       "title": "Skatt: föremålskort",
       "text": "Du hittar ett föremålskort: Helande brygd.",
       "artKey": "tile/treasure",
-      "effects": [{ "type": "item", "itemId": "healing_potion" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "healing_potion"
+        }
+      ]
     },
     {
       "id": "treasure_item_hops",
       "kind": "treasure",
       "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: Dubbelhumle.",
+      "text": "Du hittar ett föremålskort: En hjälpande hand.",
       "artKey": "tile/treasure",
-      "effects": [{ "type": "item", "itemId": "double_hops" }]
+      "effects": [
+        {
+          "type": "item",
+          "itemId": "double_hops"
+        }
+      ]
     },
     {
       "id": "item_healing_potion",
@@ -254,7 +438,12 @@
       "title": "Helande brygd",
       "text": "Använd: återställ 3 HP.",
       "artKey": "item/heal",
-      "effects": [{ "type": "heal", "amount": 3 }]
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 3
+        }
+      ]
     },
     {
       "id": "item_sleep_potion",
@@ -267,7 +456,7 @@
     {
       "id": "item_sip_card",
       "kind": "item",
-      "title": "Straffklunk",
+      "title": "Ölprovning",
       "text": "Använd på en annan spelare: den får +1 klunk.",
       "artKey": "item/sip",
       "effects": []
@@ -283,7 +472,7 @@
     {
       "id": "item_light_beer",
       "kind": "item",
-      "title": "Lättöl",
+      "title": "Energidryck",
       "text": "Stridsreaktion: +1 på vald spelares attack (annars angripare).",
       "artKey": "item/light-beer",
       "effects": []
@@ -291,15 +480,15 @@
     {
       "id": "item_folk_beer",
       "kind": "item",
-      "title": "Folköl",
+      "title": "8-bit beer",
       "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare).",
-      "artKey": "item/folk-beer",
+      "artKey": "item/8-bit-beer",
       "effects": []
     },
     {
       "id": "item_tripwire",
       "kind": "item",
-      "title": "Krokben",
+      "title": "Halt golv",
       "text": "Stridsreaktion: −1 på vald spelares attack (annars angripare).",
       "artKey": "item/tripwire",
       "effects": []
@@ -307,10 +496,15 @@
     {
       "id": "item_pretzel_snack",
       "kind": "item",
-      "title": "Brezel",
+      "title": "Pretzel",
       "text": "Använd: återställ 2 HP.",
       "artKey": "item/pretzel",
-      "effects": [{ "type": "heal", "amount": 2 }]
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 2
+        }
+      ]
     },
     {
       "id": "item_coin_purse",
@@ -318,12 +512,17 @@
       "title": "Pantpåse",
       "text": "Använd: få +4 pant.",
       "artKey": "item/coin",
-      "effects": [{ "type": "gold", "amount": 4 }]
+      "effects": [
+        {
+          "type": "gold",
+          "amount": 4
+        }
+      ]
     },
     {
       "id": "item_double_hops",
       "kind": "item",
-      "title": "Dubbelhumle",
+      "title": "En hjälpande hand",
       "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare). Påverkar spelare, inte monstret.",
       "artKey": "item/hops",
       "effects": []
@@ -355,7 +554,7 @@
     {
       "id": "item_monster_hype",
       "kind": "item",
-      "title": "Monsterpepp",
+      "title": "Okontrollerad jäsning",
       "text": "Stridsreaktion: +2 på monstrets styrka. Påverkar inte spelarnas attack.",
       "artKey": "item/hype",
       "effects": []
@@ -363,7 +562,7 @@
     {
       "id": "item_yeast_sabotage",
       "kind": "item",
-      "title": "Jäst-sabotage",
+      "title": "Skakad öl",
       "text": "Stridsreaktion: −2 på monstrets styrka. Påverkar inte spelarnas attack.",
       "artKey": "item/sabotage",
       "effects": []
@@ -375,6 +574,85 @@
       "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada.",
       "artKey": "item/bro",
       "effects": []
+    },
+    {
+      "id": "event_faulty_brewery",
+      "kind": "event",
+      "title": "Fel på bryggverket",
+      "text": "Bryggverket havererar. Betala 5 pant.",
+      "artKey": "event/faulty-brewery",
+      "effects": [
+        {
+          "type": "gold",
+          "amount": -5
+        }
+      ]
+    },
+    {
+      "id": "event_new_launch",
+      "kind": "event",
+      "title": "Nylansering av öl",
+      "text": "En ny favorit säljer slut direkt. +6 pant.",
+      "artKey": "event/new-launch",
+      "effects": [
+        {
+          "type": "gold",
+          "amount": 6
+        }
+      ]
+    },
+    {
+      "id": "event_lengraddad",
+      "kind": "event",
+      "title": "Lengräddad",
+      "text": "Du klarar dig precis. Nästa strid: -2 i attack.",
+      "artKey": "event/lengraddad",
+      "effects": [
+        {
+          "type": "nextCombatMod",
+          "amount": -2
+        }
+      ]
+    },
+    {
+      "id": "item_split_the_g",
+      "kind": "item",
+      "title": "Split the G",
+      "text": "Använd på en annan spelare: ta hälften av spelarens pant (avrundat nedåt).",
+      "artKey": "item/split-the-g",
+      "effects": []
+    },
+    {
+      "id": "item_canman",
+      "kind": "item",
+      "title": "Canman",
+      "text": "Använd på dig själv: +1 pant per drag i 10 rundor.",
+      "artKey": "item/canman",
+      "effects": []
+    },
+    {
+      "id": "item_not_my_round",
+      "kind": "item",
+      "title": "Rundan är inte på mig",
+      "text": "Använd på en annan spelare: stjäl slumpmässigt ett item eller utrustning.",
+      "artKey": "item/not-my-round",
+      "effects": []
+    },
+    {
+      "id": "item_spill_intentional",
+      "kind": "item",
+      "title": "Spilla med flit",
+      "text": "Använd på en annan spelare: förstör slumpmässigt ett item eller utrustning.",
+      "artKey": "item/spill-intentional",
+      "effects": []
+    },
+    {
+      "id": "item_early_night",
+      "kind": "item",
+      "title": "Vaska direkt",
+      "text": "Använd i strid som angripare: skippa monstret och avsluta mötet.",
+      "artKey": "item/early-night",
+      "effects": []
     }
   ],
   "decks": {
@@ -382,6 +660,8 @@
       "event_gold",
       "event_spill",
       "event_klunk",
+      "event_astronomisk_fylla",
+      "event_ljuset_i_tunneln",
       "choice_drink_or_damage",
       "event_find_item_heal",
       "event_find_item_sleep",
@@ -394,16 +674,27 @@
       "event_find_item_sabotage",
       "event_find_item_bro",
       "event_quench",
+      "event_sotsug",
       "event_friendly_offering",
       "event_loser_wins",
       "event_cheers",
       "event_apocalypse",
       "event_gift_sip",
       "event_round_on_me",
-      "event_spilled_pints"
+      "event_spilled_pints",
+      "event_faulty_brewery",
+      "event_new_launch",
+      "event_lengraddad"
     ],
-    "rest": ["rest_brewery"],
-    "treasure": ["treasure_cache", "treasure_item_weak", "treasure_item_heal", "treasure_item_hops"],
+    "rest": [
+      "rest_brewery"
+    ],
+    "treasure": [
+      "treasure_cache",
+      "treasure_item_weak",
+      "treasure_item_heal",
+      "treasure_item_hops"
+    ],
     "item": [
       "item_healing_potion",
       "item_sleep_potion",
@@ -420,8 +711,12 @@
       "item_hangover",
       "item_monster_hype",
       "item_yeast_sabotage",
-      "item_beer_bro"
+      "item_beer_bro",
+      "item_split_the_g",
+      "item_canman",
+      "item_not_my_round",
+      "item_spill_intentional",
+      "item_early_night"
     ]
   }
 }
-

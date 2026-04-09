@@ -9,7 +9,7 @@ export const clientHelloSchema = z.object({
   config: z
     .object({
       turnSeconds: z.number().int().min(10).max(600).optional(),
-      gameMode: z.enum(["bossKill", "goldenBeerEscape"]).optional(),
+      gameMode: z.enum(["bossKill"]).optional(),
     })
     .optional(),
 });

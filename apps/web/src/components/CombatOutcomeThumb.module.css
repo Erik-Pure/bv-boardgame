@@ -70,6 +70,26 @@
   user-select: none;
 }
 
+.treasure {
+  background: linear-gradient(165deg, #ca8a04 0%, #854d0e 100%);
+  border: 2px solid rgba(253, 224, 71, 0.55);
+}
+
+.treasureEmpty {
+  background: linear-gradient(165deg, #334155 0%, #1e293b 100%);
+  border: 2px solid rgba(148, 163, 184, 0.35);
+}
+
+.treasureEmptyIcon {
+  width: 28px;
+  height: 28px;
+  display: block;
+  filter: brightness(0) invert(1);
+  opacity: 0.42;
+  pointer-events: none;
+  user-select: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .badge {
     animation: none;

@@ -56,6 +56,24 @@ function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef 
   return normal[Math.floor(rng() * normal.length)]!;
 }
 
+/** Slutboss-ruta: använder {@link GameState.finalBossMonsterId} och samma regler som monsterkortet. */
+export function createFinalBossCombatPending(
+  state: GameState,
+  attacker: Player,
+): Extract<Pending, { type: "combat" }> | null {
+  const id = state.finalBossMonsterId;
+  if (!id) return null;
+  const monster = MONSTERS.find((m) => m.id === id);
+  if (!monster) return null;
+  const base = createMonsterCombatPending(state, attacker, monster);
+  const lives = state.finalBossLivesRemaining ?? 3;
+  const extra = `Slutboss: ${lives} liv kvar — varje vunnet slag tar ett liv. Förlorar du en runda behåller bossen sina återstående liv.`;
+  return {
+    ...base,
+    enemyIntroText: [base.enemyIntroText?.trim(), extra].filter(Boolean).join("\n\n"),
+  };
+}
+
 export function createMonsterCombatPending(
   state: GameState,
   attacker: Player,
@@ -100,7 +118,7 @@ export function enterMonsterCombatFromTile(
 ): void {
   const monster = pickMonsterForLevel(rng, player.levelIndex);
   log(state, `${player.name} stöter på: ${monster.name}.`);
-  if (monster.id === "sip_snatcher") {
+  if (monster.id === "belgisk_munk") {
     showCard(state, {
       playerId: player.id,
       kind: "combat",
@@ -244,8 +262,8 @@ export function handleCardOption(params: {
 } {
   const { state, player: p, pending, choiceId, rng, log } = params;
 
-  if (pending.kind === "combat" && pending.cardId === "monster:sip_snatcher") {
-    const monster = MONSTERS.find((m) => m.id === "sip_snatcher");
+  if (pending.kind === "combat" && pending.cardId === "monster:belgisk_munk") {
+    const monster = MONSTERS.find((m) => m.id === "belgisk_munk");
     if (!monster) return { handled: true, error: "Ogiltigt monster" };
     if (choiceId === "sip_leave") {
       p.klunkar += 1;
@@ -322,6 +340,15 @@ export function handleCardConfirm(params: {
 
     log(state, `${attacker.name} möter ${monster.name}.`);
     return { handled: true, startCombat: createMonsterCombatPending(state, attacker, monster) };
+  }
+
+  if (pending.kind === "combat" && pending.cardId === "boss_round_win") {
+    const attacker = state.players.find((x) => x.id === pending.playerId);
+    if (!attacker) return { handled: true };
+    const start = createFinalBossCombatPending(state, attacker);
+    if (!start) return { handled: true };
+    log(state, `${attacker.name} går in i nästa runda mot slutbossen.`);
+    return { handled: true, startCombat: start };
   }
 
   return { handled: false };

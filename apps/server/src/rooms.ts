@@ -63,7 +63,7 @@ export function joinRoom(params: {
   playerName: string;
   role: ClientRole;
   requestedPlayerId?: string;
-  config?: { turnSeconds?: number; gameMode?: "bossKill" | "goldenBeerEscape" };
+  config?: { turnSeconds?: number; gameMode?: "bossKill" };
 }): { conn: ClientConn; room: Room } | { error: string } {
   const { room, created } = getOrCreateRoom(params.roomCode);
 

@@ -1,12 +1,5 @@
-import { createRng, pick, rollDie } from "./rng.js";
+import { createRng, rollDie } from "./rng.js";
 import type { LevelBoard, Tile, TileType } from "./types.js";
-
-const BOSS_NAMES = [
-  "Sour Yeast",
-  "Spill from Hell",
-  "Empty Tank",
-  "Golden Cap",
-] as const;
 
 /** Yttre kant på “hålet” i mitten: 5×5 → 4·5−4 = 16 rutor per våning. */
 export const BOARD_RING_GRID_SIZE = 5;
@@ -46,11 +39,11 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
   if (li === 0) {
     return {
       empty: 0,
-      event: 5,
-      combat: 4,
-      merchant: 2,
+      event: 6,
+      combat: 5,
+      merchant: 1,
       door: 1,
-      rest: 2,
+      rest: 1,
       treasure: 2,
       boss: 0,
     };
@@ -59,10 +52,10 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
     return {
       empty: 0,
       event: 4,
-      combat: 5,
-      merchant: 2,
+      combat: 7,
+      merchant: 1,
       door: 1,
-      rest: 2,
+      rest: 1,
       treasure: 2,
       boss: 0,
     };
@@ -71,21 +64,21 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
     return {
       empty: 0,
       event: 4,
-      combat: 6,
-      merchant: 2,
-      door: 1,
-      rest: 1,
+      combat: 8,
+      merchant: 1,
+      door: 0,
+      rest: 0,
       treasure: 2,
-      boss: 0,
+      boss: 1,
     };
   }
   return {
     empty: 0,
     event: 4,
-    combat: 5,
-    merchant: 2,
+    combat: 8,
+    merchant: 1,
     door: 0,
-    rest: 2,
+    rest: 0,
     treasure: 2,
     boss: 1,
   };
@@ -96,8 +89,8 @@ export function generateLevels(seed: number): LevelBoard[] {
   const levels: LevelBoard[] = [];
   const n = ringTileCount(BOARD_RING_GRID_SIZE);
 
-  /** Nivå 0 = källare; 1–3 övriga våningar. */
-  const NUM_LEVELS = 4;
+  /** Nivå 0 = källare; 1–2 övriga våningar (totalt 3 nivåer). */
+  const NUM_LEVELS = 3;
 
   for (let li = 0; li < NUM_LEVELS; li++) {
     const tiles: Tile[] = [];
@@ -123,8 +116,8 @@ export function generateLevels(seed: number): LevelBoard[] {
           ty === "boss"
             ? base + 6 + rollDie(rng, 3)
             : base + rollDie(rng, 4);
-        const bossName =
-          ty === "boss" ? pick(rng, [...BOSS_NAMES]) : undefined;
+        /** Namn/styrka skrivs över i `startGame` utifrån vald slutboss. */
+        const bossName = ty === "boss" ? "Slutboss" : undefined;
         tiles.push(
           makeTile(id, ty, {
             combatValue,

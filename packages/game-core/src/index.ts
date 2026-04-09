@@ -29,8 +29,16 @@ export {
   applyAction,
   brewerLevel,
   createEmptyLobby,
+  levelUpCostsForTargetLevel,
   lobbyAddPlayer,
   startGame,
 } from "./engine.js";
-export { MONSTERS, monsterLossKlunkTotal, type MonsterDef, type MonsterId } from "./monsters.js";
+export {
+  FINAL_BOSS_IDS,
+  MONSTERS,
+  MONSTER_LOSS_SIP_FLAT,
+  monsterLossKlunkTotal,
+  type MonsterDef,
+  type MonsterId,
+} from "./monsters.js";
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";

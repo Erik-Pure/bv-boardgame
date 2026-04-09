@@ -3,8 +3,9 @@
   --half: calc(var(--dice-size) / 2);
   position: relative;
   overflow: visible;
-  perspective: 480px;
-  perspective-origin: 50% 40%;
+  /* Centrerat perspektiv så framsidan projiceras mot mitten av rutan — samma punkt som sifferöverlägget */
+  perspective: 640px;
+  perspective-origin: 50% 50%;
   display: grid;
   place-items: center;
   width: var(--dice-size);
@@ -95,7 +96,7 @@
   content: "";
   position: absolute;
   left: 50%;
-  top: 44%;
+  top: 50%;
   z-index: 0;
   width: calc(var(--dice-size) * 2.25);
   height: calc(var(--dice-size) * 2.25);
@@ -104,7 +105,7 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
   background: radial-gradient(
-    circle at 42% 40%,
+    circle at 50% 50%,
     rgba(251, 207, 232, 0.68) 0%,
     rgba(233, 213, 255, 0.45) 16%,
     rgba(192, 132, 252, 0.26) 32%,
@@ -114,7 +115,7 @@
   );
   /* Extra mjuk kanttoning: hela lagret dör ut mot ellipsens ytterkant */
   -webkit-mask-image: radial-gradient(
-    ellipse 92% 92% at 42% 40%,
+    ellipse 92% 92% at 50% 50%,
     #000 0%,
     #000 38%,
     rgba(0, 0, 0, 0.45) 62%,
@@ -122,7 +123,7 @@
     transparent 100%
   );
   mask-image: radial-gradient(
-    ellipse 92% 92% at 42% 40%,
+    ellipse 92% 92% at 50% 50%,
     #000 0%,
     #000 38%,
     rgba(0, 0, 0, 0.45) 62%,

@@ -17,8 +17,9 @@ export function applyEffects(params: {
   const out = params.out ?? {};
   for (const e of params.effects) {
     if (e.type === "gold") {
-      params.player.gold += e.amount;
-      out.gold = (out.gold ?? 0) + e.amount;
+      const before = params.player.gold;
+      params.player.gold = Math.max(0, params.player.gold + e.amount);
+      out.gold = (out.gold ?? 0) + (params.player.gold - before);
     } else if (e.type === "goldRoll") {
       const g = e.base + rollDie(params.rng, e.die);
       params.player.gold += g;
@@ -33,6 +34,9 @@ export function applyEffects(params: {
         itemId: e.itemId as any,
       });
       out.item = (out.item ?? 0) + 1;
+    } else if (e.type === "nextCombatMod") {
+      params.player.nextCombatModifier = (params.player.nextCombatModifier ?? 0) + e.amount;
+      out.nextCombatMod = (out.nextCombatMod ?? 0) + e.amount;
     } else if (e.type === "heal") {
       const before = params.player.hp;
       params.player.hp = Math.min(params.player.maxHp, params.player.hp + e.amount);

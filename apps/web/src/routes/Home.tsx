@@ -16,7 +16,6 @@ export function Home() {
   const [roomCode, setRoomCode] = useState("");
   const [name, setName] = useState("");
   const suggested = useMemo(() => randomCode(), []);
-  const [mode, setMode] = useState<"bossKill" | "goldenBeerEscape">("bossKill");
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
@@ -27,26 +26,9 @@ export function Home() {
         <div style={{ padding: 16, border: "1px solid #3333", borderRadius: 12 }}>
           <h2 style={{ marginTop: 0 }}>{sv.home.bigScreenTitle}</h2>
           <p style={{ opacity: 0.8 }}>{sv.home.bigScreenHint}</p>
-          <div style={{ display: "grid", gap: 10, marginBottom: 10 }}>
-            <div style={{ opacity: 0.85, fontSize: 14 }}>{sv.home.gameMode}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <ArcadeButton
-                variant={mode === "bossKill" ? "pink" : "gray"}
-                onClick={() => setMode("bossKill")}
-              >
-                {sv.home.modeBossKill}
-              </ArcadeButton>
-              <ArcadeButton
-                variant={mode === "goldenBeerEscape" ? "pink" : "gray"}
-                onClick={() => setMode("goldenBeerEscape")}
-              >
-                {sv.home.modeGoldenBeer}
-              </ArcadeButton>
-            </div>
-          </div>
           <ArcadeButton
             variant="blue"
-            onClick={() => nav(`/table?room=${suggested}&name=Bord&mode=${mode}`)}
+            onClick={() => nav(`/table?room=${suggested}&name=Bord`)}
           >
             {sv.home.createLobby(suggested)}
           </ArcadeButton>
