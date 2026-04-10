@@ -1,0 +1,62 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/** I flip-modal: fyll kortytans höjd så ramen täcker hela framsidan. */
+.wrapFill {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200%;
+  height: 200%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    #a855f7,
+    #ec4899,
+    #f97316,
+    #eab308,
+    #6366f1,
+    #22d3ee,
+    #a855f7
+  );
+  animation: monsterCardBorderSpin 3.8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes monsterCardBorderSpin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  margin: 2px;
+  border-radius: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

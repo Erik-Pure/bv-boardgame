@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { CardArtAttribution } from "./CardArtAttribution";
-import { artImageSrc } from "../lib/cardArt";
+import { artAttributionLabel, artImageSrc } from "../lib/cardArt";
 import { monsterSpecialRulesForDisplay } from "../lib/monsterCardCopy";
+import styles from "./MonsterEncounterCard.module.css";
 
 const ICON = {
   combat: "/icons/combat-icon.svg",
@@ -19,6 +20,7 @@ const ICON_LIGHT = "brightness(0) invert(1)";
 
 const THUMB_BADGE_WIN_BG = "#16a34a";
 const THUMB_BADGE_LOSS_BG = "#dc2626";
+const MONSTER_ICON_TINT = "#ef4444";
 
 const MONSTER_HEADER_ICON_SIZE = 24;
 
@@ -90,9 +92,15 @@ export type MonsterEncounterCardProps = {
   lossKlunks: number;
   /** Specialregler; standard vinst/förlust visas med ikoner ovan. */
   specialRules?: string;
+  /** Visa egen ytterram/padding (default true). Sätt false när kortet redan ligger i en ramad modal. */
+  framed?: boolean;
+  /** När true: sträck till tillgänglig höjd (t.ex. CardFlipModalShell) och håll ölreferens längst ner. */
+  fillAvailableHeight?: boolean;
 };
 
 export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
+  const framed = props.framed !== false;
+  const fill = !!props.fillAvailableHeight;
   const hasWin = props.winGold > 0 || props.winItems > 0;
   const hasLoss = props.lossDamage > 0 || props.lossKlunks > 0;
   const rulesForDisplay = monsterSpecialRulesForDisplay(props.specialRules);
@@ -168,19 +176,20 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
     </div>
   );
 
+  const showAttribution = !!artAttributionLabel(props.artKey);
+
   return (
-    <div
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        borderRadius: 14,
-        border: "1px solid #ffffff22",
-        background: "#0b1226",
-        padding: 12,
-        color: "#fff",
-        overflow: "visible",
-      }}
-    >
+    <div className={[styles.wrap, fill && styles.wrapFill].filter(Boolean).join(" ")}>
+      <div className={styles.spin} aria-hidden />
+      <div
+        className={styles.inner}
+        style={{
+          background: framed ? "#0b1226" : "rgba(11, 18, 38, 0.97)",
+          padding: framed ? 12 : 10,
+          color: "#fff",
+          overflow: "visible",
+        }}
+      >
       <div
         style={{
           display: "flex",
@@ -191,21 +200,27 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <img
-            src={ICON.monster}
-            alt=""
-            width={MONSTER_HEADER_ICON_SIZE}
-            height={MONSTER_HEADER_ICON_SIZE}
-            draggable={false}
+          <span
+            aria-hidden
             style={{
               display: "block",
+              width: MONSTER_HEADER_ICON_SIZE,
+              height: MONSTER_HEADER_ICON_SIZE,
               flexShrink: 0,
-              objectFit: "contain",
-              filter: ICON_LIGHT,
+              backgroundColor: MONSTER_ICON_TINT,
+              maskImage: `url(${ICON.monster})`,
+              WebkitMaskImage: `url(${ICON.monster})`,
+              maskSize: "contain",
+              WebkitMaskSize: "contain",
+              maskRepeat: "no-repeat",
+              WebkitMaskRepeat: "no-repeat",
+              maskPosition: "center",
+              WebkitMaskPosition: "center",
             }}
           />
           <div
             style={{
+              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
               fontWeight: 900,
               fontSize: 21,
               lineHeight: 1.1,
@@ -269,7 +284,6 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           }}
         />
       </div>
-      <CardArtAttribution artKey={props.artKey} />
 
       {hasWin || hasLoss ? (
         <div
@@ -320,6 +334,20 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           {rulesForDisplay}
         </div>
       ) : null}
+      {fill ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
+      {showAttribution ? (
+        <div
+          style={{
+            marginTop: fill ? 0 : 14,
+            paddingTop: 10,
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            flexShrink: 0,
+          }}
+        >
+          <CardArtAttribution artKey={props.artKey} dense />
+        </div>
+      ) : null}
+      </div>
     </div>
   );
 }

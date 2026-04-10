@@ -298,6 +298,40 @@
   background: linear-gradient(90deg, #f59e0b 0%, #facc15 100%);
 }
 
+/* Över kortmodal (z 100) när knappar ligger i arket */
+.bottomSheetAboveCard {
+  z-index: 140 !important;
+}
+
+.sipKlunkIconWobble {
+  transform-origin: 50% 65%;
+  animation: sipKlunkWobble 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes sipKlunkWobble {
+  0% {
+    transform: rotate(0deg) scale(0.9);
+    opacity: 0;
+  }
+  18% {
+    transform: rotate(-9deg) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: rotate(7deg);
+  }
+  62% {
+    transform: rotate(-5deg);
+  }
+  82% {
+    transform: rotate(3deg);
+  }
+  100% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+}
+
 .bottomSheet {
   position: fixed;
   left: 0;

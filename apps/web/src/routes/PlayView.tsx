@@ -18,10 +18,9 @@ import {
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
-import { CombatLoseCard } from "../components/CombatLoseCard";
-import { CombatOutcomeThumb } from "../components/CombatOutcomeThumb";
+import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
-import { CombatWinCard } from "../components/CombatWinCard";
+import { CombatWinCardContent } from "../components/CombatWinCard";
 import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
@@ -32,6 +31,8 @@ import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import styles from "./PlayView.module.css";
 import activeTurnRainbow from "../styles/activeTurnRainbow.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
+import { CardFlipModalShell } from "../components/CardFlipModalShell";
+import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { artImageSrc } from "../lib/cardArt";
 import {
   combatLossKlunksForDisplay,
@@ -41,6 +42,9 @@ import {
   resolveCombatWinViewer,
 } from "../lib/combatUi";
 import { sv, wsStatusLabel, capitalizeWord, equipmentSlotSv, tileTypeSv } from "../lib/uiStrings";
+
+/** Mobil: under egen fiendeintro döljs spelarnamn i headern (modalen visar redan "… MÖTER"). */
+const PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ = "(max-width: 640px)";
 
 function findMe(state: GameState | null, myId: string | null) {
   if (!state || !myId) return null;
@@ -350,6 +354,29 @@ export function PlayView() {
     const list = state.sipNotices ?? [];
     return list.find((n) => n.recipientId === me.id) ?? null;
   }, [state?.sipNotices, state?.phase, me?.id]);
+  const myCardPending = useMemo(() => {
+    if (!state || state.phase !== "playing" || !me) return null;
+    if (state.pending?.type !== "card") return null;
+    return state.pending.playerId === me.id ? state.pending : null;
+  }, [state?.pending, state?.phase, me?.id]);
+  const myEnemyIntroPending = useMemo(() => {
+    if (!state || state.phase !== "playing" || !me) return null;
+    if (state.pending?.type !== "combat" || state.pending.phase !== "enemyIntro") return null;
+    return state.pending.attackerId === me.id ? state.pending : null;
+  }, [state?.pending, state?.phase, me?.id]);
+
+  const [playEnemyIntroMobile, setPlayEnemyIntroMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ);
+    const apply = () => setPlayEnemyIntroMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  const hidePlayHeaderNameForEnemyIntro = playEnemyIntroMobile && !!myEnemyIntroPending;
+
   const hasBlockingSipNotice = !!mySipNotice;
 
   const send = (action: ClientAction) => {
@@ -445,36 +472,8 @@ export function PlayView() {
     if (pending?.type === "combat" && pending.phase === "enemyIntro") {
       const isAttacker = pending.attackerId === me.id;
       const attacker = state.players.find((p) => p.id === pending.attackerId);
-      const teammate = pending.assistId ? state.players.find((p) => p.id === pending.assistId) : null;
-      const hasEnemyCard = pending.monsterId !== "boss";
       if (isAttacker) {
-        return (
-          <div style={{ display: "grid", gap: 12 }}>
-            {teammate ? <div style={{ textAlign: "center", opacity: 0.86 }}>{sv.play.teammatePicked(teammate.name)}</div> : null}
-            {hasEnemyCard ? (
-              <MonsterEncounterCard
-                title={pending.enemyName}
-                artKey={pending.enemyArtKey}
-                combatStrength={pending.need + (pending.needMod ?? 0)}
-                winGold={pending.rewardGold ?? 0}
-                winItems={pending.rewardItems ?? 0}
-                lossDamage={pending.baseDamage}
-                lossKlunks={combatLossKlunksForDisplay(pending)}
-                specialRules={pending.enemyIntroText?.trim() || undefined}
-              />
-            ) : (
-              <div style={{ textAlign: "center", opacity: 0.9, padding: "8px 0" }}>
-                <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{pending.enemyName}</div>
-                <div>
-                  {sv.play.strength}: <b>{pending.need + (pending.needMod ?? 0)}</b>
-                </div>
-              </div>
-            )}
-            <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
-              {sv.play.continue}
-            </ArcadeButton>
-          </div>
-        );
+        return null; // shown as flipping modal instead
       }
       return (
         <div style={{ textAlign: "center", opacity: 0.85 }}>
@@ -509,8 +508,24 @@ export function PlayView() {
               {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
             </div>
             <div className={styles.sheetDiceCaption}>
-              <span className={styles.sheetDiceCaptionText}>
-                {`Attack totalt ${total}${bonusText} mot styrka ${need}`}
+              <span
+                className={styles.sheetDiceCaptionText}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span>{`Attack totalt ${total}${bonusText} mot`}</span>
+                <img
+                  src="/icons/combat-icon.svg"
+                  alt=""
+                  aria-hidden
+                  style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
+                />
+                <span>{need}</span>
               </span>
             </div>
           </div>
@@ -627,9 +642,27 @@ export function PlayView() {
       if (isTeamFighter) {
         return (
           <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.9 }}>
-              {sv.play.combatCardSheetTitle} — {pending.enemyName} (styrka{" "}
-              <b>{pending.need + (pending.needMod ?? 0)}</b>)
+            <div
+              style={{
+                textAlign: "center",
+                opacity: 0.94,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <span>{pending.enemyName}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <img
+                  src="/icons/combat-icon.svg"
+                  alt=""
+                  aria-hidden
+                  style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
+                />
+                <b>{pending.need + (pending.needMod ?? 0)}</b>
+              </span>
             </div>
             {teammate ? (
               <div style={{ textAlign: "center", opacity: 0.82, fontSize: 12 }}>
@@ -1291,12 +1324,53 @@ export function PlayView() {
     return null;
   })();
 
+  const cardOrSipActions = (() => {
+    if (!me) return null;
+    if (mySipNotice) {
+      return (
+        <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "sipNoticeAck", playerId: me.id })}>
+          {sv.sipNotice.cheers}
+        </ArcadeButton>
+      );
+    }
+    if (myEnemyIntroPending) {
+      return (
+        <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
+          {sv.play.continue}
+        </ArcadeButton>
+      );
+    }
+    if (!myCardPending) return null;
+    if (myCardPending.choices && myCardPending.choices.length > 0) {
+      return (
+        <div style={{ display: "grid", gap: 8 }}>
+          {myCardPending.choices.map((c) => (
+            <ArcadeButton
+              key={c.id}
+              variant="blue"
+              fullWidth
+              onClick={() => send({ type: "chooseCardOption", playerId: me.id, choiceId: c.id })}
+            >
+              {c.label}
+            </ArcadeButton>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "confirmCard", playerId: me.id })}>
+        {sv.cardModal.continue}
+      </ArcadeButton>
+    );
+  })();
+
   /** Fullskärmsmodal, straffklunk eller nedersta sheet (strid/handlare/tärning …) — stat-animation under ska vänta tills detta är borta. */
   const blocksStatFlashOverlay =
     !!me &&
     state?.phase === "playing" &&
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
+      !!cardOrSipActions ||
       !!interaction);
 
   useEffect(() => {
@@ -1539,26 +1613,29 @@ export function PlayView() {
               display: "flex",
               gap: 12,
               alignItems: "center",
+              justifyContent: hidePlayHeaderNameForEnemyIntro ? "flex-end" : undefined,
             }}
           >
-            <div
-              style={{
-                fontFamily: "var(--heading)",
-                fontWeight: 500,
-                fontSize: 22,
-                lineHeight: 1.05,
-                letterSpacing: 0.04,
-                color: "#ffffff",
-                textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
-                flex: "1 1 auto",
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {me?.name ?? name}
-            </div>
+            {!hidePlayHeaderNameForEnemyIntro ? (
+              <div
+                style={{
+                  fontFamily: "var(--heading)",
+                  fontWeight: 500,
+                  fontSize: 22,
+                  lineHeight: 1.05,
+                  letterSpacing: 0.04,
+                  color: "#ffffff",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {me?.name ?? name}
+              </div>
+            ) : null}
             <button
               type="button"
               aria-label={sv.play.players}
@@ -1632,18 +1709,31 @@ export function PlayView() {
           combatWin={pending.combatWin}
           combatLoss={pending.combatLoss}
           viewerName={me.name}
-          choices={pending.choices}
-          onChoose={(choiceId) => send({ type: "chooseCardOption", playerId: me.id, choiceId })}
-          onConfirm={() => send({ type: "confirmCard", playerId: me.id })}
+        />
+      )}
+      {state?.phase === "playing" && me && myEnemyIntroPending && (
+        <EnemyIntroModal
+          fighterName={me.name}
+          enemyName={myEnemyIntroPending.enemyName}
+          enemyArtKey={myEnemyIntroPending.enemyArtKey}
+          need={myEnemyIntroPending.need}
+          needMod={myEnemyIntroPending.needMod}
+          rewardGold={myEnemyIntroPending.rewardGold}
+          rewardItems={myEnemyIntroPending.rewardItems}
+          baseDamage={myEnemyIntroPending.baseDamage}
+          lossKlunks={combatLossKlunksForDisplay(myEnemyIntroPending)}
+          specialRules={myEnemyIntroPending.enemyIntroText?.trim() || undefined}
+          showCard={myEnemyIntroPending.monsterId !== "boss"}
+          teammateName={
+            myEnemyIntroPending.assistId
+              ? state.players.find((p) => p.id === myEnemyIntroPending.assistId)?.name
+              : undefined
+          }
         />
       )}
 
       {state?.phase === "playing" && me && mySipNotice && (
-        <SipNoticeCardModal
-          recipientName={me.name}
-          fromPlayerName={mySipNotice.fromPlayerName}
-          onConfirm={() => send({ type: "sipNoticeAck", playerId: me.id })}
-        />
+        <SipNoticeCardModal recipientName={me.name} fromPlayerName={mySipNotice.fromPlayerName} />
       )}
 
       <div className={styles.content}>
@@ -1878,14 +1968,22 @@ export function PlayView() {
         )}
       </div>
 
-      {!hasBlockingSipNotice && interaction && (
-        <div className={[styles.bottomSheet, styles.bottomSheetEnter].join(" ")}>
+      {(cardOrSipActions || (!hasBlockingSipNotice && interaction)) && (
+        <div
+          className={[
+            styles.bottomSheet,
+            styles.bottomSheetEnter,
+            cardOrSipActions ? styles.bottomSheetAboveCard : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <div
             className={[styles.bottomSheetInner, sheetFlash && styles.bottomSheetInnerFlash]
               .filter(Boolean)
               .join(" ")}
           >
-            {interaction}
+            {cardOrSipActions ?? interaction}
           </div>
         </div>
       )}
@@ -2599,21 +2697,10 @@ function itemImageSrc(itemId: any): string {
 
 function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
-        zIndex: 120,
-      }}
-      onMouseDown={props.onClose}
-    >
+    <CardFlipModalShell zIndex={120} maxWidth={560} onBackdropMouseDown={props.onClose}>
       <div
         style={{
-          width: "min(560px, 100%)",
+          width: "100%",
           borderRadius: 16,
           border: "1px solid #ffffff22",
           background: "#0b1226",
@@ -2633,7 +2720,7 @@ function Modal(props: { title: string; onClose: () => void; children: React.Reac
         </div>
         {props.children}
       </div>
-    </div>
+    </CardFlipModalShell>
   );
 }
 
@@ -2694,10 +2781,117 @@ function CardArtFrame({ artKey }: { artKey?: string }) {
   );
 }
 
+function EnemyIntroModal(props: {
+  fighterName: string;
+  enemyName: string;
+  enemyArtKey?: string;
+  need: number;
+  needMod?: number;
+  rewardGold?: number;
+  rewardItems?: number;
+  baseDamage: number;
+  lossKlunks: number;
+  specialRules?: string;
+  showCard: boolean;
+  teammateName?: string;
+}) {
+  const meetTitleStyle: CSSProperties = {
+    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+    fontWeight: 900,
+    fontSize: "clamp(26px, 5.5vw, 36px)",
+    textAlign: "center",
+    color: "#f8fafc",
+    letterSpacing: "0.04em",
+    lineHeight: 1.05,
+    marginBottom: 4,
+    textShadow: "0 2px 18px rgba(0,0,0,0.45)",
+  };
+
+  const aboveScene = (
+    <>
+      <div style={meetTitleStyle}>{props.fighterName.toLocaleUpperCase("sv-SE")} MÖTER</div>
+      {props.teammateName ? (
+        <div
+          style={{
+            textAlign: "center",
+            opacity: 0.9,
+            marginBottom: 4,
+            fontSize: 14,
+            color: "#f1f5f9",
+            textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
+          }}
+        >
+          {sv.play.teammatePicked(props.teammateName)}
+        </div>
+      ) : null}
+    </>
+  );
+
+  return (
+    <CardFlipModalShell
+      zIndex={100}
+      aboveScene={aboveScene}
+      faceInnerClassName={props.showCard ? cardFlipShellStyles.faceInnerNoVerticalOverflow : undefined}
+      style={{
+        placeItems: "start center",
+        paddingTop: "max(14px, env(safe-area-inset-top))",
+        paddingBottom: "max(108px, env(safe-area-inset-bottom))",
+      }}
+    >
+      {props.showCard ? (
+        <div
+          style={{
+            width: "100%",
+            minWidth: 0,
+            flex: 1,
+            minHeight: 0,
+            boxSizing: "border-box",
+            padding: "0 10px 12px",
+            display: "flex",
+            flexDirection: "column",
+            color: "#ffffff",
+          }}
+        >
+          <MonsterEncounterCard
+            title={props.enemyName}
+            artKey={props.enemyArtKey}
+            combatStrength={props.need + (props.needMod ?? 0)}
+            winGold={props.rewardGold ?? 0}
+            winItems={props.rewardItems ?? 0}
+            lossDamage={props.baseDamage}
+            lossKlunks={props.lossKlunks}
+            specialRules={props.specialRules}
+            fillAvailableHeight
+          />
+        </div>
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            borderRadius: 16,
+            border: "1px solid #ffffff22",
+            background: "#0b1226",
+            padding: 16,
+            color: "#ffffff",
+            textAlign: "center",
+            minHeight: "100%",
+          }}
+        >
+          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, opacity: 0.95 }}>{props.enemyName}</div>
+          <div style={{ opacity: 0.9 }}>
+            {sv.play.strength}: <b>{props.need + (props.needMod ?? 0)}</b>
+          </div>
+        </div>
+      )}
+    </CardFlipModalShell>
+  );
+}
+
 function SipNoticeCardModal(props: {
   recipientName: string;
   fromPlayerName: string;
-  onConfirm: () => void;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
   const recipient = props.recipientName?.trim() || "—";
@@ -2707,65 +2901,89 @@ function SipNoticeCardModal(props: {
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.55)",
+        zIndex: 100,
         display: "grid",
-        placeItems: "center",
-        padding: 16,
-        zIndex: 110,
+        placeItems: "start center",
+        paddingTop: "max(12px, env(safe-area-inset-top))",
+        paddingLeft: 16,
+        paddingRight: 16,
+        paddingBottom: "max(108px, env(safe-area-inset-bottom))",
+        boxSizing: "border-box",
       }}
     >
       <div
         style={{
-          width: "min(520px, 100%)",
+          width: "min(400px, 100%)",
+          aspectRatio: "5/7",
           borderRadius: 16,
           border: "1px solid #ffffff22",
           background: "#0b1226",
-          padding: 16,
-          textAlign: "center",
           boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
           color: "#ffffff",
+          padding: 24,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          justifyContent: "flex-start",
+          gap: 18,
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
-        <div
+        <h2
           style={{
-            fontWeight: 800,
-            fontSize: 17,
-            marginBottom: 10,
-            textAlign: "left",
+            margin: 0,
             width: "100%",
-            color: "#ffffff",
+            fontFamily: "var(--heading)",
+            fontWeight: 400,
+            fontSize: "clamp(1.5rem, 9cqw, 2.35rem)",
+            lineHeight: 1.05,
+            letterSpacing: "0.03em",
+            textTransform: "uppercase",
           }}
         >
           {sv.sipNotice.title}
-        </div>
+        </h2>
+        <img
+          src="/icons/klunk.svg"
+          alt=""
+          aria-hidden
+          className={styles.sipKlunkIconWobble}
+          style={{
+            width: "clamp(88px, 32cqw, 130px)",
+            height: "clamp(88px, 32cqw, 130px)",
+            objectFit: "contain",
+            filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.35))",
+          }}
+        />
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 14,
-            padding: "4px 0 8px",
+            fontFamily: "var(--heading)",
+            fontWeight: 400,
+            fontSize: "clamp(1.45rem, 8.5cqw, 2.15rem)",
+            lineHeight: 1.02,
+            letterSpacing: "0.03em",
+            textTransform: "uppercase",
           }}
         >
-          <CombatOutcomeThumb outcome="klunk" />
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 16,
-              fontWeight: 600,
-              margin: 0,
-              lineHeight: 1.45,
-              opacity: 0.96,
-              maxWidth: 400,
-            }}
-          >
-            {sv.sipNotice.line(recipient, from)}
-          </p>
+          {recipient}
         </div>
-        <div style={{ marginTop: 20 }}>
-          <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
-            {sv.sipNotice.cheers}
-          </ArcadeButton>
-        </div>
+        <p
+          style={{
+            margin: 0,
+            fontFamily: "var(--sans)",
+            fontSize: "clamp(1rem, 5.2cqw, 1.45rem)",
+            fontWeight: 700,
+            lineHeight: 1.25,
+            opacity: 0.98,
+            maxWidth: "100%",
+          }}
+        >
+          {recipient} fick just en klunk från
+          <br />
+          {`«${from}».`}
+        </p>
       </div>
     </div>
   );
@@ -2781,9 +2999,6 @@ function CardModal(props: {
   combatLoss?: CombatLoseSummary;
   /** Kortägarens visningsnamn (ersätter "Du" i vinst/förlust om det behövs). */
   viewerName?: string;
-  choices?: Array<{ id: string; label: string }>;
-  onChoose: (choiceId: string) => void;
-  onConfirm: () => void;
 }) {
   const foundItemArtKey = foundItemArtKeyForCardId(props.cardId);
   const effectiveArtKey = foundItemArtKey ?? props.artKey;
@@ -2810,90 +3025,56 @@ function CardModal(props: {
   const centeredCombatOutcome = showCombatWin || showCombatLose || showTreasure;
 
   return (
-    <div
+    <CardFlipModalShell
+      zIndex={100}
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.55)",
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
-        zIndex: 100,
+        placeItems: "start center",
+        paddingTop: "max(14px, env(safe-area-inset-top))",
+        paddingBottom: "max(108px, env(safe-area-inset-bottom))",
       }}
     >
       <div
         style={{
-          width: "min(520px, 100%)",
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
           borderRadius: 16,
           border: "1px solid #ffffff22",
           background: "#0b1226",
-          padding: 16,
+          padding: useMonsterLayout && mon ? 0 : 16,
           textAlign: centeredCombatOutcome ? "center" : "left",
           color: "#ffffff",
+          ...(useMonsterLayout && mon
+            ? { display: "flex", flexDirection: "column", minHeight: "100%" }
+            : {}),
         }}
       >
         {showCombatWin && effectiveWin ? (
-          <CombatWinCard data={effectiveWin} onContinue={props.onConfirm} />
+          <CombatSheetFrame>
+            <CombatWinCardContent data={effectiveWin} />
+          </CombatSheetFrame>
         ) : showCombatLose && effectiveLoss ? (
-          <CombatLoseCard data={effectiveLoss} onContinue={props.onConfirm} />
+          <CombatSheetFrame>
+            <CombatLoseCardContent data={effectiveLoss} />
+          </CombatSheetFrame>
         ) : showDoorLocked ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            <CombatSheetFrame
-              sheetTitle={props.title}
-              titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
-            >
-              <LevelUpLockedCardContent text={props.text} />
-            </CombatSheetFrame>
-            <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
-              <span
-                style={{
-                  fontStyle: "italic",
-                  letterSpacing: "0.12em",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  fontSize: 15,
-                }}
-              >
-                {sv.play.combatWinContinue}
-              </span>
-            </ArcadeButton>
-          </div>
+          <CombatSheetFrame
+            sheetTitle={props.title}
+            titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
+          >
+            <LevelUpLockedCardContent text={props.text} />
+          </CombatSheetFrame>
         ) : showTreasure ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
-              <TreasureCardContent title={props.title} text={props.text} cardId={props.cardId} />
-            </CombatSheetFrame>
-            {props.choices && props.choices.length > 0 ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                {props.choices.map((c) => (
-                  <ArcadeButton key={c.id} variant="blue" fullWidth onClick={() => props.onChoose(c.id)}>
-                    {c.label}
-                  </ArcadeButton>
-                ))}
-              </div>
-            ) : (
-              <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
-                <span
-                  style={{
-                    fontStyle: "italic",
-                    letterSpacing: "0.12em",
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    fontSize: 15,
-                  }}
-                >
-                  {sv.play.combatWinContinue}
-                </span>
-              </ArcadeButton>
-            )}
-          </div>
+          <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
+            <TreasureCardContent title={props.title} text={props.text} cardId={props.cardId} />
+          </CombatSheetFrame>
         ) : (
           <>
             {!useMonsterLayout ? (
               <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, color: "#ffffff" }}>{props.title}</div>
             ) : null}
             {useMonsterLayout && mon ? (
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginBottom: 0 }}>
                 <MonsterEncounterCard
                   title={props.title}
                   artKey={effectiveArtKey}
@@ -2903,33 +3084,21 @@ function CardModal(props: {
                   lossDamage={mon.baseDamage}
                   lossKlunks={monsterLossKlunkTotal(mon)}
                   specialRules={props.text.trim() || undefined}
+                  fillAvailableHeight
                 />
               </div>
             ) : (
               <>
                 <CardArtFrame artKey={effectiveArtKey} />
-                <div style={{ opacity: 0.98, color: "#ffffff", marginBottom: 12, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+                <div style={{ opacity: 0.98, color: "#ffffff", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
                   {props.text}
                 </div>
               </>
             )}
-            {props.choices && props.choices.length > 0 ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                {props.choices.map((c) => (
-                  <ArcadeButton key={c.id} variant="blue" fullWidth onClick={() => props.onChoose(c.id)}>
-                    {c.label}
-                  </ArcadeButton>
-                ))}
-              </div>
-            ) : (
-              <ArcadeButton variant="pink" fullWidth onClick={props.onConfirm}>
-                {sv.cardModal.continue}
-              </ArcadeButton>
-            )}
           </>
         )}
       </div>
-    </div>
+    </CardFlipModalShell>
   );
 }
 

@@ -72,7 +72,7 @@ export function TreasureCardContent(props: { title: string; text: string; cardId
       <h1
         style={{
           fontFamily: "var(--heading)",
-          fontSize: "clamp(2.1rem, 9vw, 2.85rem)",
+          fontSize: "clamp(1.65rem, 9cqw, 2.85rem)",
           fontWeight: 400,
           lineHeight: 1.05,
           margin: 0,

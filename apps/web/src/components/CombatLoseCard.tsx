@@ -74,7 +74,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
       <h1
         style={{
           fontFamily: "var(--heading)",
-          fontSize: "clamp(2.4rem, 10vw, 3.25rem)",
+          fontSize: "clamp(1.85rem, 10cqw, 3.25rem)",
           fontWeight: 400,
           lineHeight: 1.05,
           margin: 0,
@@ -171,7 +171,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
 
 export function CombatLoseCard(props: { data: CombatLoseSummary; onContinue: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0, width: "100%" }}>
       <CombatSheetFrame>
         <CombatLoseCardContent data={props.data} />
       </CombatSheetFrame>

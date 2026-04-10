@@ -360,7 +360,7 @@ export const sv = {
 
   },
   sipNotice: {
-    title: "Ölprovning",
+    title: "Straffklunk",
     line: (recipient: string, from: string) => `${recipient} fick just en klunk från «${from}».`,
     cheers: "Skål!",
     fallbackFrom: "en annan spelare",

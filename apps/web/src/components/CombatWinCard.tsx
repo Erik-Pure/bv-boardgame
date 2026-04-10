@@ -83,7 +83,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
       <h1
         style={{
           fontFamily: "var(--heading)",
-          fontSize: "clamp(2.4rem, 10vw, 3.25rem)",
+          fontSize: "clamp(1.85rem, 10cqw, 3.25rem)",
           fontWeight: 400,
           lineHeight: 1.05,
           margin: 0,
@@ -158,7 +158,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
 
 export function CombatWinCard(props: { data: CombatWinSummary; onContinue: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0, width: "100%" }}>
       <CombatSheetFrame>
         <CombatWinCardContent data={props.data} />
       </CombatSheetFrame>
