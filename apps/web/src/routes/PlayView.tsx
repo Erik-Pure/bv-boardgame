@@ -3,7 +3,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   combatReactionsAllAnswered,
+  globalMonsterNeedBonus,
   levelUpCostsForTargetLevel,
+  maxPlayerBoardLevelIfPlayerReaches,
   MONSTERS,
   monsterLossKlunkTotal,
   type ClientAction,
@@ -32,8 +34,10 @@ import styles from "./PlayView.module.css";
 import activeTurnRainbow from "../styles/activeTurnRainbow.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
+import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
-import { artImageSrc } from "../lib/cardArt";
+import { artAttributionLabel, artImageSrc, resolveCardRevealArtKey } from "../lib/cardArt";
+import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import {
   combatLossKlunksForDisplay,
   parseLegacyCombatLoseText,
@@ -42,9 +46,6 @@ import {
   resolveCombatWinViewer,
 } from "../lib/combatUi";
 import { sv, wsStatusLabel, capitalizeWord, equipmentSlotSv, tileTypeSv } from "../lib/uiStrings";
-
-/** Mobil: under egen fiendeintro döljs spelarnamn i headern (modalen visar redan "… MÖTER"). */
-const PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ = "(max-width: 640px)";
 
 function findMe(state: GameState | null, myId: string | null) {
   if (!state || !myId) return null;
@@ -142,6 +143,8 @@ export function PlayView() {
   } | null>(null);
   const [itemDetail, setItemDetail] = useState<{ instanceId: string } | null>(null);
   const [itemTargetId, setItemTargetId] = useState<string | null>(null);
+  /** Efter första "Använd" för föremål som kräver målspelare: visa då mål-knapparna. */
+  const [itemUseTargetPhase, setItemUseTargetPhase] = useState(false);
   const [wantsIntervene, setWantsIntervene] = useState(false);
   const [beerBroPickInstance, setBeerBroPickInstance] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -308,6 +311,11 @@ export function PlayView() {
     if (pending?.type !== "merchant") setMerchantReplaceItem(null);
   }, [pending?.type]);
 
+  useEffect(() => {
+    setItemTargetId(null);
+    setItemUseTargetPhase(false);
+  }, [itemDetail?.instanceId]);
+
   const combatReactionsPhase = pending?.type === "combat" && pending.phase === "reactions";
   useEffect(() => {
     if (!combatReactionsPhase) setBeerBroPickInstance(null);
@@ -365,19 +373,9 @@ export function PlayView() {
     return state.pending.attackerId === me.id ? state.pending : null;
   }, [state?.pending, state?.phase, me?.id]);
 
-  const [playEnemyIntroMobile, setPlayEnemyIntroMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ).matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia(PLAY_ENEMY_INTRO_COMPACT_HEADER_MQ);
-    const apply = () => setPlayEnemyIntroMobile(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-  const hidePlayHeaderNameForEnemyIntro = playEnemyIntroMobile && !!myEnemyIntroPending;
-
-  const hasBlockingSipNotice = !!mySipNotice;
+  /** Straffklunk efter monsterförlust: visa Vaskad-kortet först, sedan sip-modal (motorn lägger sip i kö före kortet). */
+  const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
+  const hasBlockingSipNotice = !!mySipNotice && !suppressSipNoticeForCombatLoseCard;
 
   const send = (action: ClientAction) => {
     if (status !== "connected") {
@@ -437,6 +435,53 @@ export function PlayView() {
     }
     if (state.phase !== "playing") return null;
     if (pending?.type === "card" && myPending) return null; // handled as modal
+
+    if (pending?.type === "encounterChoice" && pending.moverId === me.id) {
+      if (pending.phase === "choosePvpOpponent") {
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpChooseOpponent}</div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {pending.opponentIds.map((oid) => {
+                const pl = state.players.find((p) => p.id === oid);
+                if (!pl) return null;
+                return (
+                  <ArcadeButton
+                    key={oid}
+                    variant="pink"
+                    fullWidth
+                    onClick={() => send({ type: "choosePvpOpponent", playerId: me.id, opponentId: oid })}
+                  >
+                    {pl.name}
+                  </ArcadeButton>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.encounterChoose}</div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "pvp" })}
+            >
+              {sv.play.pvpBothRoll}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="blue"
+              fullWidth
+              onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "tile" })}
+            >
+              {sv.play.resolveTileNoPvp(tileTypeSv[pending.tileType ?? "empty"])}
+            </ArcadeButton>
+          </div>
+        </div>
+      );
+    }
 
     if (pending?.type === "combat" && pending.phase === "chooseTeammate") {
       const isAttacker = pending.attackerId === me.id;
@@ -928,6 +973,11 @@ export function PlayView() {
         <div style={{ display: "grid", gap: 10 }}>
           <div className={styles.sheetDiceBlock}>
             <DiceCube3D value={diceFaceValue} size={76} />
+            {pending.diceDoubled ? (
+              <div style={{ textAlign: "center", fontSize: 12, opacity: 0.85, marginTop: 6 }}>
+                {sv.play.moveChoiceDoubledHint}
+              </div>
+            ) : null}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {pending.options.map((o) => (
@@ -951,42 +1001,75 @@ export function PlayView() {
       );
     }
 
-    if (pending?.type === "encounterChoice" && pending.moverId === me.id) {
-      return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.encounterChoose}</div>
-          <div style={{ display: "grid", gap: 10 }}>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "pvp" })}
-            >
-              {sv.play.pvpBothRoll}
-            </ArcadeButton>
-            <ArcadeButton
-              variant="blue"
-              fullWidth
-              onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "tile" })}
-            >
-              {sv.play.resolveTileNoPvp}
-            </ArcadeButton>
-          </div>
-        </div>
-      );
-    }
-
     if (pending?.type === "pvp" && pending.phase === "awaitingRolls") {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
       if (!isParticipant) return null;
       const myRoll = pending.rolls?.[me.id];
       const round = pending.pvpRound ?? 1;
+      const pvpAtk = state.players.find((p) => p.id === pending.attackerId);
+      const pvpDef = state.players.find((p) => p.id === pending.defenderId);
+      const pvpMarker = '"Permanent Marker", var(--heading), sans-serif' as const;
       return (
         <div style={{ display: "grid", gap: 10 }}>
-          {round > 1 ? (
-            <>
-              <div style={{ textAlign: "center", fontWeight: 800, color: "#fef08a" }}>{sv.play.pvpRound(round)}</div>
-              <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{sv.play.pvpTieRerollHint}</div>
-            </>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: pvpMarker,
+                fontSize: 30,
+                lineHeight: 1.1,
+                color: "#fef9c3",
+                marginBottom: 2,
+              }}
+            >
+              {sv.table.pvpDuel}
+            </div>
+            <div style={{ fontFamily: pvpMarker, fontSize: 16, color: "rgba(255,255,255,0.88)" }}>
+              {sv.table.pvpRound(round)}
+            </div>
+            {round > 1 ? (
+              <div style={{ marginTop: 8, fontSize: 13, opacity: 0.82 }}>{sv.play.pvpTieRerollHint}</div>
+            ) : null}
+          </div>
+          {pvpAtk && pvpDef ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                minHeight: 40,
+              }}
+            >
+              <div style={{ flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
+                <div
+                  style={{
+                    fontFamily: pvpMarker,
+                    fontSize: 20,
+                    lineHeight: 1.1,
+                    color: pvpAtk.color,
+                    transform: "rotate(-10deg)",
+                  }}
+                >
+                  {pvpAtk.name}
+                </div>
+              </div>
+              <div style={{ fontFamily: pvpMarker, fontSize: 24, color: "#fff", opacity: 0.9, flex: "0 0 auto" }}>
+                VS
+              </div>
+              <div style={{ flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
+                <div
+                  style={{
+                    fontFamily: pvpMarker,
+                    fontSize: 20,
+                    lineHeight: 1.1,
+                    color: pvpDef.color,
+                    transform: "rotate(10deg)",
+                  }}
+                >
+                  {pvpDef.name}
+                </div>
+              </div>
+            </div>
           ) : null}
           <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpRollDie}</div>
           <div className={styles.sheetDiceBlock}>
@@ -1019,9 +1102,15 @@ export function PlayView() {
     }
 
     if (pending?.type === "door" && myPending) {
+      const monBefore = globalMonsterNeedBonus(state.players);
+      const monAfter = maxPlayerBoardLevelIfPlayerReaches(state.players, me.id, pending.targetLevelIndex);
+      const monsterScaleNote = sv.play.levelUpMonsterScale(monBefore, monAfter);
       return (
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
+          {monsterScaleNote ? (
+            <div style={{ textAlign: "center", opacity: 0.88, fontSize: 13, lineHeight: 1.45 }}>{monsterScaleNote}</div>
+          ) : null}
           <div style={{ display: "grid", gap: 10 }}>
             <ArcadeButton
               variant="blue"
@@ -1052,11 +1141,17 @@ export function PlayView() {
     }
 
     if (pending?.type === "levelUpOffer" && myPending) {
+      const monBeforeOffer = globalMonsterNeedBonus(state.players);
+      const monAfterOffer = maxPlayerBoardLevelIfPlayerReaches(state.players, me.id, pending.targetLevelIndex);
+      const monsterScaleOfferNote = sv.play.levelUpMonsterScale(monBeforeOffer, monAfterOffer);
       return (
         <div style={{ display: "grid", gap: 12 }}>
           <div style={{ textAlign: "center", opacity: 0.95 }}>
             {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
           </div>
+          {monsterScaleOfferNote ? (
+            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.88, lineHeight: 1.45 }}>{monsterScaleOfferNote}</div>
+          ) : null}
           <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>
             {sv.play.levelUpOfferHint}
           </div>
@@ -1326,7 +1421,7 @@ export function PlayView() {
 
   const cardOrSipActions = (() => {
     if (!me) return null;
-    if (mySipNotice) {
+    if (hasBlockingSipNotice) {
       return (
         <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "sipNoticeAck", playerId: me.id })}>
           {sv.sipNotice.cheers}
@@ -1364,14 +1459,110 @@ export function PlayView() {
     );
   })();
 
+  const itemDetailSheet = (() => {
+    if (!itemDetail || !me || !state) return null;
+    const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
+    if (!inst) {
+      return (
+        <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
+          {sv.play.modalClose}
+        </ArcadeButton>
+      );
+    }
+    const meta = itemMeta(inst.itemId);
+    const broPick = meta.target === "combat_bro";
+    const needsTarget = meta.target === "other" || broPick;
+    const canUse = isItemPlayableNow(meta.target);
+    const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
+    const candidates =
+      broPick && combatAttackerId
+        ? state.players.filter((p) => p.id !== combatAttackerId)
+        : meta.target === "other"
+          ? state.players.filter((p) => p.id !== me.id)
+          : [];
+    const chosen = needsTarget ? itemTargetId : null;
+    const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
+    const showTargetPicker = needsTarget && itemUseTargetPhase;
+    const usePrimaryDisabled =
+      !canUse ||
+      (broPick && !combatAttackerId) ||
+      (needsTarget && itemUseTargetPhase && !chosen);
+    return (
+      <div style={{ display: "grid", gap: 10 }}>
+        {!canUse ? (
+          <div style={{ opacity: 0.85, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>{sv.play.itemsUseHint}</div>
+        ) : null}
+        {showTargetPicker ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ opacity: 0.8, fontSize: 12, textAlign: "center" }}>{targetPrompt}</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {candidates.map((p) => (
+                <ArcadeButton
+                  key={p.id}
+                  variant={itemTargetId === p.id ? "pink" : "gray"}
+                  fullWidth
+                  onClick={() => setItemTargetId(p.id)}
+                >
+                  {p.name}
+                </ArcadeButton>
+              ))}
+            </div>
+            <ArcadeButton variant="gray" fullWidth onClick={() => setItemUseTargetPhase(false)}>
+              {sv.play.back}
+            </ArcadeButton>
+          </div>
+        ) : null}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
+            {sv.play.modalClose}
+          </ArcadeButton>
+          <ArcadeButton
+            variant="blue"
+            fullWidth
+            disabled={usePrimaryDisabled}
+            onClick={() => {
+              if (needsTarget && !itemUseTargetPhase) {
+                setItemUseTargetPhase(true);
+                return;
+              }
+              send({
+                type: "useItem",
+                playerId: me.id,
+                instanceId: inst.instanceId,
+                targetPlayerId: chosen ?? undefined,
+              });
+              setItemDetail(null);
+            }}
+          >
+            {sv.play.use}
+          </ArcadeButton>
+        </div>
+      </div>
+    );
+  })();
+
+  /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
+  const bottomSheetOverTeamBattleIntro =
+    !!me &&
+    state?.phase === "playing" &&
+    pending?.type === "combat" &&
+    pending.phase === "chooseTeammate" &&
+    !!pending.teamBattleRequired;
+
+  /** Mötesval / motståndarval ska ligga över kort- och statslager (samma z som team battle-sheet). */
+  const bottomSheetOverEncounterChoice =
+    !!me && state?.phase === "playing" && pending?.type === "encounterChoice" && pending.moverId === me.id;
+
   /** Fullskärmsmodal, straffklunk eller nedersta sheet (strid/handlare/tärning …) — stat-animation under ska vänta tills detta är borta. */
   const blocksStatFlashOverlay =
     !!me &&
     state?.phase === "playing" &&
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
+      !!itemDetail ||
       !!cardOrSipActions ||
-      !!interaction);
+      !!interaction ||
+      pending?.type === "brewerDown");
 
   useEffect(() => {
     const self = findMe(state, myId);
@@ -1613,29 +1804,26 @@ export function PlayView() {
               display: "flex",
               gap: 12,
               alignItems: "center",
-              justifyContent: hidePlayHeaderNameForEnemyIntro ? "flex-end" : undefined,
             }}
           >
-            {!hidePlayHeaderNameForEnemyIntro ? (
-              <div
-                style={{
-                  fontFamily: "var(--heading)",
-                  fontWeight: 500,
-                  fontSize: 22,
-                  lineHeight: 1.05,
-                  letterSpacing: 0.04,
-                  color: "#ffffff",
-                  textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {me?.name ?? name}
-              </div>
-            ) : null}
+            <div
+              style={{
+                fontFamily: "var(--heading)",
+                fontWeight: 500,
+                fontSize: 22,
+                lineHeight: 1.05,
+                letterSpacing: 0.04,
+                color: "#ffffff",
+                textShadow: "0 1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.2)",
+                flex: "1 1 auto",
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {me?.name ?? name}
+            </div>
             <button
               type="button"
               aria-label={sv.play.players}
@@ -1704,6 +1892,7 @@ export function PlayView() {
           title={pending.title}
           text={pending.text}
           artKey={pending.artKey}
+          grantedItemId={pending.grantedItemId}
           kind={pending.kind}
           cardId={pending.cardId}
           combatWin={pending.combatWin}
@@ -1711,9 +1900,21 @@ export function PlayView() {
           viewerName={me.name}
         />
       )}
+      {state?.phase === "playing" &&
+        me &&
+        pending?.type === "combat" &&
+        pending.teamBattleRequired &&
+        pending.phase === "chooseTeammate" && (
+          <TeamBattleIntroCard
+            variant="play"
+            attackerName={
+              state.players.find((p) => p.id === pending.attackerId)?.name ?? capitalizeWord(sv.play.theAttacker)
+            }
+          />
+        )}
+
       {state?.phase === "playing" && me && myEnemyIntroPending && (
         <EnemyIntroModal
-          fighterName={me.name}
           enemyName={myEnemyIntroPending.enemyName}
           enemyArtKey={myEnemyIntroPending.enemyArtKey}
           need={myEnemyIntroPending.need}
@@ -1732,8 +1933,93 @@ export function PlayView() {
         />
       )}
 
-      {state?.phase === "playing" && me && mySipNotice && (
-        <SipNoticeCardModal recipientName={me.name} fromPlayerName={mySipNotice.fromPlayerName} />
+      {state?.phase === "playing" && me && mySipNotice && hasBlockingSipNotice && (
+        <SipNoticeCardModal
+          recipientName={me.name}
+          fromPlayerName={mySipNotice.fromPlayerName}
+          klunkCount={mySipNotice.klunkCount ?? 1}
+        />
+      )}
+
+      {state?.phase === "playing" && pending?.type === "brewerDown" && me && (
+        <CardFlipModalShell
+          zIndex={105}
+          faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
+          style={{
+            placeItems: "center",
+            paddingTop: "max(14px, env(safe-area-inset-top))",
+            paddingBottom: "max(108px, env(safe-area-inset-bottom))",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              margin: "0 auto",
+              boxSizing: "border-box",
+              padding: 22,
+              borderRadius: 16,
+              border: "1px solid #ffffff22",
+              background: "#0b1226",
+              color: "#fff",
+              textAlign: "center",
+              display: "grid",
+              gap: 16,
+            }}
+          >
+            {pending.playerId === me.id ? (
+              <>
+                <div
+                  style={{
+                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                    fontWeight: 900,
+                    fontSize: "clamp(1.45rem, 5.8vw, 2rem)",
+                    letterSpacing: "0.06em",
+                    lineHeight: 1.1,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {sv.play.brewerDownTitle}
+                </div>
+                <img
+                  src="/icons/skull-icon.svg"
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: "min(112px, 36vw)",
+                    height: "auto",
+                    margin: "0 auto",
+                    filter: "brightness(0) invert(1)",
+                  }}
+                />
+                <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
+                <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{sv.play.brewerDownLead}</p>
+                <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
+                  <ArcadeButton
+                    variant="pink"
+                    fullWidth
+                    onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "retry" })}
+                  >
+                    {sv.play.brewerDownRetry}
+                  </ArcadeButton>
+                  <ArcadeButton
+                    variant="gray"
+                    fullWidth
+                    onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "giveUp" })}
+                  >
+                    {sv.play.brewerDownGiveUp}
+                  </ArcadeButton>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: "var(--sans)", fontSize: 16, fontWeight: 700, lineHeight: 1.4 }}>
+                {sv.play.brewerDownWaitOther(
+                  state.players.find((pl) => pl.id === pending.playerId)?.name ?? "",
+                )}
+              </div>
+            )}
+          </div>
+        </CardFlipModalShell>
       )}
 
       <div className={styles.content}>
@@ -1968,12 +2254,14 @@ export function PlayView() {
         )}
       </div>
 
-      {(cardOrSipActions || (!hasBlockingSipNotice && interaction)) && (
+      {(cardOrSipActions || itemDetailSheet || (!hasBlockingSipNotice && interaction)) && (
         <div
           className={[
             styles.bottomSheet,
             styles.bottomSheetEnter,
-            cardOrSipActions ? styles.bottomSheetAboveCard : "",
+            cardOrSipActions || itemDetailSheet || bottomSheetOverTeamBattleIntro || bottomSheetOverEncounterChoice
+              ? styles.bottomSheetAboveCard
+              : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -1983,7 +2271,7 @@ export function PlayView() {
               .filter(Boolean)
               .join(" ")}
           >
-            {cardOrSipActions ?? interaction}
+            {cardOrSipActions ?? itemDetailSheet ?? interaction}
           </div>
         </div>
       )}
@@ -2166,27 +2454,22 @@ export function PlayView() {
         </Modal>
       )}
 
-      {itemDetail && me && state && (
-        <Modal title={sv.play.modalItem} onClose={() => setItemDetail(null)}>
-          {(() => {
-            const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
-            if (!inst) return <div>{sv.play.itemNotFound}</div>;
-            const meta = itemMeta(inst.itemId);
-            const broPick = meta.target === "combat_bro";
-            const needsTarget = meta.target === "other" || broPick;
-            const canUse = isItemPlayableNow(meta.target);
-            const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
-            const candidates =
-              broPick && combatAttackerId
-                ? state.players.filter((p) => p.id !== combatAttackerId)
-                : meta.target === "other"
-                  ? state.players.filter((p) => p.id !== me.id)
-                  : [];
-            const chosen = needsTarget ? itemTargetId : null;
-            const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
-            return (
+      {itemDetail && me && state && (() => {
+        const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
+        const modalTitle = inst ? itemMeta(inst.itemId).title : sv.play.itemNotFound;
+        return (
+          <Modal
+            title={modalTitle}
+            onClose={() => setItemDetail(null)}
+            instantFront
+            hideClose
+            headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} /> : undefined}
+            titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
+          >
+            {!inst ? (
+              <div style={{ opacity: 0.9 }}>{sv.play.itemNotFound}</div>
+            ) : (
               <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ fontWeight: 900 }}>{meta.title}</div>
                 <div
                   style={{
                     width: "100%",
@@ -2207,48 +2490,12 @@ export function PlayView() {
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 </div>
-                <div style={{ opacity: 0.9 }}>{meta.text}</div>
-                {needsTarget && (
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <div style={{ opacity: 0.75, fontSize: 12 }}>{targetPrompt}</div>
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {candidates.map((p) => (
-                        <ArcadeButton
-                          key={p.id}
-                          variant={itemTargetId === p.id ? "pink" : "gray"}
-                          fullWidth
-                          onClick={() => setItemTargetId(p.id)}
-                        >
-                          {p.name}
-                        </ArcadeButton>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <ArcadeButton
-                  variant="blue"
-                  fullWidth
-                  disabled={!canUse || (needsTarget && !chosen) || (broPick && !combatAttackerId)}
-                  onClick={() => {
-                    send({
-                      type: "useItem",
-                      playerId: me.id,
-                      instanceId: inst.instanceId,
-                      targetPlayerId: chosen ?? undefined,
-                    });
-                    setItemDetail(null);
-                  }}
-                >
-                  {sv.play.use}
-                </ArcadeButton>
-                {!canUse && (
-                  <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.itemsUseHint}</div>
-                )}
+                <div style={{ opacity: 0.9 }}>{itemMeta(inst.itemId).text}</div>
               </div>
-            );
-          })()}
-        </Modal>
-      )}
+            )}
+          </Modal>
+        );
+      })()}
 
     </div>
   );
@@ -2601,8 +2848,68 @@ function itemInventoryEffectBadge(itemId: string): { icon: keyof typeof ITEM_EFF
     canman: { icon: "pant", label: "+10" },
     early_night: { icon: "monster", label: "skip" },
     beer_bro: { icon: "attack", label: "×2" },
+    sleep_potion: { icon: "monster", label: "Zzz" },
+    beard_back: { icon: "monster", label: "×2" },
+    not_my_round: { icon: "attack", label: "−" },
+    spill_intentional: { icon: "attack", label: "×" },
   };
   return m[String(itemId)] ?? null;
+}
+
+const ITEM_MODAL_TITLE_STYLE: CSSProperties = {
+  fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+  fontWeight: 400,
+  fontSize: "clamp(1.05rem, 4.2vw, 1.35rem)",
+  letterSpacing: "0.02em",
+  lineHeight: 1.15,
+};
+
+/** Rubrik höger i föremålsmodal: samma data som inventory-brickan, större och i rad. */
+function ItemModalEffectBadge({ itemId }: { itemId: string }) {
+  const b = itemInventoryEffectBadge(itemId);
+  if (!b) return null;
+  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "6px 10px",
+        borderRadius: 12,
+        background: "rgba(11,18,38,0.88)",
+        border: "1px solid rgba(255,255,255,0.22)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src={src}
+        alt=""
+        width={20}
+        height={20}
+        draggable={false}
+        style={{
+          display: "block",
+          objectFit: "contain",
+          filter: "brightness(0) invert(1)",
+        }}
+      />
+      <span
+        style={{
+          fontSize: 15,
+          fontWeight: 900,
+          fontVariantNumeric: "tabular-nums",
+          color: "#f8fafc",
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {b.label}
+      </span>
+    </span>
+  );
 }
 
 function ItemInventoryEffectBadge({ itemId }: { itemId: string }) {
@@ -2686,8 +2993,8 @@ function itemImageSrc(itemId: any): string {
     monster_hype: "/items/monster-hype.png",
     yeast_sabotage: "/items/yeast-sabotage.png",
     beer_bro: "/items/beer-bro.png",
-    split_the_g: "/card-placeholder.png",
-    canman: "/card-placeholder.png",
+    split_the_g: "/items/split-the-g.png",
+    canman: "/items/canman.png",
     not_my_round: "/items/not_my_round.png",
     spill_intentional: "/card-placeholder.png",
     early_night: "/card-placeholder.png",
@@ -2695,9 +3002,24 @@ function itemImageSrc(itemId: any): string {
   return m[id] ?? "/card-placeholder.png";
 }
 
-function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal(props: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  /** Ingen kort-flip; framsida visas direkt (används för inventory-föremål). */
+  instantFront?: boolean;
+  titleStyle?: CSSProperties;
+  hideClose?: boolean;
+  headerRight?: ReactNode;
+}) {
+  const showClose = props.hideClose !== true;
   return (
-    <CardFlipModalShell zIndex={120} maxWidth={560} onBackdropMouseDown={props.onClose}>
+    <CardFlipModalShell
+      zIndex={120}
+      maxWidth={560}
+      onBackdropMouseDown={props.onClose}
+      instantFront={props.instantFront}
+    >
       <div
         style={{
           width: "100%",
@@ -2710,13 +3032,37 @@ function Modal(props: { title: string; onClose: () => void; children: React.Reac
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <div style={{ fontWeight: 900, fontSize: 16, color: "#ffffff" }}>{props.title}</div>
-          <div style={{ marginLeft: "auto" }}>
-            <ArcadeButton variant="gray" size="sm" onClick={props.onClose}>
-              {sv.play.modalClose}
-            </ArcadeButton>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 16,
+              color: "#ffffff",
+              flex: props.headerRight || !showClose ? "1 1 auto" : undefined,
+              minWidth: 0,
+              ...props.titleStyle,
+            }}
+          >
+            {props.title}
           </div>
+          {props.headerRight ? (
+            <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{props.headerRight}</div>
+          ) : null}
+          {showClose ? (
+            <div style={{ marginLeft: props.headerRight ? 0 : "auto", flexShrink: 0 }}>
+              <ArcadeButton variant="gray" size="sm" onClick={props.onClose}>
+                {sv.play.modalClose}
+              </ArcadeButton>
+            </div>
+          ) : null}
         </div>
         {props.children}
       </div>
@@ -2741,7 +3087,7 @@ function MoveOptionLabel(props: {
       p.levelIndex === props.levelIndex &&
       p.tileIndex === props.tileIndex,
   );
-  const primary = hasOtherPlayer ? "PvP" : titleCaseTileType(props.tileType);
+  const primary = hasOtherPlayer ? sv.play.moveChoiceBvbLabel : titleCaseTileType(props.tileType);
   return (
     <span style={{ display: "grid", gap: 2, textAlign: "center", width: "100%" }}>
       <span style={{ fontWeight: 900 }}>{primary}</span>
@@ -2782,7 +3128,6 @@ function CardArtFrame({ artKey }: { artKey?: string }) {
 }
 
 function EnemyIntroModal(props: {
-  fighterName: string;
   enemyName: string;
   enemyArtKey?: string;
   need: number;
@@ -2795,37 +3140,20 @@ function EnemyIntroModal(props: {
   showCard: boolean;
   teammateName?: string;
 }) {
-  const meetTitleStyle: CSSProperties = {
-    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-    fontWeight: 900,
-    fontSize: "clamp(26px, 5.5vw, 36px)",
-    textAlign: "center",
-    color: "#f8fafc",
-    letterSpacing: "0.04em",
-    lineHeight: 1.05,
-    marginBottom: 4,
-    textShadow: "0 2px 18px rgba(0,0,0,0.45)",
-  };
-
-  const aboveScene = (
-    <>
-      <div style={meetTitleStyle}>{props.fighterName.toLocaleUpperCase("sv-SE")} MÖTER</div>
-      {props.teammateName ? (
-        <div
-          style={{
-            textAlign: "center",
-            opacity: 0.9,
-            marginBottom: 4,
-            fontSize: 14,
-            color: "#f1f5f9",
-            textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
-          }}
-        >
-          {sv.play.teammatePicked(props.teammateName)}
-        </div>
-      ) : null}
-    </>
-  );
+  const aboveScene = props.teammateName ? (
+    <div
+      style={{
+        textAlign: "center",
+        opacity: 0.9,
+        marginBottom: 4,
+        fontSize: 14,
+        color: "#f1f5f9",
+        textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
+      }}
+    >
+      {sv.play.teammatePicked(props.teammateName)}
+    </div>
+  ) : null;
 
   return (
     <CardFlipModalShell
@@ -2889,12 +3217,16 @@ function EnemyIntroModal(props: {
   );
 }
 
+const SIP_NOTICE_FROM_COLOR = "#fb923c";
+
 function SipNoticeCardModal(props: {
   recipientName: string;
   fromPlayerName: string;
+  klunkCount: number;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
   const recipient = props.recipientName?.trim() || "—";
+  const count = Math.max(1, Math.floor(props.klunkCount));
   return (
     <div
       style={{
@@ -2980,9 +3312,9 @@ function SipNoticeCardModal(props: {
             maxWidth: "100%",
           }}
         >
-          {recipient} fick just en klunk från
+          {sv.sipNotice.bodyPrefix(recipient, count)}
           <br />
-          {`«${from}».`}
+          <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
         </p>
       </div>
     </div>
@@ -2993,6 +3325,7 @@ function CardModal(props: {
   title: string;
   text: string;
   artKey?: string;
+  grantedItemId?: string;
   kind: "event" | "combat" | "rest" | "treasure" | "empty";
   cardId: string;
   combatWin?: CombatWinSummary;
@@ -3000,8 +3333,10 @@ function CardModal(props: {
   /** Kortägarens visningsnamn (ersätter "Du" i vinst/förlust om det behövs). */
   viewerName?: string;
 }) {
-  const foundItemArtKey = foundItemArtKeyForCardId(props.cardId);
-  const effectiveArtKey = foundItemArtKey ?? props.artKey;
+  const effectiveArtKey = resolveCardRevealArtKey(props.artKey, props.grantedItemId, {
+    cardText: props.text,
+    cardId: props.cardId,
+  });
   const mon = props.kind === "combat" ? monsterFromCardId(props.cardId) : undefined;
   const useMonsterLayout = !!mon;
   const effectiveWin =
@@ -3020,13 +3355,24 @@ function CardModal(props: {
         )
       : null;
   const showCombatLose = !!effectiveLoss;
-  const showTreasure = props.kind === "treasure" && !showCombatWin && !showCombatLose;
+  /** Slumpat föremål från skatt ska samma kort-layout som händelse-fynd (ram + Permanent Marker), inte TreasureCardContent. */
+  const treasureItemReveal = props.kind === "treasure" && props.cardId.startsWith("treasure_item_");
+  const showTreasure =
+    props.kind === "treasure" && !treasureItemReveal && !showCombatWin && !showCombatLose;
   const showDoorLocked = props.cardId === "door_locked";
   const centeredCombatOutcome = showCombatWin || showCombatLose || showTreasure;
+  const eventStoryLayout =
+    !centeredCombatOutcome && !showDoorLocked && !useMonsterLayout;
+  const showBeerRef = !!artAttributionLabel(effectiveArtKey);
 
   return (
     <CardFlipModalShell
       zIndex={100}
+      faceInnerClassName={
+        eventStoryLayout || (useMonsterLayout && mon)
+          ? cardFlipShellStyles.faceInnerNoVerticalOverflow
+          : undefined
+      }
       style={{
         placeItems: "start center",
         paddingTop: "max(14px, env(safe-area-inset-top))",
@@ -3038,15 +3384,29 @@ function CardModal(props: {
           width: "100%",
           minWidth: 0,
           boxSizing: "border-box",
-          borderRadius: 16,
-          border: "1px solid #ffffff22",
-          background: "#0b1226",
-          padding: useMonsterLayout && mon ? 0 : 16,
-          textAlign: centeredCombatOutcome ? "center" : "left",
-          color: "#ffffff",
-          ...(useMonsterLayout && mon
-            ? { display: "flex", flexDirection: "column", minHeight: "100%" }
-            : {}),
+          ...(eventStoryLayout
+            ? {
+                borderRadius: 0,
+                border: "none",
+                background: "transparent",
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100%",
+                textAlign: "left",
+                color: "#ffffff",
+              }
+            : {
+                borderRadius: 16,
+                border: "1px solid #ffffff22",
+                background: "#0b1226",
+                padding: useMonsterLayout && mon ? 0 : 16,
+                textAlign: centeredCombatOutcome ? "center" : "left",
+                color: "#ffffff",
+                ...(useMonsterLayout && mon
+                  ? { display: "flex", flexDirection: "column", minHeight: "100%" }
+                  : {}),
+              }),
         }}
       >
         {showCombatWin && effectiveWin ? (
@@ -3068,6 +3428,127 @@ function CardModal(props: {
           <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
             <TreasureCardContent title={props.title} text={props.text} cardId={props.cardId} />
           </CombatSheetFrame>
+        ) : eventStoryLayout ? (
+          <div
+            className={[
+              monsterCardFrameStyles.wrap,
+              monsterCardFrameStyles.wrapFill,
+              monsterCardFrameStyles.wrapEventStory,
+            ].join(" ")}
+          >
+            <div className={monsterCardFrameStyles.spin} aria-hidden />
+            <div
+              className={monsterCardFrameStyles.inner}
+              style={{
+                background: "#0b1226",
+                padding: 12,
+                color: "#fff",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100%",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 10,
+                  minWidth: 0,
+                }}
+              >
+                <img
+                  src="/icons/event-icon.svg"
+                  alt=""
+                  draggable={false}
+                  style={{
+                    flexShrink: 0,
+                    height: 24,
+                    width: "auto",
+                    objectFit: "contain",
+                    filter:
+                      "brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))",
+                    opacity: 0.96,
+                  }}
+                />
+                <div
+                  style={{
+                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                    fontWeight: 900,
+                    fontSize: 22,
+                    lineHeight: 1.1,
+                    letterSpacing: "0.02em",
+                    wordBreak: "break-word",
+                    minWidth: 0,
+                  }}
+                >
+                  {props.title}
+                </div>
+              </div>
+              <div
+                style={{
+                  width: "100%",
+                  margin: "0 0 14px",
+                  aspectRatio: "4/3",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid #ffffff22",
+                  background: "rgba(255,255,255,0.92)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <img
+                  src={artImageSrc(effectiveArtKey)}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                  }}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    display: "block",
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  opacity: 0.98,
+                  color: "#e5e7eb",
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.45,
+                  fontSize: 15,
+                }}
+              >
+                {props.text}
+              </div>
+              <div
+                style={{
+                  opacity: 0.62,
+                  fontSize: 12,
+                  lineHeight: 1.35,
+                  marginTop: 12,
+                  color: "rgba(226, 232, 240, 0.9)",
+                }}
+              >
+                {sv.cardModal.hintOwnerContinue}
+              </div>
+              {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
+              {showBeerRef ? (
+                <div
+                  style={{
+                    marginTop: 0,
+                    paddingTop: 10,
+                    borderTop: "1px solid rgba(255,255,255,0.1)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <CardArtAttribution artKey={effectiveArtKey} dense />
+                </div>
+              ) : null}
+            </div>
+          </div>
         ) : (
           <>
             {!useMonsterLayout ? (
@@ -3100,25 +3581,6 @@ function CardModal(props: {
       </div>
     </CardFlipModalShell>
   );
-}
-
-function foundItemArtKeyForCardId(cardId: string): string | undefined {
-  const m: Record<string, string> = {
-    event_find_item_heal: "item/heal",
-    event_find_item_sleep: "item/sleep",
-    event_find_item_sip: "item/sip",
-    event_find_item_weak: "item/weak",
-    event_find_item_pretzel: "item/pretzel",
-    event_find_item_coin: "item/coin",
-    event_find_item_hops: "item/hops",
-    event_find_item_hype: "item/hype",
-    event_find_item_sabotage: "item/sabotage",
-    event_find_item_bro: "item/bro",
-    treasure_item_weak: "item/weak",
-    treasure_item_heal: "item/heal",
-    treasure_item_hops: "item/hops",
-  };
-  return m[cardId];
 }
 
 function LevelUpLockedCardContent(props: { text: string }) {

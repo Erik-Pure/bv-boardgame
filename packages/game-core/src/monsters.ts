@@ -98,7 +98,7 @@ export const MONSTERS: MonsterDef[] = [
   },
   {
     id: "keg_lifter",
-    name: "Fatlyftaren",
+    name: "O-beast",
     strength: 2,
     baseDamage: 1,
     rulesText: "Vid skada: tappa slumpmässig utrusning",
@@ -241,6 +241,29 @@ export const MONSTERS: MonsterDef[] = [
     winRandomOtherSips: 1,
   },
 ];
+
+/** Högsta brädsnivå (våning) någon spelare befinner sig på — används för global monsterskalning. */
+export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]): number {
+  if (players.length === 0) return 0;
+  return Math.max(...players.map((p) => p.levelIndex));
+}
+
+/**
+ * Extra som läggs på alla monsters styrkekrav (samma värde för alla möten).
+ * Ökar när någon bryggmästare nått en högre våning — påverkar alla spelare.
+ */
+export function globalMonsterNeedBonus(players: readonly { levelIndex: number }[]): number {
+  return maxPlayerBoardLevel(players);
+}
+
+/** Simulera max våning om `playerId` flyttas till `newLevelIndex` (för UI / logg före byte). */
+export function maxPlayerBoardLevelIfPlayerReaches(
+  players: readonly { id: string; levelIndex: number }[],
+  playerId: string,
+  newLevelIndex: number,
+): number {
+  return Math.max(...players.map((p) => (p.id === playerId ? newLevelIndex : p.levelIndex)));
+}
 
 /** Slutboss — exakt en per spel, slumpas vid start (måste finnas i {@link MONSTERS}). */
 export const FINAL_BOSS_IDS: readonly MonsterId[] = ["pimp", "fermentation_hydra", "taproom_titan"];

@@ -1,10 +1,11 @@
-import type { CardDef } from "./types.js";
+import type { CardDef, EffectApplyOut } from "./types.js";
 import { applyEffects } from "./effects.js";
 import { getCard } from "./db.js";
+import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemText.js";
 import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type { CombatLoseSummary, CombatWinSummary, GameState, Pending, Player } from "../types.js";
-import { MONSTERS, type MonsterDef, type MonsterId } from "../monsters.js";
+import { globalMonsterNeedBonus, MONSTERS, type MonsterDef, type MonsterId } from "../monsters.js";
 
 export type LogFn = (state: GameState, message: string) => void;
 export type ShowCardFn = (state: GameState, params: {
@@ -14,6 +15,7 @@ export type ShowCardFn = (state: GameState, params: {
   title: string;
   text: string;
   artKey?: string;
+  grantedItemId?: string;
   choices?: Array<{ id: string; label: string }>;
   combatWin?: CombatWinSummary;
   combatLoss?: CombatLoseSummary;
@@ -88,7 +90,7 @@ export function createMonsterCombatPending(
     tileIndex: attacker.tileIndex,
     monsterId: monster.id,
     enemyName: monster.name,
-    need: monster.strength,
+    need: monster.strength + globalMonsterNeedBonus(state.players),
     needMod: 0,
     baseDamage: monster.baseDamage,
     lossSipsOnLose: monster.lossSipsOnLose,
@@ -234,15 +236,20 @@ export function resolveEventCardOnLand(params: {
   }
 
   // Default: apply effects immediately
-  const out = applyEffects({ state, player: p, effects: card.effects ?? [], rng });
+  const effectOut: EffectApplyOut = {};
+  applyEffects({ state, player: p, effects: card.effects ?? [], rng, out: effectOut });
   log(state, `Händelse: ${card.title}`);
   showCard(state, {
     playerId: p.id,
     kind: "event",
     cardId: card.id,
     title: card.title,
-    text: card.text + formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
-    artKey: card.artKey,
+    text:
+      card.text +
+      appendTextForGrantedItem(effectOut) +
+      formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
+    grantedItemId: effectOut.grantedItemId,
   });
 }
 
@@ -311,14 +318,18 @@ export function handleCardOption(params: {
   const beforeHp = p.hp;
   const beforeGold = p.gold;
   const beforeKlunk = p.klunkar;
-  applyEffects({ state, player: p, effects: choice.effects ?? [], rng });
+  const effectOut: EffectApplyOut = {};
+  applyEffects({ state, player: p, effects: choice.effects ?? [], rng, out: effectOut });
   log(state, `${p.name} väljer: ${choice.label}.`);
 
   state.pending = {
     ...pending,
     choices: undefined,
+    artKey: artKeyForGrantedItem(effectOut, pending.artKey) ?? pending.artKey,
+    grantedItemId: effectOut.grantedItemId ?? pending.grantedItemId,
     text:
       `${def.text}\nVal: ${choice.label}` +
+      appendTextForGrantedItem(effectOut) +
       formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
   };
   return { handled: true };

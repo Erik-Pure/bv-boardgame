@@ -5,6 +5,7 @@ import {
   ringGridSizeFromTileCount,
   ringTileCount,
   type GameState,
+  type Player,
   type TileType,
 } from "@bv/game-core";
 import { isGameState } from "../lib/gameTypes";
@@ -15,10 +16,14 @@ import { DiceCube3D } from "../components/DiceCube3D";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
+import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { CardArtAttribution } from "../components/CardArtAttribution";
-import { artImageSrc } from "../lib/cardArt";
+import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
+import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
+import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
+import turnBannerStyles from "./turnBanner.module.css";
 import {
   combatLossKlunksForDisplay,
   parseLegacyCombatLoseText,
@@ -26,10 +31,17 @@ import {
   resolveCombatLossViewer,
   resolveCombatWinViewer,
 } from "../lib/combatUi";
-import { sv, wsStatusLabel, pendingTypeLabelSv, tileTypeSv } from "../lib/uiStrings";
+import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
+import {
+  PLAYER_MARKER_TOKEN_H,
+  PLAYER_MARKER_TOKEN_W,
+  PLAYER_MARKER_VIEWBOX,
+  playerMarkerStyleVars,
+  playerMarkerSvgMarkupFor,
+} from "../lib/playerMarkerSvg";
 
 type Cam = { x: number; y: number; scale: number };
 
@@ -85,6 +97,34 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+/** Flera pjäser på samma ruta — liten kluster-layout (inte på rad). */
+function playerClusterOffsets(n: number, baseR: number): { dx: number; dy: number }[] {
+  if (n <= 0) return [];
+  if (n === 1) return [{ dx: 0, dy: -8 }];
+  if (n === 2) {
+    return [
+      { dx: -baseR * 0.72, dy: -baseR * 0.28 },
+      { dx: baseR * 0.72, dy: baseR * 0.28 },
+    ];
+  }
+  if (n === 3) {
+    const r = baseR;
+    return [
+      { dx: 0, dy: -r * 0.88 },
+      { dx: -r * 0.78, dy: r * 0.58 },
+      { dx: r * 0.78, dy: r * 0.58 },
+    ];
+  }
+  const r = baseR * (n <= 5 ? 1.05 : 1.15);
+  const start = -Math.PI / 2;
+  const out: { dx: number; dy: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const ang = start + (i * (2 * Math.PI)) / n;
+    out.push({ dx: Math.cos(ang) * r, dy: Math.sin(ang) * r });
+  }
+  return out;
+}
+
 /** Måste följa samma perimeterordning som `clockwiseTileIndex` i @bv/game-core (rörelse längs ringen). */
 function ringPos(size: number, idx: number): { col: number; row: number } {
   const n = 4 * size - 4;
@@ -107,12 +147,56 @@ function activePlayer(state: GameState | null) {
   return state.players.find((p) => p.id === id) ?? null;
 }
 
+/** Nästa spelare i `turnOrder` (visning på brädet; samma ordning som servern). */
+function nextTurnPlayer(state: GameState | null): Player | null {
+  if (!state || state.phase !== "playing" || state.turnOrder.length < 2) return null;
+  const nextIdx = (state.currentTurnIndex + 1) % state.turnOrder.length;
+  const id = state.turnOrder[nextIdx];
+  return state.players.find((p) => p.id === id) ?? null;
+}
+
+/** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
+const TABLE_TURN_BANNER_RESERVE_PX = 112;
+/** Extra utrymme när statusrad (sömn / Canman) visas under namnet */
+const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 148;
+
+/** Synliga tillstånd för spelare på brädet (sömn = hoppar turer, Canman = pant-buff). */
+function tablePlayerAfflictionLines(p: Player): string[] {
+  const lines: string[] = [];
+  if ((p.skippedTurns ?? 0) > 0) {
+    lines.push(sv.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
+  }
+  if ((p.canmanTurnsRemaining ?? 0) > 0) {
+    lines.push(sv.table.playerStatusCanman(p.canmanTurnsRemaining ?? 0));
+  }
+  return lines;
+}
+
 function pendingCardOwner(state: GameState | null) {
   if (!state) return null;
   const pending = state.pending;
   if (!pending || pending.type !== "card") return null;
   return state.players.find((p) => p.id === pending.playerId) ?? null;
 }
+
+type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
+
+/** Kort/items + vapnets sip-bonus (läggs på vid slag) — samma delar som motorn använder till attacktärningen. */
+function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: GameState): number {
+  const attacker = state.players.find((p) => p.id === pending.attackerId);
+  const fromCards = pending.attackMods?.[pending.attackerId] ?? 0;
+  const fromItems = attacker?.nextCombatModifier ?? 0;
+  const fromWeaponSip = attacker?.equipment.weapon?.sipAttackBonus ?? 0;
+  return fromCards + fromItems + fromWeaponSip;
+}
+
+function formatSignedDiceModifier(sum: number): string | null {
+  if (sum === 0) return null;
+  return sum > 0 ? `+${sum}` : String(sum);
+}
+
+/** Tärningsstorlek i monster-raden: samma för idle-spin och resultat. */
+const TABLE_MONSTER_COMBAT_DICE_PX = 78;
 
 function TableCombatBoardPanel({ state }: { state: GameState }) {
   const pending = state.pending;
@@ -180,6 +264,19 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   }, [showMonsterForDiceAnim, combatDiceAnimKey]);
 
   if (!pending || pending.type !== "combat") return null;
+
+  if (pending.phase === "chooseTeammate" && pending.teamBattleRequired) {
+    const att = state.players.find((p) => p.id === pending.attackerId);
+    return (
+      <TeamBattleIntroCard
+        variant="table"
+        attackerName={att?.name ?? "?"}
+        tableOverlayAnimation={TABLE_BOARD_MODAL_OVERLAY_ANIMATION}
+        tableCardEntranceAnimation={TABLE_BOARD_MODAL_CARD_ANIMATION}
+      />
+    );
+  }
+
   const attacker = state.players.find((p) => p.id === pending.attackerId);
   const need = pending.need + (pending.needMod ?? 0);
   const reactorNames = (pending.reactors ?? [])
@@ -258,7 +355,7 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
     color: "#f8fafc",
     letterSpacing: "0.04em",
     lineHeight: 1.05,
-    marginBottom: 12,
+    marginBottom: 28,
     textShadow: "0 2px 18px rgba(0,0,0,0.45)",
   };
 
@@ -315,6 +412,10 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
 
   const diceHeroMotionEase = "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
+  const boardDiceModifierLabel =
+    pending.phase === "reactions"
+      ? formatSignedDiceModifier(boardAttackerOutgoingRollModifier(pending, state))
+      : null;
   const monsterCardWrapTransform =
     monsterTableAnim === "intro"
       ? "translateX(0) rotate(0deg)"
@@ -342,13 +443,13 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
           >
             <div
               style={{
-                width: showMonsterDiceColumn ? 148 : 0,
+                width: showMonsterDiceColumn ? 200 : 0,
                 opacity: showMonsterDiceColumn ? 1 : 0,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 12,
+                gap: 10,
                 flexShrink: 0,
                 transition: `width 0.5s ${diceHeroMotionEase}, opacity 0.45s ${diceHeroMotionEase}`,
                 pointerEvents: showMonsterDiceColumn ? "auto" : "none",
@@ -363,39 +464,50 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  minWidth: 130,
+                  minWidth: 140,
                 }}
               >
                 {pending.phase === "reactions" ? (
-                  <DiceCube3D idleSpin size={78} />
+                  <DiceCube3D idleSpin size={TABLE_MONSTER_COMBAT_DICE_PX} />
                 ) : (
                   <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center" }}>
-                    <DiceCube3D value={pending.previewDie ?? 1} size={64} oneAsMonsterIcon />
+                    <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
                     {pending.previewBroDie != null ? (
-                      <DiceCube3D value={pending.previewBroDie} size={64} oneAsMonsterIcon />
+                      <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
                     ) : null}
                   </div>
                 )}
               </div>
-              {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && (
+              {boardDiceModifierLabel ? (
                 <div
                   style={{
-                    fontSize: 14,
+                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                    fontWeight: 400,
+                    fontSize: "clamp(30px, 7vw, 44px)",
+                    lineHeight: 1,
+                    letterSpacing: "0.02em",
+                    color: "#f8fafc",
+                    textAlign: "center",
+                    textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  {boardDiceModifierLabel}
+                </div>
+              ) : null}
+              {pending.phase === "chooseHitMitigation" ? (
+                <div
+                  style={{
+                    fontSize: 13,
                     textAlign: "center",
                     maxWidth: 248,
-                    lineHeight: 1.4,
+                    lineHeight: 1.35,
                     color: "#f1f5f9",
                     textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.55)",
                   }}
                 >
-                  Totalt <b>{pending.previewTotal ?? 0}</b> mot styrka <b>{pending.previewNeed ?? need}</b>
-                  {pending.phase === "chooseHitMitigation" ? (
-                    <span style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-                      {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
-                    </span>
-                  ) : null}
+                  {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
                 </div>
-              )}
+              ) : null}
             </div>
             <div
               style={{
@@ -453,18 +565,15 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
       )}
       {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && !monsterDiceHeroLayout && (
         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-          <DiceCube3D value={pending.previewDie ?? 1} size={52} oneAsMonsterIcon />
+          <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
           {pending.previewBroDie != null ? (
-            <DiceCube3D value={pending.previewBroDie} size={52} oneAsMonsterIcon />
+            <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
           ) : null}
-          <div style={{ fontSize: 14 }}>
-            Totalt <b>{pending.previewTotal ?? 0}</b> mot styrka <b>{pending.previewNeed ?? need}</b>
-            {pending.phase === "chooseHitMitigation" ? (
-              <span style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-                {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
-              </span>
-            ) : null}
-          </div>
+          {pending.phase === "chooseHitMitigation" ? (
+            <div style={{ fontSize: 14, maxWidth: 280, lineHeight: 1.35 }}>
+              {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
+            </div>
+          ) : null}
         </div>
       )}
     </>
@@ -547,6 +656,8 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   );
 }
 
+const PVP_MARKER = '"Permanent Marker", var(--heading), sans-serif' as const;
+
 function TablePvpBoardPanel({ state }: { state: GameState }) {
   const pending = state.pending;
   if (!pending || pending.type !== "pvp") return null;
@@ -556,38 +667,53 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
   const ra = pending.rolls?.[pending.attackerId];
   const rd = pending.rolls?.[pending.defenderId];
   const rt = pending.resolvedTotals;
+  const pvpRoundN = pending.pvpRound ?? 1;
+  const awaiting = pending.phase === "awaitingRolls";
 
-  function FighterCard(props: {
+  function PvpFighterColumn(props: {
     role: string;
     player: (typeof state.players)[0];
     roll: { die: number; total: number } | undefined;
+    nameRotateDeg: number;
   }) {
     return (
       <div
         style={{
-          flex: "1 1 200px",
-          maxWidth: 300,
-          borderRadius: 14,
-          border: "1px solid #ffffff28",
-          padding: 16,
-          background: "rgba(0,0,0,0.28)",
+          flex: "1 1 140px",
+          minWidth: 0,
+          maxWidth: 280,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 4px",
         }}
       >
-        <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", opacity: 0.65, marginBottom: 6 }}>
-          {props.role}
+        <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", opacity: 0.72 }}>{props.role}</div>
+        <div
+          style={{
+            fontFamily: PVP_MARKER,
+            fontSize: "clamp(22px, 4.2vw, 34px)",
+            lineHeight: 1.05,
+            color: props.player.color,
+            transform: `rotate(${props.nameRotateDeg}deg)`,
+            textAlign: "center",
+            wordBreak: "break-word",
+          }}
+        >
+          {props.player.name}
         </div>
-        <div style={{ fontWeight: 800, fontSize: 19, marginBottom: 12, color: props.player.color }}>{props.player.name}</div>
         {props.roll ? (
           <>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-              <DiceCube3D value={props.roll.die} size={58} />
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <DiceCube3D value={props.roll.die} size={52} />
             </div>
-            <div style={{ fontSize: 14, opacity: 0.92 }}>
+            <div style={{ fontSize: 13, opacity: 0.9, textAlign: "center" }}>
               {sv.table.dieAttackTotal(props.roll.die, props.roll.total)}
             </div>
           </>
         ) : (
-          <div style={{ opacity: 0.55, fontSize: 14, padding: "12px 0" }}>{sv.table.waitingRoll}</div>
+          <div style={{ opacity: 0.55, fontSize: 13, textAlign: "center", maxWidth: 200 }}>{sv.table.waitingRoll}</div>
         )}
       </div>
     );
@@ -623,38 +749,54 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
         </div>
         <div
           style={{
-            fontWeight: 900,
-            fontSize: 26,
-            marginBottom: 18,
+            fontFamily: PVP_MARKER,
+            fontSize: "clamp(36px, 7vw, 52px)",
+            lineHeight: 1.05,
+            marginBottom: 6,
             color: "#fef9c3",
-            textShadow: "0 0 28px rgba(251, 191, 36, 0.4)",
+            textShadow: "0 0 28px rgba(251, 191, 36, 0.35)",
           }}
         >
           {sv.table.pvpDuel}
         </div>
-        {pending.phase === "awaitingRolls" && (pending.pvpRound ?? 1) > 1 ? (
-          <div style={{ marginBottom: 14, fontWeight: 800, fontSize: 18, color: "#fde68a" }}>
-            {sv.table.pvpRound(pending.pvpRound ?? 1)}
-            <span style={{ display: "block", marginTop: 6, fontSize: 13, fontWeight: 600, opacity: 0.85 }}>
-              {sv.table.pvpTieRerollHint}
-            </span>
+        {awaiting ? (
+          <div
+            style={{
+              fontFamily: PVP_MARKER,
+              fontSize: "clamp(16px, 3.2vw, 22px)",
+              color: "rgba(255,255,255,0.88)",
+              marginBottom: pvpRoundN > 1 ? 6 : 16,
+            }}
+          >
+            {sv.table.pvpRound(pvpRoundN)}
           </div>
-        ) : null}
-        <div style={{ display: "flex", alignItems: "stretch", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
-          <FighterCard role={sv.table.roleAttacker} player={attacker} roll={ra} />
+        ) : (
+          <div style={{ height: 8 }} />
+        )}
+        {awaiting && pvpRoundN > 1 ? (
+          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, opacity: 0.82 }}>{sv.table.pvpTieRerollHint}</div>
+        ) : awaiting ? null : (
+          <div style={{ marginBottom: 8 }} />
+        )}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+          <PvpFighterColumn role={sv.table.roleAttacker} player={attacker} roll={ra} nameRotateDeg={-11} />
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              fontWeight: 900,
-              fontSize: 22,
-              opacity: 0.45,
-              padding: "0 4px",
+              justifyContent: "center",
+              fontFamily: PVP_MARKER,
+              fontSize: "clamp(32px, 6vw, 44px)",
+              lineHeight: 1,
+              color: "#fff",
+              opacity: 0.92,
+              padding: "0 2px",
+              flex: "0 0 auto",
             }}
           >
             VS
           </div>
-          <FighterCard role={sv.table.roleDefender} player={defender} roll={rd} />
+          <PvpFighterColumn role={sv.table.roleDefender} player={defender} roll={rd} nameRotateDeg={11} />
         </div>
         {rt ? (
           <div
@@ -690,6 +832,7 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
 type TableLobbyPlayer = GameState["players"][number];
 
 function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+  const afflictions = tablePlayerAfflictionLines(p);
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
       <div
@@ -702,16 +845,32 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
         }}
       >
-        <span
+        <div
           style={{
             fontWeight: 800,
             color: "#fafafa",
             textShadow: "0 1px 2px rgba(0,0,0,0.75)",
           }}
         >
-          {p.name}
-          {p.isHost ? " (värd)" : ""}
-        </span>
+          <span>
+            {p.name}
+            {p.isHost ? " (värd)" : ""}
+          </span>
+          {afflictions.length > 0 ? (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                lineHeight: 1.35,
+                opacity: 0.92,
+                wordBreak: "break-word",
+              }}
+            >
+              {afflictions.join(" · ")}
+            </div>
+          ) : null}
+        </div>
       </div>
       <span
         title={p.ready ? sv.play.ready : sv.play.unready}
@@ -1087,6 +1246,29 @@ export function TableView() {
       : null;
 
   const playingTurn = state?.phase === "playing" && cur;
+  const nextPlayer = playingTurn ? nextTurnPlayer(state) : null;
+  const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
+  const prevTurnPlayerIdRef = useRef<string | null>(null);
+  const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
+  useEffect(() => {
+    if (!cur?.id) {
+      prevTurnPlayerIdRef.current = null;
+      setTurnBannerHandoff(false);
+      return;
+    }
+    const prev = prevTurnPlayerIdRef.current;
+    if (prev !== null && prev !== cur.id) {
+      setTurnBannerHandoff(true);
+      const t = window.setTimeout(() => setTurnBannerHandoff(false), 720);
+      prevTurnPlayerIdRef.current = cur.id;
+      return () => window.clearTimeout(t);
+    }
+    prevTurnPlayerIdRef.current = cur.id;
+  }, [cur?.id]);
+  const turnBannerBottomReservePx =
+    playingTurn && currentTurnAfflictions.length > 0
+      ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
+      : TABLE_TURN_BANNER_RESERVE_PX;
 
   return (
     <div
@@ -1113,8 +1295,6 @@ export function TableView() {
     >
       <div
         style={{
-          display: "grid",
-          gridTemplateRows: "auto auto",
           borderBottom: "1px solid #ffffff22",
           minWidth: 0,
           maxWidth: "100%",
@@ -1206,54 +1386,6 @@ export function TableView() {
             </ArcadeButton>
           </div>
         </header>
-        {playingTurn ? (
-          <div
-            style={{
-              background: cur!.color,
-              padding: "6px 12px",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
-              minWidth: 0,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexWrap: "wrap",
-                gap: "8px 18px",
-                textAlign: "center",
-              }}
-            >
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(1.05rem, 3.5vmin, 1.65rem)",
-                  fontWeight: 900,
-                  lineHeight: 1.15,
-                  color: "#fafafa",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.8)",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {cur!.name}
-              </h1>
-              <span
-                style={{
-                  fontSize: "clamp(0.8rem, 2.4vmin, 1.05rem)",
-                  fontWeight: 800,
-                  lineHeight: 1.2,
-                  color: "#fafafa",
-                  textShadow: "0 1px 2px rgba(0,0,0,0.65)",
-                  opacity: 0.95,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {pendingTypeLabelSv(state?.pending?.type)}
-              </span>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div
@@ -1266,6 +1398,10 @@ export function TableView() {
           height: "100%",
           overflow: "hidden",
           alignItems: "stretch",
+          paddingBottom: playingTurn
+            ? `calc(${turnBannerBottomReservePx}px + env(safe-area-inset-bottom, 0px))`
+            : undefined,
+          boxSizing: "border-box",
         }}
       >
         <div
@@ -1491,35 +1627,54 @@ export function TableView() {
                         const innerCx = x + 6 + w / 2;
                         const innerCy = y + 6 + h / 2;
                         const n = here.length;
-                        const spread = 44;
+                        const clusterR = clamp((Math.min(w, h) / n) * 0.42, 14, 28);
+                        const offsets = playerClusterOffsets(n, clusterR);
                         return (
                           <g key={`tok-${t.id}`}>
                             {here.map((p, idx) => {
-                              const cx = innerCx + (idx - (n - 1) / 2) * spread;
-                              const cy = innerCy + 4;
-                              const r = 21;
+                              const off = offsets[idx] ?? { dx: 0, dy: -8 };
+                              const cx = innerCx + off.dx;
+                              const cy = innerCy + off.dy;
                               const initial = (p.name?.trim()?.[0] ?? "?").toUpperCase();
+                              const tw = PLAYER_MARKER_TOKEN_W;
+                              const th = PLAYER_MARKER_TOKEN_H;
                               return (
                                 <g key={p.id} filter="url(#playerTokenShadow)">
-                                  <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={r}
-                                    fill={p.color}
-                                    stroke="rgba(0,0,0,0.55)"
-                                    strokeWidth={2.5}
-                                  />
-                                  <text
-                                    x={cx}
-                                    y={cy + 7}
-                                    textAnchor="middle"
-                                    fill="rgba(255,255,255,0.95)"
-                                    fontSize={16}
-                                    fontWeight={900}
-                                    style={{ userSelect: "none" }}
+                                  <g
+                                    transform={`translate(${cx - tw / 2}, ${cy - th / 2})`}
+                                    style={playerMarkerStyleVars(p.color)}
                                   >
-                                    {initial}
-                                  </text>
+                                    <svg
+                                      width={tw}
+                                      height={th}
+                                      viewBox={PLAYER_MARKER_VIEWBOX}
+                                      overflow="visible"
+                                      dangerouslySetInnerHTML={{
+                                        __html: playerMarkerSvgMarkupFor(p.id),
+                                      }}
+                                    />
+                                    <g transform={`translate(${tw / 2}, ${th * 0.44})`}>
+                                      <g transform="scale(1, 0.66)">
+                                        <text
+                                          x={0}
+                                          y={0}
+                                          textAnchor="middle"
+                                          dominantBaseline="central"
+                                          fill="rgba(255,255,255,0.94)"
+                                          stroke="rgba(0,0,0,0.55)"
+                                          strokeWidth={3.4}
+                                          fontSize={34}
+                                          fontWeight={900}
+                                          style={{
+                                            userSelect: "none",
+                                            paintOrder: "stroke fill",
+                                          }}
+                                        >
+                                          {initial}
+                                        </text>
+                                      </g>
+                                    </g>
+                                  </g>
                                 </g>
                               );
                             })}
@@ -1799,11 +1954,69 @@ export function TableView() {
 
       {state?.pending?.type === "combat" && tableCombatModalReady && <TableCombatBoardPanel state={state} />}
 
+      {state?.pending?.type === "brewerDown" && (
+        <CardFlipModalShell
+          zIndex={45}
+          maxWidth={440}
+          blockPointerUntilFlipped={false}
+          faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
+          style={{
+            pointerEvents: "none",
+            placeItems: "center",
+            paddingTop: 70,
+            background: TABLE_BOARD_OVERLAY_BG,
+            animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+          }}
+        >
+          {(() => {
+            const pr = state.pending;
+            if (pr?.type !== "brewerDown") return null;
+            const victim = state.players.find((pl) => pl.id === pr.playerId);
+            const name = victim?.name ?? "";
+            return (
+              <div style={{ textAlign: "center", color: "#e5e7eb", padding: "16px 20px", maxWidth: 400 }}>
+                <div
+                  style={{
+                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                    fontWeight: 900,
+                    fontSize: 26,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    marginBottom: 14,
+                  }}
+                >
+                  {sv.play.brewerDownTitle}
+                </div>
+                <img
+                  src="/icons/skull-icon.svg"
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: 96,
+                    height: "auto",
+                    margin: "0 auto 14px",
+                    display: "block",
+                    filter: "brightness(0) invert(1)",
+                  }}
+                />
+                <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{name}</div>
+                <div style={{ fontSize: 14, opacity: 0.88 }}>{sv.table.brewerDownWaitPhone(name)}</div>
+              </div>
+            );
+          })()}
+        </CardFlipModalShell>
+      )}
+
       {state?.pending?.type === "card" && tableCardModalReady && (
         <CardFlipModalShell
           zIndex={44}
           maxWidth={720}
           blockPointerUntilFlipped={false}
+          faceInnerClassName={
+            isEventStoryCardPending(state.pending)
+              ? cardFlipShellStyles.faceInnerNoVerticalOverflow
+              : undefined
+          }
           style={{
             pointerEvents: "none",
             placeItems: "start center",
@@ -1812,19 +2025,29 @@ export function TableView() {
             animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
         >
+          {(() => {
+            const pCard = state.pending;
+            const eventStoryFrame = isEventStoryCardPending(pCard);
+            return (
           <div
             style={{
               width: "100%",
-              borderRadius: 16,
-              border: "1px solid #ffffff22",
-              background: "rgba(11, 18, 38, 0.92)",
-              padding: 16,
               textAlign: "left",
+              ...(eventStoryFrame
+                ? {
+                    maxWidth: 520,
+                    margin: "0 auto",
+                    padding: "0 10px 12px",
+                    boxSizing: "border-box",
+                  }
+                : {
+                    borderRadius: 16,
+                    border: "1px solid #ffffff22",
+                    background: "rgba(11, 18, 38, 0.92)",
+                    padding: 16,
+                  }),
             }}
           >
-            <div style={{ opacity: 0.75, fontSize: 12, marginBottom: 6 }}>
-              {sv.table.cardFor(cardOwner?.name ?? "spelare")}
-            </div>
             {(() => {
               const p = state.pending;
               const viewer = cardOwner?.name;
@@ -1872,7 +2095,7 @@ export function TableView() {
                   </div>
                 );
               }
-              if (p.kind === "treasure") {
+              if (p.kind === "treasure" && !p.cardId.startsWith("treasure_item_")) {
                 return (
                   <div style={{ textAlign: "center", color: "#e5e7eb" }}>
                     <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
@@ -1893,21 +2116,82 @@ export function TableView() {
                   </div>
                 );
               }
+              const revealArtKey = resolveCardRevealArtKey(p.artKey, p.grantedItemId);
+              const showBeerRef = !!artAttributionLabel(revealArtKey);
               return (
-                <>
-                  <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>{p.title}</div>
-                  <div style={{ width: "100%", margin: "0 0 10px", boxSizing: "border-box" }}>
+                <div
+                  className={[
+                    monsterCardFrameStyles.wrap,
+                    monsterCardFrameStyles.wrapFill,
+                    monsterCardFrameStyles.wrapEventStory,
+                  ].join(" ")}
+                >
+                  <div className={monsterCardFrameStyles.spin} aria-hidden />
+                  <div
+                    className={monsterCardFrameStyles.inner}
+                    style={{
+                      background: "#0b1226",
+                      padding: 12,
+                      color: "#fff",
+                      display: "flex",
+                      flexDirection: "column",
+                      minHeight: "100%",
+                    }}
+                  >
                     <div
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        marginBottom: 10,
+                        minWidth: 0,
+                      }}
+                    >
+                      <img
+                        src="/icons/event-icon.svg"
+                        alt=""
+                        draggable={false}
+                        style={{
+                          flexShrink: 0,
+                          height: 24,
+                          width: "auto",
+                          objectFit: "contain",
+                          filter:
+                            "brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))",
+                          opacity: 0.96,
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                          fontWeight: 900,
+                          fontSize: 22,
+                          lineHeight: 1.1,
+                          letterSpacing: "0.02em",
+                          wordBreak: "break-word",
+                          minWidth: 0,
+                        }}
+                      >
+                        {p.title}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        margin: "0 0 14px",
                         aspectRatio: "4/3",
                         borderRadius: 14,
                         overflow: "hidden",
                         border: "1px solid #ffffff22",
-                        background: "transparent",
+                        background: "rgba(255,255,255,0.92)",
+                        boxSizing: "border-box",
                       }}
                     >
                       <img
-                        src={artImageSrc(p.artKey)}
+                        src={artImageSrcForPending(p.artKey, p.grantedItemId, {
+                          cardText: p.text,
+                          cardId: p.cardId,
+                        })}
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
                         }}
@@ -1921,21 +2205,181 @@ export function TableView() {
                         }}
                       />
                     </div>
-                    <CardArtAttribution artKey={p.artKey} />
+                    <div
+                      style={{
+                        opacity: 0.98,
+                        color: "#e5e7eb",
+                        whiteSpace: "pre-wrap",
+                        lineHeight: 1.45,
+                        fontSize: 15,
+                      }}
+                    >
+                      {p.text}
+                    </div>
+                    <div
+                      style={{
+                        opacity: 0.62,
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        marginTop: 12,
+                        color: "rgba(226, 232, 240, 0.9)",
+                      }}
+                    >
+                      {sv.table.waitingConfirmPhone}
+                    </div>
+                    {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
+                    {showBeerRef ? (
+                      <div
+                        style={{
+                          marginTop: 0,
+                          paddingTop: 10,
+                          borderTop: "1px solid rgba(255,255,255,0.1)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <CardArtAttribution artKey={revealArtKey} dense />
+                      </div>
+                    ) : null}
                   </div>
-                  <div style={{ opacity: 0.98, color: "#e5e7eb", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-                    {p.text}
-                  </div>
-                </>
+                </div>
               );
             })()}
-            {state.pending.choices && state.pending.choices.length > 0 && (
-              <div style={{ opacity: 0.75, fontSize: 12, marginTop: 10 }}>{sv.table.choosingOnPhone}</div>
-            )}
-            <div style={{ opacity: 0.65, fontSize: 12, marginTop: 10 }}>{sv.table.waitingConfirmPhone}</div>
+            {!eventStoryFrame ? (
+              <div style={{ opacity: 0.65, fontSize: 12, marginTop: 10 }}>{sv.table.waitingConfirmPhone}</div>
+            ) : null}
           </div>
+            );
+          })()}
         </CardFlipModalShell>
       )}
+
+      {playingTurn ? (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 40000,
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            minWidth: 0,
+            boxSizing: "border-box",
+            pointerEvents: "none",
+          }}
+          aria-live="polite"
+        >
+          <div
+            className={[
+              turnBannerStyles.colorBar,
+              turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{
+              background: cur!.color,
+              minHeight: currentTurnAfflictions.length > 0 ? 118 : 96,
+              padding: "16px 20px",
+              boxShadow: "0 -8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
+              minWidth: 0,
+            }}
+          >
+            {turnBannerHandoff ? (
+              <div className={turnBannerStyles.shineSweep} key={cur!.id} aria-hidden />
+            ) : null}
+            <div
+              className={turnBannerStyles.bannerContent}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) max-content",
+                alignItems: "center",
+                gap: 14,
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  minWidth: 0,
+                  gap: 6,
+                  overflow: "hidden",
+                }}
+              >
+                <h1
+                  className={turnBannerHandoff ? turnBannerStyles.playerNameHandoff : undefined}
+                  style={{
+                    margin: 0,
+                    fontSize: "clamp(1.35rem, 5.5vmin, 2.35rem)",
+                    fontWeight: 900,
+                    lineHeight: 1.12,
+                    color: "#fafafa",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.85)",
+                    letterSpacing: "-0.02em",
+                    textAlign: "center",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    width: "100%",
+                    maxWidth: "100%",
+                  }}
+                >
+                  {cur!.name}
+                </h1>
+                {currentTurnAfflictions.length > 0 ? (
+                  <div
+                    style={{
+                      fontSize: "clamp(0.72rem, 2vmin, 0.95rem)",
+                      fontWeight: 800,
+                      lineHeight: 1.3,
+                      color: "#fafafa",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
+                      textAlign: "center",
+                      maxWidth: "100%",
+                      opacity: 0.95,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {currentTurnAfflictions.join(" · ")}
+                  </div>
+                ) : null}
+              </div>
+              {nextPlayer ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "clamp(0.82rem, 2.2vmin, 1.12rem)",
+                      fontWeight: 800,
+                      lineHeight: 1.25,
+                      color: "#fafafa",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      textAlign: "right",
+                    }}
+                    title={
+                      [nextPlayer.name, ...tablePlayerAfflictionLines(nextPlayer)].filter(Boolean).join(" — ") ||
+                      nextPlayer.name
+                    }
+                  >
+                    {sv.table.turnBannerNext(nextPlayer.name)}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ width: 1, flexShrink: 0 }} aria-hidden />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showReconnectOverlay ? (
         <div
@@ -1944,7 +2388,7 @@ export function TableView() {
             left: 0,
             right: 0,
             bottom: 0,
-            zIndex: 90,
+            zIndex: 45000,
             borderTop: "1px solid #ffffff22",
             background: "rgba(11, 18, 38, 0.92)",
             backdropFilter: "blur(8px)",

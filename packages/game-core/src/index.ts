@@ -35,6 +35,9 @@ export {
 } from "./engine.js";
 export {
   FINAL_BOSS_IDS,
+  globalMonsterNeedBonus,
+  maxPlayerBoardLevel,
+  maxPlayerBoardLevelIfPlayerReaches,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterLossKlunkTotal,
@@ -42,3 +45,8 @@ export {
   type MonsterId,
 } from "./monsters.js";
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
+export {
+  appendTextForGrantedItem,
+  artKeyForGrantedItem,
+  artKeyFromDuFickAppend,
+} from "./cards/grantedItemText.js";

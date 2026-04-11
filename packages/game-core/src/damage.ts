@@ -42,7 +42,7 @@ export function applyDamage(params: {
   const final = Math.max(0, dmg - prevent);
 
   const before = p.hp;
-  p.hp = Math.max(1, p.hp - final);
+  p.hp = Math.max(0, p.hp - final);
   const applied = before - p.hp;
   return { applied, prevented: dmg - final };
 }

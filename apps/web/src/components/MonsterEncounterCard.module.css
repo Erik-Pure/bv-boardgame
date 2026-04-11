@@ -16,6 +16,15 @@
   align-self: stretch;
 }
 
+/**
+ * Händelsekort i flip-modal: extra utrymme nederst så regnbågsramen inte klipps mot
+ * .faceFront / .scene (overflow hidden + subpixlar).
+ */
+.wrapEventStory {
+  padding-bottom: 8px;
+  box-sizing: border-box;
+}
+
 .spin {
   position: absolute;
   left: 50%;

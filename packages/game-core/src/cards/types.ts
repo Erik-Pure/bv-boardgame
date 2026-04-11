@@ -7,7 +7,21 @@ export type Effect =
   | { type: "heal"; amount: number }
   | { type: "klunkar"; amount: number }
   | { type: "item"; itemId: string }
+  /** Slumpa ett föremål från `decks.item` (samma pool som monsterloot). */
+  | { type: "randomItem" }
   | { type: "nextCombatMod"; amount: number };
+
+/** Resultatmetadata från {@link applyEffects} (siffror + `grantedItemId` vid `randomItem`). */
+export type EffectApplyOut = {
+  gold?: number;
+  klunkar?: number;
+  item?: number;
+  heal?: number;
+  damage?: number;
+  prevented?: number;
+  nextCombatMod?: number;
+  grantedItemId?: string;
+};
 
 export interface CardChoice {
   id: string;

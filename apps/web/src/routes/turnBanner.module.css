@@ -1,0 +1,89 @@
+/* Tur-banner längst ner på brädet — spelas vid byte av aktiv spelare */
+
+.colorBar {
+  position: relative;
+}
+
+.colorBarHandoff {
+  animation: tableTurnBarGlow 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tableTurnBarGlow {
+  0% {
+    filter: brightness(1.28) saturate(1.06);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.shineSweep {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.shineSweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 35%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.06) 65%,
+    transparent 100%
+  );
+  animation: tableTurnBarShine 0.62s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+@keyframes tableTurnBarShine {
+  from {
+    transform: translateX(-105%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.playerNameHandoff {
+  animation: tableTurnBannerName 0.52s cubic-bezier(0.34, 1.45, 0.52, 1) both;
+}
+
+@keyframes tableTurnBannerName {
+  0% {
+    transform: scale(0.86) translateY(0.12em);
+    opacity: 0.82;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.bannerContent {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .colorBarHandoff {
+    animation: none;
+  }
+
+  .playerNameHandoff {
+    animation: none;
+  }
+
+  .shineSweep::after {
+    animation: none;
+    opacity: 0;
+  }
+}

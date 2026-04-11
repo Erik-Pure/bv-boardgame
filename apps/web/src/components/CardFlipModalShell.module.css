@@ -32,6 +32,12 @@
   animation: cardBackEntrance var(--card-entrance-duration, 1s) cubic-bezier(0.25, 0.46, 0.35, 1) both;
 }
 
+.liftStatic {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
 @keyframes cardBackEntrance {
   from {
     opacity: 0;
@@ -55,6 +61,11 @@
 
 .cardFlipped {
   transform: rotateY(180deg);
+}
+
+/** Ingen transition vid direkt framsida (t.ex. inventory-item). */
+.cardInstant {
+  transition: none;
 }
 
 .faceBack,

@@ -1,7 +1,8 @@
-import type { Effect } from "./types.js";
+import type { Effect, EffectApplyOut } from "./types.js";
 import type { GameState, Player } from "../types.js";
-import { rollDie } from "../rng.js";
+import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
+import { itemDeckItemIds } from "./db.js";
 
 function newInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
@@ -12,9 +13,9 @@ export function applyEffects(params: {
   player: Player;
   effects: Effect[];
   rng: () => number;
-  out?: Record<string, number>;
-}): Record<string, number> {
-  const out = params.out ?? {};
+  out?: EffectApplyOut;
+}): EffectApplyOut {
+  const out: EffectApplyOut = params.out ?? {};
   for (const e of params.effects) {
     if (e.type === "gold") {
       const before = params.player.gold;
@@ -34,6 +35,16 @@ export function applyEffects(params: {
         itemId: e.itemId as any,
       });
       out.item = (out.item ?? 0) + 1;
+    } else if (e.type === "randomItem") {
+      const pool = itemDeckItemIds();
+      const itemId = pick(params.rng, pool);
+      params.player.inventory ??= [];
+      params.player.inventory.push({
+        instanceId: newInstanceId(params.rng),
+        itemId,
+      });
+      out.item = (out.item ?? 0) + 1;
+      out.grantedItemId = itemId;
     } else if (e.type === "nextCombatMod") {
       params.player.nextCombatModifier = (params.player.nextCombatModifier ?? 0) + e.amount;
       out.nextCombatMod = (out.nextCombatMod ?? 0) + e.amount;

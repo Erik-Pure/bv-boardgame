@@ -1,6 +1,12 @@
 import type { GameState } from "./types.js";
 
-export function pushSipNotice(state: GameState, recipientId: string, fromPlayerName: string): void {
+export function pushSipNotice(
+  state: GameState,
+  recipientId: string,
+  fromPlayerName: string,
+  klunkCount = 1,
+): void {
   state.sipNotices ??= [];
-  state.sipNotices.push({ recipientId, fromPlayerName });
+  const n = Math.max(1, Math.floor(klunkCount));
+  state.sipNotices.push({ recipientId, fromPlayerName, klunkCount: n });
 }

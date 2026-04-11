@@ -25,7 +25,7 @@ export function pendingTypeLabelSv(t: string | undefined): string {
     levelUpOffer: "nivåval",
     encounterChoice: "mötesval",
     combat: "dålig batch",
-    pvp: "PvP",
+    pvp: "BvB",
   };
   return m[t] ?? t;
 }
@@ -138,15 +138,18 @@ export const sv = {
     inCombat: (name: string) => `${name} är i strid`,
     intervene: "Ingrip",
     doNothing: "Gör inget",
-    encounterChoose: "Möte — välj:",
-    pvpBothRoll: "PvP (båda slår)",
-    resolveTileNoPvp: "Lös rutan (ingen PvP)",
-    pvpRollDie: "PvP — slå din tärning",
+    encounterChoose: "Möte — bryggare mot bryggare. Välj:",
+    /** Kort etikett när rörelseval leder till ruta med annan bryggare */
+    moveChoiceBvbLabel: "BvB",
+    pvpChooseOpponent: "BvB — välj motståndare:",
+    pvpBothRoll: "BvB (båda slår)",
+    resolveTileNoPvp: (tileLabel: string) => `Lös rutan (${tileLabel})`,
+    pvpRollDie: "Slå din tärning",
     pvpRound: (n: number) => `Rond ${n}`,
     pvpTieRerollHint: "Lika — båda slår om.",
     yourD6TotalWeapon: (die: number, total: number) => `Din t6: ${die} · totalt ${total} med vapen.`,
     youRolled: "Du har slagit",
-    rollPvpDie: "Slå PvP-tärning",
+    rollPvpDie: "Slå BvB-tärning",
     payPant: (n: number) => `Betala ${n} pant`,
     haveKlunkar: (n: number) => `Ha minst ${n} klunkar`,
     stay: "Stanna",
@@ -158,6 +161,19 @@ export const sv = {
     levelUpOfferPrompt: (levelDisplay: number) =>
       `Dina erfarenheter som bryggare räcker för nivå ${levelDisplay}. Vill du stiga direkt?`,
     levelUpOfferHint: "Väljer du att stanna går det fortfarande att gå upp via nivå-rutan på brädet.",
+    /** Tom sträng om inget särskilt att säga (t.ex. innan första höjning). */
+    levelUpMonsterScale: (before: number, after: number): string => {
+      if (after > before) {
+        if (before === 0) {
+          return `Om du stiger blir alla monster svårare: +${after} på styrkekrav i varje strid (gäller alla spelare).`;
+        }
+        return `Om du stiger höjs styrkekravet för alla monster: +${before} → +${after} på tärningsslaget.`;
+      }
+      if (before > 0) {
+        return `Alla monster har redan +${before} på styrkekrav (någon nått högre våning); din uppstigning ändrar inte svårgraden.`;
+      }
+      return "";
+    },
     levelUpNow: "Stig till nästa nivå nu",
     levelUpStayForTile: "Stanna kvar (ta nivå-rutan senare)",
     merchantReplaceBody: (slot: string, currentName: string, newName: string) =>
@@ -166,13 +182,14 @@ export const sv = {
     merchantReplaceCancel: "Avbryt",
     merchantCantAfford: "Du har inte råd.",
     leave: "Lämna",
-    pvpChooseLoot: "PvP — välj byte",
+    pvpChooseLoot: "BvB — välj byte",
     takePantMax5: "Ta pant (max 5)",
-    givePenaltyKlunk: "Ölprovning (+1)",
+    givePenaltyKlunk: "Straffklunk (+1)",
     pvpDeal2Damage: "Ge förloraren 2 skada",
     takeSlot: (slot: string) => `Ta ${slot}`,
     noItemsToSteal: "Inga föremål att ta.",
     rollDie: "Slå tärning",
+    moveChoiceDoubledHint: "Visat tärningsvärde räknas dubbelt (Skägget rakt bak).",
     lobbyHeader: (room: string, status: string) => `Lobby ${room} · ${status}`,
     players: "Spelare",
     waitingState: "Väntar på tillstånd…",
@@ -185,6 +202,11 @@ export const sv = {
     lobbyReadyLine: (ready: number, total: number) =>
       `Redo: ${ready} / ${total} (alla måste vara redo)`,
     lobbyBottomHint: "Använd panelen längst ned för att bli redo och starta.",
+    brewerDownTitle: "Stupad bryggare",
+    brewerDownLead: "Du har noll HP. Välj hur du vill fortsätta.",
+    brewerDownRetry: "Starta om på nytt",
+    brewerDownGiveUp: "Ge upp",
+    brewerDownWaitOther: (name: string) => `Väntar på att ${name} väljer …`,
     gameOver: "Spelet är slut",
     scoreboardTitle: "Resultatlista",
     scoreboardHint: "Vinnaren överst, därefter flest klunkar. Jämte: pant, sedan namn.",
@@ -260,6 +282,11 @@ export const sv = {
     combatOverlayTitle: "Bräde — dålig batch",
     combatPhase1: "1 — Möte",
     combatPhaseTeam: "0 — Välj medkämpe",
+    teamBattleIntroTitle: "Team battle",
+    teamBattleIntroBody: (attacker: string) =>
+      `${attacker} väljer medkämpe på sin mobil innan striden börjar.`,
+    teamBattleIntroHint:
+      "Vid förlust dricker båda extra straffklunk enligt monsterkortet — ni slår tillsammans mot samma styrka.",
     combatPhase2: "2 — Kort & tärning",
     combatPhase3Choice: "3 — Träffval (klunk eller full)",
     combatPhase3Result: "3 — Resultat",
@@ -269,7 +296,7 @@ export const sv = {
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
     pvpSubtitle: "Bryggare mot bryggare",
-    pvpDuel: "PvP-duell",
+    pvpDuel: "Duell",
     pvpRound: (n: number) => `Rond ${n}`,
     pvpTieRerollHint: "Lika — båda slår om.",
     roleAttacker: "Angripare",
@@ -279,6 +306,16 @@ export const sv = {
     winner: "Vinnare",
     winnerChoosesLoot: "Vinnaren väljer byte på sin mobil…",
     board: "Bräde",
+    /** Brädvy: aktuell turs färgfält, höger — nästa i turnOrder */
+    turnBannerNext: (name: string) => `Nästa: ${name}`,
+    /** Canman aktiv — +1 pant per rörelse; gruppen säger ofta “längräddad” av Canman. */
+    playerStatusCanman: (roundsLeft: number) =>
+      `Längräddad av Canman — +1 pant/drag · ${roundsLeft} ${roundsLeft === 1 ? "runda" : "rundor"} kvar`,
+    /** Sömnmedel: kommande hoppade turer innan spelaren får agera normalt */
+    playerStatusSleepSkip: (skippedTurns: number) =>
+      skippedTurns === 1
+        ? "Står över nästa tur (sömn)"
+        : `Står över ${skippedTurns} turer (sömn)`,
     floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
@@ -292,12 +329,11 @@ export const sv = {
     pending: "Väntande",
     lobbyList: "Lobby",
     log: "Logg",
-    cardFor: (name: string) => `Kort för ${name}`,
     hiddenItemFoundTitle: "Hittade ett föremål!",
     hiddenItemFoundBody: "Spelaren hittar ett föremål och hanterar det på sin mobil.",
     cardArtAlt: "Kortbild",
-    choosingOnPhone: "(Spelaren väljer alternativ på mobilen…)",
     waitingConfirmPhone: "(Väntar på att spelaren bekräftar på mobilen…)",
+    brewerDownWaitPhone: (name: string) => `${name} har noll HP — väljer på mobilen …`,
     hidePanel: "Dölj sidopanel",
     showPanel: "Visa sidopanel",
     tileTypeLabels: "Typetiketter på rutor",
@@ -332,7 +368,7 @@ export const sv = {
     },
     beard_back: {
       title: "Skägget rakt bak",
-      text: "Använd innan du slår rörelsetärning: +2 steg på ditt nästa rörelseslag.",
+      text: "Använd innan du slår rörelsetärning: dubblera tärningsslaget.",
     },
     hangover: {
       title: "Baksmälla",
@@ -350,18 +386,22 @@ export const sv = {
     },
     beer_bro: {
       title: "Ölkompis",
-      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka.",
+      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka. Vid vinst får ölkompisen lika många skatter som angriparen.",
     },
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
     canman: { title: "Canman", text: "+1 pant per drag i 10 rundor." },
-    not_my_round: { title: "Rundan är inte på mig", text: "Stjäl slumpmässigt item eller utrustning från ett mål." },
+    not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt item eller utrustning från ett mål." },
     spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt item eller utrustning hos ett mål." },
     early_night: { title: "Vaska direkt", text: "Som angripare i monstermöte: skippa monstret och avsluta mötet." },
 
   },
   sipNotice: {
     title: "Straffklunk",
-    line: (recipient: string, from: string) => `${recipient} fick just en klunk från «${from}».`,
+    /** Avslutande mening; avsändarnamnet «…» färgsätts separat i UI. */
+    bodyPrefix: (recipient: string, count: number) => {
+      const k = count === 1 ? "en straffklunk" : `${count} straffklunkar`;
+      return `${recipient} fick just ${k} från`;
+    },
     cheers: "Skål!",
     fallbackFrom: "en annan spelare",
   },
@@ -369,6 +409,8 @@ export const sv = {
     continue: "Fortsätt",
     /** Prefix före etikettreferensrad under kortbild (t.ex. öletikett). */
     etikettRef: "Etikett:",
+    /** Under korttext på mobil när spelaren ska bekräfta kortet. */
+    hintOwnerContinue: "(Tryck på Fortsätt nedan när du är redo.)",
   },
   equipAria: {
     empty: (label: string) => `${label} (tom)`,

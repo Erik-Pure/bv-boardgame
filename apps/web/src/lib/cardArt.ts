@@ -1,3 +1,5 @@
+import { artKeyForGrantedItem, artKeyFromDuFickAppend } from "@bv/game-core";
+
 /**
  * Kort vars bild bygger på en verklig öletikett — kort etikettreferens under bilden.
  * Nyckel = samma `artKey` som i kortdata / game-core.
@@ -14,6 +16,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/skum-banan": "Skum banan, Bryggverket",
   "monster/rabarbapappa": "Rabarbapappa, Bryggverket",
   "monster/brottningsmatch": "Lengräddad, Bryggverket & Tempel brygghus",
+  "monster/keg-lifter": "O-beast, Bryggverket & Stockholm Brewing",
   "monster/kapten-interrobang": "Kapten Interrobang, Bryggverket",
   "monster/sura-bar": "Surinamnam, Bryggverket & Poppels bryggeri",
   "monster/barsfisk": "Octobeer, Bryggverket",
@@ -30,6 +33,35 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
 export function artAttributionLabel(artKey?: string): string | undefined {
   if (!artKey) return undefined;
   return ART_ATTRIBUTION_SV[artKey];
+}
+
+function randomItemRevealStillGeneric(artKey: string | undefined, cardId: string | undefined): boolean {
+  if (!cardId) return false;
+  if (cardId.startsWith("treasure_item_")) return (artKey ?? "").startsWith("tile/treasure");
+  if (cardId.startsWith("event_find_item_")) {
+    const a = artKey ?? "";
+    return a === "event/item" || a.startsWith("event/item");
+  }
+  return false;
+}
+
+export type CardRevealArtMeta = { cardText?: string; cardId?: string };
+
+/** Slår upp rätt `artKey` när server skickat `grantedItemId` (slumpat föremål). */
+export function resolveCardRevealArtKey(
+  artKey?: string,
+  grantedItemId?: string,
+  meta?: CardRevealArtMeta,
+): string | undefined {
+  const resolved = grantedItemId ? (artKeyForGrantedItem({ grantedItemId }, artKey) ?? artKey) : artKey;
+  const cid = meta?.cardId;
+  const txt = meta?.cardText;
+  const isRandomItem = cid?.startsWith("treasure_item_") || cid?.startsWith("event_find_item_");
+  if (isRandomItem && txt && randomItemRevealStillGeneric(resolved, cid)) {
+    const fromText = artKeyFromDuFickAppend(txt);
+    if (fromText) return fromText;
+  }
+  return resolved;
 }
 
 /** Mappar `artKey` från game-core till public-bild (monster/event/item/tile). */
@@ -63,10 +95,19 @@ export function artImageSrc(artKey?: string): string {
       sabotage: "yeast-sabotage",
       bro: "beer-bro",
       "not-my-round": "not_my_round",
+      canman: "canman",
+      "split-the-g": "split-the-g",
     };
     const key = artKey.slice("item/".length);
     const mapped = itemArtMap[key];
     if (mapped) return `/items/${mapped}.png`;
+    const underscored = key.replace(/-/g, "_");
+    return `/items/${underscored}.png`;
   }
   return "/card-placeholder.png";
+}
+
+/** Bild-URL för kort-pending med valfritt slumpat föremål (mobil + bord). */
+export function artImageSrcForPending(artKey?: string, grantedItemId?: string, meta?: CardRevealArtMeta): string {
+  return artImageSrc(resolveCardRevealArtKey(artKey, grantedItemId, meta));
 }

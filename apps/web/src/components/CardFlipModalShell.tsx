@@ -24,6 +24,8 @@ export function CardFlipScene(props: {
   maxWidth?: number;
   /** When true, ignore taps until flip finishes (mobile play). */
   blockPointerUntilFlipped?: boolean;
+  /** Visa framsida direkt utan fly-in + flip (t.ex. klick på föremål i inventory). */
+  instantFront?: boolean;
   className?: string;
   /** Extra klass på framsidans scroll-yta (t.ex. `faceInnerNoVerticalOverflow`). */
   faceInnerClassName?: string;
@@ -32,10 +34,12 @@ export function CardFlipScene(props: {
 }) {
   const refW = Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W);
   const blockPointer = props.blockPointerUntilFlipped !== false;
-  const [flipped, setFlipped] = useState(false);
-  const [interactOk, setInteractOk] = useState(false);
+  const instant = props.instantFront === true;
+  const [flipped, setFlipped] = useState(instant);
+  const [interactOk, setInteractOk] = useState(instant);
 
   useEffect(() => {
+    if (instant) return;
     const flipAt = ENTRANCE_MS + HOLD_BACK_MS;
     const tFlip = window.setTimeout(() => setFlipped(true), flipAt);
     const tInteract = window.setTimeout(() => setInteractOk(true), flipAt + FLIP_MS + 20);
@@ -43,9 +47,11 @@ export function CardFlipScene(props: {
       clearTimeout(tFlip);
       clearTimeout(tInteract);
     };
-  }, []);
+  }, [instant]);
 
-  const cardClass = [styles.card, flipped && styles.cardFlipped].filter(Boolean).join(" ");
+  const cardClass = [styles.card, flipped && styles.cardFlipped, instant && styles.cardInstant]
+    .filter(Boolean)
+    .join(" ");
   const cardPointerEvents = blockPointer && !interactOk ? "none" : "auto";
 
   return (
@@ -67,7 +73,7 @@ export function CardFlipScene(props: {
         className={[styles.scene, props.sceneClassName].filter(Boolean).join(" ")}
         style={props.sceneStyle}
       >
-        <div className={styles.lift}>
+        <div className={[styles.lift, instant && styles.liftStatic].filter(Boolean).join(" ")}>
           <div className={cardClass} style={{ pointerEvents: cardPointerEvents }}>
             <div className={styles.faceBack} aria-hidden>
               <img src={CARD_BACK_SRC} alt="" className={styles.backImg} draggable={false} />
@@ -85,7 +91,7 @@ export function CardFlipScene(props: {
 export function CardFlipModalShell(props: {
   zIndex: number;
   children: ReactNode;
-  /** Innehåll ovanför själva flip-kortet (t.ex. "X MÖTER") — ingår inte i kortets framsida/baksida. */
+  /** Innehåll ovanför själva flip-kortet — ingår inte i kortets framsida/baksida. */
   aboveScene?: ReactNode;
   /** Max kortbredd i px (default 400; aldrig större än designbredden). */
   maxWidth?: number;
@@ -96,6 +102,8 @@ export function CardFlipModalShell(props: {
   style?: CSSProperties;
   /** Extra klass på framsidans scroll-yta (t.ex. `faceInnerNoVerticalOverflow`). */
   faceInnerClassName?: string;
+  /** @see CardFlipScene `instantFront` */
+  instantFront?: boolean;
 }) {
   const stackAbove = props.aboveScene != null;
 
@@ -135,6 +143,7 @@ export function CardFlipModalShell(props: {
         maxWidth={props.maxWidth}
         faceInnerClassName={props.faceInnerClassName}
         blockPointerUntilFlipped={props.blockPointerUntilFlipped}
+        instantFront={props.instantFront}
         sceneStyle={stackAbove ? { flexShrink: 0 } : undefined}
       >
         {props.children}

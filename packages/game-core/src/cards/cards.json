@@ -145,132 +145,14 @@
       ]
     },
     {
-      "id": "event_find_item_heal",
+      "id": "event_find_item_random",
       "kind": "event",
       "title": "Hittade ett föremål!",
-      "text": "Du hittar en helande brygd. Behåll den och använd senare.",
+      "text": "Du rotar i hörnet och hittar något användbart. Behåll det och använd senare.",
       "artKey": "event/item",
       "effects": [
         {
-          "type": "item",
-          "itemId": "healing_potion"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_sleep",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar ett sömnmedel. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "sleep_potion"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_sip",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar ett straffklunk-kort. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "sip_card"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_weak",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar Druckit för mycket. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "weak_beer"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_pretzel",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar en pretzel. Behåll den och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "pretzel_snack"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_coin",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar en pantpåse. Behåll den och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "coin_purse"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_hops",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar En hjälpande hand. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "double_hops"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_hype",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar Okontrollerad jäsning. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "monster_hype"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_sabotage",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar Skakad öl. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "yeast_sabotage"
-        }
-      ]
-    },
-    {
-      "id": "event_find_item_bro",
-      "kind": "event",
-      "title": "Hittade ett föremål!",
-      "text": "Du hittar ett Ölkompis-kort. Behåll det och använd senare.",
-      "artKey": "event/item",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "beer_bro"
+          "type": "randomItem"
         }
       ]
     },
@@ -394,41 +276,14 @@
       ]
     },
     {
-      "id": "treasure_item_weak",
+      "id": "treasure_item_random",
       "kind": "treasure",
-      "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: Druckit för mycket.",
+      "title": "Skatt: föremål",
+      "text": "I gömman ligger ett föremålskort.",
       "artKey": "tile/treasure",
       "effects": [
         {
-          "type": "item",
-          "itemId": "weak_beer"
-        }
-      ]
-    },
-    {
-      "id": "treasure_item_heal",
-      "kind": "treasure",
-      "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: Helande brygd.",
-      "artKey": "tile/treasure",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "healing_potion"
-        }
-      ]
-    },
-    {
-      "id": "treasure_item_hops",
-      "kind": "treasure",
-      "title": "Skatt: föremålskort",
-      "text": "Du hittar ett föremålskort: En hjälpande hand.",
-      "artKey": "tile/treasure",
-      "effects": [
-        {
-          "type": "item",
-          "itemId": "double_hops"
+          "type": "randomItem"
         }
       ]
     },
@@ -539,7 +394,7 @@
       "id": "item_beard_back",
       "kind": "item",
       "title": "Skägget rakt bak",
-      "text": "Använd innan du slår rörelsetärning: +2 steg på nästa slag.",
+      "text": "Använd innan du slår rörelsetärning: dubblera tärningsslaget.",
       "artKey": "item/beard-back",
       "effects": []
     },
@@ -571,7 +426,7 @@
       "id": "item_beer_bro",
       "kind": "item",
       "title": "Ölkompis",
-      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada.",
+      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen.",
       "artKey": "item/bro",
       "effects": []
     },
@@ -633,7 +488,7 @@
     {
       "id": "item_not_my_round",
       "kind": "item",
-      "title": "Rundan är inte på mig",
+      "title": "En enkel stöld",
       "text": "Använd på en annan spelare: stjäl slumpmässigt ett item eller utrustning.",
       "artKey": "item/not-my-round",
       "effects": []
@@ -663,16 +518,16 @@
       "event_astronomisk_fylla",
       "event_ljuset_i_tunneln",
       "choice_drink_or_damage",
-      "event_find_item_heal",
-      "event_find_item_sleep",
-      "event_find_item_sip",
-      "event_find_item_weak",
-      "event_find_item_pretzel",
-      "event_find_item_coin",
-      "event_find_item_hops",
-      "event_find_item_hype",
-      "event_find_item_sabotage",
-      "event_find_item_bro",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
+      "event_find_item_random",
       "event_quench",
       "event_sotsug",
       "event_friendly_offering",
@@ -691,9 +546,9 @@
     ],
     "treasure": [
       "treasure_cache",
-      "treasure_item_weak",
-      "treasure_item_heal",
-      "treasure_item_hops"
+      "treasure_item_random",
+      "treasure_item_random",
+      "treasure_item_random"
     ],
     "item": [
       "item_healing_potion",

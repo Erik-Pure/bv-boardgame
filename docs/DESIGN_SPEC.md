@@ -4,14 +4,14 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.10 |
-| Senast uppdaterad | 2026-04-02 |
+| Version | 0.11 |
+| Senast uppdaterad | 2026-04-11 |
 
 ---
 
 ## 1. Produktvision
 
-Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, **flera våningsplan** med dörrar däremellan, **pant och affärer**, utrustning, monsterdueller, **PvP-dueller** och **straffklunkar** som räknas och kan modifiera kort/händelser.
+Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, **flera våningsplan** med dörrar däremellan, **pant och affärer**, utrustning, monsterdueller, **BvB-dueller** (**bryggare mot bryggare** — spelare mot spelare, se §9.2) och **straffklunkar** som räknas och kan modifiera kort/händelser.
 
 **Varumärke och ton:** spelet är tänkt att vara **kopplat till Bryggverket**, ölbryggeri i **Umeå** (copy, visuell identitet och referenser till verkliga sorter). **Avtal och tydlighet kring varumärkesanvändning** behövs innan publik lansering.
 
@@ -109,6 +109,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - **Yttre ring per våning:** rektangulär **ram** runt ett tomt hål; antal rutor på ringen är **`4·s−4`** där `s` är innerkantens sidlängd i rutnät (i nuvarande data t.ex. **`s = 5` → 16 rutor** per våning). Varje ruta har ett **index** `0 … n−1` i den ordning som banan genereras — samma ordning ska **storskärmsklienten** använda när den placerar rutor (`ringPos` m.m.).
 - **Synk mellan server och bord:** om ett partis `levels[i].tiles.length` skiljer sig från en hårdkodad layout (t.ex. äldre sparad state med färre rutor) måste klienten **härleda `s` från `tiles.length`** så att **visuella steg längs ringen** stämmer med **serverns rörelse** (modulo `n`). Annars kan målmarkeringar och spelarnas intuition för tärningsrörelse feltolkas trots att servern räknar rätt.
 - **Bordsvy (`/table`):** våningsplanen visas **horisontellt i rad** (sida vid sida) med mellanrum; pan, zoom och auto-fokus tar **hela brädets bredd** i beaktande.
+- **Flera pjäser på samma ruta:** spelarmarkörer (kapsyler med initial) placeras i en **liten kluster-layout** (t.ex. diagonal för två, triangel för tre, cirkel för fler) så att de **inte ligger på en horisontell rad** — tydligare överblick och mindre överlappning visuellt.
 - **Bakgrund per våning (valfritt):** under tile-lagret kan en **bakgrundsbild** visas för vissa våningar; tillgångar levereras gärna som **komprimerad WebP** (t.ex. under `public/backgrounds/`) för rimlig filstorlek.
 
 ### 7.2 Nivåer (våningsplan)
@@ -140,7 +141,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | **Skatt / gömma** | Engångsbyte: fast eller slumpad belöning (pant eller item); rutan kan markeras som **tömd** efteråt. |
 | **Ödes-/valruta** | Spelaren väljer mellan två tydliga risker (t.ex. “säker liten belöning” vs “slå tärning för större eller värre”). |
 | **Tom / säker passage** | Ingen händelse vid landning; bra för andningspauser i ban-generering. |
-| **PvP / utmaning** *(valfritt)* | Om spelaren landar här med annan spelare på rutan, eller via kort — kan tvinga eller erbjuda **PvP-duell** (§9.2). |
+| **BvB / utmaning** *(valfritt)* | Om spelaren landar här med **annan bryggare** på rutan, eller via kort — kan tvinga eller erbjuda **BvB-duell** (§9.2). På brädet kan rörelseval visa **BvB** som etikett när målrutan redan har en motspelare. |
 
 Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vägskäl** (välj gren nästa gång du lämnar rutan), **kortruta** (dra direkt från leken utan combat).
 
@@ -149,7 +150,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ## 8. Rörelse
 
 - Spelaren **slår tärning** (eller server slår) och **rör sig exakt så många steg** som resultatet visar längs giltiga banor på den nivå spelaren befinner sig på.
-- **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6** plus **rörelsebonus** från accessoar eller föremål som *Skägget rakt bak*) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
+- **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6**, ev. **dubblat** av *Skägget rakt bak*, plus **rörelsebonus** från accessoar) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
 - **Modifiers** från kort, items, status eller klunk-regler kan **minska eller öka** antal steg (eller ändra riktning/giltiga rutor). Alla sådana effekter ska **resolveras på servern** och loggas i spelloggen.
 
 ---
@@ -179,16 +180,21 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - Reward i team battle följer samma mix som övrig PvE-loot: **itemkort och/eller utrustning**.
 - Vid **förlust** tar båda **samma inkommande skada** (med sina egna rustnings-/reduceringsregler tillämpade individuellt) och båda får klunk-straff enligt monsterregeln.
 
-### 9.2 Spelare mot spelare (PvP)
+### 9.2 Bryggare mot bryggare (BvB)
 
-- PvP utlöses när reglerna säger det (t.ex. **samma ruta** med minst två pjäser, **händelsekort**, eller dedikerad **utmanings-tile** — välj minst ett spår i implementation och dokumentera).
-- Samma **duell-grund** som PvE där det är rimligt: **tärning + vapen** (± buffar); motståndaren använder sitt **vapen** och ev. tillfälliga modifiers. *(Alternativ: båda slår och jämför — om så väljs ska det stå i samma tabell som PvE för enhetlighet.)*
-- Om båda spelare får **lika total** ska de **slå om** i ny rond tills en vinnare finns (UI visar tydligt **Rond 2, Rond 3, ...**).
-- **Vinnare** väljer **ett** av följande mot **förloraren:**
-  - **Ta ett föremål:** en konkret **utrustningsdel** som förloraren bär (välj slot eller låt vinnaren välja bland synliga/välbara prylar enligt regel du sätter), **eller**
-  - **Ta pant:** ett **fast belopp** eller **andel** av förlorarens **pant** (tak så det inte ruinierar någon i första duellen).
-- **Förlorare:** definiera konsekvens (t.ex. **ligga kvar** på rutan, **flytta bakåt N**, **tillfällig debuff**, ingen död om ni vill skilja PvP från monster-död) — dokumentera när beslutet är taget.
-- Allt ovan ska **avgöras på servern** och synas tydligt i spelloggen.
+**Terminologi i spelet:** spelar-mot-spelar-dueller kallas **BvB** (*bryggare mot bryggare*) i UI, spellogg (svenska) och på brädet där det är lämpligt. *(I kod och nätverksactions kan interna namn som `pvp`/`choosePvpOpponent` kvarstå tills en ev. refaktor.)*
+
+**Nuvarande implementation (MVP-spår):**
+
+- **Utlösare:** när en spelare **landar** på en ruta där **minst en annan spelare** redan står (samma nivå och tile-index), skapas ett **mötesval** (`encounterChoice`) innan rutan löses.
+- **Första valet (den som flyttade in):** **BvB** (båda slår tärning + vapen och jämför) **eller** **lös rutan** utan BvB (tile-effekter/kort/strid enligt ruttyp körs som vanligt).
+- **Flera motståndare på rutan:** efter att spelaren valt BvB ska den **välja vilken bryggare** som utmanas (lista med namn); därefter startar duellen mot vald motståndare.
+- **Duell:** båda slår **d6 + vapenstyrka**; högst (lika räknas som oavgjort) vinner. Vid **lika total** **slår båda om** i nästa rond tills en vinnare finns (UI visar **Rond 2, Rond 3, …**).
+- **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
+- **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
+- Allt ska **avgöras på servern** och synas tydligt i spelloggen.
+
+**Framtida / valfritt:** samma duell kan även erbjudas via **händelsekort** eller dedikerad **utmanings-ruta**; dokumentera när sådana spår läggs till.
 
 ---
 
@@ -197,7 +203,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - Spelare har **pant** (heltal ≥ 0) som huvudvaluta — **inte** “guld” i spelarens upplevelse.
 - **Affärer** nås via **affärsrutor** (§7.4) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
-- Pant kan också **förloras eller vinnas** via händelser och **PvP** (§9.2).
+- Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
 - **Handlare (nuvarande flöde):** spelaren kan köpa **flera saker i samma besök** och lämnar handlaren explicit när den är klar.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
@@ -208,8 +214,9 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Krokben**: stridsreaktion, **−1 spelarattack**.
 - **Ölbomb**: stridsreaktion, **+3 spelarattack**.
 - **Baksmälla**: stridsreaktion, **−3 spelarattack**.
-- **Skägget rakt bak**: används innan rörelseslag, **+2 steg på nästa rörelseslag**.
+- **Skägget rakt bak**: används innan rörelseslag, **dubblerar tärningsslaget** på nästa rörelse (utrustningsbonus läggs till som vanligt).
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
+- **Canman** (item): ger **+1 pant per drag** under ett **antal rundor** (implementation: t.ex. 10); kort-/itembild levereras som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 
 ---
 
@@ -281,6 +288,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Händelser** från klienter modelleras som **actions**; server svarar med **uppdaterad state** och/eller **eventlista** för logg.
 - Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
 
+**Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, standardport **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna bräde/spelare i webbläsaren via **`http://localhost:5173`** (eller datorns LAN-IP för mobiler); klienten ansluter till **`ws://<samma värd>:3001`** om inget annat anges (`?ws=…` kan överstyra). Om endast spelservern körs syns inte webb-UI:t — då behöver Vite också vara igång.
+
 ### 16.1 Kortmodal och tydlighet
 
 - När ett kort visar **eftereffekter** (pant / HP / klunkar — i äldre byggen kan etiketten fortfarande säga “Gold”) ska **endast rader där värdet faktiskt ändrats** visas — undvik “Pant: 5 → 5” som ger intryck av förändring utan effekt.
@@ -294,7 +303,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - Lobby med kod, upp till 6 spelare, konfigurerbar turtid.
 - Slumpad bana, flera våningsplan (fyra ringar med dörrar uppåt), dörrar med level-krav, **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
 - **Storskärm:** pan, zoom, **auto-fokus anpassad till viewport** och **målrutor vid rörelseval** (§2.1); tur-rad under meny.
-- **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **PvP** (§9.2) med vinnarval **föremål eller pant**; **ekonomi och affärer** (§10).
+- **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
 - Utrustningsplatser, liten händelse-/kortlek, klunk-räknare kopplad till några kort.
 - Fyra slutbossar; standard-vinst **döda boss först**; variant **gyllene öl + flykt till start/slutpunkt**.
@@ -318,8 +327,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Timeout-tur:** exakt auto-beteende vid 60 s (eller inställt värde).
 - **Hex vs kvadrat** för tiles.
 - **Min spelare** och om spelet får startas med färre än max.
-- **PvP:** exakt utlösare (samma ruta, kort, tile), **förlorarens** konsekvens, och hur vinnaren **väljer item** (alla slots vs begränsat).
-- **Ekonomi:** startpant, PvP-pant-tak, affärs-sortiment per nivå.
+- **BvB:** ytterligare utlösare (kort, dedikerad tile) om de läggs till; **förlorarens** slutliga konsekvens efter duell; ev. begränsning av **vilka slots** vinnaren får stjäla från.
+- **Ekonomi:** startpant, BvB-pant-tak, affärs-sortiment per nivå.
 - **Kamera:** max/min zoom, om auto-fokus alltid återställer manuell pan eller “låses” tills nästa tur.
 - **Bryggverket-boost:** exakt verifieringsmetod, max antal användningar per parti, och juridisk copy tillsammans med bryggeriet.
 - **Lista över godkända ölnamn** att använda på kort (med bryggeriet).
@@ -351,4 +360,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.8 | 2026-03-31 | Fasta monsterrewards (pant + antal rewards), mixad drop-pool med utrustning + items, flera reaktionskort möjliga innan “gör inget”, handlare tillåter flera köp per besök, samt konsekvent wording “Vid förlust” för klunkstraff |
 | 0.9 | 2026-04-03 | Mobil: regnbågsbakgrund (rotation + puls) vid aktiv tur, endast `/play`; lobby döljer liv/pant/klunk/utrustning/föremål tills start; lobbytext centrerad; monsterkort visar stats längst ner med ikon över siffra (mobil + bord overlay) |
 | 0.10 | 2026-04-02 | Bord: våningar i rad, ringstorlek `4s−4` och krav på att klient härleder grid från `tiles.length`; WebP-bakgrunder per våning; rörelse §8 förtydligad (ring, modulo, specialfall n/2); fyra våningsplan i §7.2; Pantpåse (namnbyte); grafiknot om komprimering av bakgrundsbilder |
+| 0.11 | 2026-04-11 | **BvB** (*bryggare mot bryggare*) som spelar-etikett och i logg; §9.2 utökad med mötesval, val av motståndare vid flera på ruta, omslag; §7.1 flera pjäser = kluster-layout på brädet; §7.4/§10/§17/§18 terminologi; **Canman** + bild under §10.1; §16.1 utvecklingsnot `npm run dev` (Vite 5173 + WS 3001) |
 

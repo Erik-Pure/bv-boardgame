@@ -143,10 +143,12 @@ export type Pending =
   | {
       type: "moveChoice";
       playerId: string;
-      /** Total steps (d6 + move item bonus). */
+      /** Total steps (d6 or 2×d6 if doubled, plus equipment / item bonuses). */
       die: number;
       /** Raw d6 result (1–6) for visuals / physical die face. */
       baseDie: number;
+      /** True when Skägget rakt bak doubled the die (movement used 2× baseDie before bonuses). */
+      diceDoubled?: boolean;
       from: { levelIndex: number; tileIndex: number };
       options: Array<{
         dir: "cw" | "ccw";
@@ -164,6 +166,8 @@ export type Pending =
       text: string;
       /** Nyckel för framtida SVG/bild, t.ex. "event/spill" */
       artKey?: string;
+      /** Vid slumpat föremål: id (t.ex. `early_night`) för rätt bild även om `artKey` saknas i state. */
+      grantedItemId?: string;
       choices?: Array<{ id: string; label: string }>;
       combatWin?: CombatWinSummary;
       combatLoss?: CombatLoseSummary;
@@ -171,8 +175,11 @@ export type Pending =
   | {
       type: "encounterChoice";
       moverId: string;
-      opponentId: string;
-      phase: "choosePvpOrTile";
+      /** Alla andra spelare på samma ruta (turordning). */
+      opponentIds: string[];
+      phase: "choosePvpOrTile" | "choosePvpOpponent";
+      /** Rutans typ när mötet skapades (UI: "lös rutan (…)"). */
+      tileType?: TileType;
     }
   | {
       type: "pvp";
@@ -208,6 +215,11 @@ export type Pending =
       costs: { gold: number; sips: number };
       /** True om prompten triggas precis när turen annars skulle gått vidare. */
       deferTurnAdvance?: boolean;
+    }
+  | {
+      type: "brewerDown";
+      /** Spelare med HP 0 som måste välja respawn eller ge upp. */
+      playerId: string;
     }
   | {
       type: "combat";
@@ -274,13 +286,17 @@ export interface Player {
   xp: number;
   equipment: Equipment;
   inventory: ItemInstance[];
-  /** Engångsbonus till nästa rörelseslag från items. */
+  /** Engångsbonus till nästa rörelseslag från items (för kompatibilitet; inget item sätter längre detta). */
   nextMoveBonus: number;
+  /** Nästa rörelsetärning: dubblera d6-resultatet (Skägget rakt bak). */
+  nextMoveDoubleDice?: boolean;
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
   /** Canman: +1 pant per drag så länge > 0. */
   canmanTurnsRemaining: number;
   skippedTurns: number;
+  /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
+  eliminated?: boolean;
 }
 
 export type GameMode = "bossKill";
@@ -294,6 +310,8 @@ export interface SipNoticeEntry {
   recipientId: string;
   /** Vem som gav sipen (visningsnamn). */
   fromPlayerName: string;
+  /** Antal straffklunkar som tilldelats i samband med detta besked (default 1). */
+  klunkCount?: number;
 }
 
 export interface GameState {
@@ -331,6 +349,7 @@ export type ClientAction =
   | { type: "rollMove"; playerId: string }
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
   | { type: "chooseEncounter"; playerId: string; choice: "pvp" | "tile" }
+  | { type: "choosePvpOpponent"; playerId: string; opponentId: string }
   | { type: "pvpRoll"; playerId: string }
   | { type: "confirmCard"; playerId: string }
   | { type: "chooseCardOption"; playerId: string; choiceId: string }
@@ -345,7 +364,8 @@ export type ClientAction =
   | { type: "combatRollAck"; playerId: string }
   | { type: "chooseCombatHitMitigation"; playerId: string; choice: "sip" | "no_sip" }
   | { type: "combatReact"; playerId: string; choice: "intervene" | "pass" }
-  | { type: "sipNoticeAck"; playerId: string };
+  | { type: "sipNoticeAck"; playerId: string }
+  | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" };
 
 export interface ApplyResult {
   state: GameState;

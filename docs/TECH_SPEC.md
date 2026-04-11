@@ -196,7 +196,7 @@ Dokumentation av beteenden som redan finns i `packages/game-core` / klienten (f�
 | **PvP lika = omslag** | I `pending.type = "pvp"` används `pvpRound`; vid lika total nollställs rundans slag och båda måste skicka ny `pvpRoll` tills vinnare finns. |
 | **Team battle (PvE)** | `pending.type = "combat"` kan gå via `phase = chooseTeammate` och action **`chooseCombatTeammate`** innan `enemyIntro`. Vald medkämpe (`assistId`) deltar i slag och påverkas av utfall. |
 | **Loot-regler monster** | Belöning efter vinst styrs i `finalizeCombatAfterRollPreview`: de svagaste monstren droppar inget; nästan alla andra droppar items; team battle/farliga monster kan ge 2 items via sannolikhetsrullning. |
-| **Nya item-typer** | Nya combat-items (Lättöl, Folköl, Krokben, Ölbomb, Baksmälla) lägger attackmods i `pending.attackMods`; `Skägget rakt bak` sätter `player.nextMoveBonus` som konsumeras vid nästa `rollMove`. |
+| **Nya item-typer** | Nya combat-items (Lättöl, Folköl, Krokben, Ölbomb, Baksmälla) lägger attackmods i `pending.attackMods`; `Skägget rakt bak` sätter `player.nextMoveDoubleDice` som gör att nästa `rollMove` räknar **2×** d6 innan utrustningsbonus läggs på. |
 | **`confirmCard`** | Om `pending.choices?.length > 0` → fel **“Choose an option first”** (tvinga explicit val). |
 | **Valuta i kod** | `Player` har fält **`gold`** i JSON/state; designspec kallar valutan **pant** i UI. Planerad refaktor: döp om till `pant` i typer + serialisering, eller mappa endast i presentation. |
 | **Aktiv tur — regnbåge** | Se §3.3. **Endast** `PlayView`; `TableView` använder fortfarande färgad tur-rad under header för vems tur det är. |
@@ -227,7 +227,7 @@ Parametrar som bör hållas samlade och lätta att tweaka utan refaktor:
   - team battle (ex. `0.35`)
   - farliga monster (ex. `0.25`)
 - **Definition av “farligt monster”** (ex. styrka `>= 7`).
-- **Rörelsebonus från engångsitem** (`nextMoveBonus`, förbrukas vid nästa `rollMove`).
+- **Rörelse från item** (`nextMoveDoubleDice` för Skägget rakt bak; fältet `nextMoveBonus` finns kvar för kompatibilitet).
 
 Rekommendation: flytta dessa till en dedikerad balanskonfig (t.ex. `packages/game-core/src/balance.ts`) och referera till den i både motor och dokumentation.
 
@@ -241,5 +241,5 @@ Rekommendation: flytta dessa till en dedikerad balanskonfig (t.ex. `packages/gam
 | 0.2 | 2025-03-24 | SVG-first utan PixiJS i v1 (§3.1, §8), §9 Bryggverket-boost (kamera/verifiering/GDPR) |
 | 0.3 | 2025-03-24 | §3.2 storskärmskamera (pan/zoom, fokus aktiv spelare) |
 | 0.4 | 2026-03-25 | npm workspaces; §3.2 viewport/ResizeObserver, pan=−scale×center, boardPad/ram; §4.1 `vercel.json` + `VITE_WS_URL`; §10 kärnreferens (stat-rader, Sip Snatcher, Brewizard/Sourceress, `gold`→pant i UI); omnumrering §11 |
-| 0.5 | 2026-03-31 | Synk med aktuella regler: PvP omslag med rond, team battle med `chooseTeammate`, uppdaterade monster-lootregler (inkl. chans på 2 items), nya item-typer och `nextMoveBonus` för rörelseitem |
+| 0.5 | 2026-03-31 | Synk med aktuella regler: PvP omslag med rond, team battle med `chooseTeammate`, uppdaterade monster-lootregler (inkl. chans på 2 items), nya item-typer och rörelseitem (Skägget rakt bak) |
 | 0.6 | 2026-04-03 | §3.3 mobil: `activeTurnRainbow` (endast PlayView), lobby döljer stats tills start, monster-footer med ikon/siffror; tabell i §10 utökad |
