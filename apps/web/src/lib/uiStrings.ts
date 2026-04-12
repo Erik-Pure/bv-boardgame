@@ -75,7 +75,7 @@ export const sv = {
     join: "Anslut",
     tip: "Tips: öppna brädet på en dator och anslut som spelare på mobiler.",
     lanHint:
-      "Samma Wi‑Fi: kör `npm run dev` (Vite + spelserver). Öppna sidan på mobilen via http://192.168.x.x:5173 — klienten ansluter till spelservern på ws://192.168.x.x:3001. Tillåt inkommande anslutningar på port 3001 i datorns brandvägg om det krånglar. ?ws=… byter WebSocket-URL manuellt.",
+      "Samma Wi‑Fi: kör `npm run dev` (Vite + spelserver). Öppna http://192.168.x.x:5173 — WebSocket går via Vite (`/bv-ws` → port 3001) så mobilen behöver normalt inte nå 3001 direkt. Vid egen build/preview: server på 3001 eller sätt `?ws=…`.",
   },
   play: {
     wsConnecting: "Ansluter till spelet…",
@@ -152,15 +152,19 @@ export const sv = {
     rollPvpDie: "Slå BvB-tärning",
     payPant: (n: number) => `Betala ${n} pant`,
     haveKlunkar: (n: number) => `Ha minst ${n} klunkar`,
+    /** Dörr/nivå: klunkantal _eller_ bryggnivå (header) kan räcka utan att siffran nåtts. */
+    doorAscendSipsOrBrewer: (minKlunk: number) =>
+      `Stig med klunkar (minst ${minKlunk} eller räckande bryggnivå)`,
     stay: "Stanna",
     levelUpPrompt: (levelDisplay: number) =>
       `Som bryggmästare kan du stiga till nivå ${levelDisplay}. Gör du det?`,
-    levelUpProgressTitle: (levelDisplay: number) => `Nivåprogress mot nivå ${levelDisplay}`,
-    levelUpProgressAria: (levelDisplay: number) =>
-      `Progress för att kunna stiga till nivå ${levelDisplay}`,
+    levelUpProgressTitle: (brewerLevel: number) => `Bryggnivå ${brewerLevel}`,
+    levelUpProgressAria: (brewerLevel: number) =>
+      `Bryggnivå ${brewerLevel}, klunkar mot nästa bryggnivå.`,
     levelUpOfferPrompt: (levelDisplay: number) =>
-      `Dina erfarenheter som bryggare räcker för nivå ${levelDisplay}. Vill du stiga direkt?`,
-    levelUpOfferHint: "Väljer du att stanna går det fortfarande att gå upp via nivå-rutan på brädet.",
+      `Du uppfyller kraven för nivå ${levelDisplay} (klunkar och/eller bryggnivå i headern). Vill du stiga direkt?`,
+    levelUpOfferHint:
+      "Väljer du att stanna kan du senare gå upp via nivå-rutan på brädet — där räcker det med pant om du har råd.",
     /** Tom sträng om inget särskilt att säga (t.ex. innan första höjning). */
     levelUpMonsterScale: (before: number, after: number): string => {
       if (after > before) {
@@ -189,7 +193,8 @@ export const sv = {
     takeSlot: (slot: string) => `Ta ${slot}`,
     noItemsToSteal: "Inga föremål att ta.",
     rollDie: "Slå tärning",
-    moveChoiceDoubledHint: "Visat tärningsvärde räknas dubbelt (Skägget rakt bak).",
+    /** Under strid efter Skägget rakt bak — t6 visas som slaget men bidraget till total är 2×. */
+    combatAttackDoubledHint: "Tärningen räknas dubbelt i attacktotalen (Skägget rakt bak).",
     lobbyHeader: (room: string, status: string) => `Lobby ${room} · ${status}`,
     players: "Spelare",
     waitingState: "Väntar på tillstånd…",
@@ -209,9 +214,9 @@ export const sv = {
     brewerDownWaitOther: (name: string) => `Väntar på att ${name} väljer …`,
     gameOver: "Spelet är slut",
     scoreboardTitle: "Resultatlista",
-    scoreboardHint: "Vinnaren överst, därefter flest klunkar. Jämte: pant, sedan namn.",
-    scoreboardRow: (name: string, klunk: number, pant: number, hp: number, maxHp: number) =>
-      `${name} — ${klunk} klunkar · ${pant} pant · ${hp}/${maxHp} liv`,
+    scoreboardBrewerLevelAria: (n: number) => `Bryggnivå ${n}`,
+    scoreboardHint:
+      "Vinnaren överst, därefter flest klunkar. Jämte: pant, sedan namn. Ikoner: bryggnivå, klunkar, pant, liv.",
     winner: "Vinnare",
     debugLine: (parts: {
       ws: string;
@@ -243,6 +248,8 @@ export const sv = {
     combatBonus: (n: number) => `Stridsbonus +${n}`,
     moveSteps: (n: number) => `Rörelse +${n} steg`,
     powerPlus: (n: number) => `Kraft +${n}`,
+    pvpWeaponDieBonus: (n: number) =>
+      `I dueller (BvB): +${n} på slagtotalen (påverkar inte monsterstrid).`,
     merchantEffect: {
       negateAllOnce: "nollställ allt en gång",
       dmg: (n: number) => `−${n} skada`,
@@ -368,7 +375,7 @@ export const sv = {
     },
     beard_back: {
       title: "Skägget rakt bak",
-      text: "Använd innan du slår rörelsetärning: dubblera tärningsslaget.",
+      text: "Använd innan du slår rörelsetärning: nästa attack-tärning (monster eller BvB) räknar d6 dubbelt i totalen (visad t6 oförändrad; 1 är fortfarande krit).",
     },
     hangover: {
       title: "Baksmälla",

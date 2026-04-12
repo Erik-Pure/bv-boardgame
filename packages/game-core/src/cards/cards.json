@@ -208,7 +208,7 @@
     {
       "id": "event_loser_wins",
       "kind": "event",
-      "title": "Sista klunken är bäst",
+      "title": "Norrländskt vemod",
       "text": "Du tar 2 klunkar. Spelaren med minst HP läker 2 HP.",
       "artKey": "event/loser-wins",
       "effects": []
@@ -394,7 +394,7 @@
       "id": "item_beard_back",
       "kind": "item",
       "title": "Skägget rakt bak",
-      "text": "Använd innan du slår rörelsetärning: dubblera tärningsslaget.",
+      "text": "Använd innan du slår rörelsetärning: nästa attack-tärning (monster eller BvB) räknar d6 dubbelt i totalen (visad t6 oförändrad; 1 är fortfarande krit).",
       "artKey": "item/beard-back",
       "effects": []
     },

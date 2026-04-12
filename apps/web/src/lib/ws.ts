@@ -42,7 +42,16 @@ export function wsUrl(): string {
   if (fromEnv) return fromEnv;
 
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  /** Samma värd som sidan; spelserver alltid port 3001 (lyssnar 0.0.0.0 — funkar från mobil på LAN om brandvägg tillåter). */
+
+  /**
+   * `npm run dev`: Vite proxar `ws(s)://…/bv-ws` → spelserver (vite.config).
+   * Direkt `ws://…:3001` funkar ofta lokalt men blockeras ofta från mobil/LAN (brandvägg).
+   */
+  if (typeof window !== "undefined" && import.meta.env.DEV && window.location.port === "5173") {
+    return `${proto}://${window.location.host}/bv-ws`;
+  }
+
+  /** Produktion / preview: samma värd som sidan, spelserver på 3001. */
   const host = window.location.hostname === "localhost" ? "127.0.0.1" : window.location.hostname;
   return `${proto}://${host}:3001`;
 }
@@ -87,7 +96,7 @@ export function createClient(params: {
       params.onMessage({
         type: "error",
         message:
-          "Kunde inte ansluta till spelservern. Kontrollera att den körs på port 3001 (t.ex. `npm run dev` eller `npm run -w server start`). På mobil: samma Wi‑Fi, öppna http://<datorns-IP>:5173 — WebSocket går till ws://<samma-IP>:3001 (tillåt inkommande på 3001 i brandväggen om det behövs).",
+          "Kunde inte ansluta till spelservern. Kör `npm run dev` (Vite + server) eller `npm run dev:server` och öppna sidan på http://127.0.0.1:5173 (dev använder då WebSocket via /bv-ws, inte port 3001 i webbläsaren). På mobil i dev: http://<datorns-IP>:5173 — servern måste fortfarande köra lokalt.",
       });
     }
   }, connectTimeoutMs);

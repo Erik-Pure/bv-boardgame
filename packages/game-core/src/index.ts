@@ -28,6 +28,8 @@ export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js
 export {
   applyAction,
   brewerLevel,
+  brewerKlunkProgressRatio,
+  canAscendByKlunkRequirement,
   createEmptyLobby,
   levelUpCostsForTargetLevel,
   lobbyAddPlayer,
@@ -45,6 +47,7 @@ export {
   type MonsterId,
 } from "./monsters.js";
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
+export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
   appendTextForGrantedItem,
   artKeyForGrantedItem,

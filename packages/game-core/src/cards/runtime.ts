@@ -5,6 +5,7 @@ import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemTex
 import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type { CombatLoseSummary, CombatWinSummary, GameState, Pending, Player } from "../types.js";
+import { combatReactorsFor } from "../combatReactors.js";
 import { globalMonsterNeedBonus, MONSTERS, type MonsterDef, type MonsterId } from "../monsters.js";
 
 export type LogFn = (state: GameState, message: string) => void;
@@ -24,28 +25,6 @@ export type ShowCardFn = (state: GameState, params: {
 /** Endast specialregler — standard styrka/vinst/förlust visas i UI med ikoner. */
 function formatMonsterText(m: { rulesText: string }): string {
   return m.rulesText.trim();
-}
-
-function combatReactorsFor(state: GameState, attackerId: string, assistId?: string): string[] {
-  return state.players
-    .filter((x) => x.id !== attackerId && x.id !== assistId)
-    .filter((x) =>
-      (x.inventory ?? []).some((it) =>
-        [
-          "weak_beer",
-          "light_beer",
-          "folk_beer",
-          "tripwire",
-          "double_hops",
-          "beer_bomb",
-          "hangover",
-          "beer_bro",
-          "monster_hype",
-          "yeast_sabotage",
-        ].includes(String(it.itemId)),
-      ),
-    )
-    .map((x) => x.id);
 }
 
 function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef {

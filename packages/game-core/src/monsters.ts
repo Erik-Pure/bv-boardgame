@@ -186,7 +186,8 @@ export const MONSTERS: MonsterDef[] = [
     name: "Rally robot",
     strength: 3,
     baseDamage: 2,
-    rulesText: "",
+    rulesText:
+      "Unik byte: vid vinst kan du slumpmässigt få Robotarm (+1 i BvB) eller Robothjälm (−1 skada) om platsen är ledig — annars vanlig belöning.",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,

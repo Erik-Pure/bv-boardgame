@@ -9,6 +9,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "event/astronomisk-fylla": "Kveik my breath away, Bryggverket",
   "event/ljuset-i-tunneln": "Saison in the abyss, Bryggverket",
   "event/munchies": "Kaakao Kaakao, Bryggverket & Mabrouk Chocolate",
+  "event/loser-wins": "UÅ West Coast IPA, Bryggverket",
   "monster/stoorn": "Stoorn, Bryggverket",
   "monster/bottling-bot": "Rally Hallon Soda, Bryggverket & Red Barn",
   "monster/humlan": "Humlan sommaröl, Bryggverket",

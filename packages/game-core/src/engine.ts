@@ -25,6 +25,7 @@ import { EQUIPMENT_CATALOG } from "./equipmentDefs.js";
 import { pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
+import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 import type {
   ApplyResult,
   ClientAction,
@@ -109,8 +110,40 @@ function logMonsterScaleAfterAscend(state: GameState, prevBonus: number): void {
   }
 }
 
+/** Minsta antal klunkar för bryggnivå 2, 3, … (därefter +10 per tröskel från 70). */
+const BREWER_KLUNK_THRESHOLDS = [8, 16, 24, 35, 40, 50, 60] as const;
+
+function brewerKlunkThreshold(thresholdIndex: number): number {
+  if (thresholdIndex < BREWER_KLUNK_THRESHOLDS.length) {
+    return BREWER_KLUNK_THRESHOLDS[thresholdIndex]!;
+  }
+  return 70 + (thresholdIndex - BREWER_KLUNK_THRESHOLDS.length) * 10;
+}
+
+function brewerLevelFromKlunkar(klunkar: number): number {
+  const k = Math.max(0, Math.floor(klunkar));
+  let level = 1;
+  for (let i = 0; i < 10_000; i++) {
+    const th = brewerKlunkThreshold(i);
+    if (k < th) return level;
+    level++;
+  }
+  return level;
+}
+
+/** Bryggnivå från totala klunkar (stigande trösklar). */
 export function brewerLevel(p: Player): number {
-  return 1 + Math.min(9, Math.floor(p.xp / 5));
+  return brewerLevelFromKlunkar(p.klunkar);
+}
+
+/** 0–1: klunkar inom nuvarande bryggnivå mot nästa tröskel. */
+export function brewerKlunkProgressRatio(klunkar: number): number {
+  const k = Math.max(0, Math.floor(klunkar));
+  const level = brewerLevelFromKlunkar(k);
+  const prev = level <= 1 ? 0 : brewerKlunkThreshold(level - 2);
+  const next = brewerKlunkThreshold(level - 1);
+  if (next <= prev) return 1;
+  return Math.max(0, Math.min(1, (k - prev) / (next - prev)));
 }
 
 export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: number; sips: number } {
@@ -121,6 +154,17 @@ export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: nu
     /** Klunkar: dubbelt mot tidigare 5 + step*3. */
     sips: 10 + step * 6,
   };
+}
+
+/**
+ * Klunkväg upp på brädet (kravläge, förbrukar inte klunkar): antingen uppfyllt klunkantal
+ * eller bryggnivå (samma trösklar som UI) ≥ målvåningens visningsnivå (target+1).
+ * Första våningen: 10 klunkar _eller_ bryggnivå 2 (8+ klunkar) — i linje med headern.
+ */
+export function canAscendByKlunkRequirement(p: Player, targetLevelIndex: number): boolean {
+  const costs = levelUpCostsForTargetLevel(targetLevelIndex);
+  if (p.klunkar >= costs.sips) return true;
+  return brewerLevel(p) >= targetLevelIndex + 1;
 }
 
 function maxHpFor(p: Player): number {
@@ -205,7 +249,29 @@ function grantRandomCombatRewardItem(
   return itemId;
 }
 
-function grantRandomCombatReward(state: GameState, player: Player, rng: () => number, sourceName: string): void {
+function grantRandomCombatReward(
+  state: GameState,
+  player: Player,
+  rng: () => number,
+  sourceName: string,
+  winMonsterId?: MonsterId,
+): void {
+  if (winMonsterId === "bottling_bot" && rng() < 0.5) {
+    const rallySlots: Array<"weapon" | "helmet"> = [];
+    if (!player.equipment.weapon) rallySlots.push("weapon");
+    if (!player.equipment.helmet) rallySlots.push("helmet");
+    if (rallySlots.length > 0) {
+      const slot = pick(rng, rallySlots);
+      if (slot === "weapon") {
+        player.equipment.weapon = { name: "Robotarm", power: 0, pvpDieBonus: 1 };
+        log(state, `${player.name} får Robotarm efter segern mot ${sourceName}!`);
+      } else {
+        player.equipment.helmet = { name: "Robothjälm", damageNegate: 1 };
+        log(state, `${player.name} får Robothjälm efter segern mot ${sourceName}!`);
+      }
+      return;
+    }
+  }
   // Mix item cards with equipment. If equipment slot is occupied, fall back to an item card.
   const equipmentRoll = rng() < 0.35;
   if (equipmentRoll) {
@@ -478,10 +544,15 @@ function finalizeCombatAfterRollPreview(
     p.maxHp = maxHpFor(p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
     const attackerItemCount = rewardItems;
+    const winMonsterId = pending.monsterId as MonsterId | undefined;
     if (attackerItemCount > 0) {
-      for (let i = 0; i < attackerItemCount; i++) grantRandomCombatReward(next, p, rng, pending.enemyName);
+      for (let i = 0; i < attackerItemCount; i++) {
+        grantRandomCombatReward(next, p, rng, pending.enemyName, winMonsterId);
+      }
       if (assistMate) {
-        for (let i = 0; i < attackerItemCount; i++) grantRandomCombatReward(next, assistMate, rng, pending.enemyName);
+        for (let i = 0; i < attackerItemCount; i++) {
+          grantRandomCombatReward(next, assistMate, rng, pending.enemyName, winMonsterId);
+        }
       }
     }
 
@@ -591,7 +662,8 @@ function canOfferLevelUp(state: GameState, p: Player): {
   const targetLevelIndex = p.levelIndex + 1;
   if (targetLevelIndex >= state.levels.length) return null;
   const costs = levelUpCostsForTargetLevel(targetLevelIndex);
-  if (p.gold < costs.gold && p.klunkar < costs.sips) return null;
+  /** Nivåval efter tur: klunkantal eller bryggnivå (samma som UI). Dörren kan fortfarande öppnas med pant. */
+  if (!canAscendByKlunkRequirement(p, targetLevelIndex)) return null;
   return { targetLevelIndex, costs };
 }
 
@@ -608,7 +680,7 @@ function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance =
   };
   log(
     state,
-    `${p.name} har nått kraven för nivå ${offer.targetLevelIndex + 1} och kan välja att stiga direkt.`,
+    `${p.name} har tillräckligt med klunkar för nivå ${offer.targetLevelIndex + 1} och kan välja att stiga direkt.`,
   );
   logMonsterScalePreviewForAscend(state, p, offer.targetLevelIndex, "offer");
   return true;
@@ -655,7 +727,6 @@ export function lobbyAddPlayer(
     equipment: {},
     inventory: [],
     nextMoveBonus: 0,
-    nextMoveDoubleDice: false,
     nextCombatModifier: 0,
     canmanTurnsRemaining: 0,
     skippedTurns: 0,
@@ -712,7 +783,6 @@ export function startGame(
     p.hp = maxHpFor(p);
     p.maxHp = maxHpFor(p);
     p.nextMoveBonus = 0;
-    p.nextMoveDoubleDice = false;
     p.nextCombatModifier = 0;
     p.canmanTurnsRemaining = 0;
     p.eliminated = false;
@@ -814,8 +884,8 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   // Legacy path (shouldn't be used after encounterChoice is introduced)
   const ad = rollDie(rng, 6);
   const bd = rollDie(rng, 6);
-  const ar = ad + weaponPower(a);
-  const br = bd + weaponPower(b);
+  const ar = ad + weaponPower(a) + (a.equipment.weapon?.pvpDieBonus ?? 0);
+  const br = bd + weaponPower(b) + (b.equipment.weapon?.pvpDieBonus ?? 0);
   const attackerWins = ar >= br;
   const winner = attackerWins ? a : b;
   const loser = attackerWins ? b : a;
@@ -832,28 +902,6 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
       [b.id]: { die: bd, total: br },
     },
   };
-}
-
-function combatReactorsFor(state: GameState, attackerId: string, assistId?: string): string[] {
-  return state.players
-    .filter((x) => x.id !== attackerId && x.id !== assistId)
-    .filter((x) =>
-      (x.inventory ?? []).some((it) =>
-        [
-          "weak_beer",
-          "light_beer",
-          "folk_beer",
-          "tripwire",
-          "double_hops",
-          "beer_bomb",
-          "hangover",
-          "beer_bro",
-          "monster_hype",
-          "yeast_sabotage",
-        ].includes(String(it.itemId)),
-      ),
-    )
-    .map((x) => x.id);
 }
 
 /** Reaktor som använder *vilket* föremål som helst under reaktionsfasen måste markeras så angriparen får slå. */
@@ -998,7 +1046,7 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const target = tile.doorTargetLevelIndex ?? p.levelIndex + 1;
       const costs = levelUpCostsForTargetLevel(target);
       const canGold = p.gold >= costs.gold;
-      const canSips = p.klunkar >= costs.sips;
+      const canSips = canAscendByKlunkRequirement(p, target);
       if (!canGold && !canSips) {
         log(
           state,
@@ -1169,6 +1217,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if ((pending.reactionsDeadlineAt ?? 0) > 0 && Date.now() > (pending.reactionsDeadlineAt ?? 0)) {
       return { state, events: [], error: "Reaktionsfönstret har stängt" };
     }
+    const reactorPl = next.players.find((x) => x.id === action.playerId);
+    if (!reactorPl) return { state, events: [], error: "Spelaren hittades inte" };
+    if (!playerCanCombatIntervene(reactorPl)) {
+      return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
+    }
     if (!pending.reactors.includes(action.playerId)) {
       return { state, events: [], error: "Du kan inte reagera här" };
     }
@@ -1206,6 +1259,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       Date.now() > reactionDeadlineAt
     ) {
       return { state, events: [], error: "Reaktionsfönstret har stängt" };
+    }
+    if (inCombatReactions && !playerCanCombatIntervene(user)) {
+      return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
     }
     const isYourTurn = cp.id === user.id;
     if (!isYourTurn && !inCombatReactions) {
@@ -1358,8 +1414,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!isYourTurn || next.pending) {
         return { state, events: [], error: "Kan bara användas innan du slår rörelsetärning" };
       }
-      user.nextMoveDoubleDice = true;
-      log(next, `${user.name} använder Skägget rakt bak: nästa rörelsetärning dubblas.`);
+      user.nextCombatAttackDiceDouble = true;
+      log(next, `${user.name} använder Skägget rakt bak: nästa attack-tärning (d6) räknas dubbelt mot styrka.`);
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -1590,7 +1646,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const tempMod = roller.nextCombatModifier ?? 0;
     roller.nextCombatModifier = 0;
     const mod = (pending.attackMods?.[roller.id] ?? 0) + tempMod;
-    const die = rollDie(rng, 6);
+    const rawDie = rollDie(rng, 6);
+    const attackDoubled = roller.nextCombatAttackDiceDouble === true;
+    if (attackDoubled) {
+      roller.nextCombatAttackDiceDouble = false;
+    }
+    const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
     let sipBoost = 0;
     const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
     if (sipBonus > 0) {
@@ -1598,11 +1659,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       sipBoost = sipBonus;
       log(next, `${roller.name} tar en klunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`);
     }
-    const total = die + weaponPower(roller) + mod + sipBoost;
+    const total = dieContribution + weaponPower(roller) + mod + sipBoost;
 
     pending.teamRolls ??= {};
     if (pending.teamRolls[action.playerId]) return { state, events: [], error: "Du har redan slagit" };
-    pending.teamRolls[action.playerId] = { die, total };
+    pending.teamRolls[action.playerId] = {
+      die: rawDie,
+      total,
+      attackDiceDoubled: attackDoubled || undefined,
+    };
 
     if (needsAssistRoll) {
       const aRoll = pending.teamRolls[pending.attackerId];
@@ -1612,8 +1677,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     }
 
-    const p = next.players.find((x) => x.id === pending.attackerId);
-    if (!p) return { state, events: [], error: "Player not found" };
     const attackerRoll = pending.teamRolls[pending.attackerId]!;
     const assistRollObj = assistId ? pending.teamRolls[assistId] : undefined;
     const prBase = attackerRoll.total;
@@ -1650,7 +1713,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       enemyArtKey: pending.enemyArtKey,
       enemyIntroText: pending.enemyIntroText,
       previewDie: attackerRoll.die,
+      previewAttackDiceDoubled: attackerRoll.attackDiceDoubled || undefined,
       previewBroDie,
+      previewBroAttackDiceDoubled: assistRollObj?.attackDiceDoubled || undefined,
       previewPrBase: prBase,
       previewAssistRoll: assistRoll,
       previewTotal: pr,
@@ -1903,10 +1968,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
-    const die = rollDie(rng, 6);
-    const total = die + weaponPower(p);
-    pending.rolls[action.playerId] = { die, total };
-    log(next, `${p.name} rolls for PvP: ${die} (total ${total}).`);
+    const rawDie = rollDie(rng, 6);
+    const attackDoubled = p.nextCombatAttackDiceDouble === true;
+    if (attackDoubled) {
+      p.nextCombatAttackDiceDouble = false;
+    }
+    const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
+    const pvpWeaponExtra = p.equipment.weapon?.pvpDieBonus ?? 0;
+    const total = dieContribution + weaponPower(p) + pvpWeaponExtra;
+    pending.rolls[action.playerId] = { die: rawDie, total };
+    log(
+      next,
+      `${p.name} rolls for PvP: ${rawDie}${attackDoubled ? ` (dubblat till ${dieContribution} i total)` : ""} (total ${total}).`,
+    );
 
     const a = pending.rolls[pending.attackerId];
     const d = pending.rolls[pending.defenderId];
@@ -1994,7 +2068,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       p.tileIndex = 0;
       log(next, `${p.name} betalar ${costs.gold} pant och stiger till nivå ${p.levelIndex + 1} som bryggmästare.`);
     } else if (action.method === "sips") {
-      if (p.klunkar < costs.sips) return { state, events: [], error: "För få klunkar" };
+      if (!canAscendByKlunkRequirement(p, next.pending.targetLevelIndex)) {
+        return { state, events: [], error: "För få klunkar / för låg bryggnivå" };
+      }
       // Requirement-based: does not consume sips.
       p.levelIndex = next.pending.targetLevelIndex;
       p.tileIndex = 0;
@@ -2024,7 +2100,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
     const costs = pending.costs;
-    const canBySips = p.klunkar >= costs.sips;
+    const canBySips = canAscendByKlunkRequirement(p, pending.targetLevelIndex);
     const canByGold = p.gold >= costs.gold;
     if (!canBySips && !canByGold) {
       return { state, events: [], error: "Du uppfyller inte längre kraven för nivå upp" };
@@ -2130,12 +2206,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   }
 
   const dice = rollDie(rng, 6);
-  const doubled = cp.nextMoveDoubleDice === true;
-  if (doubled) cp.nextMoveDoubleDice = false;
-  const fromDie = doubled ? dice * 2 : dice;
   const bonus = moveBonusSteps(cp) + (cp.nextMoveBonus ?? 0);
   cp.nextMoveBonus = 0;
-  const totalDice = fromDie + bonus;
+  const totalDice = dice + bonus;
   next.lastDiceRoll = totalDice;
   next.lastDiceRollerId = cp.id;
   const level = next.levels[cp.levelIndex];
@@ -2145,14 +2218,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const ccw = counterClockwiseTileIndex(cp.tileIndex, totalDice, n);
   const cwTile = level.tiles[cw]!;
   const ccwTile = level.tiles[ccw]!;
-  const doubleNote = doubled ? `, dubblat till ${fromDie}` : "";
-  log(next, `${cp.name} slår ${dice}${doubleNote}${bonus ? ` (+${bonus})` : ""}. Välj en riktning.`);
+  log(next, `${cp.name} slår ${dice}${bonus ? ` (+${bonus})` : ""}. Välj en riktning.`);
   next.pending = {
     type: "moveChoice",
     playerId: cp.id,
     die: totalDice,
     baseDie: dice,
-    diceDoubled: doubled || undefined,
     from: { levelIndex: cp.levelIndex, tileIndex: cp.tileIndex },
     options: [
       {

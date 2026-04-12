@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.11 |
-| Senast uppdaterad | 2026-04-11 |
+| Version | 0.12 |
+| Senast uppdaterad | 2026-04-12 |
 
 ---
 
@@ -122,8 +122,11 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 ### 7.3 Dörrar mellan nivåer
 
-- Mellan varje nivå finns en **dörr** (dedikerad tile eller portal) som tillåter spelaren att **gå upp till nästa nivå**.
-- **Krav:** spelarens **karaktärslevel** (eller motsvarande progression) måste ha nått en **konfigurerad tröskel** för den dörren (t.ex. level ≥ 3 för dörr 1→2, level ≥ 6 för 2→3 — exakta siffror sätts i balansdokument eller datafiler).
+- Mellan varje våningsplan finns en **dörr-tile** som låter spelaren **gå upp till nästa brädesnivå** (nästa `levelIndex`; visningsmässigt “Nivå 2” osv.).
+- **Krav — minst ett av följande:**
+  - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
+  - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
+- **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår).
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
 ### 7.4 Rutyper (tiles)
@@ -233,6 +236,8 @@ Hård cap per spelare:
 
 Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” införs).
 
+**Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **slot-siluett (ikon)** för typ (vapen, rustning, hjälm, accessoar) — inte textbadge. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i modalhuvudet om panelen redan erbjuder stäng).
+
 ---
 
 ## 12. Död och respawn
@@ -249,6 +254,13 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - Kort och händelser kan **öka** motspelares klunkar eller påverkas av antal klunkar (modifiers på slag, kort som låses upp, etc.).
 - **Säkerhet och inkludering:** tydlig text att **alkohol är valfritt** (vatten räknas som klunk om gruppen vill). Spelet ska kunna spelas som **rent social räknare** utan krav på konsumtion.
 - **Konsekvent wording på monsterkort:** klunkstraff uttrycks som **“Vid förlust: ta X klunk.”** Skaderelaterade effekter och val (t.ex. Bryggtrollkarl/Surhäxan) inleds med **“Vid skada:”** (inte “Vid träff”).
+
+### 13.1 Bryggnivå (progression i UI)
+
+- **Bryggnivå** beräknas från spelarens **totala klunkar** mot **stigande trösklar**: **8 → 16 → 24 → 35 → 40 → 50 → 60**, därefter **+10 klunkar** per ytterligare nivå från **70** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
+- Visas i **mobil-header** som progress mot nästa tröskel och **siffra** för aktuell bryggnivå.
+- **Resultatlista** när partiet är **slut** ska visa **bryggnivå** per spelare (för jämförelse utöver klunkar, pant och HP).
+- **Koppling till dörr / uppstigning:** klunkspåret för att byta brädesnivå (§7.3) tar hänsyn till bryggnivån så att spelaren inte ser **bryggnivå 2** i headern utan att kunna **låsa upp** motsvarande uppstigning med klunkspår.
 
 ---
 
@@ -288,7 +300,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Händelser** från klienter modelleras som **actions**; server svarar med **uppdaterad state** och/eller **eventlista** för logg.
 - Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
 
-**Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, standardport **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna bräde/spelare i webbläsaren via **`http://localhost:5173`** (eller datorns LAN-IP för mobiler); klienten ansluter till **`ws://<samma värd>:3001`** om inget annat anges (`?ws=…` kan överstyra). Om endast spelservern körs syns inte webb-UI:t — då behöver Vite också vara igång.
+**Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
 
 ### 16.1 Kortmodal och tydlighet
 
@@ -301,7 +313,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 **MVP**
 
 - Lobby med kod, upp till 6 spelare, konfigurerbar turtid.
-- Slumpad bana, flera våningsplan (fyra ringar med dörrar uppåt), dörrar med level-krav, **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
+- Slumpad bana, flera våningsplan (fyra ringar med dörrar uppåt), dörrar med **pant- eller klunkspår** (§7.3) + **bryggnivå** (§13.1), **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
 - **Storskärm:** pan, zoom, **auto-fokus anpassad till viewport** och **målrutor vid rörelseval** (§2.1); tur-rad under meny.
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
@@ -321,7 +333,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 ## 18. Öppna punkter (att fylla i under utveckling)
 
-- Exakt **level-trösklar** per dörr mellan nivå 1↔2 och 2↔3.
+- Finjustering av **pant- och `sips`-tabell** per målplan om balans kräver (bryggnivå-kopplingen för klunkspår är redan låst i implementation).
 - **Vem bär** den gyllene ölen vid bossdöd i variantläget (dropp till sista slaget vs slump vs alla kan tävla om upplockning).
 - **Vilken målruta** som räknas som “start/slut” när båda finns — per ban-seed eller lobby-val.
 - **Timeout-tur:** exakt auto-beteende vid 60 s (eller inställt värde).
@@ -361,4 +373,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.9 | 2026-04-03 | Mobil: regnbågsbakgrund (rotation + puls) vid aktiv tur, endast `/play`; lobby döljer liv/pant/klunk/utrustning/föremål tills start; lobbytext centrerad; monsterkort visar stats längst ner med ikon över siffra (mobil + bord overlay) |
 | 0.10 | 2026-04-02 | Bord: våningar i rad, ringstorlek `4s−4` och krav på att klient härleder grid från `tiles.length`; WebP-bakgrunder per våning; rörelse §8 förtydligad (ring, modulo, specialfall n/2); fyra våningsplan i §7.2; Pantpåse (namnbyte); grafiknot om komprimering av bakgrundsbilder |
 | 0.11 | 2026-04-11 | **BvB** (*bryggare mot bryggare*) som spelar-etikett och i logg; §9.2 utökad med mötesval, val av motståndare vid flera på ruta, omslag; §7.1 flera pjäser = kluster-layout på brädet; §7.4/§10/§17/§18 terminologi; **Canman** + bild under §10.1; §16.1 utvecklingsnot `npm run dev` (Vite 5173 + WS 3001) |
+| 0.12 | 2026-04-12 | §7.3 dörrar: pant + **klunkspår** (krav utan förbrukning) synkat med **bryggnivå**; §13.1 **bryggnivå** (trösklar, header, resultatlista); §11 utrustningsmodal (ikon, bild, stäng via panel); §16 dev **WebSocket via `/bv-ws`**; §17/§18 uppdaterade |
 

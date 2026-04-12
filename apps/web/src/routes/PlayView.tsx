@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  brewerKlunkProgressRatio,
+  brewerLevel,
+  canAscendByKlunkRequirement,
   combatReactionsAllAnswered,
   globalMonsterNeedBonus,
-  levelUpCostsForTargetLevel,
   maxPlayerBoardLevelIfPlayerReaches,
   MONSTERS,
   monsterLossKlunkTotal,
+  playerCanCombatIntervene,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -27,6 +30,7 @@ import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { DiceCube3D } from "../components/DiceCube3D";
+import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
@@ -127,7 +131,6 @@ function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string 
 /** Samma ton som `EquipIcon` för generiska siluetter (vit + lätt blå glow). */
 const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
-const LEVEL_UP_ICON = "/icons/lvlup.svg";
 
 export function PlayView() {
   const [sp] = useSearchParams();
@@ -238,16 +241,13 @@ export function PlayView() {
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
-  const levelUpProgress = useMemo(() => {
+  const brewerProgressUi = useMemo(() => {
     if (!state || !me || state.phase !== "playing") return null;
-    const targetLevelIndex = me.levelIndex + 1;
-    if (targetLevelIndex >= state.levels.length) return null;
-    const costs = levelUpCostsForTargetLevel(targetLevelIndex);
-    const pant = Math.max(0, Math.min(1, me.gold / Math.max(1, costs.gold)));
-    const klunk = Math.max(0, Math.min(1, me.klunkar / Math.max(1, costs.sips)));
-    return { targetLevelIndex, costs, pant, klunk };
+    const bl = brewerLevel(me);
+    const ratio = brewerKlunkProgressRatio(me.klunkar);
+    return { brewerLevel: bl, ratio };
   }, [state, me]);
-  const headerTopPad = showHeaderStatsBar ? (levelUpProgress ? 176 : 160) : 76;
+  const headerTopPad = showHeaderStatsBar ? (brewerProgressUi ? 168 : 160) : 76;
   const pending = state?.pending ?? null;
   const onRollDieScreen = !!isMyTurn && !pending;
   useEffect(() => {
@@ -434,6 +434,7 @@ export function PlayView() {
       );
     }
     if (state.phase !== "playing") return null;
+    if (pending?.type === "brewerDown") return null;
     if (pending?.type === "card" && myPending) return null; // handled as modal
 
     if (pending?.type === "encounterChoice" && pending.moverId === me.id) {
@@ -534,7 +535,10 @@ export function PlayView() {
       const total = pending.previewTotal ?? 0;
       const need = pending.previewNeed ?? 0;
       const broDie = pending.previewBroDie;
-      const baseDiceTotal = die + (broDie ?? 0);
+      const effAtt = pending.previewAttackDiceDoubled ? die * 2 : die;
+      const effBro =
+        broDie != null ? (pending.previewBroAttackDiceDoubled ? broDie * 2 : broDie) : null;
+      const baseDiceTotal = effAtt + (effBro ?? 0);
       const bonus = total - baseDiceTotal;
       const bonusText = bonus === 0 ? "" : bonus > 0 ? ` (+${bonus})` : ` (${bonus})`;
       return (
@@ -573,6 +577,11 @@ export function PlayView() {
                 <span>{need}</span>
               </span>
             </div>
+            {pending.previewAttackDiceDoubled || pending.previewBroAttackDiceDoubled ? (
+              <div style={{ textAlign: "center", fontSize: 12, opacity: 0.85, marginTop: 4 }}>
+                {sv.play.combatAttackDoubledHint}
+              </div>
+            ) : null}
           </div>
           {isAttacker ? (
             <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatRollAck", playerId: me.id })}>
@@ -669,7 +678,8 @@ export function PlayView() {
       const attacker = state.players.find((p) => p.id === pending.attackerId) ?? null;
       const teammate = pending.assistId ? state.players.find((p) => p.id === pending.assistId) ?? null : null;
       const mod = pending.attackMods?.[pending.attackerId] ?? 0;
-      const isEligibleReactor = pending.reactors?.includes(me.id) ?? false;
+      const isEligibleReactor =
+        (pending.reactors?.includes(me.id) ?? false) && playerCanCombatIntervene(me);
       const hasPassed = pending.reacted?.[me.id] === "pass";
       const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
       const deadlineAt = pending.reactionsDeadlineAt ?? 0;
@@ -730,6 +740,11 @@ export function PlayView() {
                       {sv.play.yourD6TotalWeapon(myTeamRoll.die, myTeamRoll.total)}
                     </span>
                   </div>
+                  {myTeamRoll.attackDiceDoubled ? (
+                    <div style={{ textAlign: "center", fontSize: 11, opacity: 0.82, marginTop: 4 }}>
+                      {sv.play.combatAttackDoubledHint}
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -973,11 +988,6 @@ export function PlayView() {
         <div style={{ display: "grid", gap: 10 }}>
           <div className={styles.sheetDiceBlock}>
             <DiceCube3D value={diceFaceValue} size={76} />
-            {pending.diceDoubled ? (
-              <div style={{ textAlign: "center", fontSize: 12, opacity: 0.85, marginTop: 6 }}>
-                {sv.play.moveChoiceDoubledHint}
-              </div>
-            ) : null}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {pending.options.map((o) => (
@@ -1006,70 +1016,10 @@ export function PlayView() {
       if (!isParticipant) return null;
       const myRoll = pending.rolls?.[me.id];
       const round = pending.pvpRound ?? 1;
-      const pvpAtk = state.players.find((p) => p.id === pending.attackerId);
-      const pvpDef = state.players.find((p) => p.id === pending.defenderId);
-      const pvpMarker = '"Permanent Marker", var(--heading), sans-serif' as const;
       return (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center" }}>
-            <div
-              style={{
-                fontFamily: pvpMarker,
-                fontSize: 30,
-                lineHeight: 1.1,
-                color: "#fef9c3",
-                marginBottom: 2,
-              }}
-            >
-              {sv.table.pvpDuel}
-            </div>
-            <div style={{ fontFamily: pvpMarker, fontSize: 16, color: "rgba(255,255,255,0.88)" }}>
-              {sv.table.pvpRound(round)}
-            </div>
-            {round > 1 ? (
-              <div style={{ marginTop: 8, fontSize: 13, opacity: 0.82 }}>{sv.play.pvpTieRerollHint}</div>
-            ) : null}
-          </div>
-          {pvpAtk && pvpDef ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 12,
-                minHeight: 40,
-              }}
-            >
-              <div style={{ flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
-                <div
-                  style={{
-                    fontFamily: pvpMarker,
-                    fontSize: 20,
-                    lineHeight: 1.1,
-                    color: pvpAtk.color,
-                    transform: "rotate(-10deg)",
-                  }}
-                >
-                  {pvpAtk.name}
-                </div>
-              </div>
-              <div style={{ fontFamily: pvpMarker, fontSize: 24, color: "#fff", opacity: 0.9, flex: "0 0 auto" }}>
-                VS
-              </div>
-              <div style={{ flex: "1 1 0", minWidth: 0, textAlign: "center" }}>
-                <div
-                  style={{
-                    fontFamily: pvpMarker,
-                    fontSize: 20,
-                    lineHeight: 1.1,
-                    color: pvpDef.color,
-                    transform: "rotate(10deg)",
-                  }}
-                >
-                  {pvpDef.name}
-                </div>
-              </div>
-            </div>
+          {round > 1 ? (
+            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{sv.play.pvpTieRerollHint}</div>
           ) : null}
           <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpRollDie}</div>
           <div className={styles.sheetDiceBlock}>
@@ -1124,9 +1074,11 @@ export function PlayView() {
               variant="pink"
               fullWidth
               onClick={() => send({ type: "useDoor", playerId: me.id, method: "sips" })}
-              disabled={me.klunkar < pending.costs.sips}
+              disabled={!canAscendByKlunkRequirement(me, pending.targetLevelIndex)}
             >
-              {sv.play.haveKlunkar(pending.costs.sips)}
+              {me.klunkar >= pending.costs.sips
+                ? sv.play.haveKlunkar(pending.costs.sips)
+                : sv.play.doorAscendSipsOrBrewer(pending.costs.sips)}
             </ArcadeButton>
             <ArcadeButton
               variant="gray"
@@ -1421,13 +1373,9 @@ export function PlayView() {
 
   const cardOrSipActions = (() => {
     if (!me) return null;
-    if (hasBlockingSipNotice) {
-      return (
-        <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "sipNoticeAck", playerId: me.id })}>
-          {sv.sipNotice.cheers}
-        </ArcadeButton>
-      );
-    }
+    if (state?.pending?.type === "brewerDown") return null;
+    /** Straffklunk: SKÅL ligger i SipNoticeCardModal (samma lager som overlay — undvik z-index-krock med nedersta arket). */
+    if (hasBlockingSipNotice) return null;
     if (myEnemyIntroPending) {
       return (
         <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
@@ -1541,6 +1489,17 @@ export function PlayView() {
     );
   })();
 
+  /** Stäng utrustningsmodal — samma mönster som föremål (nedre arket ska inte ersättas av t.ex. kort-knapp). */
+  const equipDetailSheet =
+    equipDetail && me ? (
+      <ArcadeButton variant="gray" fullWidth onClick={() => setEquipDetail(null)}>
+        {sv.play.modalClose}
+      </ArcadeButton>
+    ) : null;
+
+  const bottomSheetPrimary =
+    itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? (!hasBlockingSipNotice ? interaction : null);
+
   /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
   const bottomSheetOverTeamBattleIntro =
     !!me &&
@@ -1560,6 +1519,7 @@ export function PlayView() {
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
       !!itemDetail ||
+      !!equipDetail ||
       !!cardOrSipActions ||
       !!interaction ||
       pending?.type === "brewerDown");
@@ -1865,18 +1825,17 @@ export function PlayView() {
                   iconSize={36}
                 />
               </div>
-              {levelUpProgress ? (
+              {brewerProgressUi ? (
                 <div
                   className={styles.levelProgressWrap}
-                  aria-label={sv.play.levelUpProgressAria(levelUpProgress.targetLevelIndex + 1)}
+                  aria-label={sv.play.levelUpProgressAria(brewerProgressUi.brewerLevel)}
                 >
                   <div className={styles.levelProgressRow}>
                     <div className={styles.levelProgressStack}>
-                      <LevelProgressBar ratio={levelUpProgress.pant} tintClass={styles.levelProgressPant} />
-                      <LevelProgressBar ratio={levelUpProgress.klunk} tintClass={styles.levelProgressKlunk} />
+                      <LevelProgressBar ratio={brewerProgressUi.ratio} tintClass={styles.levelProgressKlunk} />
                     </div>
-                    <div className={styles.levelProgressBadge} aria-hidden>
-                      <img src={LEVEL_UP_ICON} alt="" className={styles.levelProgressBadgeIcon} />
+                    <div className={styles.levelProgressBadgeLevel} aria-hidden>
+                      {brewerProgressUi.brewerLevel}
                     </div>
                   </div>
                 </div>
@@ -1938,12 +1897,13 @@ export function PlayView() {
           recipientName={me.name}
           fromPlayerName={mySipNotice.fromPlayerName}
           klunkCount={mySipNotice.klunkCount ?? 1}
+          onAck={() => send({ type: "sipNoticeAck", playerId: me.id })}
         />
       )}
 
       {state?.phase === "playing" && pending?.type === "brewerDown" && me && (
         <CardFlipModalShell
-          zIndex={105}
+          zIndex={165}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             placeItems: "center",
@@ -2225,7 +2185,7 @@ export function PlayView() {
                     margin: 0,
                     paddingLeft: 20,
                     display: "grid",
-                    gap: 8,
+                    gap: 10,
                     fontSize: 14,
                     lineHeight: 1.4,
                   }}
@@ -2242,9 +2202,17 @@ export function PlayView() {
                       return a.name.localeCompare(b.name, "sv");
                     })
                     .map((p) => (
-                      <li key={p.id} style={{ fontWeight: p.id === state.winnerId ? 800 : 600 }}>
-                        {sv.play.scoreboardRow(p.name, p.klunkar, p.gold, p.hp, p.maxHp)}
-                        {p.id === state.winnerId ? " 🏆" : ""}
+                      <li
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
                       </li>
                     ))}
                 </ol>
@@ -2254,12 +2222,16 @@ export function PlayView() {
         )}
       </div>
 
-      {(cardOrSipActions || itemDetailSheet || (!hasBlockingSipNotice && interaction)) && (
+      {pending?.type !== "brewerDown" && bottomSheetPrimary && (
         <div
           className={[
             styles.bottomSheet,
             styles.bottomSheetEnter,
-            cardOrSipActions || itemDetailSheet || bottomSheetOverTeamBattleIntro || bottomSheetOverEncounterChoice
+            itemDetailSheet ||
+              equipDetailSheet ||
+              cardOrSipActions ||
+              bottomSheetOverTeamBattleIntro ||
+              bottomSheetOverEncounterChoice
               ? styles.bottomSheetAboveCard
               : "",
           ]
@@ -2271,7 +2243,7 @@ export function PlayView() {
               .filter(Boolean)
               .join(" ")}
           >
-            {cardOrSipActions ?? itemDetailSheet ?? interaction}
+            {bottomSheetPrimary}
           </div>
         </div>
       )}
@@ -2399,60 +2371,116 @@ export function PlayView() {
         </Modal>
       )}
 
-      {equipDetail && me && (
-        <Modal
-          title={capitalizeWord(equipmentSlotSv(equipDetail.slot))}
-          onClose={() => setEquipDetail(null)}
-        >
-          <div style={{ opacity: 0.9, whiteSpace: "pre-wrap" }}>
-            {equipDetail.slot === "weapon" &&
-              (me.equipment.weapon
-                ? `${me.equipment.weapon.name}\n${sv.play.powerPlus(me.equipment.weapon.power)}`
-                : sv.play.emptySlot)}
-            {equipDetail.slot === "armor" &&
-              (me.equipment.armor
-                ? [
-                    me.equipment.armor.name,
+      {equipDetail && me && (() => {
+        const slot = equipDetail.slot;
+        const pieceName =
+          slot === "weapon"
+            ? me.equipment.weapon?.name
+            : slot === "armor"
+              ? me.equipment.armor?.name
+              : slot === "helmet"
+                ? me.equipment.helmet?.name
+                : me.equipment.accessory?.name;
+        const equipped = !!pieceName;
+        const slotLabel = capitalizeWord(equipmentSlotSv(slot));
+        const modalTitle = pieceName ?? slotLabel;
+        const bodyLines: string[] =
+          slot === "weapon" && me.equipment.weapon
+            ? (
+                [
+                  me.equipment.weapon.power ? sv.play.powerPlus(me.equipment.weapon.power) : null,
+                  typeof me.equipment.weapon.pvpDieBonus === "number"
+                    ? sv.play.pvpWeaponDieBonus(me.equipment.weapon.pvpDieBonus)
+                    : null,
+                ] as Array<string | null>
+              ).filter(Boolean) as string[]
+            : slot === "armor" && me.equipment.armor
+              ? (
+                  [
                     me.equipment.armor.negateAllOnce ? sv.play.armorNegateAllOnce : null,
                     typeof me.equipment.armor.damageNegate === "number"
                       ? sv.play.negatePerHit(me.equipment.armor.damageNegate)
                       : null,
                     me.equipment.armor.bonusHp ? sv.play.bonusHp(me.equipment.armor.bonusHp) : null,
-                  ]
-                    .filter(Boolean)
-                    .join("\n")
-                : sv.play.emptySlot)}
-            {equipDetail.slot === "helmet" &&
-              (me.equipment.helmet
-                ? [
-                    me.equipment.helmet.name,
-                    me.equipment.helmet.combatBonus
-                      ? sv.play.combatBonus(me.equipment.helmet.combatBonus)
-                      : null,
-                    typeof me.equipment.helmet.damageNegate === "number"
-                      ? sv.play.negatePerHit(me.equipment.helmet.damageNegate)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join("\n")
-                : sv.play.emptySlot)}
-            {equipDetail.slot === "accessory" &&
-              (me.equipment.accessory
-                ? [
-                    me.equipment.accessory.name,
-                    typeof me.equipment.accessory.damageNegate === "number"
-                      ? sv.play.negatePerHit(me.equipment.accessory.damageNegate)
-                      : null,
-                    typeof me.equipment.accessory.moveBonus === "number"
-                      ? sv.play.moveSteps(me.equipment.accessory.moveBonus)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join("\n")
-                : sv.play.emptySlot)}
-          </div>
-        </Modal>
-      )}
+                  ] as Array<string | null>
+                ).filter(Boolean) as string[]
+              : slot === "helmet" && me.equipment.helmet
+                ? (
+                    [
+                      me.equipment.helmet.combatBonus
+                        ? sv.play.combatBonus(me.equipment.helmet.combatBonus)
+                        : null,
+                      typeof me.equipment.helmet.damageNegate === "number"
+                        ? sv.play.negatePerHit(me.equipment.helmet.damageNegate)
+                        : null,
+                    ] as Array<string | null>
+                  ).filter(Boolean) as string[]
+                : slot === "accessory" && me.equipment.accessory
+                  ? (
+                      [
+                        typeof me.equipment.accessory.damageNegate === "number"
+                          ? sv.play.negatePerHit(me.equipment.accessory.damageNegate)
+                          : null,
+                        typeof me.equipment.accessory.moveBonus === "number"
+                          ? sv.play.moveSteps(me.equipment.accessory.moveBonus)
+                          : null,
+                      ] as Array<string | null>
+                    ).filter(Boolean) as string[]
+                  : [];
+        const uniqueArt = pieceName ? equipmentUniqueImageSrc(pieceName) : null;
+        return (
+          <Modal
+            title={modalTitle}
+            onClose={() => setEquipDetail(null)}
+            instantFront
+            hideClose
+            titleStyle={ITEM_MODAL_TITLE_STYLE}
+            headerRight={
+              <span
+                aria-label={slotLabel}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <EquipIcon slot={slot} disabled={!equipped} genericOnly iconSize={32} />
+              </span>
+            }
+          >
+            <div style={{ display: "grid", gap: 10 }}>
+              <div
+                style={{
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid #ffffff22",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: equipped && uniqueArt ? 12 : 14,
+                  boxSizing: "border-box",
+                  minHeight: 0,
+                }}
+              >
+                <EquipIcon
+                  slot={slot}
+                  disabled={false}
+                  equippedName={equipped ? pieceName : undefined}
+                  iconSize={equipped && uniqueArt ? undefined : 96}
+                />
+              </div>
+              {!equipped ? (
+                <div style={{ opacity: 0.9, fontSize: 15 }}>{sv.play.emptySlot}</div>
+              ) : bodyLines.length > 0 ? (
+                <div style={{ display: "grid", gap: 8, opacity: 0.92, fontSize: 15, lineHeight: 1.45 }}>
+                  {bodyLines.map((line, i) => (
+                    <div key={i}>{line}</div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </Modal>
+        );
+      })()}
 
       {itemDetail && me && state && (() => {
         const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
@@ -2462,7 +2490,6 @@ export function PlayView() {
             title={modalTitle}
             onClose={() => setItemDetail(null)}
             instantFront
-            hideClose
             headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} /> : undefined}
             titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
           >
@@ -2650,6 +2677,8 @@ function equipmentUniqueImageSrc(name?: string): string | null {
     "Första hjälpen-lager": "/equipment/unique/forsta-hjalpen-lager.png",
     Mäskpaddel: "/equipment/unique/maskpaddel-3.png",
     Burkrustning: "/equipment/unique/burkrustning-3.png",
+    Robotarm: "/equipment/unique/robot-arm.png",
+    Robothjälm: "/equipment/unique/robot-helm.png",
   };
   if (map[name]) return map[name]!;
   const mash = /^Mäskpaddel\s+(\d+)$/.exec(name);
@@ -2665,7 +2694,7 @@ function EquipIcon(props: {
   equippedName?: string;
   /** Endast slot-siluett (vapen/tröja/mössa/accessoar), aldrig unik art — t.ex. typmärke bredvid varubild. */
   genericOnly?: boolean;
-  /** Pixelstorlek för generisk siluett (unik art fyller fortfarande 100% av föräldern). */
+  /** Pixelstorlek för generisk siluett (unik art: max storlek inom föräldern, `object-fit: contain`). */
   iconSize?: number;
 }) {
   const uniqueSrc = props.genericOnly ? null : equipmentUniqueImageSrc(props.equippedName);
@@ -2687,7 +2716,17 @@ function EquipIcon(props: {
       ? "brightness(0) invert(0.78) opacity(0.72)"
       : "brightness(0) invert(0.98) drop-shadow(0 0 8px rgba(96,165,250,0.38))";
   const genericPx = props.iconSize ?? 36;
-  const size = uniqueSrc ? "100%" : genericPx;
+  /** Unik PNG: `100%`×`100%` i grid kan ge fel centrering/klipp — begränsa till ramen och centrera. */
+  const uniqueBox =
+    uniqueSrc != null
+      ? ({
+          width: "auto" as const,
+          height: "auto" as const,
+          maxWidth: "100%",
+          maxHeight: "100%",
+        } as const)
+      : null;
+  const size = uniqueSrc ? undefined : genericPx;
   return (
     <img
       src={src}
@@ -2704,11 +2743,12 @@ function EquipIcon(props: {
       alt=""
       aria-hidden
       style={{
-        width: size,
-        height: size,
-        objectFit: uniqueSrc ? "cover" : "contain",
+        ...(uniqueBox ?? { width: size, height: size }),
+        objectFit: "contain",
+        objectPosition: "center",
         borderRadius: uniqueSrc ? 12 : 0,
         display: "block",
+        flexShrink: 0,
         filter: tintFilter,
       }}
     />
@@ -3223,6 +3263,7 @@ function SipNoticeCardModal(props: {
   recipientName: string;
   fromPlayerName: string;
   klunkCount: number;
+  onAck: () => void;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
   const recipient = props.recipientName?.trim() || "—";
@@ -3233,34 +3274,38 @@ function SipNoticeCardModal(props: {
         position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.55)",
-        zIndex: 100,
-        display: "grid",
-        placeItems: "start center",
+        /** Under stupad bryggare (165) och under nedersta arket vid «över kort» (125), men över CardModal (100). */
+        zIndex: 110,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         paddingTop: "max(12px, env(safe-area-inset-top))",
         paddingLeft: 16,
         paddingRight: 16,
-        paddingBottom: "max(108px, env(safe-area-inset-bottom))",
+        paddingBottom: "max(16px, env(safe-area-inset-bottom))",
         boxSizing: "border-box",
       }}
     >
       <div
         style={{
           width: "min(400px, 100%)",
-          aspectRatio: "5/7",
+          maxHeight: "min(82dvh, 620px)",
           borderRadius: 16,
           border: "1px solid #ffffff22",
           background: "#0b1226",
           boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
           color: "#ffffff",
-          padding: 24,
+          padding: 22,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
           justifyContent: "flex-start",
-          gap: 18,
+          gap: 16,
           boxSizing: "border-box",
-          overflow: "hidden",
+          overflow: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         <h2
@@ -3316,6 +3361,11 @@ function SipNoticeCardModal(props: {
           <br />
           <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
         </p>
+        <div style={{ marginTop: 8, width: "100%", flexShrink: 0 }}>
+          <ArcadeButton variant="pink" fullWidth onClick={props.onAck}>
+            {sv.sipNotice.cheers}
+          </ArcadeButton>
+        </div>
       </div>
     </div>
   );

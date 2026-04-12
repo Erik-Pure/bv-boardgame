@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useSearchParams } from "react-router-dom";
 import {
   BOARD_RING_GRID_SIZE,
+  playerCanCombatIntervene,
   ringGridSizeFromTileCount,
   ringTileCount,
   type GameState,
@@ -11,6 +12,7 @@ import {
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
+import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
@@ -280,8 +282,9 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   const attacker = state.players.find((p) => p.id === pending.attackerId);
   const need = pending.need + (pending.needMod ?? 0);
   const reactorNames = (pending.reactors ?? [])
-    .map((id) => state.players.find((p) => p.id === id)?.name)
-    .filter((n): n is string => !!n);
+    .map((id) => state.players.find((p) => p.id === id))
+    .filter((p): p is Player => !!p && playerCanCombatIntervene(p))
+    .map((p) => p.name);
   const showMonsterCard = pending.monsterId !== "boss";
   const diceBesideCardPhases =
     pending.phase === "reactions" || pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation";
@@ -1807,7 +1810,7 @@ export function TableView() {
                 </p>
                 <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{sv.play.scoreboardTitle}</h3>
                 <p style={{ margin: "0 0 12px", opacity: 0.8, fontSize: 13 }}>{sv.play.scoreboardHint}</p>
-                <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 10, fontSize: 15 }}>
+                <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 12, fontSize: 15 }}>
                   {[...state.players]
                     .sort((a, b) => {
                       const w = state.winnerId;
@@ -1820,9 +1823,17 @@ export function TableView() {
                       return a.name.localeCompare(b.name, "sv");
                     })
                     .map((p) => (
-                      <li key={p.id} style={{ fontWeight: p.id === state.winnerId ? 800 : 600 }}>
-                        {sv.play.scoreboardRow(p.name, p.klunkar, p.gold, p.hp, p.maxHp)}
-                        {p.id === state.winnerId ? " 🏆" : ""}
+                      <li
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
                       </li>
                     ))}
                 </ol>
@@ -1956,13 +1967,14 @@ export function TableView() {
 
       {state?.pending?.type === "brewerDown" && (
         <CardFlipModalShell
-          zIndex={45}
-          maxWidth={440}
+          zIndex={48}
+          maxWidth={520}
+          instantFront
           blockPointerUntilFlipped={false}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             pointerEvents: "none",
-            placeItems: "center",
+            placeItems: "start center",
             paddingTop: 70,
             background: TABLE_BOARD_OVERLAY_BG,
             animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
@@ -1974,33 +1986,50 @@ export function TableView() {
             const victim = state.players.find((pl) => pl.id === pr.playerId);
             const name = victim?.name ?? "";
             return (
-              <div style={{ textAlign: "center", color: "#e5e7eb", padding: "16px 20px", maxWidth: 400 }}>
-                <div
-                  style={{
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: 480,
+                  margin: "0 auto",
+                  boxSizing: "border-box",
+                  borderRadius: 16,
+                  border: "1px solid #ffffff22",
+                  background: "rgba(11, 18, 38, 0.94)",
+                  boxShadow: "0 24px 56px rgba(0,0,0,0.45)",
+                  padding: "22px 20px 24px",
+                  textAlign: "center",
+                  color: "#e5e7eb",
+                }}
+              >
+                <CombatSheetFrame
+                  sheetTitle={sv.play.brewerDownTitle}
+                  titleStyle={{
+                    textAlign: "center",
                     fontFamily: '"Permanent Marker", var(--heading), sans-serif',
                     fontWeight: 900,
-                    fontSize: 26,
+                    fontSize: "clamp(1.35rem, 3.2vw, 1.75rem)",
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    marginBottom: 14,
+                    marginBottom: 4,
                   }}
                 >
-                  {sv.play.brewerDownTitle}
-                </div>
-                <img
-                  src="/icons/skull-icon.svg"
-                  alt=""
-                  draggable={false}
-                  style={{
-                    width: 96,
-                    height: "auto",
-                    margin: "0 auto 14px",
-                    display: "block",
-                    filter: "brightness(0) invert(1)",
-                  }}
-                />
-                <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{name}</div>
-                <div style={{ fontSize: 14, opacity: 0.88 }}>{sv.table.brewerDownWaitPhone(name)}</div>
+                  <img
+                    src="/icons/skull-icon.svg"
+                    alt=""
+                    draggable={false}
+                    style={{
+                      width: 96,
+                      height: "auto",
+                      margin: "10px auto 14px",
+                      display: "block",
+                      filter: "brightness(0) invert(1)",
+                    }}
+                  />
+                  <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{name}</div>
+                  <div style={{ fontSize: 14, opacity: 0.88, lineHeight: 1.45 }}>
+                    {sv.table.brewerDownWaitPhone(name)}
+                  </div>
+                </CombatSheetFrame>
               </div>
             );
           })()}
@@ -2245,7 +2274,16 @@ export function TableView() {
               );
             })()}
             {!eventStoryFrame ? (
-              <div style={{ opacity: 0.65, fontSize: 12, marginTop: 10 }}>{sv.table.waitingConfirmPhone}</div>
+              <div
+                style={{
+                  opacity: 0.65,
+                  fontSize: 12,
+                  marginTop: 10,
+                  textAlign: "center",
+                }}
+              >
+                {sv.table.waitingConfirmPhone}
+              </div>
             ) : null}
           </div>
             );

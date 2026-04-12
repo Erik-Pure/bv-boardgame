@@ -45,6 +45,8 @@ export interface Weapon {
   power: number;
   /** Bonus om spelaren tar 1 klunk vid slag (auto-aktiveras i nuläget). */
   sipAttackBonus?: number;
+  /** Läggs bara till i BvB (påverkar inte monsterstrid). */
+  pvpDieBonus?: number;
 }
 
 export interface ArmorPiece {
@@ -143,11 +145,11 @@ export type Pending =
   | {
       type: "moveChoice";
       playerId: string;
-      /** Total steps (d6 or 2×d6 if doubled, plus equipment / item bonuses). */
+      /** Total steps (d6 plus equipment / item bonuses). */
       die: number;
       /** Raw d6 result (1–6) for visuals / physical die face. */
       baseDie: number;
-      /** True when Skägget rakt bak doubled the die (movement used 2× baseDie before bonuses). */
+      /** Reserverat; rörelse dubblas inte längre av föremål. */
       diceDoubled?: boolean;
       from: { levelIndex: number; tileIndex: number };
       options: Array<{
@@ -243,8 +245,8 @@ export type Pending =
       teamBattleBonusGold?: number;
       /** Optional assisting player (e.g. Ölkompis). */
       assistId?: string;
-      /** Team battle: individuella slag innan preview. */
-      teamRolls?: Partial<Record<string, { die: number; total: number }>>;
+      /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6 (krit på 1). */
+      teamRolls?: Partial<Record<string, { die: number; total: number; attackDiceDoubled?: boolean }>>;
       reactors: string[];
       reacted: Partial<Record<string, "pass" | "intervened">>;
       /** Epoch ms när reaktionsfönstret stänger (server-auktoritativ timeout). */
@@ -257,7 +259,11 @@ export type Pending =
       rewardItems?: number;
       /** När phase === "rollPreview": resultat av slaget; effekter/kort efter combatRollAck. */
       previewDie?: number;
+      /** Angriparens t6 räknades dubbelt i total (Skägget rakt bak). */
+      previewAttackDiceDoubled?: boolean;
       previewBroDie?: number | null;
+      /** Ölkompisens t6 räknades dubbelt i total. */
+      previewBroAttackDiceDoubled?: boolean;
       previewPrBase?: number;
       previewAssistRoll?: number | null;
       previewTotal?: number;
@@ -288,8 +294,8 @@ export interface Player {
   inventory: ItemInstance[];
   /** Engångsbonus till nästa rörelseslag från items (för kompatibilitet; inget item sätter längre detta). */
   nextMoveBonus: number;
-  /** Nästa rörelsetärning: dubblera d6-resultatet (Skägget rakt bak). */
-  nextMoveDoubleDice?: boolean;
+  /** Nästa monsterstrid: dubblera spelarens t6-värde i attacktotalen (Skägget rakt bak); `die` kvar 1–6 för krit. */
+  nextCombatAttackDiceDouble?: boolean;
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
   /** Canman: +1 pant per drag så länge > 0. */
