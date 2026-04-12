@@ -165,18 +165,14 @@ export const sv = {
       `Du uppfyller kraven för nivå ${levelDisplay} (klunkar och/eller bryggnivå i headern). Vill du stiga direkt?`,
     levelUpOfferHint:
       "Väljer du att stanna kan du senare gå upp via nivå-rutan på brädet — där räcker det med pant om du har råd.",
-    /** Tom sträng om inget särskilt att säga (t.ex. innan första höjning). */
-    levelUpMonsterScale: (before: number, after: number): string => {
-      if (after > before) {
-        if (before === 0) {
-          return `Om du stiger blir alla monster svårare: +${after} på styrkekrav i varje strid (gäller alla spelare).`;
-        }
-        return `Om du stiger höjs styrkekravet för alla monster: +${before} → +${after} på tärningsslaget.`;
-      }
-      if (before > 0) {
-        return `Alla monster har redan +${before} på styrkekrav (någon nått högre våning); din uppstigning ändrar inte svårgraden.`;
-      }
-      return "";
+    /**
+     * `boardLevelIndex` = målvåning 0-baserad (samma som `levelIndex` efter uppstigning).
+     * Endast monster **på det planet** får +N på styrkekrav; pant/klunkar/skada ändras inte av nivåbytet.
+     */
+    levelUpMonsterScaleOnDestination: (boardLevelIndex: number): string => {
+      const bonus = boardLevelIndex;
+      if (bonus <= 0) return "";
+      return `På våning ${boardLevelIndex + 1} (planet du går in på) har monster +${bonus} på styrkekrav i strid — bara där, inte på andra våningar. Pant, klunkar och skada ändras inte av detta.`;
     },
     levelUpNow: "Stig till nästa nivå nu",
     levelUpStayForTile: "Stanna kvar (ta nivå-rutan senare)",
@@ -240,6 +236,7 @@ export const sv = {
     chooseTarget: "Välj mål",
     use: "Använd",
     itemsUseHint: "Du kan använda föremål på din tur eller under stridsreaktioner.",
+    itemsPassiveHint: "Detta föremål behöver inte användas — det gäller automatiskt så länge det ligger i förrådet.",
     modalClose: "Stäng",
     emptySlot: "Tom plats.",
     armorNegateAllOnce: "Nollställ all skada en gång (går sedan sönder)",
@@ -315,9 +312,6 @@ export const sv = {
     board: "Bräde",
     /** Brädvy: aktuell turs färgfält, höger — nästa i turnOrder */
     turnBannerNext: (name: string) => `Nästa: ${name}`,
-    /** Canman aktiv — +1 pant per rörelse; gruppen säger ofta “längräddad” av Canman. */
-    playerStatusCanman: (roundsLeft: number) =>
-      `Längräddad av Canman — +1 pant/drag · ${roundsLeft} ${roundsLeft === 1 ? "runda" : "rundor"} kvar`,
     /** Sömnmedel: kommande hoppade turer innan spelaren får agera normalt */
     playerStatusSleepSkip: (skippedTurns: number) =>
       skippedTurns === 1
@@ -396,7 +390,14 @@ export const sv = {
       text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka. Vid vinst får ölkompisen lika många skatter som angriparen.",
     },
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
-    canman: { title: "Canman", text: "+1 pant per drag i 10 rundor." },
+    lengraddad: {
+      title: "Lengräddad",
+      text: "Spela på en annan spelare: nästa strid får den spelaren −2 i attack.",
+    },
+    canman: {
+      title: "Canman",
+      text: "Ligger i förrådet: +1 pant varje gång du slår rörelsetärningen, 10 gånger — ingen knapp.",
+    },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt item eller utrustning från ett mål." },
     spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt item eller utrustning hos ett mål." },
     early_night: { title: "Vaska direkt", text: "Som angripare i monstermöte: skippa monstret och avsluta mötet." },

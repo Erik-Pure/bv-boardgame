@@ -40,12 +40,13 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
     return {
       empty: 0,
       event: 6,
-      combat: 5,
+      /** −1 combat → +1 boss på första våningen så slutboss kan testas utan att klättra till toppen. */
+      combat: 4,
       merchant: 1,
       door: 1,
       rest: 1,
       treasure: 2,
-      boss: 0,
+      boss: 1,
     };
   }
   if (li === 1) {

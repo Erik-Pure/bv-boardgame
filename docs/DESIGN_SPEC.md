@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.12 |
+| Version | 0.13 |
 | Senast uppdaterad | 2026-04-12 |
 
 ---
@@ -117,7 +117,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - Spelet använder **fyra** våningsplan i följd (visas som **Nivå 1–4** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
-- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **4 fördefinierade** bossar (var och en med tydlig särskiljande mekanik i design).
+- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **3 fördefinierade** bossar (individuell strid, ingen team battle); varje boss har eget förluststraff mot partiet.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
 ### 7.3 Dörrar mellan nivåer
@@ -127,6 +127,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
   - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
   - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
 - **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår).
+- **Monster på våningen:** extra styrkekrav (`need`) är **+1 per brädesnivå** på **just det planet** (våning 1 → +0, våning 2 → +1, …) — **inte** global skalning efter “högsta spelaren”. Pant, klunkar och skada påverkas **inte** av denna bonus.
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
 ### 7.4 Rutyper (tiles)
@@ -219,7 +220,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Baksmälla**: stridsreaktion, **−3 spelarattack**.
 - **Skägget rakt bak**: används innan rörelseslag, **dubblerar tärningsslaget** på nästa rörelse (utrustningsbonus läggs till som vanligt).
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
-- **Canman** (item): ger **+1 pant per drag** under ett **antal rundor** (implementation: t.ex. 10); kort-/itembild levereras som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
+- **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 
 ---
 
@@ -260,7 +261,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Bryggnivå** beräknas från spelarens **totala klunkar** mot **stigande trösklar**: **8 → 16 → 24 → 35 → 40 → 50 → 60**, därefter **+10 klunkar** per ytterligare nivå från **70** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
 - Visas i **mobil-header** som progress mot nästa tröskel och **siffra** för aktuell bryggnivå.
 - **Resultatlista** när partiet är **slut** ska visa **bryggnivå** per spelare (för jämförelse utöver klunkar, pant och HP).
-- **Koppling till dörr / uppstigning:** klunkspåret för att byta brädesnivå (§7.3) tar hänsyn till bryggnivån så att spelaren inte ser **bryggnivå 2** i headern utan att kunna **låsa upp** motsvarande uppstigning med klunkspår.
+- **Koppling till dörr / uppstigning:** klunkspåret för att byta brädesnivå (§7.3) tar hänsyn till bryggnivån så att spelaren inte ser **bryggnivå 2** i headern utan att kunna **låsa upp** motsvarande uppstigning med klunkspår. (Monster-+ per våning i strid är **separat** från bryggnivå — se §7.3.)
 
 ---
 
@@ -318,7 +319,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
 - Utrustningsplatser, liten händelse-/kortlek, klunk-räknare kopplad till några kort.
-- Fyra slutbossar; standard-vinst **döda boss först**; variant **gyllene öl + flykt till start/slutpunkt**.
+- Tre slutbossar (individuell strid); standard-vinst **döda boss först**; variant **gyllene öl + flykt till start/slutpunkt**.
 - Respawn med “behåll en pryl”.
 
 **Senare**
@@ -352,6 +353,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
 - **Team-monsterfrekvens per nivå:** ~8% / 18% / 28%.
+- **Monster `need`:** +`levelIndex` på styrkekrav för strid på den våningen (lokalt per plan).
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
 - **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool).
 - **Reaktionsfönster i PvE:** spelare kan spela **flera reaktionskort** innan de slutmarkerar med “gör inget”.
@@ -374,4 +376,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.10 | 2026-04-02 | Bord: våningar i rad, ringstorlek `4s−4` och krav på att klient härleder grid från `tiles.length`; WebP-bakgrunder per våning; rörelse §8 förtydligad (ring, modulo, specialfall n/2); fyra våningsplan i §7.2; Pantpåse (namnbyte); grafiknot om komprimering av bakgrundsbilder |
 | 0.11 | 2026-04-11 | **BvB** (*bryggare mot bryggare*) som spelar-etikett och i logg; §9.2 utökad med mötesval, val av motståndare vid flera på ruta, omslag; §7.1 flera pjäser = kluster-layout på brädet; §7.4/§10/§17/§18 terminologi; **Canman** + bild under §10.1; §16.1 utvecklingsnot `npm run dev` (Vite 5173 + WS 3001) |
 | 0.12 | 2026-04-12 | §7.3 dörrar: pant + **klunkspår** (krav utan förbrukning) synkat med **bryggnivå**; §13.1 **bryggnivå** (trösklar, header, resultatlista); §11 utrustningsmodal (ikon, bild, stäng via panel); §16 dev **WebSocket via `/bv-ws`**; §17/§18 uppdaterade |
+| 0.13 | 2026-04-12 | Monster styrkekrav **per våning** (+`levelIndex`, lokalt) — inte globalt; §7.3/§13.1/§19; nivåvals-modalcopy |
 

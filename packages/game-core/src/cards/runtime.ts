@@ -6,7 +6,14 @@ import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type { CombatLoseSummary, CombatWinSummary, GameState, Pending, Player } from "../types.js";
 import { combatReactorsFor } from "../combatReactors.js";
-import { globalMonsterNeedBonus, MONSTERS, type MonsterDef, type MonsterId } from "../monsters.js";
+import {
+  finalBossCardTagline,
+  isFinalBossMonsterId,
+  monsterNeedBonusForBoardLevel,
+  MONSTERS,
+  type MonsterDef,
+  type MonsterId,
+} from "../monsters.js";
 
 export type LogFn = (state: GameState, message: string) => void;
 export type ShowCardFn = (state: GameState, params: {
@@ -28,8 +35,8 @@ function formatMonsterText(m: { rulesText: string }): string {
 }
 
 function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef {
-  const team = MONSTERS.filter((m) => m.teamBattleRequired);
-  const normal = MONSTERS.filter((m) => !m.teamBattleRequired);
+  const team = MONSTERS.filter((m) => m.teamBattleRequired && !isFinalBossMonsterId(m.id));
+  const normal = MONSTERS.filter((m) => !m.teamBattleRequired && !isFinalBossMonsterId(m.id));
   const teamChance = levelIndex <= 0 ? 0.08 : levelIndex === 1 ? 0.18 : 0.28;
   if (team.length > 0 && rng() < teamChance) {
     return team[Math.floor(rng() * team.length)]!;
@@ -37,7 +44,7 @@ function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef 
   return normal[Math.floor(rng() * normal.length)]!;
 }
 
-/** Slutboss-ruta: använder {@link GameState.finalBossMonsterId} och samma regler som monsterkortet. */
+/** Slutboss-ruta: använder {@link GameState.finalBossMonsterId}; alltid individuell strid (ingen team battle). */
 export function createFinalBossCombatPending(
   state: GameState,
   attacker: Player,
@@ -46,12 +53,12 @@ export function createFinalBossCombatPending(
   if (!id) return null;
   const monster = MONSTERS.find((m) => m.id === id);
   if (!monster) return null;
-  const base = createMonsterCombatPending(state, attacker, monster);
-  const lives = state.finalBossLivesRemaining ?? 3;
-  const extra = `Slutboss: ${lives} liv kvar — varje vunnet slag tar ett liv. Förlorar du en runda behåller bossen sina återstående liv.`;
+  const soloMonster: MonsterDef = { ...monster, teamBattleRequired: false, teamBattleBonusGold: 0 };
+  const base = createMonsterCombatPending(state, attacker, soloMonster);
+  const tag = finalBossCardTagline(id);
   return {
     ...base,
-    enemyIntroText: [base.enemyIntroText?.trim(), extra].filter(Boolean).join("\n\n"),
+    enemyIntroText: tag ?? base.enemyIntroText,
   };
 }
 
@@ -69,7 +76,7 @@ export function createMonsterCombatPending(
     tileIndex: attacker.tileIndex,
     monsterId: monster.id,
     enemyName: monster.name,
-    need: monster.strength + globalMonsterNeedBonus(state.players),
+    need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex),
     needMod: 0,
     baseDamage: monster.baseDamage,
     lossSipsOnLose: monster.lossSipsOnLose,

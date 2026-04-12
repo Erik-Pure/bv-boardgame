@@ -4,12 +4,12 @@ import { applyEffects } from "./cards/effects.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./cards/grantedItemText.js";
 import type { EffectApplyOut } from "./cards/types.js";
 import { drawFromDeck, getCard, itemDeckItemIds } from "./cards/db.js";
+import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
-  globalMonsterNeedBonus,
-  maxPlayerBoardLevelIfPlayerReaches,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
+  monsterNeedBonusForBoardLevel,
   type MonsterId,
 } from "./monsters.js";
 import {
@@ -41,6 +41,8 @@ import type {
 } from "./types.js";
 
 const MAX_PLAYERS = 6;
+/** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
+const SKIP_BOSS_RESOURCE_GATE = true;
 const COMBAT_REACTION_TIMEOUT_MS = 20_000;
 const PLAYER_COLORS = [
   "#c41e3a",
@@ -80,34 +82,61 @@ function log(state: GameState, message: string): void {
   if (state.log.length > 200) state.log.shift();
 }
 
-/** Före våningsbyte: informera om global monsterskalning (+ på styrkekrav). */
+/** +1 pant per Canman-instans i inventory per rörelsetärning; räknare på instansen, tom burk tas bort. */
+function applyCanmanOnMovementRoll(state: GameState, player: Player): void {
+  const inv = player.inventory ?? [];
+  let goldAdd = 0;
+  for (let i = 0; i < inv.length; ) {
+    const inst = inv[i]!;
+    if (inst.itemId !== "canman") {
+      i++;
+      continue;
+    }
+    let left = inst.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
+    if (left <= 0) {
+      inv.splice(i, 1);
+      continue;
+    }
+    goldAdd += 1;
+    left -= 1;
+    if (left <= 0) {
+      inv.splice(i, 1);
+      continue;
+    }
+    inst.canmanDrawsRemaining = left;
+    i++;
+  }
+  player.inventory = inv;
+  if (goldAdd > 0) {
+    player.gold += goldAdd;
+    log(state, `${player.name} får +${goldAdd} pant från Canman.`);
+  }
+}
+
+/** Före våningsbyte: informera om lokalt monster-+ på målvåningen (styrkekrav endast där). */
 function logMonsterScalePreviewForAscend(
   state: GameState,
   p: Player,
   targetLevelIndex: number,
   mode: "door" | "offer",
 ): void {
-  const beforeB = globalMonsterNeedBonus(state.players);
-  const afterB = maxPlayerBoardLevelIfPlayerReaches(state.players, p.id, targetLevelIndex);
-  if (afterB > beforeB) {
-    const line =
-      mode === "offer"
-        ? `Stiger ${p.name} nu blir alla monster svårare: styrkekrav +${beforeB} → +${afterB} för alla möten.`
-        : `Om ${p.name} stiger blir alla monster svårare: styrkekrav +${beforeB} → +${afterB} för alla möten.`;
-    log(state, line);
-  } else if (beforeB > 0) {
-    log(
-      state,
-      `Alla monster har redan +${beforeB} på styrkekrav; ${p.name}s våningsbyte ändrar inte svårgraden ytterligare.`,
-    );
-  }
+  const bonus = monsterNeedBonusForBoardLevel(targetLevelIndex);
+  if (bonus <= 0) return;
+  const floor = targetLevelIndex + 1;
+  const line =
+    mode === "offer"
+      ? `Stiger ${p.name}: på våning ${floor} har monster +${bonus} på styrkekrav i strid (endast det planet).`
+      : `Om ${p.name} stiger: på våning ${floor} har monster +${bonus} på styrkekrav i strid (endast det planet).`;
+  log(state, line);
 }
 
-function logMonsterScaleAfterAscend(state: GameState, prevBonus: number): void {
-  const afterB = globalMonsterNeedBonus(state.players);
-  if (afterB > prevBonus) {
-    log(state, `Alla monster är nu svårare: +${afterB} på styrkekrav mot tidigare +${prevBonus}.`);
-  }
+function logMonsterScaleAfterAscend(state: GameState, p: Player): void {
+  const bonus = monsterNeedBonusForBoardLevel(p.levelIndex);
+  if (bonus <= 0) return;
+  log(
+    state,
+    `${p.name} är på våning ${p.levelIndex + 1} — monster där har +${bonus} på styrkekrav (andra våningar oförändrade).`,
+  );
 }
 
 /** Minsta antal klunkar för bryggnivå 2, 3, … (därefter +10 per tröskel från 70). */
@@ -241,10 +270,7 @@ function grantRandomCombatRewardItem(
 ): ItemId {
   const itemId = pick(rng, COMBAT_REWARD_ITEMS);
   player.inventory ??= [];
-  player.inventory.push({
-    instanceId: newItemInstanceId(rng),
-    itemId,
-  });
+  player.inventory.push(createItemInstance(itemId, newItemInstanceId(rng)));
   log(state, `${player.name} hittar ett föremål efter segern mot ${sourceName}.`);
   return itemId;
 }
@@ -360,6 +386,77 @@ function showCard(
   };
 }
 
+type InvOrEquipTarget =
+  | { kind: "inv"; player: Player; index: number }
+  | { kind: "eq"; player: Player; slot: EquipmentSlot };
+
+/** Slumpa bort ett föremål eller en utrustning hos valfri spelare (Onda bryggverket). */
+function destroyOneRandomItemOrEquipmentGlobally(
+  state: GameState,
+  rng: () => number,
+  logFn: (s: GameState, m: string) => void,
+): void {
+  const opts: InvOrEquipTarget[] = [];
+  const slots: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
+  for (const pl of state.players) {
+    if (pl.eliminated) continue;
+    const inv = pl.inventory ?? [];
+    for (let i = 0; i < inv.length; i++) opts.push({ kind: "inv", player: pl, index: i });
+    for (const slot of slots) {
+      if (pl.equipment[slot]) opts.push({ kind: "eq", player: pl, slot });
+    }
+  }
+  if (opts.length === 0) {
+    logFn(state, "Inget föremål eller utrustning att förstöra för Onda bryggverkets straff.");
+    return;
+  }
+  const o = pick(rng, opts);
+  if (o.kind === "inv") {
+    const inv = o.player.inventory ?? [];
+    const removed = inv.splice(o.index, 1)[0];
+    o.player.inventory = inv;
+    logFn(
+      state,
+      `${o.player.name} tappar ett föremål${removed ? ` (${String(removed.itemId)})` : ""} — Onda bryggverket.`,
+    );
+  } else {
+    const slot = o.slot;
+    const piece = o.player.equipment[slot]!;
+    o.player.equipment[slot] = undefined as any;
+    if (slot === "armor") {
+      o.player.maxHp = maxHpFor(o.player);
+      if (o.player.hp > o.player.maxHp) o.player.hp = o.player.maxHp;
+    }
+    logFn(state, `${o.player.name} tappar utrustning: ${piece.name ?? slot} (Onda bryggverket).`);
+  }
+}
+
+/** Extra slutboss-straff vid förlust (parti / global slump). */
+function applySlutbossLossPartyEffects(
+  state: GameState,
+  monsterId: MonsterId,
+  enemyName: string,
+  rng: () => number,
+  logFn: (s: GameState, m: string) => void,
+): void {
+  if (monsterId === "store_narcissius") {
+    for (const pl of state.players) {
+      if (pl.eliminated) continue;
+      pl.gold = Math.max(0, pl.gold - 1);
+    }
+    logFn(state, "Alla spelare tappar 1 pant (Den store narcissius).");
+  } else if (monsterId === "oldomaren") {
+    for (const pl of state.players) {
+      if (pl.eliminated) continue;
+      pl.klunkar += 1;
+      pushSipNotice(state, pl.id, enemyName, 1);
+    }
+    logFn(state, "Alla spelare tar 1 klunk (Öldomaren).");
+  } else if (monsterId === "onda_bryggverket") {
+    destroyOneRandomItemOrEquipmentGlobally(state, rng, logFn);
+  }
+}
+
 /** Efter förlorat slag: skada, monster-effekter, förlustkort. `sipMitigation` gäller bara Kapten Interrobang/Sura bär. */
 function applyCombatLoss(
   next: GameState,
@@ -410,24 +507,15 @@ function applyCombatLoss(
 
   const def = MONSTERS.find((m) => m.id === monsterId);
   const lossSips = (def?.lossSipsOnLose ?? 0) + MONSTER_LOSS_SIP_FLAT;
-  p.klunkar += lossSips;
-  pushSipNotice(next, p.id, ctx.enemyName, lossSips);
+  /** En körad per mottagare — annars visar straffklunk-modalen bara första posten (fel antal vid team battle +1). */
+  const totalLossSips = lossSips + (ctx.teamBattleRequired ? 1 : 0);
+  p.klunkar += totalLossSips;
+  pushSipNotice(next, p.id, ctx.enemyName, totalLossSips);
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
-      bro.klunkar += lossSips;
-      pushSipNotice(next, bro.id, ctx.enemyName, lossSips);
-    }
-  }
-  if (ctx.teamBattleRequired) {
-    p.klunkar += 1;
-    pushSipNotice(next, p.id, ctx.enemyName, 1);
-    if (assistId) {
-      const bro = next.players.find((x) => x.id === assistId) ?? null;
-      if (bro) {
-        bro.klunkar += 1;
-        pushSipNotice(next, bro.id, ctx.enemyName, 1);
-      }
+      bro.klunkar += totalLossSips;
+      pushSipNotice(next, bro.id, ctx.enemyName, totalLossSips);
     }
   }
 
@@ -445,6 +533,8 @@ function applyCombatLoss(
   }
   const imperialAdjacentSplash =
     monsterId === "imperial_dragon_stout" ? applyAdjacentSplashDamage(next, p, 1) : false;
+
+  applySlutbossLossPartyEffects(next, monsterId, ctx.enemyName, rng, log);
 
   log(
     next,
@@ -728,7 +818,6 @@ export function lobbyAddPlayer(
     inventory: [],
     nextMoveBonus: 0,
     nextCombatModifier: 0,
-    canmanTurnsRemaining: 0,
     skippedTurns: 0,
     eliminated: false,
   };
@@ -765,12 +854,13 @@ export function startGame(
   next.finalBossMonsterId = pickedBoss;
   next.finalBossLivesRemaining = 3;
   const bossMonster = MONSTERS.find((m) => m.id === pickedBoss);
-  const topLevel = next.levels[next.levels.length - 1];
-  if (bossMonster && topLevel) {
-    for (const t of topLevel.tiles) {
-      if (t.type === "boss") {
-        t.combatValue = bossMonster.strength;
-        t.bossName = bossMonster.name;
+  if (bossMonster) {
+    for (const lvl of next.levels) {
+      for (const t of lvl.tiles) {
+        if (t.type === "boss") {
+          t.combatValue = bossMonster.strength;
+          t.bossName = bossMonster.name;
+        }
       }
     }
   }
@@ -784,7 +874,6 @@ export function startGame(
     p.maxHp = maxHpFor(p);
     p.nextMoveBonus = 0;
     p.nextCombatModifier = 0;
-    p.canmanTurnsRemaining = 0;
     p.eliminated = false;
   }
   next.pending = null;
@@ -799,7 +888,7 @@ export function startGame(
   if (bossMonster) {
     log(
       next,
-      `Slutboss på sista nivån: ${bossMonster.name} — tre liv, vinn tre rundor för att besegra den.`,
+      `Slutboss ${bossMonster.name} — tre liv, vinn tre rundor. (Boss-ruta finns även på nivå 1 för enklare test.)`,
     );
   }
   const cur = currentPlayer(next);
@@ -997,7 +1086,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
     case "boss": {
       if (tile.type === "boss") {
         const req = { sips: 10, gold: 20 };
-        const ok = p.klunkar >= req.sips || p.gold >= req.gold;
+        const ok =
+          SKIP_BOSS_RESOURCE_GATE || p.klunkar >= req.sips || p.gold >= req.gold;
         if (!ok) {
           log(
             state,
@@ -1529,11 +1619,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
 
-    if (inst.itemId === "canman") {
-      user.canmanTurnsRemaining = 10;
-      log(next, `${user.name} aktiverar Canman: +1 pant per drag i 10 rundor.`);
+    if (inst.itemId === "lengraddad") {
+      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      target.nextCombatModifier = (target.nextCombatModifier ?? 0) - 2;
+      log(next, `${user.name} spelar Lengräddad på ${target.name}: nästa strid −2 i attack.`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -2060,7 +2154,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
     const costs = next.pending.costs;
-    const monsterBonusBeforeDoor = globalMonsterNeedBonus(next.players);
     if (action.method === "gold") {
       if (p.gold < costs.gold) return { state, events: [], error: "För lite pant" };
       p.gold -= costs.gold;
@@ -2079,7 +2172,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${p.name} stannar.`);
     }
     if (action.method === "gold" || action.method === "sips") {
-      logMonsterScaleAfterAscend(next, monsterBonusBeforeDoor);
+      logMonsterScaleAfterAscend(next, p);
     }
     next.pending = null;
     endTurnOrOfferLevelUp(next, p.id);
@@ -2105,7 +2198,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!canBySips && !canByGold) {
       return { state, events: [], error: "Du uppfyller inte längre kraven för nivå upp" };
     }
-    const monsterBonusBeforeOffer = globalMonsterNeedBonus(next.players);
     if (canBySips) {
       // Requirement-based path: klunkar förbrukas inte.
       p.levelIndex = pending.targetLevelIndex;
@@ -2120,7 +2212,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         `${p.name} använder sin bryggarerfarenhet och ${costs.gold} pant för att stiga till nivå ${p.levelIndex + 1}.`,
       );
     }
-    logMonsterScaleAfterAscend(next, monsterBonusBeforeOffer);
+    logMonsterScaleAfterAscend(next, p);
     next.pending = null;
     advanceTurn(next);
     return { state: next, events: ["state"] };
@@ -2199,11 +2291,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state, events: [], error: "Ingen HP kvar — välj på stupad bryggare-kortet först" };
   }
 
-  if ((cp.canmanTurnsRemaining ?? 0) > 0) {
-    cp.gold += 1;
-    cp.canmanTurnsRemaining -= 1;
-    log(next, `${cp.name} får +1 pant från Canman (${cp.canmanTurnsRemaining} rundor kvar).`);
-  }
+  applyCanmanOnMovementRoll(next, cp);
 
   const dice = rollDie(rng, 6);
   const bonus = moveBonusSteps(cp) + (cp.nextMoveBonus ?? 0);

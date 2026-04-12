@@ -8,6 +8,7 @@ export type {
   GameConfig,
   GameMode,
   GameState,
+  ItemInstance,
   LevelBoard,
   LogEntry,
   Pending,
@@ -17,6 +18,7 @@ export type {
   Tile,
   TileType,
 } from "./types.js";
+export { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 export {
   BOARD_RING_GRID_SIZE,
   generateLevels,
@@ -37,9 +39,13 @@ export {
 } from "./engine.js";
 export {
   FINAL_BOSS_IDS,
+  FINAL_BOSS_LIFE_TOTAL,
+  finalBossCardTagline,
   globalMonsterNeedBonus,
+  isFinalBossMonsterId,
   maxPlayerBoardLevel,
   maxPlayerBoardLevelIfPlayerReaches,
+  monsterNeedBonusForBoardLevel,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterLossKlunkTotal,

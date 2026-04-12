@@ -17,17 +17,18 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/skum-banan": "Skum banan, Bryggverket",
   "monster/rabarbapappa": "Rabarbapappa, Bryggverket",
   "monster/brottningsmatch": "Lengräddad, Bryggverket & Tempel brygghus",
+  "item/lengraddad": "Lengräddad, Bryggverket & Tempel brygghus",
   "monster/keg-lifter": "O-beast, Bryggverket & Stockholm Brewing",
   "monster/kapten-interrobang": "Kapten Interrobang, Bryggverket",
   "monster/sura-bar": "Surinamnam, Bryggverket & Poppels bryggeri",
   "monster/barsfisk": "Octobeer, Bryggverket",
   "monster/belgisk-munk": "Sean Claude Maltdamm, Bryggverket & Beer Studio",
-  "monster/pimp": "Pimp - Puff imperial stout, Bryggverket & Tempel brygghus",
   "monster/folke-bengtsson": "Folke B, Bryggverket",
   "monster/unicorn": "Enkelpipa, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
   "item/8-bit-beer": "41337, Bryggverket",
+  "monster/taproom-titan": "The Bru-Team, Bryggverket",
 };
 
 /** Svensk etikettreferens för `artKey`, om definierad. */
@@ -74,10 +75,18 @@ export function artImageSrc(artKey?: string): string {
     return `/tiles/${key}.svg`;
   }
   if (artKey.startsWith("combat/")) return `/combat/${artKey.slice("combat/".length)}.png`;
-  if (artKey.startsWith("monster/")) return `/monsters/${artKey.slice("monster/".length)}.png`;
+  if (artKey.startsWith("monster/")) {
+    const mKey = artKey.slice("monster/".length);
+    if (mKey === "store-narcissius" || mKey === "oldomaren" || mKey === "onda-bryggverket") {
+      return "/card-placeholder.png";
+    }
+    return `/monsters/${mKey}.png`;
+  }
   // Filer i apps/web/public/event/{namn}.png — t.ex. event/rest → public/event/rest.png
   if (artKey.startsWith("event/")) return `/event/${artKey.slice("event/".length)}.png`;
   if (artKey.startsWith("item/")) {
+    const key0 = artKey.slice("item/".length);
+    if (key0 === "lengraddad") return "/event/lengraddad.png";
     const itemArtMap: Record<string, string> = {
       heal: "healing-potion",
       sleep: "sleep-potion",
@@ -99,7 +108,7 @@ export function artImageSrc(artKey?: string): string {
       canman: "canman",
       "split-the-g": "split-the-g",
     };
-    const key = artKey.slice("item/".length);
+    const key = key0;
     const mapped = itemArtMap[key];
     if (mapped) return `/items/${mapped}.png`;
     const underscored = key.replace(/-/g, "_");

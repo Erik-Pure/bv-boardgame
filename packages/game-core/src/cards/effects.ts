@@ -1,5 +1,6 @@
 import type { Effect, EffectApplyOut } from "./types.js";
 import type { GameState, Player } from "../types.js";
+import { createItemInstance } from "../itemInstance.js";
 import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
 import { itemDeckItemIds } from "./db.js";
@@ -30,19 +31,13 @@ export function applyEffects(params: {
       out.klunkar = (out.klunkar ?? 0) + e.amount;
     } else if (e.type === "item") {
       params.player.inventory ??= [];
-      params.player.inventory.push({
-        instanceId: newInstanceId(params.rng),
-        itemId: e.itemId as any,
-      });
+      params.player.inventory.push(createItemInstance(e.itemId as any, newInstanceId(params.rng)));
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "randomItem") {
       const pool = itemDeckItemIds();
       const itemId = pick(params.rng, pool);
       params.player.inventory ??= [];
-      params.player.inventory.push({
-        instanceId: newInstanceId(params.rng),
-        itemId,
-      });
+      params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
       out.item = (out.item ?? 0) + 1;
       out.grantedItemId = itemId;
     } else if (e.type === "nextCombatMod") {

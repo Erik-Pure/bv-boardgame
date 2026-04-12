@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useSearchParams } from "react-router-dom";
 import {
   BOARD_RING_GRID_SIZE,
+  isFinalBossMonsterId,
   playerCanCombatIntervene,
   ringGridSizeFromTileCount,
   ringTileCount,
   type GameState,
+  type MonsterId,
   type Player,
   type TileType,
 } from "@bv/game-core";
@@ -58,6 +60,11 @@ const TABLE_BOARD_MODAL_CARD_ANIMATION =
 /** Halvtransparent dimning över brädet (strid, kortmodal m.m.). */
 const TABLE_BOARD_OVERLAY_BG = "rgba(2, 6, 23, 0.4)";
 
+/** Slutboss intro: röd ton + pulserande inre sken. */
+const TABLE_BOSS_OVERLAY_BG =
+  "radial-gradient(ellipse 130% 95% at 50% 20%, rgba(239, 68, 68, 0.46) 0%, rgba(90, 12, 12, 0.52) 40%, rgba(10, 2, 4, 0.8) 100%)";
+const TABLE_BOSS_OVERLAY_PULSE = "bvBossTableOverlayPulse 2.6s ease-in-out infinite";
+
 /** Måste finnas i DOM när strids- och kortöverlägg animeras (keyframes är inte globala i Vite). */
 const TABLE_BOARD_MODAL_KEYFRAMES_CSS = `@keyframes bvTableOverlayFadeIn {
   from { opacity: 0; }
@@ -66,6 +73,10 @@ const TABLE_BOARD_MODAL_KEYFRAMES_CSS = `@keyframes bvTableOverlayFadeIn {
 @keyframes bvTableCardIn {
   from { opacity: 0; transform: translateY(-36px) scale(0.96); filter: blur(3px); }
   to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes bvBossTableOverlayPulse {
+  0%, 100% { box-shadow: inset 0 0 70px rgba(248, 113, 113, 0.22); }
+  50% { box-shadow: inset 0 0 150px rgba(220, 38, 38, 0.48); }
 }`;
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
@@ -159,17 +170,14 @@ function nextTurnPlayer(state: GameState | null): Player | null {
 
 /** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
 const TABLE_TURN_BANNER_RESERVE_PX = 112;
-/** Extra utrymme när statusrad (sömn / Canman) visas under namnet */
+/** Extra utrymme när statusrad (t.ex. sömn) visas under namnet */
 const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 148;
 
-/** Synliga tillstånd för spelare på brädet (sömn = hoppar turer, Canman = pant-buff). */
+/** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
 function tablePlayerAfflictionLines(p: Player): string[] {
   const lines: string[] = [];
   if ((p.skippedTurns ?? 0) > 0) {
     lines.push(sv.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
-  }
-  if ((p.canmanTurnsRemaining ?? 0) > 0) {
-    lines.push(sv.table.playerStatusCanman(p.canmanTurnsRemaining ?? 0));
   }
   return lines;
 }
@@ -280,6 +288,8 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   }
 
   const attacker = state.players.find((p) => p.id === pending.attackerId);
+  const isFinalBossCombat = isFinalBossMonsterId(pending.monsterId as MonsterId);
+  const bossIntroPulse = isFinalBossCombat && pending.phase === "enemyIntro";
   const need = pending.need + (pending.needMod ?? 0);
   const reactorNames = (pending.reactors ?? [])
     .map((id) => state.players.find((p) => p.id === id))
@@ -303,8 +313,10 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
     paddingTop: 70,
     paddingLeft: 12,
     paddingRight: 12,
-    background: TABLE_BOARD_OVERLAY_BG,
-    animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+    background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+    animation: bossIntroPulse
+      ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
+      : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
   };
 
   const innerPanelStyle: CSSProperties = {
@@ -407,6 +419,8 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
     lossDamage: pending.baseDamage,
     lossKlunks: combatLossKlunksForDisplay(pending),
     specialRules: pending.enemyIntroText?.trim() || undefined,
+    bossLivesRemaining: isFinalBossCombat ? (state.finalBossLivesRemaining ?? 3) : undefined,
+    bossWinLootAsDash: isFinalBossCombat,
   };
   const combatBoardMonsterFlipKey = `${pending.levelIndex}-${pending.tileIndex}-${pending.monsterId}-${pending.attackerId}`;
   const monsterEncounterCardEl = showMonsterCard ? (
@@ -624,8 +638,10 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
         paddingTop: 70,
         paddingLeft: 12,
         paddingRight: 12,
-        background: TABLE_BOARD_OVERLAY_BG,
-        animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+        background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+        animation: bossIntroPulse
+          ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
+          : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
       }}
     >
       <div

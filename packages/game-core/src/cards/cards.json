@@ -457,19 +457,6 @@
       ]
     },
     {
-      "id": "event_lengraddad",
-      "kind": "event",
-      "title": "Lengräddad",
-      "text": "Du klarar dig precis. Nästa strid: -2 i attack.",
-      "artKey": "event/lengraddad",
-      "effects": [
-        {
-          "type": "nextCombatMod",
-          "amount": -2
-        }
-      ]
-    },
-    {
       "id": "item_split_the_g",
       "kind": "item",
       "title": "Split the G",
@@ -478,10 +465,18 @@
       "effects": []
     },
     {
+      "id": "item_lengraddad",
+      "kind": "item",
+      "title": "Lengräddad",
+      "text": "Använd på en annan spelare: nästa strid −2 i attack för den spelaren.",
+      "artKey": "item/lengraddad",
+      "effects": []
+    },
+    {
       "id": "item_canman",
       "kind": "item",
       "title": "Canman",
-      "text": "Använd på dig själv: +1 pant per drag i 10 rundor.",
+      "text": "I förrådet: +1 pant varje gång du slår rörelsetärningen, 10 gånger. Ingen knapp.",
       "artKey": "item/canman",
       "effects": []
     },
@@ -538,8 +533,7 @@
       "event_round_on_me",
       "event_spilled_pints",
       "event_faulty_brewery",
-      "event_new_launch",
-      "event_lengraddad"
+      "event_new_launch"
     ],
     "rest": [
       "rest_brewery"
@@ -568,6 +562,7 @@
       "item_yeast_sabotage",
       "item_beer_bro",
       "item_split_the_g",
+      "item_lengraddad",
       "item_canman",
       "item_not_my_round",
       "item_spill_intentional",

@@ -6,16 +6,18 @@ import {
   brewerLevel,
   canAscendByKlunkRequirement,
   combatReactionsAllAnswered,
-  globalMonsterNeedBonus,
-  maxPlayerBoardLevelIfPlayerReaches,
   MONSTERS,
+  isFinalBossMonsterId,
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
+  CANMAN_DRAWS_INITIAL,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
   type EquipmentSlot,
   type GameState,
+  type ItemInstance,
+  type MonsterId,
   type Pending,
   type Player,
   type ShopItem,
@@ -227,16 +229,15 @@ export function PlayView() {
   }, [myId]);
 
   const groupedInventoryEntries = useMemo(() => {
-    if (!me) return [] as [string, { count: number; firstInstanceId: string }][];
-    return Object.entries(
-      (me.inventory ?? []).reduce((acc, it) => {
-        const k = String(it.itemId);
-        const cur = acc[k];
-        if (!cur) acc[k] = { count: 1, firstInstanceId: it.instanceId };
-        else cur.count += 1;
-        return acc;
-      }, {} as Record<string, { count: number; firstInstanceId: string }>),
-    );
+    if (!me) return [] as { groupKey: string; itemId: string; count: number; firstInstanceId: string }[];
+    const acc: Record<string, { count: number; firstInstanceId: string; itemId: string }> = {};
+    for (const it of me.inventory ?? []) {
+      const groupKey = it.itemId === "canman" ? `canman:${it.instanceId}` : String(it.itemId);
+      const cur = acc[groupKey];
+      if (!cur) acc[groupKey] = { count: 1, firstInstanceId: it.instanceId, itemId: String(it.itemId) };
+      else cur.count += 1;
+    }
+    return Object.entries(acc).map(([groupKey, v]) => ({ groupKey, ...v }));
   }, [me]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
@@ -330,6 +331,7 @@ export function PlayView() {
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
   const isItemPlayableNow = (target: ItemUseTarget) => {
+    if (target === "passive") return false;
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
@@ -1052,9 +1054,7 @@ export function PlayView() {
     }
 
     if (pending?.type === "door" && myPending) {
-      const monBefore = globalMonsterNeedBonus(state.players);
-      const monAfter = maxPlayerBoardLevelIfPlayerReaches(state.players, me.id, pending.targetLevelIndex);
-      const monsterScaleNote = sv.play.levelUpMonsterScale(monBefore, monAfter);
+      const monsterScaleNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
       return (
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
@@ -1093,9 +1093,7 @@ export function PlayView() {
     }
 
     if (pending?.type === "levelUpOffer" && myPending) {
-      const monBeforeOffer = globalMonsterNeedBonus(state.players);
-      const monAfterOffer = maxPlayerBoardLevelIfPlayerReaches(state.players, me.id, pending.targetLevelIndex);
-      const monsterScaleOfferNote = sv.play.levelUpMonsterScale(monBeforeOffer, monAfterOffer);
+      const monsterScaleOfferNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
       return (
         <div style={{ display: "grid", gap: 12 }}>
           <div style={{ textAlign: "center", opacity: 0.95 }}>
@@ -1418,6 +1416,7 @@ export function PlayView() {
       );
     }
     const meta = itemMeta(inst.itemId);
+    const passive = meta.target === "passive";
     const broPick = meta.target === "combat_bro";
     const needsTarget = meta.target === "other" || broPick;
     const canUse = isItemPlayableNow(meta.target);
@@ -1432,12 +1431,15 @@ export function PlayView() {
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
     const showTargetPicker = needsTarget && itemUseTargetPhase;
     const usePrimaryDisabled =
+      passive ||
       !canUse ||
       (broPick && !combatAttackerId) ||
       (needsTarget && itemUseTargetPhase && !chosen);
     return (
       <div style={{ display: "grid", gap: 10 }}>
-        {!canUse ? (
+        {passive ? (
+          <div style={{ opacity: 0.85, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>{sv.play.itemsPassiveHint}</div>
+        ) : !canUse ? (
           <div style={{ opacity: 0.85, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>{sv.play.itemsUseHint}</div>
         ) : null}
         {showTargetPicker ? (
@@ -1460,31 +1462,37 @@ export function PlayView() {
             </ArcadeButton>
           </div>
         ) : null}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {passive ? (
           <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
             {sv.play.modalClose}
           </ArcadeButton>
-          <ArcadeButton
-            variant="blue"
-            fullWidth
-            disabled={usePrimaryDisabled}
-            onClick={() => {
-              if (needsTarget && !itemUseTargetPhase) {
-                setItemUseTargetPhase(true);
-                return;
-              }
-              send({
-                type: "useItem",
-                playerId: me.id,
-                instanceId: inst.instanceId,
-                targetPlayerId: chosen ?? undefined,
-              });
-              setItemDetail(null);
-            }}
-          >
-            {sv.play.use}
-          </ArcadeButton>
-        </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
+              {sv.play.modalClose}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="blue"
+              fullWidth
+              disabled={usePrimaryDisabled}
+              onClick={() => {
+                if (needsTarget && !itemUseTargetPhase) {
+                  setItemUseTargetPhase(true);
+                  return;
+                }
+                send({
+                  type: "useItem",
+                  playerId: me.id,
+                  instanceId: inst.instanceId,
+                  targetPlayerId: chosen ?? undefined,
+                });
+                setItemDetail(null);
+              }}
+            >
+              {sv.play.use}
+            </ArcadeButton>
+          </div>
+        )}
       </div>
     );
   })();
@@ -1884,6 +1892,13 @@ export function PlayView() {
           lossKlunks={combatLossKlunksForDisplay(myEnemyIntroPending)}
           specialRules={myEnemyIntroPending.enemyIntroText?.trim() || undefined}
           showCard={myEnemyIntroPending.monsterId !== "boss"}
+          bossLivesRemaining={
+            isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)
+              ? (state?.finalBossLivesRemaining ?? 3)
+              : undefined
+          }
+          bossWinLootDash={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
+          bossPulsingBackdrop={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
           teammateName={
             myEnemyIntroPending.assistId
               ? state.players.find((p) => p.id === myEnemyIntroPending.assistId)?.name
@@ -2071,13 +2086,16 @@ export function PlayView() {
                           <div className={styles.inventoryEmpty}>{sv.play.itemsEmpty}</div>
                         ) : (
                           <div className={styles.equipmentGrid}>
-                            {groupedInventoryEntries.map(([itemId, info]) => {
+                            {groupedInventoryEntries.map((info) => {
+                              const itemId = info.itemId;
                               const tone = itemCardTone(itemMeta(itemId).target);
                               const iflash = itemFlash[itemId] ?? null;
                               const iflashKey = itemFlashKey[itemId] ?? 0;
+                              const invInst =
+                                me.inventory?.find((x) => x.instanceId === info.firstInstanceId) ?? null;
                               return (
                                 <button
-                                  key={itemId}
+                                  key={info.groupKey}
                                   type="button"
                                   onClick={() => {
                                     setItemTargetId(null);
@@ -2114,7 +2132,7 @@ export function PlayView() {
                                           display: "block",
                                         }}
                                       />
-                                      <ItemInventoryEffectBadge itemId={itemId} />
+                                      <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
                                       {info.count > 1 ? (
                                         <span
                                           style={{
@@ -2490,7 +2508,7 @@ export function PlayView() {
             title={modalTitle}
             onClose={() => setItemDetail(null)}
             instantFront
-            headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} /> : undefined}
+            headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} instance={inst} /> : undefined}
             titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
           >
             {!inst ? (
@@ -2834,7 +2852,7 @@ function MerchantShopTypeIcon(props: { item: ShopItem }) {
   return null;
 }
 
-type ItemUseTarget = "self" | "other" | "combat" | "combat_bro";
+type ItemUseTarget = "self" | "other" | "combat" | "combat_bro" | "passive";
 
 const ITEM_TARGET: Record<string, ItemUseTarget> = {
   healing_potion: "self",
@@ -2854,7 +2872,8 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   yeast_sabotage: "combat",
   beer_bro: "combat_bro",
   split_the_g: "other",
-  canman: "self",
+  lengraddad: "other",
+  canman: "passive",
   not_my_round: "other",
   spill_intentional: "other",
   early_night: "combat",
@@ -2869,7 +2888,14 @@ const ITEM_EFFECT_BADGE_ICONS = {
 } as const;
 
 /** Snabb överblick i inventory-rutan: ikon + tal (läk, pant, monster, spelar-attack i strid). */
-function itemInventoryEffectBadge(itemId: string): { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string } | null {
+function itemInventoryEffectBadge(
+  itemId: string,
+  instance?: ItemInstance | null,
+): { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string } | null {
+  if (itemId === "canman") {
+    const left = instance?.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
+    return { icon: "pant", label: String(left) };
+  }
   const m: Record<string, { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string }> = {
     healing_potion: { icon: "heart", label: "+3" },
     pretzel_snack: { icon: "heart", label: "+2" },
@@ -2885,7 +2911,7 @@ function itemInventoryEffectBadge(itemId: string): { icon: keyof typeof ITEM_EFF
     yeast_sabotage: { icon: "monster", label: "−2" },
     sip_card: { icon: "klunk", label: "+1" },
     split_the_g: { icon: "pant", label: "½" },
-    canman: { icon: "pant", label: "+10" },
+    lengraddad: { icon: "attack", label: "−2" },
     early_night: { icon: "monster", label: "skip" },
     beer_bro: { icon: "attack", label: "×2" },
     sleep_potion: { icon: "monster", label: "Zzz" },
@@ -2905,8 +2931,8 @@ const ITEM_MODAL_TITLE_STYLE: CSSProperties = {
 };
 
 /** Rubrik höger i föremålsmodal: samma data som inventory-brickan, större och i rad. */
-function ItemModalEffectBadge({ itemId }: { itemId: string }) {
-  const b = itemInventoryEffectBadge(itemId);
+function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
+  const b = itemInventoryEffectBadge(itemId, instance);
   if (!b) return null;
   const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
   return (
@@ -2952,8 +2978,8 @@ function ItemModalEffectBadge({ itemId }: { itemId: string }) {
   );
 }
 
-function ItemInventoryEffectBadge({ itemId }: { itemId: string }) {
-  const b = itemInventoryEffectBadge(itemId);
+function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
+  const b = itemInventoryEffectBadge(itemId, instance);
   if (!b) return null;
   const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
   return (
@@ -3034,6 +3060,7 @@ function itemImageSrc(itemId: any): string {
     yeast_sabotage: "/items/yeast-sabotage.png",
     beer_bro: "/items/beer-bro.png",
     split_the_g: "/items/split-the-g.png",
+    lengraddad: "/event/lengraddad.png",
     canman: "/items/canman.png",
     not_my_round: "/items/not_my_round.png",
     spill_intentional: "/card-placeholder.png",
@@ -3178,6 +3205,9 @@ function EnemyIntroModal(props: {
   lossKlunks: number;
   specialRules?: string;
   showCard: boolean;
+  bossLivesRemaining?: number;
+  bossWinLootDash?: boolean;
+  bossPulsingBackdrop?: boolean;
   teammateName?: string;
 }) {
   const aboveScene = props.teammateName ? (
@@ -3199,6 +3229,7 @@ function EnemyIntroModal(props: {
     <CardFlipModalShell
       zIndex={100}
       aboveScene={aboveScene}
+      bossPulsingBackdrop={props.bossPulsingBackdrop}
       faceInnerClassName={props.showCard ? cardFlipShellStyles.faceInnerNoVerticalOverflow : undefined}
       style={{
         placeItems: "start center",
@@ -3229,6 +3260,8 @@ function EnemyIntroModal(props: {
             lossDamage={props.baseDamage}
             lossKlunks={props.lossKlunks}
             specialRules={props.specialRules}
+            bossLivesRemaining={props.bossLivesRemaining}
+            bossWinLootAsDash={props.bossWinLootDash}
             fillAvailableHeight
           />
         </div>

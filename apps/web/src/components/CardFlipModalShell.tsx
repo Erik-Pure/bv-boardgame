@@ -104,12 +104,16 @@ export function CardFlipModalShell(props: {
   faceInnerClassName?: string;
   /** @see CardFlipScene `instantFront` */
   instantFront?: boolean;
+  /** Slutboss: röd pulserande gradient bakom möteskortet. */
+  bossPulsingBackdrop?: boolean;
 }) {
   const stackAbove = props.aboveScene != null;
 
   return (
     <div
-      className={[styles.overlay, props.className].filter(Boolean).join(" ")}
+      className={[styles.overlay, props.bossPulsingBackdrop ? styles.overlayBoss : "", props.className]
+        .filter(Boolean)
+        .join(" ")}
       style={{
         zIndex: props.zIndex,
         ...props.style,

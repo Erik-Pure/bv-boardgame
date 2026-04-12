@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CardArtAttribution } from "./CardArtAttribution";
 import { artAttributionLabel, artImageSrc } from "../lib/cardArt";
+import { FINAL_BOSS_LIFE_TOTAL } from "@bv/game-core";
 import { monsterSpecialRulesForDisplay } from "../lib/monsterCardCopy";
 import styles from "./MonsterEncounterCard.module.css";
 
@@ -58,9 +59,9 @@ function MaskedStatIcon({ src, color, size = 22 }: { src: string; color: string;
   );
 }
 
-function StatChip({ kind, value }: { kind: keyof typeof STAT_ICON_TINT; value: number }) {
+function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; value: number; emDash?: boolean }) {
   const src = ICON[kind];
-  const label = value === 0 ? "-" : String(value);
+  const label = emDash ? "—" : value === 0 ? "-" : String(value);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} />
@@ -92,6 +93,10 @@ export type MonsterEncounterCardProps = {
   lossKlunks: number;
   /** Specialregler; standard vinst/förlust visas med ikoner ovan. */
   specialRules?: string;
+  /** Slutboss: fyllda hjärtan = återstående liv (1–3). */
+  bossLivesRemaining?: number;
+  /** Slutboss: visa — i vinstrutan (pant + skatter) — vinst = spelet. */
+  bossWinLootAsDash?: boolean;
   /** Visa egen ytterram/padding (default true). Sätt false när kortet redan ligger i en ramad modal. */
   framed?: boolean;
   /** När true: sträck till tillgänglig höjd (t.ex. CardFlipModalShell) och håll ölreferens längst ner. */
@@ -101,7 +106,12 @@ export type MonsterEncounterCardProps = {
 export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
   const framed = props.framed !== false;
   const fill = !!props.fillAvailableHeight;
-  const hasWin = props.winGold > 0 || props.winItems > 0;
+  const bossLives = props.bossLivesRemaining;
+  const showBossHearts =
+    typeof bossLives === "number" && bossLives >= 0 && Number.isFinite(bossLives);
+  const heartsTotal = FINAL_BOSS_LIFE_TOTAL;
+  const heartsFilled = Math.max(0, Math.min(heartsTotal, Math.floor(bossLives!)));
+  const hasWin = props.bossWinLootAsDash || props.winGold > 0 || props.winItems > 0;
   const hasLoss = props.lossDamage > 0 || props.lossKlunks > 0;
   const rulesForDisplay = monsterSpecialRulesForDisplay(props.specialRules);
 
@@ -220,15 +230,40 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           />
           <div
             style={{
-              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-              fontWeight: 900,
-              fontSize: 21,
-              lineHeight: 1.1,
-              letterSpacing: 0.02,
-              wordBreak: "break-word",
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 8,
+              minWidth: 0,
             }}
           >
-            {props.title}
+            <div
+              style={{
+                fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                fontWeight: 900,
+                fontSize: 21,
+                lineHeight: 1.1,
+                letterSpacing: 0.02,
+                wordBreak: "break-word",
+              }}
+            >
+              {props.title}
+            </div>
+            {showBossHearts ? (
+              <span
+                aria-label={`Bossliv: ${heartsFilled} av ${heartsTotal}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}
+              >
+                {Array.from({ length: heartsTotal }, (_, i) => (
+                  <MaskedStatIcon
+                    key={i}
+                    src={ICON.heart}
+                    color={i < heartsFilled ? STAT_ICON_TINT.heart : "rgba(148, 163, 184, 0.35)"}
+                    size={22}
+                  />
+                ))}
+              </span>
+            ) : null}
           </div>
         </div>
         <div
@@ -301,8 +336,8 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
                 ICON.thumbUp,
                 THUMB_BADGE_WIN_BG,
                 -1.5,
-                <StatChip kind="pant" value={props.winGold} />,
-                <StatChip kind="reward" value={props.winItems} />,
+                <StatChip kind="pant" value={props.winGold} emDash={props.bossWinLootAsDash} />,
+                <StatChip kind="reward" value={props.winItems} emDash={props.bossWinLootAsDash} />,
               )
             : null}
           {hasLoss

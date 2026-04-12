@@ -12,9 +12,10 @@ export type MonsterId =
   | "barsfisk"
   | "humlan"
   | "bottling_bot"
-  | "pimp"
-  | "fermentation_hydra"
   | "taproom_titan"
+  | "store_narcissius"
+  | "oldomaren"
+  | "onda_bryggverket"
   | "unicorn";
 
 export interface MonsterDef {
@@ -186,48 +187,44 @@ export const MONSTERS: MonsterDef[] = [
     name: "Rally robot",
     strength: 3,
     baseDamage: 2,
-    rulesText:
-      "Unik byte: vid vinst kan du slumpmässigt få Robotarm (+1 i BvB) eller Robothjälm (−1 skada) om platsen är ledig — annars vanlig belöning.",
+    rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
     artKey: "monster/bottling-bot",
   },
   {
-    id: "pimp",
-    name: "Pimp",
-    strength: 8,
-    baseDamage: 5,
-    rulesText: "Team battle: välj en medkämpe. Vid förlust dricker båda 1 klunk.",
-    teamBattleRequired: true,
-    teamBattleBonusGold: 2,
+    id: "store_narcissius",
+    name: "Den store narcissius",
+    strength: 6,
+    baseDamage: 3,
+    rulesText: "",
+    lossSipsOnLose: 1,
     rewardGold: 8,
     rewardItems: 2,
-    artKey: "monster/pimp",
+    artKey: "monster/store-narcissius",
   },
   {
-    id: "fermentation_hydra",
-    name: "Fermenteringshydran",
-    strength: 9,
-    baseDamage: 6,
-    rulesText: "Team battle: välj en medkämpe. Vid förlust dricker båda 1 klunk.",
-    teamBattleRequired: true,
-    teamBattleBonusGold: 3,
-    rewardGold: 9,
+    id: "oldomaren",
+    name: "Öldomaren",
+    strength: 5,
+    baseDamage: 4,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    rewardGold: 8,
     rewardItems: 2,
-    artKey: "monster/fermentation-hydra",
+    artKey: "monster/oldomaren",
   },
   {
-    id: "taproom_titan",
-    name: "Taproom-titanen",
-    strength: 10,
-    baseDamage: 7,
-    rulesText: "Team battle: välj en medkämpe. Vid förlust dricker båda 1 klunk.",
-    teamBattleRequired: true,
-    teamBattleBonusGold: 4,
-    rewardGold: 10,
+    id: "onda_bryggverket",
+    name: "Onda bryggverket",
+    strength: 6,
+    baseDamage: 3,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    rewardGold: 8,
     rewardItems: 2,
-    artKey: "monster/taproom-titan",
+    artKey: "monster/onda-bryggverket",
   },
   {
     id: "unicorn",
@@ -243,15 +240,22 @@ export const MONSTERS: MonsterDef[] = [
   },
 ];
 
-/** Högsta brädsnivå (våning) någon spelare befinner sig på — används för global monsterskalning. */
+/** Högsta brädsnivå (våning) någon spelare befinner sig på — t.ex. statistik eller lobby. */
 export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]): number {
   if (players.length === 0) return 0;
   return Math.max(...players.map((p) => p.levelIndex));
 }
 
 /**
- * Extra som läggs på alla monsters styrkekrav (samma värde för alla möten).
- * Ökar när någon bryggmästare nått en högre våning — påverkar alla spelare.
+ * Extra som läggs på **styrkekrav** för strider **på en given våning** (0-baserat `levelIndex`).
+ * Våning 0 → +0, våning 1 → +1, osv. Påverkar inte pant, klunkar eller skada — bara `need` i strid.
+ */
+export function monsterNeedBonusForBoardLevel(levelIndex: number): number {
+  return Math.max(0, Math.floor(levelIndex));
+}
+
+/**
+ * @deprecated Använd {@link monsterNeedBonusForBoardLevel} per våning i strid. Kvar som partiets max våning.
  */
 export function globalMonsterNeedBonus(players: readonly { levelIndex: number }[]): number {
   return maxPlayerBoardLevel(players);
@@ -267,5 +271,26 @@ export function maxPlayerBoardLevelIfPlayerReaches(
 }
 
 /** Slutboss — exakt en per spel, slumpas vid start (måste finnas i {@link MONSTERS}). */
-export const FINAL_BOSS_IDS: readonly MonsterId[] = ["pimp", "fermentation_hydra", "taproom_titan"];
+export const FINAL_BOSS_IDS: readonly MonsterId[] = ["store_narcissius", "oldomaren", "onda_bryggverket"];
+
+export function isFinalBossMonsterId(id: MonsterId): boolean {
+  return (FINAL_BOSS_IDS as readonly string[]).includes(id);
+}
+
+/** Kortfooter under slutboss: bara partistraf, ikoner visar HP/klunk/pant. */
+export function finalBossCardTagline(id: MonsterId): string | null {
+  switch (id) {
+    case "store_narcissius":
+      return "Slutboss — Vid förlust: Alla spelare tappar 1 pant";
+    case "oldomaren":
+      return "Slutboss — Vid förlust: Alla spelare tar en klunk";
+    case "onda_bryggverket":
+      return "Slutboss — Vid förlust: Ett slumpmässigt föremål eller en utrustning förstörs";
+    default:
+      return null;
+  }
+}
+
+/** Antal liv-rutor (hjärtan) för slutboss-UI. */
+export const FINAL_BOSS_LIFE_TOTAL = 3;
 

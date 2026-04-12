@@ -30,6 +30,7 @@ export type ItemId =
   | "yeast_sabotage"
   | "beer_bro"
   | "split_the_g"
+  | "lengraddad"
   | "canman"
   | "not_my_round"
   | "spill_intentional"
@@ -38,6 +39,8 @@ export type ItemId =
 export interface ItemInstance {
   instanceId: string;
   itemId: ItemId;
+  /** Endast `canman`: drag kvar med +1 pant per rörelsetärning; när 0 tas instansen bort. */
+  canmanDrawsRemaining?: number;
 }
 
 export interface Weapon {
@@ -298,8 +301,6 @@ export interface Player {
   nextCombatAttackDiceDouble?: boolean;
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
-  /** Canman: +1 pant per drag så länge > 0. */
-  canmanTurnsRemaining: number;
   skippedTurns: number;
   /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
   eliminated?: boolean;
