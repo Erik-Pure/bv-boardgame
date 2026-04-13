@@ -310,7 +310,9 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 ### 16.2 Kortkatalog (referens)
 
-- **`/cards`** i webbappen listar alla kort från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata. Längst ner listas även **monster** från **`monsters.ts`** med samma bildupplösning — avsett för design, QA och snabb överblick över tillgångar. Länk finns från **startsidan**.
+- **`/cards`** i webbappen listar **kort** från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata.
+- **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett.
+- **Monster** från **`monsters.ts`** delas i tre sektioner: **vanliga (solo)**, **team battle** (badge) och **slutbossar** (badge + kort tagline-text). Avsett för design, QA och snabb överblick. Länk från **startsidan**.
 
 ### 16.1 Kortmodal och tydlighet
 

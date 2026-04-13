@@ -1,3 +1,5 @@
+export type { EquipmentShopItem } from "./equipmentDefs.js";
+export { EQUIPMENT_CATALOG } from "./equipmentDefs.js";
 export type {
   ApplyResult,
   ClientAction,
