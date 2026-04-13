@@ -7,7 +7,7 @@ export type Effect =
   | { type: "heal"; amount: number }
   | { type: "klunkar"; amount: number }
   | { type: "item"; itemId: string }
-  /** Slumpa ett föremål från `decks.item` (samma pool som monsterloot). */
+  /** Slumpa loot (oftast föremål från `decks.item`, ibland utrustning om slot är tom). */
   | { type: "randomItem" }
   | { type: "nextCombatMod"; amount: number };
 

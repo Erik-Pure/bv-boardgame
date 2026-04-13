@@ -25,6 +25,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/belgisk-munk": "Sean Claude Maltdamm, Bryggverket & Beer Studio",
   "monster/folke-bengtsson": "Folke B, Bryggverket",
   "monster/unicorn": "Enkelpipa, Bryggverket",
+  "monster/store-narcissius": "Den store Narcissus, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
   "item/8-bit-beer": "41337, Bryggverket",
@@ -77,9 +78,13 @@ export function artImageSrc(artKey?: string): string {
   if (artKey.startsWith("combat/")) return `/combat/${artKey.slice("combat/".length)}.png`;
   if (artKey.startsWith("monster/")) {
     const mKey = artKey.slice("monster/".length);
-    if (mKey === "store-narcissius" || mKey === "oldomaren" || mKey === "onda-bryggverket") {
-      return "/card-placeholder.png";
+    if (mKey === "store-narcissius") {
+      return "/monsters/den-store-narcissus.png";
     }
+    if (mKey === "onda-bryggverket") {
+      return "/monsters/onda-bryggverket.png";
+    }
+    if (mKey === "oldomaren") return "/monsters/beer-judge.png";
     return `/monsters/${mKey}.png`;
   }
   // Filer i apps/web/public/event/{namn}.png — t.ex. event/rest → public/event/rest.png

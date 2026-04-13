@@ -1,12 +1,40 @@
 import type { Effect, EffectApplyOut } from "./types.js";
-import type { GameState, Player } from "../types.js";
+import type { EquipmentSlot, GameState, Player } from "../types.js";
 import { createItemInstance } from "../itemInstance.js";
 import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
 import { itemDeckItemIds } from "./db.js";
+import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
 
 function newInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
+}
+
+const RANDOM_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
+
+function applyRandomEquipmentReward(player: Player, rng: () => number): boolean {
+  const slot = pick(rng, RANDOM_REWARD_EQUIPMENT_SLOTS);
+  if (player.equipment[slot]) return false;
+  const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
+  if (pool.length === 0) return false;
+  const eq = pick(rng, pool);
+  if (slot === "weapon") {
+    player.equipment.weapon = { name: eq.name, power: eq.power ?? 1 };
+  } else if (slot === "armor") {
+    player.equipment.armor = {
+      name: eq.name,
+      bonusHp: eq.bonusHp ?? 0,
+      damageNegate: eq.damageNegate,
+      negateAllOnce: eq.negateAllOnce,
+    };
+    player.maxHp = 10 + (player.equipment.armor?.bonusHp ?? 0);
+    player.hp = Math.min(player.hp, player.maxHp);
+  } else if (slot === "helmet") {
+    player.equipment.helmet = { name: eq.name, combatBonus: 1, damageNegate: eq.damageNegate };
+  } else {
+    player.equipment.accessory = { name: eq.name, damageNegate: eq.damageNegate, moveBonus: eq.moveBonus };
+  }
+  return true;
 }
 
 export function applyEffects(params: {
@@ -34,12 +62,15 @@ export function applyEffects(params: {
       params.player.inventory.push(createItemInstance(e.itemId as any, newInstanceId(params.rng)));
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "randomItem") {
-      const pool = itemDeckItemIds();
-      const itemId = pick(params.rng, pool);
-      params.player.inventory ??= [];
-      params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
+      const grantedEquipment = params.rng() < 0.35 && applyRandomEquipmentReward(params.player, params.rng);
+      if (!grantedEquipment) {
+        const pool = itemDeckItemIds();
+        const itemId = pick(params.rng, pool);
+        params.player.inventory ??= [];
+        params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
+        out.grantedItemId = itemId;
+      }
       out.item = (out.item ?? 0) + 1;
-      out.grantedItemId = itemId;
     } else if (e.type === "nextCombatMod") {
       params.player.nextCombatModifier = (params.player.nextCombatModifier ?? 0) + e.amount;
       out.nextCombatMod = (out.nextCombatMod ?? 0) + e.amount;

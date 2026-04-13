@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.13 |
-| Senast uppdaterad | 2026-04-12 |
+| Version | 0.14 |
+| Senast uppdaterad | 2026-04-13 |
 
 ---
 
@@ -117,7 +117,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - Spelet använder **fyra** våningsplan i följd (visas som **Nivå 1–4** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
-- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **3 fördefinierade** bossar (individuell strid, ingen team battle); varje boss har eget förluststraff mot partiet.
+- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle); varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
 ### 7.3 Dörrar mellan nivåer
@@ -126,7 +126,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - **Krav — minst ett av följande:**
   - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
   - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
-- **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår).
+- **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår). **Nivåvals-modal (mobil):** kort rubrik i *Permanent Marker* (“Gå upp till nästa nivå?”) och kort brödtext om utmaning; inga långa duplicerade förklaringar om monster-+ per våning i samma modal (den informationen finns i regler/UI annorstädes).
 - **Monster på våningen:** extra styrkekrav (`need`) är **+1 per brädesnivå** på **just det planet** (våning 1 → +0, våning 2 → +1, …) — **inte** global skalning efter “högsta spelaren”. Pant, klunkar och skada påverkas **inte** av denna bonus.
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
@@ -142,7 +142,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | **Dörr / nivåbyte** | Se §7.3. |
 | **Boss** | Slutboss på nivå 3 (eller dedikerad boss-tile). |
 | **Vila / bryggeri** | Lätt positiv effekt: t.ex. återhämtning, ta bort en debuff, eller billigare “ölstop” utan strid. |
-| **Skatt / gömma** | Engångsbyte: fast eller slumpad belöning (pant eller item); rutan kan markeras som **tömd** efteråt. |
+| **Skatt / gömma** | Vid landning: **slumpat** innehåll från skattleken (pant och/eller `randomItem` — kan bli föremål eller, om ledig utrustningsslot finns, utrustning). **Tom gömma** kan inträffa **slumpmässigt**; samma skattruta kan **besökas flera gånger** av olika eller samma spelare (ingen permanent “tömd”-flagga per ruta). |
 | **Ödes-/valruta** | Spelaren väljer mellan två tydliga risker (t.ex. “säker liten belöning” vs “slå tärning för större eller värre”). |
 | **Tom / säker passage** | Ingen händelse vid landning; bra för andningspauser i ban-generering. |
 | **BvB / utmaning** *(valfritt)* | Om spelaren landar här med **annan bryggare** på rutan, eller via kort — kan tvinga eller erbjuda **BvB-duell** (§9.2). På brädet kan rörelseval visa **BvB** som etikett när målrutan redan har en motspelare. |
@@ -154,7 +154,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ## 8. Rörelse
 
 - Spelaren **slår tärning** (eller server slår) och **rör sig exakt så många steg** som resultatet visar längs giltiga banor på den nivå spelaren befinner sig på.
-- **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6**, ev. **dubblat** av *Skägget rakt bak*, plus **rörelsebonus** från accessoar) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
+- **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6**, plus **rörelsebonus** från accessoar; *Skägget rakt bak* **dubblar inte** rörelsetärningen — se §10.1) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
 - **Modifiers** från kort, items, status eller klunk-regler kan **minska eller öka** antal steg (eller ändra riktning/giltiga rutor). Alla sådana effekter ska **resolveras på servern** och loggas i spelloggen.
 
 ---
@@ -218,9 +218,12 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Krokben**: stridsreaktion, **−1 spelarattack**.
 - **Ölbomb**: stridsreaktion, **+3 spelarattack**.
 - **Baksmälla**: stridsreaktion, **−3 spelarattack**.
-- **Skägget rakt bak**: används innan rörelseslag, **dubblerar tärningsslaget** på nästa rörelse (utrustningsbonus läggs till som vanligt).
+- **Skägget rakt bak**: används när spelaren **ska slå i strid** (monster: reaktionsfas om angripare/ölkompis; BvB: i väntan på tärningsslag). **Dubblar värdet av tärningsslaget i attacktotalen** för det slaget (visad t6 oförändrad; vapen m.m. läggs till som vanligt). Copy: *“Dubbla ditt tärningsslag vid strid.”*
+- **Lengräddad** (föremål, inte händelsekort): spelas på **annan spelare**; nästa strid för målet **−2 attack**; ska kunna spelas även när man **ingriper** under stridsreaktioner (samma fönster som övriga reaktionsföremål).
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
+- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot.
+- **Vaska direkt** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
 ---
 
@@ -237,7 +240,9 @@ Hård cap per spelare:
 
 Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” införs).
 
-**Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **slot-siluett (ikon)** för typ (vapen, rustning, hjälm, accessoar) — inte textbadge. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i modalhuvudet om panelen redan erbjuder stäng).
+**Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. **Vanliga statrader** (Kraft +2, Försvar …) ska **inte** upprepas som löptext i modalen; textytan under bilden är för **särskilda** regler (t.ex. BvB-tärningsbonus på vapen). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
+
+**Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** t.ex. **(Zzz)** när spelaren har kvarvarande sömnturer (`skippedTurns`).
 
 ---
 
@@ -302,6 +307,10 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
 
 **Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
+
+### 16.2 Kortkatalog (referens)
+
+- **`/cards`** i webbappen listar alla kort från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata. Längst ner listas även **monster** från **`monsters.ts`** med samma bildupplösning — avsett för design, QA och snabb överblick över tillgångar. Länk finns från **startsidan**.
 
 ### 16.1 Kortmodal och tydlighet
 
@@ -377,4 +386,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.11 | 2026-04-11 | **BvB** (*bryggare mot bryggare*) som spelar-etikett och i logg; §9.2 utökad med mötesval, val av motståndare vid flera på ruta, omslag; §7.1 flera pjäser = kluster-layout på brädet; §7.4/§10/§17/§18 terminologi; **Canman** + bild under §10.1; §16.1 utvecklingsnot `npm run dev` (Vite 5173 + WS 3001) |
 | 0.12 | 2026-04-12 | §7.3 dörrar: pant + **klunkspår** (krav utan förbrukning) synkat med **bryggnivå**; §13.1 **bryggnivå** (trösklar, header, resultatlista); §11 utrustningsmodal (ikon, bild, stäng via panel); §16 dev **WebSocket via `/bv-ws`**; §17/§18 uppdaterade |
 | 0.13 | 2026-04-12 | Monster styrkekrav **per våning** (+`levelIndex`, lokalt) — inte globalt; §7.3/§13.1/§19; nivåvals-modalcopy |
+| 0.14 | 2026-04-13 | Skatt: slump **Tom gömma**, återbesök samma ruta; §10.1 Skägget/Lengräddad/Canman/`randomItem`+utrustning; slutbossar (3 st, UI); §11 utrustningsmodal + badges; header (Zzz); **`/cards`** kortkatalog (§16.2); rörelse §8: ingen skägg-dubbling av rörelse |
 

@@ -73,6 +73,12 @@ export function Home() {
           <p style={{ opacity: 0.65, marginTop: 8, fontSize: 14, lineHeight: 1.45 }}>{sv.home.lanHint}</p>
         </div>
       </div>
+
+      <p style={{ marginTop: 28, opacity: 0.65, fontSize: 14 }}>
+        <Link to="/cards">Kortkatalog</Link>
+        {" — "}
+        översikt över alla kort och monster med bilder (design / QA).
+      </p>
     </div>
   );
 }

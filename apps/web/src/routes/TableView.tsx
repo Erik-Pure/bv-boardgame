@@ -60,10 +60,10 @@ const TABLE_BOARD_MODAL_CARD_ANIMATION =
 /** Halvtransparent dimning över brädet (strid, kortmodal m.m.). */
 const TABLE_BOARD_OVERLAY_BG = "rgba(2, 6, 23, 0.4)";
 
-/** Slutboss intro: röd ton + pulserande inre sken. */
+/** Slutboss intro: stark röd radial puls som växer/krymper. */
 const TABLE_BOSS_OVERLAY_BG =
-  "radial-gradient(ellipse 130% 95% at 50% 20%, rgba(239, 68, 68, 0.46) 0%, rgba(90, 12, 12, 0.52) 40%, rgba(10, 2, 4, 0.8) 100%)";
-const TABLE_BOSS_OVERLAY_PULSE = "bvBossTableOverlayPulse 2.6s ease-in-out infinite";
+  "radial-gradient(ellipse 120% 90% at 50% 16%, rgba(254, 121, 121, 0.72) 0%, rgba(239, 68, 68, 0.54) 28%, rgba(127, 29, 29, 0.44) 52%, rgba(18, 4, 8, 0) 74%), linear-gradient(180deg, rgba(60, 8, 12, 0.8) 0%, rgba(9, 2, 5, 0.9) 100%)";
+const TABLE_BOSS_OVERLAY_PULSE = "bvBossTableOverlayPulse 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite";
 
 /** Måste finnas i DOM när strids- och kortöverlägg animeras (keyframes är inte globala i Vite). */
 const TABLE_BOARD_MODAL_KEYFRAMES_CSS = `@keyframes bvTableOverlayFadeIn {
@@ -75,8 +75,15 @@ const TABLE_BOARD_MODAL_KEYFRAMES_CSS = `@keyframes bvTableOverlayFadeIn {
   to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 @keyframes bvBossTableOverlayPulse {
-  0%, 100% { box-shadow: inset 0 0 70px rgba(248, 113, 113, 0.22); }
-  50% { box-shadow: inset 0 0 150px rgba(220, 38, 38, 0.48); }
+  0% {
+    box-shadow: inset 0 0 85px rgba(248, 113, 113, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 210px rgba(239, 68, 68, 0.62);
+  }
+  100% {
+    box-shadow: inset 0 0 85px rgba(248, 113, 113, 0.2);
+  }
 }`;
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
@@ -314,6 +321,9 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
     paddingLeft: 12,
     paddingRight: 12,
     background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+    backgroundRepeat: bossIntroPulse ? "no-repeat" : undefined,
+    backgroundSize: bossIntroPulse ? "100% 100%, 100% 100%" : undefined,
+    backgroundPosition: bossIntroPulse ? "50% 16%, 50% 50%" : undefined,
     animation: bossIntroPulse
       ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
       : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
@@ -639,6 +649,9 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
         paddingLeft: 12,
         paddingRight: 12,
         background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+        backgroundRepeat: bossIntroPulse ? "no-repeat" : undefined,
+        backgroundSize: bossIntroPulse ? "100% 100%, 100% 100%" : undefined,
+        backgroundPosition: bossIntroPulse ? "50% 16%, 50% 50%" : undefined,
         animation: bossIntroPulse
           ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
           : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,

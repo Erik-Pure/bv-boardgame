@@ -242,6 +242,7 @@ export function PlayView() {
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
+  const headerStatusTag = me && (me.skippedTurns ?? 0) > 0 ? "(Zzz)" : "";
   const brewerProgressUi = useMemo(() => {
     if (!state || !me || state.phase !== "playing") return null;
     const bl = brewerLevel(me);
@@ -330,14 +331,21 @@ export function PlayView() {
   const highlightPulse = !!isMyTurn || state?.phase === "lobby" || !!canStart;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
-  const isItemPlayableNow = (target: ItemUseTarget) => {
+  const inPvpAwaitingRolls =
+    pending?.type === "pvp" &&
+    pending.phase === "awaitingRolls" &&
+    !!me &&
+    (pending.attackerId === me.id || pending.defenderId === me.id);
+  const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
+    if (itemId === "lengraddad" && inCombatReactions) return true;
+    if (itemId === "beard_back" && (inCombatReactions || inPvpAwaitingRolls)) return true;
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
   };
-  const itemCardTone = (target: ItemUseTarget) => {
-    const playable = isItemPlayableNow(target);
+  const itemCardTone = (itemId: string, target: ItemUseTarget) => {
+    const playable = isItemPlayableNow(itemId, target);
     if (playable && (target === "combat" || target === "combat_bro")) {
       return {
         border: "2px solid rgba(96,165,250,0.95)",
@@ -1093,17 +1101,21 @@ export function PlayView() {
     }
 
     if (pending?.type === "levelUpOffer" && myPending) {
-      const monsterScaleOfferNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
       return (
         <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ textAlign: "center", opacity: 0.95 }}>
-            {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
+          <div
+            style={{
+              textAlign: "center",
+              opacity: 0.98,
+              fontSize: 30,
+              lineHeight: 1.04,
+              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+            }}
+          >
+            {sv.play.levelUpOfferTitle}
           </div>
-          {monsterScaleOfferNote ? (
-            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.88, lineHeight: 1.45 }}>{monsterScaleOfferNote}</div>
-          ) : null}
-          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>
-            {sv.play.levelUpOfferHint}
+          <div style={{ textAlign: "center", fontSize: 14, opacity: 0.9, lineHeight: 1.5 }}>
+            {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
           </div>
           <div style={{ display: "grid", gap: 10 }}>
             <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "now" })}>
@@ -1419,7 +1431,7 @@ export function PlayView() {
     const passive = meta.target === "passive";
     const broPick = meta.target === "combat_bro";
     const needsTarget = meta.target === "other" || broPick;
-    const canUse = isItemPlayableNow(meta.target);
+    const canUse = isItemPlayableNow(inst.itemId, meta.target);
     const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
     const candidates =
       broPick && combatAttackerId
@@ -1791,6 +1803,7 @@ export function PlayView() {
               }}
             >
               {me?.name ?? name}
+              {headerStatusTag ? ` ${headerStatusTag}` : ""}
             </div>
             <button
               type="button"
@@ -2030,6 +2043,7 @@ export function PlayView() {
                           slot="weapon"
                           equipped={!!me.equipment.weapon}
                           equippedName={me.equipment.weapon?.name}
+                          equippedPiece={me.equipment.weapon}
                           lootFlash={equipFlash.weapon}
                           lootFlashKey={equipFlashKey.weapon}
                           onClick={() => setEquipDetail({ slot: "weapon" })}
@@ -2038,6 +2052,7 @@ export function PlayView() {
                           slot="armor"
                           equipped={!!me.equipment.armor}
                           equippedName={me.equipment.armor?.name}
+                          equippedPiece={me.equipment.armor}
                           lootFlash={equipFlash.armor}
                           lootFlashKey={equipFlashKey.armor}
                           onClick={() => setEquipDetail({ slot: "armor" })}
@@ -2046,6 +2061,7 @@ export function PlayView() {
                           slot="helmet"
                           equipped={!!me.equipment.helmet}
                           equippedName={me.equipment.helmet?.name}
+                          equippedPiece={me.equipment.helmet}
                           lootFlash={equipFlash.helmet}
                           lootFlashKey={equipFlashKey.helmet}
                           onClick={() => setEquipDetail({ slot: "helmet" })}
@@ -2054,6 +2070,7 @@ export function PlayView() {
                           slot="accessory"
                           equipped={!!me.equipment.accessory}
                           equippedName={me.equipment.accessory?.name}
+                          equippedPiece={me.equipment.accessory}
                           lootFlash={equipFlash.accessory}
                           lootFlashKey={equipFlashKey.accessory}
                           onClick={() => setEquipDetail({ slot: "accessory" })}
@@ -2088,7 +2105,7 @@ export function PlayView() {
                           <div className={styles.equipmentGrid}>
                             {groupedInventoryEntries.map((info) => {
                               const itemId = info.itemId;
-                              const tone = itemCardTone(itemMeta(itemId).target);
+                              const tone = itemCardTone(itemId, itemMeta(itemId).target);
                               const iflash = itemFlash[itemId] ?? null;
                               const iflashKey = itemFlashKey[itemId] ?? 0;
                               const invInst =
@@ -2391,6 +2408,14 @@ export function PlayView() {
 
       {equipDetail && me && (() => {
         const slot = equipDetail.slot;
+        const equipPiece =
+          slot === "weapon"
+            ? me.equipment.weapon
+            : slot === "armor"
+              ? me.equipment.armor
+              : slot === "helmet"
+                ? me.equipment.helmet
+                : me.equipment.accessory;
         const pieceName =
           slot === "weapon"
             ? me.equipment.weapon?.name
@@ -2406,7 +2431,6 @@ export function PlayView() {
           slot === "weapon" && me.equipment.weapon
             ? (
                 [
-                  me.equipment.weapon.power ? sv.play.powerPlus(me.equipment.weapon.power) : null,
                   typeof me.equipment.weapon.pvpDieBonus === "number"
                     ? sv.play.pvpWeaponDieBonus(me.equipment.weapon.pvpDieBonus)
                     : null,
@@ -2416,29 +2440,13 @@ export function PlayView() {
               ? (
                   [
                     me.equipment.armor.negateAllOnce ? sv.play.armorNegateAllOnce : null,
-                    typeof me.equipment.armor.damageNegate === "number"
-                      ? sv.play.negatePerHit(me.equipment.armor.damageNegate)
-                      : null,
-                    me.equipment.armor.bonusHp ? sv.play.bonusHp(me.equipment.armor.bonusHp) : null,
                   ] as Array<string | null>
                 ).filter(Boolean) as string[]
               : slot === "helmet" && me.equipment.helmet
-                ? (
-                    [
-                      me.equipment.helmet.combatBonus
-                        ? sv.play.combatBonus(me.equipment.helmet.combatBonus)
-                        : null,
-                      typeof me.equipment.helmet.damageNegate === "number"
-                        ? sv.play.negatePerHit(me.equipment.helmet.damageNegate)
-                        : null,
-                    ] as Array<string | null>
-                  ).filter(Boolean) as string[]
+                ? []
                 : slot === "accessory" && me.equipment.accessory
                   ? (
                       [
-                        typeof me.equipment.accessory.damageNegate === "number"
-                          ? sv.play.negatePerHit(me.equipment.accessory.damageNegate)
-                          : null,
                         typeof me.equipment.accessory.moveBonus === "number"
                           ? sv.play.moveSteps(me.equipment.accessory.moveBonus)
                           : null,
@@ -2453,14 +2461,7 @@ export function PlayView() {
             instantFront
             hideClose
             titleStyle={ITEM_MODAL_TITLE_STYLE}
-            headerRight={
-              <span
-                aria-label={slotLabel}
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <EquipIcon slot={slot} disabled={!equipped} genericOnly iconSize={32} />
-              </span>
-            }
+            headerRight={equipped ? <EquipmentModalEffectBadge piece={equipPiece} /> : undefined}
           >
             <div style={{ display: "grid", gap: 10 }}>
               <div
@@ -2508,6 +2509,7 @@ export function PlayView() {
             title={modalTitle}
             onClose={() => setItemDetail(null)}
             instantFront
+            hideClose
             headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} instance={inst} /> : undefined}
             titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
           >
@@ -2629,6 +2631,7 @@ function EquipButton(props: {
   slot: "weapon" | "armor" | "helmet" | "accessory";
   equipped: boolean;
   equippedName?: string;
+  equippedPiece?: Player["equipment"][EquipmentSlot];
   lootFlash: StatFlash | null;
   lootFlashKey: number;
   onClick: () => void;
@@ -2671,7 +2674,18 @@ function EquipButton(props: {
       }}
     >
       <LootFlashShell flash={lf} flashKey={props.lootFlashKey}>
-        <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
+          <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
+        </div>
       </LootFlashShell>
     </button>
   );
@@ -2883,20 +2897,41 @@ const ITEM_EFFECT_BADGE_ICONS = {
   heart: "/icons/heart-icon.svg",
   monster: "/icons/monster-icon.svg",
   attack: "/icons/combat-icon.svg",
+  armor: "/icons/armor-icon.svg",
   klunk: "/icons/klunk-icon.svg",
   pant: "/icons/pant-icon.svg",
 } as const;
+
+type EffectBadgeData = { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string };
+
+function formatSigned(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
+
+function equipmentInventoryEffectBadges(piece?: Player["equipment"][EquipmentSlot]): EffectBadgeData[] {
+  if (!piece) return [];
+  const badges: EffectBadgeData[] = [];
+  const attackMod = (("power" in piece ? piece.power ?? 0 : 0) + ("combatBonus" in piece ? piece.combatBonus ?? 0 : 0));
+  if (attackMod !== 0) badges.push({ icon: "attack", label: formatSigned(attackMod) });
+  const damageNegate = "damageNegate" in piece ? (piece.damageNegate ?? 0) : 0;
+  const negateAllOnce = "negateAllOnce" in piece && !!piece.negateAllOnce;
+  if (negateAllOnce || damageNegate > 0) {
+    const defenseLabel = negateAllOnce ? (damageNegate > 0 ? `+${damageNegate}+ALL` : "+ALL") : `+${damageNegate}`;
+    badges.push({ icon: "armor", label: defenseLabel });
+  }
+  return badges;
+}
 
 /** Snabb överblick i inventory-rutan: ikon + tal (läk, pant, monster, spelar-attack i strid). */
 function itemInventoryEffectBadge(
   itemId: string,
   instance?: ItemInstance | null,
-): { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string } | null {
+): EffectBadgeData | null {
   if (itemId === "canman") {
     const left = instance?.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
     return { icon: "pant", label: String(left) };
   }
-  const m: Record<string, { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string }> = {
+  const m: Record<string, EffectBadgeData> = {
     healing_potion: { icon: "heart", label: "+3" },
     pretzel_snack: { icon: "heart", label: "+2" },
     coin_purse: { icon: "pant", label: "+4" },
@@ -2978,6 +3013,66 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
   );
 }
 
+function EquipmentModalEffectBadge({ piece }: { piece?: Player["equipment"][EquipmentSlot] }) {
+  const badges = equipmentInventoryEffectBadges(piece);
+  if (badges.length === 0) return null;
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 0,
+      }}
+    >
+      {badges.map((b) => {
+        const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+        return (
+          <span
+            key={`${b.icon}:${b.label}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 10px",
+              borderRadius: 12,
+              background: "rgba(11,18,38,0.88)",
+              border: "1px solid rgba(255,255,255,0.22)",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+            }}
+          >
+            <img
+              src={src}
+              alt=""
+              width={20}
+              height={20}
+              draggable={false}
+              style={{
+                display: "block",
+                objectFit: "contain",
+                filter: "brightness(0) invert(1)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 15,
+                fontWeight: 900,
+                fontVariantNumeric: "tabular-nums",
+                color: "#f8fafc",
+                lineHeight: 1,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {b.label}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
   const b = itemInventoryEffectBadge(itemId, instance);
   if (!b) return null;
@@ -3029,6 +3124,67 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
   );
 }
 
+function EquipmentInventoryEffectBadges({ piece }: { piece?: Player["equipment"][EquipmentSlot] }) {
+  const badges = equipmentInventoryEffectBadges(piece);
+  if (badges.length === 0) return null;
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        bottom: 0,
+        right: 0,
+        display: "grid",
+        gap: 4,
+        zIndex: 2,
+        pointerEvents: "none",
+      }}
+    >
+      {badges.map((b) => {
+        const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+        return (
+          <span
+            key={`${b.icon}:${b.label}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifySelf: "end",
+              gap: 3,
+              padding: "3px 5px",
+              borderRadius: "8px 0 8px 0",
+              background: "rgba(11,18,38,0.92)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
+              maxWidth: "100%",
+            }}
+          >
+            <img
+              src={src}
+              alt=""
+              width={15}
+              height={15}
+              draggable={false}
+              style={{ display: "block", objectFit: "contain", filter: "brightness(0) invert(1)" }}
+            />
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                fontVariantNumeric: "tabular-nums",
+                color: "#f8fafc",
+                lineHeight: 1,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {b.label}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function itemMeta(itemId: any): { title: string; text: string; target: ItemUseTarget } {
   const id = String(itemId);
   const row = (sv.items as Record<string, { title: string; text: string } | undefined>)[id];
@@ -3063,8 +3219,8 @@ function itemImageSrc(itemId: any): string {
     lengraddad: "/event/lengraddad.png",
     canman: "/items/canman.png",
     not_my_round: "/items/not_my_round.png",
-    spill_intentional: "/card-placeholder.png",
-    early_night: "/card-placeholder.png",
+    spill_intentional: "/items/spill_intentional.png",
+    early_night: "/items/spill_intentional.png",
   };
   return m[id] ?? "/card-placeholder.png";
 }

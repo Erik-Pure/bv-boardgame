@@ -59,3 +59,5 @@ export {
   artKeyForGrantedItem,
   artKeyFromDuFickAppend,
 } from "./cards/grantedItemText.js";
+export { allCards, getCard } from "./cards/db.js";
+export type { CardDef, CardKind } from "./cards/types.js";

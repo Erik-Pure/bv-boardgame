@@ -444,7 +444,7 @@ function applySlutbossLossPartyEffects(
       if (pl.eliminated) continue;
       pl.gold = Math.max(0, pl.gold - 1);
     }
-    logFn(state, "Alla spelare tappar 1 pant (Den store narcissius).");
+    logFn(state, "Alla spelare tappar 1 pant (Den store narcissus).");
   } else if (monsterId === "oldomaren") {
     for (const pl of state.players) {
       if (pl.eliminated) continue;
@@ -1009,8 +1009,6 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
   const tile = level.tiles[p.tileIndex];
   if (!tile) return;
 
-  const tkey = `${p.levelIndex}-${p.tileIndex}`;
-
   switch (tile.type) {
     case "empty":
       log(state, `${p.name} hamnar på en lugn ruta.`);
@@ -1041,7 +1039,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       break;
     }
     case "treasure": {
-      if (state.treasureTaken[tkey]) {
+      // Skattrutor kan besökas flera gånger; ibland är gömman redan tom.
+      if (rng() < 0.35) {
         log(state, "Gömman är redan plundrad.");
         showCard(state, {
           playerId: p.id,
@@ -1053,7 +1052,6 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         });
         break;
       }
-      state.treasureTaken[tkey] = true;
       const card = drawFromDeck("treasure", rng);
       const effectOut: EffectApplyOut = {};
       const out = applyEffects({
@@ -1501,11 +1499,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "beard_back") {
-      if (!isYourTurn || next.pending) {
-        return { state, events: [], error: "Kan bara användas innan du slår rörelsetärning" };
+      const inCombatReaction =
+        next.pending?.type === "combat" &&
+        next.pending.phase === "reactions" &&
+        (next.pending.attackerId === user.id || next.pending.assistId === user.id);
+      const inPvpRollWindow =
+        next.pending?.type === "pvp" &&
+        next.pending.phase === "awaitingRolls" &&
+        (next.pending.attackerId === user.id || next.pending.defenderId === user.id);
+      if (!inCombatReaction && !inPvpRollWindow) {
+        return { state, events: [], error: "Kan bara användas när du ska slå i strid" };
       }
       user.nextCombatAttackDiceDouble = true;
-      log(next, `${user.name} använder Skägget rakt bak: nästa attack-tärning (d6) räknas dubbelt mot styrka.`);
+      log(next, `${user.name} använder Skägget rakt bak: nästa stridsslag räknas dubbelt.`);
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);

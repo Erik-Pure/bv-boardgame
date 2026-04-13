@@ -195,7 +195,7 @@ export const MONSTERS: MonsterDef[] = [
   },
   {
     id: "store_narcissius",
-    name: "Den store narcissius",
+    name: "Den store narcissus",
     strength: 6,
     baseDamage: 3,
     rulesText: "",

@@ -161,10 +161,10 @@ export const sv = {
     levelUpProgressTitle: (brewerLevel: number) => `Bryggnivå ${brewerLevel}`,
     levelUpProgressAria: (brewerLevel: number) =>
       `Bryggnivå ${brewerLevel}, klunkar mot nästa bryggnivå.`,
-    levelUpOfferPrompt: (levelDisplay: number) =>
-      `Du uppfyller kraven för nivå ${levelDisplay} (klunkar och/eller bryggnivå i headern). Vill du stiga direkt?`,
-    levelUpOfferHint:
-      "Väljer du att stanna kan du senare gå upp via nivå-rutan på brädet — där räcker det med pant om du har råd.",
+    levelUpOfferTitle: "Gå upp till nästa nivå?",
+    levelUpOfferPrompt: (_levelDisplay: number) =>
+      "Dina framgångar vid glaset har gett resultat. Som en sann ölkännare har du nu bemästrat grunderna och låst upp nästa nivå. Vågar du anta utmaningen och höja svårighetsgraden direkt?",
+    levelUpOfferHint: "",
     /**
      * `boardLevelIndex` = målvåning 0-baserad (samma som `levelIndex` efter uppstigning).
      * Endast monster **på det planet** får +N på styrkekrav; pant/klunkar/skada ändras inte av nivåbytet.
@@ -369,7 +369,7 @@ export const sv = {
     },
     beard_back: {
       title: "Skägget rakt bak",
-      text: "Använd innan du slår rörelsetärning: nästa attack-tärning (monster eller BvB) räknar d6 dubbelt i totalen (visad t6 oförändrad; 1 är fortfarande krit).",
+      text: "Dubbla ditt tärningsslag vid strid.",
     },
     hangover: {
       title: "Baksmälla",
