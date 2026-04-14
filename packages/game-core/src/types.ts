@@ -50,15 +50,30 @@ export interface Weapon {
   sipAttackBonus?: number;
   /** Läggs bara till i BvB (påverkar inte monsterstrid). */
   pvpDieBonus?: number;
+  /** Bonus gold granted on each win while equipped. */
+  gainGoldOnWin?: number;
+  /** Dynamic weapon power thresholds by current gold. */
+  powerAtGold10?: number;
+  powerAtGold20?: number;
+  powerAtGold30?: number;
+  powerDynamicMax?: number;
+  /** On win: deal this much damage to a random other living player. */
+  randomOtherDamageOnWin?: number;
 }
 
 export interface ArmorPiece {
   name: string;
   bonusHp: number;
-  /** Damage reduced per hit (sum is capped elsewhere). */
+  /** Damage reduced per hit. */
   damageNegate?: number;
+  /** Extra damage reduced per hit when source is a boss combat. */
+  bossDamageNegateBonus?: number;
   /** If true: negates all damage once, then breaks. */
   negateAllOnce?: boolean;
+  /** If true: other players cannot challenge this player to PvP. */
+  pvpCannotBeChallenged?: boolean;
+  /** Gain this much gold whenever you actually take damage. */
+  gainGoldOnDamageTaken?: number;
 }
 
 export interface Helmet {
@@ -66,6 +81,16 @@ export interface Helmet {
   /** +1 till stridsslag t.o.m. nästa duell */
   combatBonus?: number;
   damageNegate?: number;
+  /** Extra damage reduced per hit when source is a boss combat. */
+  bossDamageNegateBonus?: number;
+  /** If true: negates all damage once, then breaks. */
+  negateAllOnce?: boolean;
+  /** Extra klunkar when this player receives a penalty sip event. */
+  penaltySipExtra?: number;
+  /** Dynamic attack bonus based on current klunkar. */
+  klunkAttackBonus10?: number;
+  klunkAttackBonus20?: number;
+  klunkAttackBonusMax?: number;
 }
 
 export interface Accessory {
@@ -106,10 +131,25 @@ export interface ShopItem {
   /** vapen */
   power?: number;
   sipAttackBonus?: number;
+  pvpDieBonus?: number;
+  gainGoldOnWin?: number;
+  powerAtGold10?: number;
+  powerAtGold20?: number;
+  powerAtGold30?: number;
+  powerDynamicMax?: number;
+  randomOtherDamageOnWin?: number;
   /** rustning */
   bonusHp?: number;
   damageNegate?: number;
+  bossDamageNegateBonus?: number;
   negateAllOnce?: boolean;
+  pvpCannotBeChallenged?: boolean;
+  gainGoldOnDamageTaken?: number;
+  combatBonus?: number;
+  penaltySipExtra?: number;
+  klunkAttackBonus10?: number;
+  klunkAttackBonus20?: number;
+  klunkAttackBonusMax?: number;
   moveBonus?: number;
   healAmount?: number;
   goldAmount?: number;
@@ -313,12 +353,19 @@ export interface GameConfig {
   gameMode: GameMode;
 }
 
+export type SipNoticeKind = "custom" | "duel_loss";
+
 export interface SipNoticeEntry {
   recipientId: string;
   /** Vem som gav sipen (visningsnamn). */
   fromPlayerName: string;
   /** Antal straffklunkar som tilldelats i samband med detta besked (default 1). */
   klunkCount?: number;
+  /** Optional custom title/body for non-klunk prompts (e.g. targeted card effects). */
+  title?: string;
+  body?: string;
+  /** Mobil-UI-variant för anpassade notices (t.ex. duell-förlust). */
+  noticeKind?: SipNoticeKind;
 }
 
 export interface GameState {

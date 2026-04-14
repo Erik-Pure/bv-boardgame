@@ -12,6 +12,8 @@ export type MonsterId =
   | "barsfisk"
   | "humlan"
   | "bottling_bot"
+  | "pimp"
+  | "fermentation_hydra"
   | "taproom_titan"
   | "store_narcissius"
   | "oldomaren"
@@ -225,6 +227,46 @@ export const MONSTERS: MonsterDef[] = [
     rewardGold: 8,
     rewardItems: 2,
     artKey: "monster/onda-bryggverket",
+  },
+  /** Team battle — inte slutboss; gamla boss-karaktärer återinförda som svåra möten på vanliga stridsrutor. */
+  {
+    id: "pimp",
+    name: "Pimp",
+    strength: 8,
+    baseDamage: 5,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    teamBattleRequired: true,
+    teamBattleBonusGold: 2,
+    rewardGold: 8,
+    rewardItems: 2,
+    artKey: "monster/pimp",
+  },
+  {
+    id: "fermentation_hydra",
+    name: "Fermenteringshydran",
+    strength: 9,
+    baseDamage: 6,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    teamBattleRequired: true,
+    teamBattleBonusGold: 3,
+    rewardGold: 9,
+    rewardItems: 2,
+    artKey: "monster/fermentation-hydra",
+  },
+  {
+    id: "taproom_titan",
+    name: "Bru-Team",
+    strength: 10,
+    baseDamage: 7,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    teamBattleRequired: true,
+    teamBattleBonusGold: 4,
+    rewardGold: 10,
+    rewardItems: 2,
+    artKey: "monster/taproom-titan",
   },
   {
     id: "unicorn",

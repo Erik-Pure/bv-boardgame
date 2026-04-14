@@ -1,0 +1,49 @@
+import type { ShopItem } from "@bv/game-core";
+
+/**
+ * Kort svensk beskrivning av affärsrad / katalograd så att siffror stämmer med spelet.
+ * Används i Panta burkar och kortkatalogens utrustningsöversikt.
+ */
+export function formatShopItemEffectSummary(it: ShopItem): string {
+  if (it.slot === "heal") {
+    const n = it.healAmount ?? 4;
+    return `+${n} HP`;
+  }
+  if (it.slot === "gold" && typeof it.goldAmount === "number") {
+    return `+${it.goldAmount} pant`;
+  }
+
+  const parts: string[] = [];
+  if (typeof it.power === "number") parts.push(`Kraft +${it.power}`);
+  if (typeof it.pvpDieBonus === "number" && it.pvpDieBonus > 0) {
+    parts.push(`BvB: +${it.pvpDieBonus} på slag`);
+  }
+  if (typeof it.gainGoldOnWin === "number" && it.gainGoldOnWin > 0) {
+    parts.push(`Vid vinst: +${it.gainGoldOnWin} pant`);
+  }
+  if (typeof it.randomOtherDamageOnWin === "number" && it.randomOtherDamageOnWin > 0) {
+    parts.push(`Vid vinst: slumpad annan −${it.randomOtherDamageOnWin} HP`);
+  }
+  if (typeof it.powerAtGold10 === "number") parts.push(`Vid 10+ pant: Kraft +${it.powerAtGold10}`);
+  if (typeof it.powerAtGold20 === "number") parts.push(`Vid 20+ pant: Kraft +${it.powerAtGold20}`);
+  if (typeof it.powerAtGold30 === "number") parts.push(`Vid 30+ pant: Kraft +${it.powerAtGold30}`);
+  if (typeof it.combatBonus === "number" && it.combatBonus > 0) parts.push(`Attack +${it.combatBonus}`);
+  if (typeof it.sipAttackBonus === "number") parts.push(`Sip-attack +${it.sipAttackBonus}`);
+  if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
+  if (typeof it.damageNegate === "number") parts.push(`Skada −${it.damageNegate}`);
+  if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {
+    parts.push(`Boss-skada −${it.bossDamageNegateBonus} extra`);
+  }
+  if (typeof it.penaltySipExtra === "number" && it.penaltySipExtra > 0) {
+    parts.push(`Straffklunk: +${it.penaltySipExtra} extra`);
+  }
+  if (typeof it.gainGoldOnDamageTaken === "number" && it.gainGoldOnDamageTaken > 0) {
+    parts.push(`När du tar skada: +${it.gainGoldOnDamageTaken} pant`);
+  }
+  if (typeof it.klunkAttackBonus10 === "number") parts.push(`Vid 10+ klunkar: +${it.klunkAttackBonus10} attack`);
+  if (typeof it.klunkAttackBonus20 === "number") parts.push(`Vid 20+ klunkar: +${it.klunkAttackBonus20} attack`);
+  if (it.negateAllOnce) parts.push("Blockar all skada en gång");
+  if (it.pvpCannotBeChallenged) parts.push("Kan inte utmanas i BvB");
+  if (typeof it.moveBonus === "number") parts.push(`Rörelse +${it.moveBonus}`);
+  return parts.length ? parts.join(" · ") : "—";
+}

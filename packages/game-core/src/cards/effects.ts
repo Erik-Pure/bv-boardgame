@@ -12,29 +12,55 @@ function newInstanceId(rng: () => number): string {
 
 const RANDOM_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
 
-function applyRandomEquipmentReward(player: Player, rng: () => number): boolean {
+function applyRandomEquipmentReward(
+  player: Player,
+  rng: () => number,
+): { name: string; slot: EquipmentSlot } | null {
   const slot = pick(rng, RANDOM_REWARD_EQUIPMENT_SLOTS);
-  if (player.equipment[slot]) return false;
+  if (player.equipment[slot]) return null;
   const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
-  if (pool.length === 0) return false;
+  if (pool.length === 0) return null;
   const eq = pick(rng, pool);
   if (slot === "weapon") {
-    player.equipment.weapon = { name: eq.name, power: eq.power ?? 1 };
+    player.equipment.weapon = {
+      name: eq.name,
+      power: eq.power ?? 1,
+      sipAttackBonus: eq.sipAttackBonus,
+      gainGoldOnWin: eq.gainGoldOnWin,
+      powerAtGold10: eq.powerAtGold10,
+      powerAtGold20: eq.powerAtGold20,
+      powerAtGold30: eq.powerAtGold30,
+      powerDynamicMax: eq.powerDynamicMax,
+      randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
+    };
   } else if (slot === "armor") {
     player.equipment.armor = {
       name: eq.name,
       bonusHp: eq.bonusHp ?? 0,
       damageNegate: eq.damageNegate,
+      bossDamageNegateBonus: eq.bossDamageNegateBonus,
       negateAllOnce: eq.negateAllOnce,
+      pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
+      gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
     };
     player.maxHp = 10 + (player.equipment.armor?.bonusHp ?? 0);
     player.hp = Math.min(player.hp, player.maxHp);
   } else if (slot === "helmet") {
-    player.equipment.helmet = { name: eq.name, combatBonus: 1, damageNegate: eq.damageNegate };
+    player.equipment.helmet = {
+      name: eq.name,
+      combatBonus: eq.combatBonus ?? 0,
+      damageNegate: eq.damageNegate,
+      bossDamageNegateBonus: eq.bossDamageNegateBonus,
+      negateAllOnce: eq.negateAllOnce,
+      penaltySipExtra: eq.penaltySipExtra,
+      klunkAttackBonus10: eq.klunkAttackBonus10,
+      klunkAttackBonus20: eq.klunkAttackBonus20,
+      klunkAttackBonusMax: eq.klunkAttackBonusMax,
+    };
   } else {
     player.equipment.accessory = { name: eq.name, damageNegate: eq.damageNegate, moveBonus: eq.moveBonus };
   }
-  return true;
+  return { name: eq.name, slot };
 }
 
 export function applyEffects(params: {
@@ -62,13 +88,16 @@ export function applyEffects(params: {
       params.player.inventory.push(createItemInstance(e.itemId as any, newInstanceId(params.rng)));
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "randomItem") {
-      const grantedEquipment = params.rng() < 0.35 && applyRandomEquipmentReward(params.player, params.rng);
+      const grantedEquipment = params.rng() < 0.35 ? applyRandomEquipmentReward(params.player, params.rng) : null;
       if (!grantedEquipment) {
         const pool = itemDeckItemIds();
         const itemId = pick(params.rng, pool);
         params.player.inventory ??= [];
         params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
         out.grantedItemId = itemId;
+      } else {
+        out.grantedEquipmentName = grantedEquipment.name;
+        out.grantedEquipmentSlot = grantedEquipment.slot;
       }
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "nextCombatMod") {

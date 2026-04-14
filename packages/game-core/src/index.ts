@@ -17,6 +17,7 @@ export type {
   Player,
   ShopItem,
   SipNoticeEntry,
+  SipNoticeKind,
   Tile,
   TileType,
 } from "./types.js";

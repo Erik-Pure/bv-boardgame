@@ -247,13 +247,6 @@ export const sv = {
     powerPlus: (n: number) => `Kraft +${n}`,
     pvpWeaponDieBonus: (n: number) =>
       `I dueller (BvB): +${n} på slagtotalen (påverkar inte monsterstrid).`,
-    merchantEffect: {
-      negateAllOnce: "nollställ allt en gång",
-      dmg: (n: number) => `−${n} skada`,
-      healHp: (n: number) => `+${n} HP`,
-      step: (n: number) => `+${n} steg`,
-      combatPlus: "+1 strid",
-    },
     combatCardSheetTitle: "Dålig batch",
     treasureCardSheetTitle: "Skatt",
     treasureLootHeading: "Byte",
@@ -411,6 +404,9 @@ export const sv = {
       return `${recipient} fick just ${k} från`;
     },
     cheers: "Skål!",
+    ack: "Fattat",
+    /** Bekräftelse efter duell-förlust-notis (annat tonläge än övriga anpassade notices). */
+    duelAck: "Fattar",
     fallbackFrom: "en annan spelare",
   },
   cardModal: {

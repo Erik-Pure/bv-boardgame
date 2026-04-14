@@ -1,4 +1,5 @@
 import { artKeyForGrantedItem, artKeyFromDuFickAppend } from "@bv/game-core";
+import { equipmentCatalogImageSrc, equipmentUniqueImageSrc } from "./equipmentImageSrc";
 
 /**
  * Kort vars bild bygger på en verklig öletikett — kort etikettreferens under bilden.
@@ -14,6 +15,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/bottling-bot": "Rally Hallon Soda, Bryggverket & Red Barn",
   "monster/humlan": "Humlan sommaröl, Bryggverket",
   "monster/megasouruz": "Megasouruz, Bryggverket & Brygghus 19",
+  "monster/pimp": "Pimp, Puff Imperial Porter, Bryggverket & Tempel brygghus",
   "monster/skum-banan": "Skum banan, Bryggverket",
   "monster/rabarbapappa": "Rabarbapappa, Bryggverket",
   "monster/brottningsmatch": "Lengräddad, Bryggverket & Tempel brygghus",
@@ -70,6 +72,23 @@ export function resolveCardRevealArtKey(
 /** Mappar `artKey` från game-core till public-bild (monster/event/item/tile). */
 export function artImageSrc(artKey?: string): string {
   if (!artKey) return "/card-placeholder.png";
+  if (artKey.startsWith("equipment/")) {
+    const parts = artKey.split("/");
+    const slotRaw = parts[1] ?? "any";
+    const encodedName = parts.slice(2).join("/");
+    let name = encodedName;
+    try {
+      name = encodedName ? decodeURIComponent(encodedName) : "";
+    } catch {
+      name = encodedName ?? "";
+    }
+    const direct = equipmentUniqueImageSrc(name);
+    if (direct) return direct;
+    if (slotRaw === "weapon" || slotRaw === "armor" || slotRaw === "helmet" || slotRaw === "accessory") {
+      return equipmentCatalogImageSrc(name, slotRaw);
+    }
+    return "/card-placeholder.png";
+  }
   if (artKey.startsWith("tile/")) {
     const key = artKey.slice("tile/".length);
     if (key === "door" || key === "levelup") return "/tiles/levelup.svg";

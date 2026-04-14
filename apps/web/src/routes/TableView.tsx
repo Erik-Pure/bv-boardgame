@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   BOARD_RING_GRID_SIZE,
+  FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
   playerCanCombatIntervene,
   ringGridSizeFromTileCount,
@@ -51,6 +52,9 @@ type Cam = { x: number; y: number; scale: number };
 
 /** Vänta så kameran hinner panorera innan kortmodal på bordet visas. */
 const TABLE_CARD_MODAL_DELAY_MS = 950;
+
+/** Kort delay innan PvP-slag visas på bordet — måste synkas med `pvpRevealReady` så idle-snurr hinner visas första rutan. */
+const PVP_TABLE_REVEAL_DELAY_MS = 280;
 
 const TABLE_BOARD_MODAL_OVERLAY_ANIMATION =
   "bvTableOverlayFadeIn 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both";
@@ -296,7 +300,6 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
 
   const attacker = state.players.find((p) => p.id === pending.attackerId);
   const isFinalBossCombat = isFinalBossMonsterId(pending.monsterId as MonsterId);
-  const bossIntroPulse = isFinalBossCombat && pending.phase === "enemyIntro";
   const need = pending.need + (pending.needMod ?? 0);
   const reactorNames = (pending.reactors ?? [])
     .map((id) => state.players.find((p) => p.id === id))
@@ -305,6 +308,16 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   const showMonsterCard = pending.monsterId !== "boss";
   const diceBesideCardPhases =
     pending.phase === "reactions" || pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation";
+  /** Slutboss: röd overlay under intro + tärnings-/resultatfas (reactions → rollPreview → chooseHitMitigation). */
+  const bossCombatPulse =
+    isFinalBossCombat && (pending.phase === "enemyIntro" || diceBesideCardPhases);
+  const finalBossRoundLabel = (() => {
+    if (!isFinalBossCombat) return null;
+    const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
+    const lives = Math.max(1, Math.min(FINAL_BOSS_LIFE_TOTAL, Math.floor(raw)));
+    const round = FINAL_BOSS_LIFE_TOTAL - lives + 1;
+    return `RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`;
+  })();
   const monsterDiceHeroLayout = showMonsterCard && diceBesideCardPhases;
   /** Monster: samma rad + inbäddad CardFlipScene så kortet inte unmountas intro → tärning. */
   const monsterTableRowPhases =
@@ -320,11 +333,11 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
     paddingTop: 70,
     paddingLeft: 12,
     paddingRight: 12,
-    background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
-    backgroundRepeat: bossIntroPulse ? "no-repeat" : undefined,
-    backgroundSize: bossIntroPulse ? "100% 100%, 100% 100%" : undefined,
-    backgroundPosition: bossIntroPulse ? "50% 16%, 50% 50%" : undefined,
-    animation: bossIntroPulse
+    background: bossCombatPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+    backgroundRepeat: bossCombatPulse ? "no-repeat" : undefined,
+    backgroundSize: bossCombatPulse ? "100% 100%, 100% 100%" : undefined,
+    backgroundPosition: bossCombatPulse ? "50% 16%, 50% 50%" : undefined,
+    animation: bossCombatPulse
       ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
       : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
   };
@@ -386,6 +399,23 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
 
   const monsterMeetHeader = (
     <>
+      {finalBossRoundLabel ? (
+        <div
+          style={{
+            fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+            fontWeight: 900,
+            fontSize: "clamp(30px, 6.6vw, 48px)",
+            textAlign: "center",
+            color: "#f8fafc",
+            letterSpacing: "0.07em",
+            lineHeight: 1.02,
+            marginBottom: 14,
+            textShadow: "0 2px 14px rgba(0,0,0,0.8), 0 0 26px rgba(239,68,68,0.42)",
+          }}
+        >
+          {finalBossRoundLabel}
+        </div>
+      ) : null}
       <div style={monsterMeetTitleStyle}>
         {(attacker?.name ?? "?").toLocaleUpperCase("sv-SE")} MÖTER
       </div>
@@ -648,11 +678,11 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
         paddingTop: 70,
         paddingLeft: 12,
         paddingRight: 12,
-        background: bossIntroPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
-        backgroundRepeat: bossIntroPulse ? "no-repeat" : undefined,
-        backgroundSize: bossIntroPulse ? "100% 100%, 100% 100%" : undefined,
-        backgroundPosition: bossIntroPulse ? "50% 16%, 50% 50%" : undefined,
-        animation: bossIntroPulse
+        background: bossCombatPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+        backgroundRepeat: bossCombatPulse ? "no-repeat" : undefined,
+        backgroundSize: bossCombatPulse ? "100% 100%, 100% 100%" : undefined,
+        backgroundPosition: bossCombatPulse ? "50% 16%, 50% 50%" : undefined,
+        animation: bossCombatPulse
           ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
           : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
       }}
@@ -691,23 +721,45 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
 const PVP_MARKER = '"Permanent Marker", var(--heading), sans-serif' as const;
 
 function TablePvpBoardPanel({ state }: { state: GameState }) {
-  const pending = state.pending;
-  if (!pending || pending.type !== "pvp") return null;
-  const attacker = state.players.find((p) => p.id === pending.attackerId);
-  const defender = state.players.find((p) => p.id === pending.defenderId);
-  if (!attacker || !defender) return null;
-  const ra = pending.rolls?.[pending.attackerId];
-  const rd = pending.rolls?.[pending.defenderId];
-  const rt = pending.resolvedTotals;
-  const pvpRoundN = pending.pvpRound ?? 1;
-  const awaiting = pending.phase === "awaitingRolls";
+  const pending = state.pending?.type === "pvp" ? state.pending : null;
+  const attacker = pending ? state.players.find((p) => p.id === pending.attackerId) : undefined;
+  const defender = pending ? state.players.find((p) => p.id === pending.defenderId) : undefined;
+  const ra = pending?.rolls?.[pending?.attackerId];
+  const rd = pending?.rolls?.[pending?.defenderId];
+  const rt = pending?.resolvedTotals;
+  const pvpRoundN = pending?.pvpRound ?? 1;
+  const awaiting = pending?.phase === "awaitingRolls";
+  const revealKey = pending && rt ? `${pending.attackerId}:${pending.defenderId}:${pvpRoundN}:${rt.attackerTotal}:${rt.defenderTotal}` : null;
+  const [pvpRevealReady, setPvpRevealReady] = useState(true);
+  /** Synka *före* paint så första bildrutan med `resolvedTotals` inte visar sluttärning utan snurr (`pvpRevealReady` hann vara true). */
+  useLayoutEffect(() => {
+    if (!revealKey) {
+      setPvpRevealReady(true);
+      return;
+    }
+    setPvpRevealReady(false);
+  }, [revealKey]);
+  useEffect(() => {
+    if (!revealKey) return;
+    const t = window.setTimeout(() => setPvpRevealReady(true), PVP_TABLE_REVEAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [revealKey]);
+  const showRollingReveal = !!rt && !pvpRevealReady;
+  if (!pending || !attacker || !defender) return null;
 
   function PvpFighterColumn(props: {
     role: string;
     player: (typeof state.players)[0];
     roll: { die: number; total: number } | undefined;
     nameRotateDeg: number;
+    showRolling: boolean;
+    /** Remount idle-tärning per rond så CSS-animationen alltid startar om (annars kan samma fiber se “stilla” ut en stund). */
+    awaitDiceKey: string;
+    revealSpinKey?: string;
   }) {
+    const rollMod = props.roll ? props.roll.total - props.roll.die : 0;
+    const hasRollMod = rollMod !== 0;
+    const modLabel = rollMod > 0 ? `+${rollMod}` : `${rollMod}`;
     return (
       <div
         style={{
@@ -735,17 +787,33 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
         >
           {props.player.name}
         </div>
-        {props.roll ? (
-          <>
+        {props.showRolling ? (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <DiceCube3D key={props.revealSpinKey ?? "pvp-reveal-spin"} idleSpin size={52} />
+          </div>
+        ) : props.roll ? (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+            {hasRollMod ? (
+              <div
+                style={{
+                  fontFamily: PVP_MARKER,
+                  fontSize: "clamp(26px, 4.8vw, 38px)",
+                  lineHeight: 1,
+                  color: rollMod > 0 ? "#86efac" : "#fca5a5",
+                  textShadow: "0 0 20px rgba(0,0,0,0.5)",
+                }}
+              >
+                {modLabel}
+              </div>
+            ) : null}
             <div style={{ display: "flex", justifyContent: "center" }}>
               <DiceCube3D value={props.roll.die} size={52} />
             </div>
-            <div style={{ fontSize: 13, opacity: 0.9, textAlign: "center" }}>
-              {sv.table.dieAttackTotal(props.roll.die, props.roll.total)}
-            </div>
-          </>
+          </div>
         ) : (
-          <div style={{ opacity: 0.55, fontSize: 13, textAlign: "center", maxWidth: 200 }}>{sv.table.waitingRoll}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <DiceCube3D key={props.awaitDiceKey} idleSpin size={52} />
+          </div>
         )}
       </div>
     );
@@ -811,7 +879,15 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
           <div style={{ marginBottom: 8 }} />
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-          <PvpFighterColumn role={sv.table.roleAttacker} player={attacker} roll={ra} nameRotateDeg={-11} />
+          <PvpFighterColumn
+            role={sv.table.roleAttacker}
+            player={attacker}
+            roll={ra}
+            nameRotateDeg={-11}
+            showRolling={showRollingReveal}
+            awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${attacker.id}`}
+            revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${attacker.id}` : undefined}
+          />
           <div
             style={{
               display: "flex",
@@ -828,9 +904,17 @@ function TablePvpBoardPanel({ state }: { state: GameState }) {
           >
             VS
           </div>
-          <PvpFighterColumn role={sv.table.roleDefender} player={defender} roll={rd} nameRotateDeg={11} />
+          <PvpFighterColumn
+            role={sv.table.roleDefender}
+            player={defender}
+            roll={rd}
+            nameRotateDeg={11}
+            showRolling={showRollingReveal}
+            awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${defender.id}`}
+            revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${defender.id}` : undefined}
+          />
         </div>
-        {rt ? (
+        {rt && pvpRevealReady ? (
           <div
             style={{
               marginTop: 18,
@@ -2079,8 +2163,14 @@ export function TableView() {
             pointerEvents: "none",
             placeItems: "start center",
             paddingTop: 70,
-            background: TABLE_BOARD_OVERLAY_BG,
-            animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+            background: state.pending.cardId === "boss_round_win" ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
+            backgroundRepeat: state.pending.cardId === "boss_round_win" ? "no-repeat" : undefined,
+            backgroundSize: state.pending.cardId === "boss_round_win" ? "100% 100%, 100% 100%" : undefined,
+            backgroundPosition: state.pending.cardId === "boss_round_win" ? "50% 16%, 50% 50%" : undefined,
+            animation:
+              state.pending.cardId === "boss_round_win"
+                ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
+                : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
         >
           {(() => {

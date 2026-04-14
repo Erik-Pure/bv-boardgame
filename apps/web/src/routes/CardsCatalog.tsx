@@ -12,6 +12,7 @@ import {
   type MonsterDef,
 } from "@bv/game-core";
 import { artAttributionLabel, artImageSrc } from "../lib/cardArt";
+import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { equipmentCatalogImageSrc } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
 
@@ -27,6 +28,22 @@ const KIND_LABEL_SV: Record<CardKind, string> = {
 };
 
 const EQUIP_SLOT_ORDER: Array<EquipmentShopItem["slot"]> = ["weapon", "armor", "helmet", "accessory"];
+const EXTRA_OVERVIEW_EQUIPMENT: EquipmentShopItem[] = [
+  { id: "special_robotarm", slot: "weapon", name: "Robotarm", price: 0, power: 0, pvpDieBonus: 1 },
+  { id: "special_robothjalm", slot: "helmet", name: "Robothjälm", price: 0, damageNegate: 1 },
+];
+const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
+  "item_sleep_potion",
+  "item_sip_card",
+  "item_weak_beer",
+  "item_tripwire",
+  "item_hangover",
+  "item_monster_hype",
+  "item_split_the_g",
+  "item_lengraddad",
+  "item_not_my_round",
+  "item_spill_intentional",
+]);
 
 function groupCardsByKind(cards: CardDef[]): Map<CardKind, CardDef[]> {
   const m = new Map<CardKind, CardDef[]>();
@@ -56,20 +73,27 @@ function groupEquipmentBySlot(items: EquipmentShopItem[]): Map<EquipmentShopItem
   return m;
 }
 
-function formatEquipmentStats(it: EquipmentShopItem): string {
-  const parts: string[] = [];
-  if (typeof it.power === "number") parts.push(`Kraft +${it.power}`);
-  if (typeof it.sipAttackBonus === "number") parts.push(`Sip-attack +${it.sipAttackBonus}`);
-  if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
-  if (typeof it.damageNegate === "number") parts.push(`Skada −${it.damageNegate}`);
-  if (it.negateAllOnce) parts.push("Blockar all skada en gång");
-  if (typeof it.moveBonus === "number") parts.push(`Rörelse +${it.moveBonus}`);
-  return parts.length ? parts.join(" · ") : "—";
+function splitItemCardsByPolarity(cards: CardDef[]): {
+  positive: CardDef[];
+  negative: CardDef[];
+} {
+  const positive: CardDef[] = [];
+  const negative: CardDef[] = [];
+  for (const c of cards) {
+    if (NEGATIVE_ITEM_CARD_IDS.has(c.id)) negative.push(c);
+    else positive.push(c);
+  }
+  positive.sort((a, b) => a.title.localeCompare(b.title, "sv"));
+  negative.sort((a, b) => a.title.localeCompare(b.title, "sv"));
+  return { positive, negative };
 }
 
 export function CardsCatalog() {
   const byKind = useMemo(() => groupCardsByKind(allCards()), []);
-  const equipmentBySlot = useMemo(() => groupEquipmentBySlot(EQUIPMENT_CATALOG), []);
+  const equipmentBySlot = useMemo(
+    () => groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT]),
+    [],
+  );
 
   const { soloMonsters, teamMonsters, bossMonsters } = useMemo(() => {
     const bossIds = new Set(FINAL_BOSS_IDS);
@@ -116,6 +140,59 @@ export function CardsCatalog() {
       {KIND_ORDER.map((kind) => {
         const list = byKind.get(kind) ?? [];
         if (list.length === 0) return null;
+        if (kind === "item") {
+          const { positive, negative } = splitItemCardsByPolarity(list);
+          return (
+            <section key={kind} style={{ marginBottom: 36 }}>
+              <h2
+                style={{
+                  margin: "0 0 16px",
+                  fontSize: "1.15rem",
+                  borderBottom: "1px solid rgba(148,163,184,0.35)",
+                  paddingBottom: 8,
+                }}
+              >
+                {KIND_LABEL_SV[kind]} <span style={{ opacity: 0.55, fontWeight: 500 }}>({list.length})</span>
+              </h2>
+              {positive.length > 0 ? (
+                <div style={{ marginBottom: 18 }}>
+                  <h3 style={{ margin: "0 0 12px", fontSize: "1rem", color: "#86efac" }}>
+                    Positiva <span style={{ opacity: 0.55, fontWeight: 500 }}>({positive.length})</span>
+                  </h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                      gap: 16,
+                    }}
+                  >
+                    {positive.map((card) => (
+                      <CatalogCard key={card.id} card={card} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {negative.length > 0 ? (
+                <div>
+                  <h3 style={{ margin: "0 0 12px", fontSize: "1rem", color: "#fca5a5" }}>
+                    Negativa <span style={{ opacity: 0.55, fontWeight: 500 }}>({negative.length})</span>
+                  </h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                      gap: 16,
+                    }}
+                  >
+                    {negative.map((card) => (
+                      <CatalogCard key={card.id} card={card} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          );
+        }
         return (
           <section key={kind} style={{ marginBottom: 36 }}>
             <h2
@@ -152,7 +229,10 @@ export function CardsCatalog() {
             paddingBottom: 8,
           }}
         >
-          Utrustning <span style={{ opacity: 0.55, fontWeight: 500 }}>({EQUIPMENT_CATALOG.length})</span>
+          Utrustning{" "}
+          <span style={{ opacity: 0.55, fontWeight: 500 }}>
+            ({EQUIPMENT_CATALOG.length + EXTRA_OVERVIEW_EQUIPMENT.length})
+          </span>
         </h2>
         <p style={{ margin: "0 0 20px", opacity: 0.75, fontSize: 14, lineHeight: 1.45 }}>
           Handelskatalog / loot-pool. Bild = unik art om den finns, annars slot-siluett.
@@ -381,7 +461,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
       </div>
       <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{item.name}</div>
-        <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.4 }}>{formatEquipmentStats(item)}</div>
+        <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.4 }}>{formatShopItemEffectSummary(item)}</div>
         <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{item.id}</code>
         <div style={{ fontSize: 11, opacity: 0.65 }}>
           {capitalizeWord(equipmentSlotSv(item.slot))} · {item.price} pant

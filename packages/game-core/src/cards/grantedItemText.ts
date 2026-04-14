@@ -4,23 +4,33 @@ import type { EffectApplyOut } from "./types.js";
 /** `artKey` för det kort som visar utdelat föremål (mobil / modal). */
 export function artKeyForGrantedItem(out: EffectApplyOut, fallback?: string): string | undefined {
   const gid = out.grantedItemId;
-  if (typeof gid !== "string") return fallback;
-  try {
-    return getCard(`item_${gid}`).artKey ?? fallback;
-  } catch {
-    return fallback;
+  if (typeof gid === "string") {
+    try {
+      return getCard(`item_${gid}`).artKey ?? fallback;
+    } catch {
+      return fallback;
+    }
   }
+  if (typeof out.grantedEquipmentName === "string" && typeof out.grantedEquipmentSlot === "string") {
+    return `equipment/${out.grantedEquipmentSlot}/${encodeURIComponent(out.grantedEquipmentName)}`;
+  }
+  return fallback;
 }
 
 /** Text efter kortbrödtext när `randomItem` satt `grantedItemId` i applyEffects `out`. */
 export function appendTextForGrantedItem(out: EffectApplyOut): string {
   const gid = out.grantedItemId;
-  if (typeof gid !== "string") return "";
-  try {
-    return `\n\nDu fick: ${getCard(`item_${gid}`).title}.`;
-  } catch {
-    return `\n\nFöremål: ${gid}.`;
+  if (typeof gid === "string") {
+    try {
+      return `\n\nDu fick: ${getCard(`item_${gid}`).title}.`;
+    } catch {
+      return `\n\nFöremål: ${gid}.`;
+    }
   }
+  if (typeof out.grantedEquipmentName === "string") {
+    return `\n\nDu fick utrustning: ${out.grantedEquipmentName}.`;
+  }
+  return "";
 }
 
 /**
@@ -28,6 +38,15 @@ export function appendTextForGrantedItem(out: EffectApplyOut): string {
  * Används som fallback i klienten om `grantedItemId` saknas i state men texten finns kvar.
  */
 export function artKeyFromDuFickAppend(text: string): string | undefined {
+  const due = text.lastIndexOf("Du fick utrustning:");
+  if (due >= 0) {
+    const rest = text.slice(due + "Du fick utrustning:".length).trim();
+    const dot = rest.indexOf(".");
+    if (dot >= 0) {
+      const name = rest.slice(0, dot).trim();
+      return `equipment/any/${encodeURIComponent(name)}`;
+    }
+  }
   const du = text.lastIndexOf("Du fick:");
   if (du >= 0) {
     const rest = text.slice(du + "Du fick:".length).trim();

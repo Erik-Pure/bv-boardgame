@@ -4,28 +4,37 @@ export function equipmentDamageNegate(p: Player): number {
   const a = p.equipment.armor?.damageNegate ?? 0;
   const h = p.equipment.helmet?.damageNegate ?? 0;
   const x = p.equipment.accessory?.damageNegate ?? 0;
-  const raw = a + h + x;
-  return Math.max(0, Math.min(2, raw));
+  const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
+  const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
+  return Math.max(0, a + h + x + armorBossExtra + helmetBossExtra);
 }
 
 export function hasNegateAllOnce(p: Player): boolean {
-  return !!p.equipment.armor?.negateAllOnce;
+  return !!p.equipment.armor?.negateAllOnce || !!p.equipment.helmet?.negateAllOnce;
 }
 
 export function consumeNegateAllOnce(state: GameState, p: Player, log?: (s: GameState, msg: string) => void): void {
-  if (!p.equipment.armor?.negateAllOnce) return;
-  const name = p.equipment.armor.name;
-  p.equipment.armor = undefined;
-  // Recompute hp caps (base 10, armor bonus is now 0).
-  p.maxHp = 10;
-  if (p.hp > p.maxHp) p.hp = p.maxHp;
-  log?.(state, `${p.name}'s ${name} shatters!`);
+  if (p.equipment.armor?.negateAllOnce) {
+    const name = p.equipment.armor.name;
+    p.equipment.armor = undefined;
+    // Recompute hp caps (base 10, armor bonus is now 0).
+    p.maxHp = 10;
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+    log?.(state, `${p.name}'s ${name} shatters!`);
+    return;
+  }
+  if (p.equipment.helmet?.negateAllOnce) {
+    const name = p.equipment.helmet.name;
+    p.equipment.helmet = undefined;
+    log?.(state, `${p.name}'s ${name} shatters!`);
+  }
 }
 
 export function applyDamage(params: {
   state: GameState;
   player: Player;
   amount: number;
+  isBossHit?: boolean;
   source?: string;
   log?: (s: GameState, msg: string) => void;
 }): { applied: number; prevented: number } {
@@ -38,12 +47,22 @@ export function applyDamage(params: {
     return { applied: 0, prevented: dmg };
   }
 
-  const prevent = equipmentDamageNegate(p);
+  const prevent = params.isBossHit
+    ? equipmentDamageNegate(p)
+    : Math.max(
+        0,
+        equipmentDamageNegate(p) -
+          (p.equipment.armor?.bossDamageNegateBonus ?? 0) -
+          (p.equipment.helmet?.bossDamageNegateBonus ?? 0),
+      );
   const final = Math.max(0, dmg - prevent);
 
   const before = p.hp;
   p.hp = Math.max(0, p.hp - final);
   const applied = before - p.hp;
+  if (applied > 0) {
+    p.gold += p.equipment.armor?.gainGoldOnDamageTaken ?? 0;
+  }
   return { applied, prevented: dmg - final };
 }
 

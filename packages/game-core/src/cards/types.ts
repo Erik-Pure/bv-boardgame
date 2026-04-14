@@ -21,6 +21,8 @@ export type EffectApplyOut = {
   prevented?: number;
   nextCombatMod?: number;
   grantedItemId?: string;
+  grantedEquipmentName?: string;
+  grantedEquipmentSlot?: "weapon" | "armor" | "helmet" | "accessory";
 };
 
 export interface CardChoice {

@@ -87,7 +87,8 @@
 }
 
 .spinLoop {
-  animation: spinLoop 1.35s linear infinite;
+  /* Explicit start + delay 0: vissa webbläsare annars “väntar in” implicit 0%-keyframe innan snurr syns. */
+  animation: spinLoop 1.35s linear 0s infinite;
   will-change: transform;
 }
 
@@ -176,6 +177,9 @@
 }
 
 @keyframes spinLoop {
+  from {
+    transform: rotateX(0deg) rotateY(0deg);
+  }
   to {
     transform: rotateX(360deg) rotateY(540deg);
   }

@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.14 |
-| Senast uppdaterad | 2026-04-13 |
+| Version | 0.15 |
+| Senast uppdaterad | 2026-04-14 |
 
 ---
 
@@ -137,7 +137,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | Typ | Beskrivning |
 |-----|-------------|
 | **Händelse (slump)** | Drar från en **händelsepool** (bra, dålig eller neutral): pant, skada, klunkar, flytta, stjäl kort, etc. |
-| **Affär / köpman** | Öppnar **handel**: spendera **pant** på items, hälsa, engångs-boosts eller sällsynt loot (sortiment kan vara slumpat per besök eller per nivå). |
+| **Affär / köpman** | Öppnar **handel** (i spelet: **Panta burkar**): spendera **pant** på items, hälsa, engångs-boosts eller sällsynt loot. Sortiment och priser följer **`EQUIPMENT_CATALOG`** (se §10.2). |
 | **Strid** | **Slumpat monster**; samma grundmekanik som §9.1 (tärning + vapen mot fiende). |
 | **Dörr / nivåbyte** | Se §7.3. |
 | **Boss** | Slutboss på nivå 3 (eller dedikerad boss-tile). |
@@ -193,8 +193,9 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Utlösare:** när en spelare **landar** på en ruta där **minst en annan spelare** redan står (samma nivå och tile-index), skapas ett **mötesval** (`encounterChoice`) innan rutan löses.
 - **Första valet (den som flyttade in):** **BvB** (båda slår tärning + vapen och jämför) **eller** **lös rutan** utan BvB (tile-effekter/kort/strid enligt ruttyp körs som vanligt).
 - **Flera motståndare på rutan:** efter att spelaren valt BvB ska den **välja vilken bryggare** som utmanas (lista med namn); därefter startar duellen mot vald motståndare.
-- **Duell:** båda slår **d6 + vapenstyrka**; högst (lika räknas som oavgjort) vinner. Vid **lika total** **slår båda om** i nästa rond tills en vinnare finns (UI visar **Rond 2, Rond 3, …**).
+- **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst vinner; vid **lika total** **slår båda om** i nästa rond tills en vinnare finns (UI visar **Rond 2, Rond 3, …**).
 - **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
+- **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
 - **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
 - Allt ska **avgöras på servern** och synas tydligt i spelloggen.
 
@@ -209,6 +210,13 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
 - Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
 - **Handlare (nuvarande flöde):** spelaren kan köpa **flera saker i samma besök** och lämnar handlaren explicit när den är klar.
+
+### 10.2 Panta burkar (affär på brädet)
+
+- **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
+- **Hyllan (4 platser):** poolen byggs av **Mäskpaddel**, **Burkrustning**, **Första hjälpen-lager** plus **två slumpade** rader från **`EQUIPMENT_CATALOG`**; efter blandning visas **exakt fyra** erbjudanden. De två ankar-utrustningarna ska ha **samma namn, pris och spelregler** som motsvarande katalogposter (**Mäskpaddel** `ew_padel`, **Burkrustning** `ea_can_armor`) — inga parallella “butiksversioner” med avvikande stats.
+- **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, boss-extra, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`).
+- **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
 
@@ -243,6 +251,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 **Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. **Vanliga statrader** (Kraft +2, Försvar …) ska **inte** upprepas som löptext i modalen; textytan under bilden är för **särskilda** regler (t.ex. BvB-tärningsbonus på vapen). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
 
 **Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** t.ex. **(Zzz)** när spelaren har kvarvarande sömnturer (`skippedTurns`).
+
+**Föremålsbrickor (mobil, Safari / WebKit):** inventory-rutorna för **föremål** ska använda **lagerindelad layout** (t.ex. CSS grid med gemensam **“stack”**-cell): **bilden** i ett **eget** lager med `overflow: hidden` och avrundade hörn, **antal** (stack) och **effekt-badge** (ikon + siffra/text) i ett **overlay-lager** ovanpå med `z-index`. Syfte: undvika att **`object-fit: cover`** + **`height: 100%`** på `<img>` klipper bort **nederkant** på badge/siffror (känt iOS Safari när yttre knapp har `overflow: hidden`). Utrustningsfyran kan följa **samma mönster** så små märken längst ner inte klipps.
 
 ---
 
@@ -389,4 +399,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.12 | 2026-04-12 | §7.3 dörrar: pant + **klunkspår** (krav utan förbrukning) synkat med **bryggnivå**; §13.1 **bryggnivå** (trösklar, header, resultatlista); §11 utrustningsmodal (ikon, bild, stäng via panel); §16 dev **WebSocket via `/bv-ws`**; §17/§18 uppdaterade |
 | 0.13 | 2026-04-12 | Monster styrkekrav **per våning** (+`levelIndex`, lokalt) — inte globalt; §7.3/§13.1/§19; nivåvals-modalcopy |
 | 0.14 | 2026-04-13 | Skatt: slump **Tom gömma**, återbesök samma ruta; §10.1 Skägget/Lengräddad/Canman/`randomItem`+utrustning; slutbossar (3 st, UI); §11 utrustningsmodal + badges; header (Zzz); **`/cards`** kortkatalog (§16.2); rörelse §8: ingen skägg-dubbling av rörelse |
+| 0.15 | 2026-04-14 | §9.2 BvB: `pvpDieBonus` i duelltotal; **duell-förlust-notis** på mobil (`duel_loss`, rubrik, ikon, “Fattar”); §7.4/§10.2 **Panta burkar** synkad med katalog (ankare + effekt-/prislinje); §11 föremål + utrustning **Safari-klipp** (stack-layout); utrustning: t.ex. **Fathammare** +1 BvB; finjusterade pantpriser (t.ex. Skumvisir) |
 

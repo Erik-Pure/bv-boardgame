@@ -6,6 +6,7 @@ import {
   brewerLevel,
   canAscendByKlunkRequirement,
   combatReactionsAllAnswered,
+  FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
   isFinalBossMonsterId,
   monsterLossKlunkTotal,
@@ -21,8 +22,10 @@ import {
   type Pending,
   type Player,
   type ShopItem,
+  type SipNoticeKind,
 } from "@bv/game-core";
 import { isGameState } from "../lib/gameTypes";
+import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
@@ -1131,30 +1134,6 @@ export function PlayView() {
     }
 
     if (pending?.type === "merchant" && myPending) {
-      const effectLabel = (it: ShopItem): string | null => {
-        const m = sv.play.merchantEffect;
-        if (it.slot === "weapon") return sv.play.powerPlus(it.power ?? 1);
-        if (it.slot === "armor") {
-          const parts: string[] = [];
-          if (it.negateAllOnce) parts.push(m.negateAllOnce);
-          if (typeof it.damageNegate === "number") parts.push(m.dmg(it.damageNegate));
-          if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(sv.play.bonusHp(it.bonusHp));
-          return parts.length ? parts.join(" · ") : null;
-        }
-        if (it.slot === "helmet") {
-          const parts: string[] = [];
-          if (typeof it.damageNegate === "number") parts.push(m.dmg(it.damageNegate));
-          return parts.length ? parts.join(" · ") : m.combatPlus;
-        }
-        if (it.slot === "accessory") {
-          const parts: string[] = [];
-          if (typeof it.damageNegate === "number") parts.push(m.dmg(it.damageNegate));
-          if (typeof it.moveBonus === "number") parts.push(sv.play.moveSteps(it.moveBonus));
-          return parts.length ? parts.join(" · ") : null;
-        }
-        if (it.slot === "heal") return m.healHp(it.healAmount ?? 4);
-        return null;
-      };
       const requestMerchantBuy = (it: ShopItem) => {
         if (me.gold < it.price) {
           setErr(sv.play.merchantCantAfford);
@@ -1248,7 +1227,9 @@ export function PlayView() {
             </div>
           </div>
           <div style={{ display: "grid", gap: 10 }}>
-            {pending.items.slice(0, 4).map((it) => (
+            {pending.items.slice(0, 4).map((it) => {
+              const effectSummary = formatShopItemEffectSummary(it);
+              return (
               <ArcadeButton
                 key={it.id}
                 onClick={() => requestMerchantBuy(it)}
@@ -1277,8 +1258,8 @@ export function PlayView() {
                       </span>
                       <span>{it.name}</span>
                     </div>
-                    {effectLabel(it) ? (
-                      <span style={{ opacity: 0.82, fontSize: 12, fontWeight: 800 }}>{effectLabel(it)}</span>
+                    {effectSummary !== "—" ? (
+                      <span style={{ opacity: 0.82, fontSize: 12, fontWeight: 800 }}>{effectSummary}</span>
                     ) : null}
                   </div>
                   <span
@@ -1297,7 +1278,8 @@ export function PlayView() {
                   </span>
                 </span>
               </ArcadeButton>
-            ))}
+            );
+            })}
             <ArcadeButton
               variant="gray"
               fullWidth
@@ -1926,6 +1908,9 @@ export function PlayView() {
           recipientName={me.name}
           fromPlayerName={mySipNotice.fromPlayerName}
           klunkCount={mySipNotice.klunkCount ?? 1}
+          customTitle={mySipNotice.title}
+          customBody={mySipNotice.body}
+          noticeKind={mySipNotice.noticeKind ?? "custom"}
           onAck={() => send({ type: "sipNoticeAck", playerId: me.id })}
         />
       )}
@@ -2011,12 +1996,82 @@ export function PlayView() {
         </CardFlipModalShell>
       )}
 
+      {state?.phase === "ended" && (
+        <div
+          role="dialog"
+          aria-label={sv.play.gameOver}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
+            boxSizing: "border-box",
+            background: "rgba(7, 11, 24, 0.94)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(480px, 100%)",
+              maxHeight: "min(90dvh, 100%)",
+              overflow: "auto",
+              WebkitOverflowScrolling: "touch",
+              borderRadius: 16,
+              border: "1px solid #ffffff2e",
+              background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
+              padding: "clamp(20px, 5vw, 28px)",
+              color: "#f8fafc",
+              boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h2 style={{ marginTop: 0, textAlign: "center", fontFamily: "var(--heading)", fontWeight: 500 }}>
+              {sv.play.gameOver}
+            </h2>
+            <p style={{ textAlign: "center", marginBottom: 16 }}>
+              {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
+            </p>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{sv.play.scoreboardTitle}</h3>
+            <p style={{ margin: "0 0 12px", opacity: 0.8, fontSize: 13, lineHeight: 1.4 }}>{sv.play.scoreboardHint}</p>
+            <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 12, fontSize: 15 }}>
+              {[...state.players]
+                .sort((a, b) => {
+                  const w = state.winnerId;
+                  if (w) {
+                    if (a.id === w) return -1;
+                    if (b.id === w) return 1;
+                  }
+                  if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
+                  if (b.gold !== a.gold) return b.gold - a.gold;
+                  return a.name.localeCompare(b.name, "sv");
+                })
+                .map((p) => (
+                  <li
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
+                  </li>
+                ))}
+            </ol>
+          </div>
+        </div>
+      )}
+
       <div className={styles.content}>
         {err && <div style={{ color: "#b91c1c", marginBottom: 12 }}>{err}</div>}
 
         {!state && <div>{sv.play.waitingState}</div>}
 
-        {state && (
+        {state && state.phase !== "ended" && (
           <>
             {(!me || state.phase !== "lobby") && (
               <section
@@ -2134,46 +2189,85 @@ export function PlayView() {
                                   }}
                                 >
                                   <LootFlashShell flash={iflash} flashKey={iflashKey}>
-                                    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0 }}>
-                                      <img
-                                        src={itemImageSrc(itemId)}
-                                        onError={(e) => {
-                                          (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
-                                        }}
-                                        alt=""
-                                        aria-hidden
+                                    {/*
+                                      iOS Safari: img + height 100% + object-fit cover kan “läcka” under
+                                      föräldern; overflow hidden på själva knappen klippte badge/siffror.
+                                      Bild i eget lager med overflow hidden; UI i grid-lager ovanpå.
+                                    */}
+                                    <div
+                                      style={{
+                                        position: "relative",
+                                        width: "100%",
+                                        height: "100%",
+                                        minHeight: 0,
+                                        display: "grid",
+                                        gridTemplateAreas: '"stack"',
+                                        gridTemplateRows: "1fr",
+                                        gridTemplateColumns: "1fr",
+                                      }}
+                                    >
+                                      <div
                                         style={{
+                                          gridArea: "stack",
+                                          minHeight: 0,
+                                          overflow: "hidden",
+                                          borderRadius: 8,
+                                        }}
+                                      >
+                                        <img
+                                          src={itemImageSrc(itemId)}
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                                          }}
+                                          alt=""
+                                          aria-hidden
+                                          style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            objectPosition: "center center",
+                                            display: "block",
+                                          }}
+                                        />
+                                      </div>
+                                      <div
+                                        style={{
+                                          gridArea: "stack",
+                                          zIndex: 2,
+                                          pointerEvents: "none",
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          alignItems: "flex-end",
                                           width: "100%",
                                           height: "100%",
-                                          objectFit: "cover",
-                                          borderRadius: 8,
-                                          display: "block",
+                                          boxSizing: "border-box",
+                                          padding: 4,
                                         }}
-                                      />
-                                      <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
-                                      {info.count > 1 ? (
-                                        <span
-                                          style={{
-                                            position: "absolute",
-                                            right: 6,
-                                            top: 6,
-                                            minWidth: 20,
-                                            height: 20,
-                                            borderRadius: 999,
-                                            border: "1px solid #ffffff55",
-                                            background: "rgba(11,18,38,0.88)",
-                                            color: "#fff",
-                                            fontSize: 12,
-                                            fontWeight: 800,
-                                            display: "grid",
-                                            placeItems: "center",
-                                            padding: "0 4px",
-                                            zIndex: 2,
-                                          }}
-                                        >
-                                          {info.count}
-                                        </span>
-                                      ) : null}
+                                      >
+                                        {info.count > 1 ? (
+                                          <span
+                                            style={{
+                                              minWidth: 20,
+                                              minHeight: 20,
+                                              borderRadius: 999,
+                                              border: "1px solid #ffffff55",
+                                              background: "rgba(11,18,38,0.88)",
+                                              color: "#fff",
+                                              fontSize: 12,
+                                              fontWeight: 800,
+                                              display: "grid",
+                                              placeItems: "center",
+                                              padding: "0 4px",
+                                              lineHeight: 1,
+                                            }}
+                                          >
+                                            {info.count}
+                                          </span>
+                                        ) : null}
+                                        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                                          <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
+                                        </div>
+                                      </div>
                                     </div>
                                   </LootFlashShell>
                                 </button>
@@ -2203,55 +2297,6 @@ export function PlayView() {
                 <h2 style={{ marginTop: 0 }}>{sv.play.lobbySectionTitle}</h2>
                 <div style={{ opacity: 0.8, marginBottom: 8 }}>{sv.play.lobbyReadyLine(readyCount, state.players.length)}</div>
                 <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.lobbyBottomHint}</div>
-              </section>
-            )}
-
-            {state.phase === "ended" && (
-              <section style={{ padding: 12, border: "1px solid #3333", borderRadius: 12 }}>
-                <h2 style={{ marginTop: 0 }}>{sv.play.gameOver}</h2>
-                <div style={{ marginBottom: 10 }}>
-                  {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
-                </div>
-                <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>{sv.play.scoreboardTitle}</h3>
-                <p style={{ margin: "0 0 10px", opacity: 0.78, fontSize: 12, lineHeight: 1.4 }}>
-                  {sv.play.scoreboardHint}
-                </p>
-                <ol
-                  style={{
-                    margin: 0,
-                    paddingLeft: 20,
-                    display: "grid",
-                    gap: 10,
-                    fontSize: 14,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {[...state.players]
-                    .sort((a, b) => {
-                      const w = state.winnerId;
-                      if (w) {
-                        if (a.id === w) return -1;
-                        if (b.id === w) return 1;
-                      }
-                      if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
-                      if (b.gold !== a.gold) return b.gold - a.gold;
-                      return a.name.localeCompare(b.name, "sv");
-                    })
-                    .map((p) => (
-                      <li
-                        key={p.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
-                      </li>
-                    ))}
-                </ol>
               </section>
             )}
           </>
@@ -2428,32 +2473,7 @@ export function PlayView() {
         const equipped = !!pieceName;
         const slotLabel = capitalizeWord(equipmentSlotSv(slot));
         const modalTitle = pieceName ?? slotLabel;
-        const bodyLines: string[] =
-          slot === "weapon" && me.equipment.weapon
-            ? (
-                [
-                  typeof me.equipment.weapon.pvpDieBonus === "number"
-                    ? sv.play.pvpWeaponDieBonus(me.equipment.weapon.pvpDieBonus)
-                    : null,
-                ] as Array<string | null>
-              ).filter(Boolean) as string[]
-            : slot === "armor" && me.equipment.armor
-              ? (
-                  [
-                    me.equipment.armor.negateAllOnce ? sv.play.armorNegateAllOnce : null,
-                  ] as Array<string | null>
-                ).filter(Boolean) as string[]
-              : slot === "helmet" && me.equipment.helmet
-                ? []
-                : slot === "accessory" && me.equipment.accessory
-                  ? (
-                      [
-                        typeof me.equipment.accessory.moveBonus === "number"
-                          ? sv.play.moveSteps(me.equipment.accessory.moveBonus)
-                          : null,
-                      ] as Array<string | null>
-                    ).filter(Boolean) as string[]
-                  : [];
+        const bodyLines = equipped ? equipmentModalEffectLines(slot, equipPiece) : [];
         const uniqueArt = pieceName ? equipmentUniqueImageSrc(pieceName) : null;
         return (
           <Modal
@@ -2680,12 +2700,42 @@ function EquipButton(props: {
             position: "relative",
             width: "100%",
             height: "100%",
+            minHeight: 0,
             display: "grid",
-            placeItems: "center",
+            gridTemplateAreas: '"stack"',
+            gridTemplateRows: "1fr",
+            gridTemplateColumns: "1fr",
           }}
         >
-          <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
-          <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
+          <div
+            style={{
+              gridArea: "stack",
+              minHeight: 0,
+              overflow: "hidden",
+              borderRadius: 12,
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
+          </div>
+          <div
+            style={{
+              gridArea: "stack",
+              zIndex: 2,
+              pointerEvents: "none",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              justifyContent: "flex-end",
+              width: "100%",
+              height: "100%",
+              boxSizing: "border-box",
+              padding: 4,
+            }}
+          >
+            <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
+          </div>
         </div>
       </LootFlashShell>
     </button>
@@ -2702,16 +2752,16 @@ function EquipIcon(props: {
   iconSize?: number;
 }) {
   const uniqueSrc = props.genericOnly ? null : equipmentUniqueImageSrc(props.equippedName);
-  // Note: provided file name is "accesory.svg" in public/equipment.
+  // Note: provided file name is "accesory.svg" in public/equipment/accessory.
   const src =
     uniqueSrc ??
     (props.slot === "weapon"
-      ? "/equipment/weapon.svg"
+      ? "/equipment/weapon/weapon.svg"
       : props.slot === "armor"
-        ? "/equipment/armor.svg"
+        ? "/equipment/armor/armor.svg"
         : props.slot === "helmet"
-          ? "/equipment/helmet.svg"
-          : "/equipment/accesory.svg");
+          ? "/equipment/helmet/helmet.svg"
+          : "/equipment/accessory/accesory.svg");
   const tintFilter = uniqueSrc
     ? props.disabled
       ? "grayscale(0.6) brightness(0.9) opacity(0.72)"
@@ -2737,12 +2787,12 @@ function EquipIcon(props: {
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).src =
           props.slot === "weapon"
-            ? "/equipment/weapon.svg"
+            ? "/equipment/weapon/weapon.svg"
             : props.slot === "armor"
-              ? "/equipment/armor.svg"
+              ? "/equipment/armor/armor.svg"
               : props.slot === "helmet"
-                ? "/equipment/helmet.svg"
-                : "/equipment/accesory.svg";
+                ? "/equipment/helmet/helmet.svg"
+                : "/equipment/accessory/accesory.svg";
       }}
       alt=""
       aria-hidden
@@ -2892,6 +2942,67 @@ function equipmentInventoryEffectBadges(piece?: Player["equipment"][EquipmentSlo
     badges.push({ icon: "armor", label: defenseLabel });
   }
   return badges;
+}
+
+function equipmentModalEffectLines(
+  slot: EquipmentSlot,
+  piece?: Player["equipment"][EquipmentSlot],
+): string[] {
+  if (!piece) return [];
+  const lines: string[] = [];
+  if ("power" in piece && typeof piece.power === "number" && piece.power > 0) {
+    lines.push(sv.play.powerPlus(piece.power));
+  }
+  if ("gainGoldOnWin" in piece && typeof piece.gainGoldOnWin === "number" && piece.gainGoldOnWin > 0) {
+    lines.push(`Vid vinst: +${piece.gainGoldOnWin} pant.`);
+  }
+  if ("randomOtherDamageOnWin" in piece && typeof piece.randomOtherDamageOnWin === "number" && piece.randomOtherDamageOnWin > 0) {
+    lines.push(`Vid vinst: slumpad annan spelare tar ${piece.randomOtherDamageOnWin} skada.`);
+  }
+  if ("powerAtGold10" in piece && typeof piece.powerAtGold10 === "number") {
+    lines.push(`Vid 10+ pant: kraft +${piece.powerAtGold10}.`);
+  }
+  if ("powerAtGold20" in piece && typeof piece.powerAtGold20 === "number") {
+    lines.push(`Vid 20+ pant: kraft +${piece.powerAtGold20}.`);
+  }
+  if ("powerAtGold30" in piece && typeof piece.powerAtGold30 === "number") {
+    lines.push(`Vid 30+ pant: kraft +${piece.powerAtGold30}.`);
+  }
+  if ("combatBonus" in piece && typeof piece.combatBonus === "number" && piece.combatBonus > 0) {
+    lines.push(sv.play.combatBonus(piece.combatBonus));
+  }
+  if ("damageNegate" in piece && typeof piece.damageNegate === "number" && piece.damageNegate > 0) {
+    lines.push(sv.play.negatePerHit(piece.damageNegate));
+  }
+  if ("negateAllOnce" in piece && piece.negateAllOnce) {
+    lines.push(sv.play.armorNegateAllOnce);
+  }
+  if ("moveBonus" in piece && typeof piece.moveBonus === "number" && piece.moveBonus > 0) {
+    lines.push(sv.play.moveSteps(piece.moveBonus));
+  }
+  if ("pvpDieBonus" in piece && typeof piece.pvpDieBonus === "number") {
+    lines.push(sv.play.pvpWeaponDieBonus(piece.pvpDieBonus));
+  }
+  if ("pvpCannotBeChallenged" in piece && piece.pvpCannotBeChallenged) {
+    lines.push("Andra spelare kan inte utmana dig till BvB, men du kan utmana dem.");
+  }
+  if ("gainGoldOnDamageTaken" in piece && typeof piece.gainGoldOnDamageTaken === "number" && piece.gainGoldOnDamageTaken > 0) {
+    lines.push(`När du tar skada: få +${piece.gainGoldOnDamageTaken} pant.`);
+  }
+  if ("bossDamageNegateBonus" in piece && typeof piece.bossDamageNegateBonus === "number" && piece.bossDamageNegateBonus > 0) {
+    lines.push(`Mot boss: nollställ ytterligare ${piece.bossDamageNegateBonus} skada per träff.`);
+  }
+  if ("penaltySipExtra" in piece && typeof piece.penaltySipExtra === "number" && piece.penaltySipExtra > 0) {
+    lines.push(`När du får straffklunk: drick ${piece.penaltySipExtra} extra klunk.`);
+  }
+  if ("klunkAttackBonus10" in piece && typeof piece.klunkAttackBonus10 === "number") {
+    lines.push(`Vid 10+ klunkar: +${piece.klunkAttackBonus10} attack.`);
+  }
+  if ("klunkAttackBonus20" in piece && typeof piece.klunkAttackBonus20 === "number") {
+    lines.push(`Vid 20+ klunkar: +${piece.klunkAttackBonus20} attack.`);
+  }
+  if (slot === "helmet" && lines.length === 0) return [];
+  return lines;
 }
 
 /** Snabb överblick i inventory-rutan: ikon + tal (läk, pant, monster, spelar-attack i strid). */
@@ -3053,9 +3164,6 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
     <span
       aria-hidden
       style={{
-        position: "absolute",
-        bottom: 0,
-        right: 0,
         display: "inline-flex",
         alignItems: "center",
         gap: 3,
@@ -3064,7 +3172,6 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
         background: "rgba(11,18,38,0.92)",
         border: "1px solid rgba(255,255,255,0.2)",
         boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
-        zIndex: 2,
         pointerEvents: "none",
       }}
     >
@@ -3103,12 +3210,9 @@ function EquipmentInventoryEffectBadges({ piece }: { piece?: Player["equipment"]
     <span
       aria-hidden
       style={{
-        position: "absolute",
-        bottom: 0,
-        right: 0,
         display: "grid",
         gap: 4,
-        zIndex: 2,
+        justifyItems: "end",
         pointerEvents: "none",
       }}
     >
@@ -3338,20 +3442,47 @@ function EnemyIntroModal(props: {
   bossPulsingBackdrop?: boolean;
   teammateName?: string;
 }) {
-  const aboveScene = props.teammateName ? (
-    <div
-      style={{
-        textAlign: "center",
-        opacity: 0.9,
-        marginBottom: 4,
-        fontSize: 14,
-        color: "#f1f5f9",
-        textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
-      }}
-    >
-      {sv.play.teammatePicked(props.teammateName)}
-    </div>
-  ) : null;
+  const bossRoundLabel = (() => {
+    const raw = props.bossLivesRemaining;
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+    const lives = Math.max(1, Math.min(FINAL_BOSS_LIFE_TOTAL, Math.floor(raw)));
+    const round = FINAL_BOSS_LIFE_TOTAL - lives + 1;
+    return `RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`;
+  })();
+  const aboveScene =
+    bossRoundLabel || props.teammateName ? (
+      <div style={{ display: "grid", gap: 6, marginBottom: 4 }}>
+        {bossRoundLabel ? (
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+              fontSize: "clamp(1.5rem, 7.8vw, 2.35rem)",
+              lineHeight: 1.02,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "#f8fafc",
+              textShadow: "0 2px 12px rgba(0,0,0,0.8), 0 0 24px rgba(239,68,68,0.45)",
+            }}
+          >
+            {bossRoundLabel}
+          </div>
+        ) : null}
+        {props.teammateName ? (
+          <div
+            style={{
+              textAlign: "center",
+              opacity: 0.9,
+              fontSize: 14,
+              color: "#f1f5f9",
+              textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
+            }}
+          >
+            {sv.play.teammatePicked(props.teammateName)}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <CardFlipModalShell
@@ -3424,11 +3555,18 @@ function SipNoticeCardModal(props: {
   recipientName: string;
   fromPlayerName: string;
   klunkCount: number;
+  customTitle?: string;
+  customBody?: string;
+  noticeKind?: SipNoticeKind;
   onAck: () => void;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
   const recipient = props.recipientName?.trim() || "—";
   const count = Math.max(1, Math.floor(props.klunkCount));
+  const hasCustom = !!props.customTitle || !!props.customBody;
+  const duelLoss = props.noticeKind === "duel_loss";
+  const title = props.customTitle?.trim() || sv.sipNotice.title;
+  const body = props.customBody?.trim();
   return (
     <div
       style={{
@@ -3475,56 +3613,101 @@ function SipNoticeCardModal(props: {
             width: "100%",
             fontFamily: "var(--heading)",
             fontWeight: 400,
-            fontSize: "clamp(1.5rem, 9cqw, 2.35rem)",
+            fontSize: duelLoss ? "clamp(1.35rem, 7.5cqw, 2rem)" : "clamp(1.5rem, 9cqw, 2.35rem)",
             lineHeight: 1.05,
-            letterSpacing: "0.03em",
-            textTransform: "uppercase",
+            letterSpacing: duelLoss ? "0.02em" : "0.03em",
+            textTransform: duelLoss ? "none" : "uppercase",
           }}
         >
-          {sv.sipNotice.title}
+          {title}
         </h2>
-        <img
-          src="/icons/klunk.svg"
-          alt=""
-          aria-hidden
-          className={styles.sipKlunkIconWobble}
-          style={{
-            width: "clamp(88px, 32cqw, 130px)",
-            height: "clamp(88px, 32cqw, 130px)",
-            objectFit: "contain",
-            filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.35))",
-          }}
-        />
-        <div
-          style={{
-            fontFamily: "var(--heading)",
-            fontWeight: 400,
-            fontSize: "clamp(1.45rem, 8.5cqw, 2.15rem)",
-            lineHeight: 1.02,
-            letterSpacing: "0.03em",
-            textTransform: "uppercase",
-          }}
-        >
-          {recipient}
-        </div>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--sans)",
-            fontSize: "clamp(1rem, 5.2cqw, 1.45rem)",
-            fontWeight: 700,
-            lineHeight: 1.25,
-            opacity: 0.98,
-            maxWidth: "100%",
-          }}
-        >
-          {sv.sipNotice.bodyPrefix(recipient, count)}
-          <br />
-          <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
-        </p>
+        {duelLoss ? (
+          <div
+            aria-hidden
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: "50%",
+              background: "#dc2626",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "0 8px 24px rgba(220, 38, 38, 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
+            }}
+          >
+            <img
+              src="/icons/thumbdown-icon.svg"
+              alt=""
+              draggable={false}
+              style={{
+                width: 36,
+                height: 36,
+                objectFit: "contain",
+                filter: "brightness(0) invert(1)",
+              }}
+            />
+          </div>
+        ) : !hasCustom ? (
+          <img
+            src="/icons/klunk.svg"
+            alt=""
+            aria-hidden
+            className={styles.sipKlunkIconWobble}
+            style={{
+              width: "clamp(88px, 32cqw, 130px)",
+              height: "clamp(88px, 32cqw, 130px)",
+              objectFit: "contain",
+              filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.35))",
+            }}
+          />
+        ) : null}
+        {!duelLoss ? (
+          <div
+            style={{
+              fontFamily: "var(--heading)",
+              fontWeight: 400,
+              fontSize: "clamp(1.45rem, 8.5cqw, 2.15rem)",
+              lineHeight: 1.02,
+              letterSpacing: "0.03em",
+              textTransform: "uppercase",
+            }}
+          >
+            {recipient}
+          </div>
+        ) : null}
+        {body ? (
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "var(--sans)",
+              fontSize: duelLoss ? "clamp(0.88rem, 4.2cqw, 1.05rem)" : "clamp(1rem, 5.2cqw, 1.45rem)",
+              fontWeight: duelLoss ? 600 : 700,
+              lineHeight: 1.25,
+              opacity: duelLoss ? 0.9 : 0.98,
+              maxWidth: "100%",
+            }}
+          >
+            {body}
+          </p>
+        ) : (
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "var(--sans)",
+              fontSize: "clamp(1rem, 5.2cqw, 1.45rem)",
+              fontWeight: 700,
+              lineHeight: 1.25,
+              opacity: 0.98,
+              maxWidth: "100%",
+            }}
+          >
+            {sv.sipNotice.bodyPrefix(recipient, count)}
+            <br />
+            <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
+          </p>
+        )}
         <div style={{ marginTop: 8, width: "100%", flexShrink: 0 }}>
           <ArcadeButton variant="pink" fullWidth onClick={props.onAck}>
-            {sv.sipNotice.cheers}
+            {duelLoss ? sv.sipNotice.duelAck : hasCustom ? sv.sipNotice.ack : sv.sipNotice.cheers}
           </ArcadeButton>
         </div>
       </div>
