@@ -40,7 +40,6 @@ import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import styles from "./PlayView.module.css";
-import activeTurnRainbow from "../styles/activeTurnRainbow.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
@@ -1733,7 +1732,7 @@ export function PlayView() {
 
   return (
     <div
-      className={[styles.page, highlightPulse ? activeTurnRainbow.activeTurn : ""].filter(Boolean).join(" ")}
+      className={styles.page}
       style={{
         width: "100%",
         maxWidth: 740,
@@ -2308,6 +2307,7 @@ export function PlayView() {
           className={[
             styles.bottomSheet,
             styles.bottomSheetEnter,
+            highlightPulse ? styles.bottomSheetActiveTurn : "",
             itemDetailSheet ||
               equipDetailSheet ||
               cardOrSipActions ||
@@ -2319,6 +2319,7 @@ export function PlayView() {
             .filter(Boolean)
             .join(" ")}
         >
+          {highlightPulse ? <div className={styles.bottomSheetActiveTurnBg} aria-hidden /> : null}
           <div
             className={[styles.bottomSheetInner, sheetFlash && styles.bottomSheetInnerFlash]
               .filter(Boolean)
@@ -2538,16 +2539,7 @@ export function PlayView() {
               <div style={{ opacity: 0.9 }}>{sv.play.itemNotFound}</div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
-                <div
-                  style={{
-                    width: "100%",
-                    aspectRatio: "16/9",
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid #ffffff22",
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))",
-                  }}
-                >
+                <div className={styles.itemModalArtFrame}>
                   <img
                     src={itemImageSrc(inst.itemId)}
                     onError={(e) => {
@@ -2555,7 +2547,7 @@ export function PlayView() {
                     }}
                     alt=""
                     aria-hidden
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    className={styles.itemModalArtImage}
                   />
                 </div>
                 <div style={{ opacity: 0.9 }}>{itemMeta(inst.itemId).text}</div>
@@ -3753,6 +3745,8 @@ function CardModal(props: {
   const treasureItemReveal = props.kind === "treasure" && props.cardId.startsWith("treasure_item_");
   const showTreasure =
     props.kind === "treasure" && !treasureItemReveal && !showCombatWin && !showCombatLose;
+  const foundItemReveal =
+    props.cardId.startsWith("event_find_item_") || props.cardId.startsWith("treasure_item_");
   const showDoorLocked = props.cardId === "door_locked";
   const centeredCombatOutcome = showCombatWin || showCombatLose || showTreasure;
   const eventStoryLayout =
@@ -3886,10 +3880,11 @@ function CardModal(props: {
                   aspectRatio: "4/3",
                   borderRadius: 14,
                   overflow: "hidden",
-                  border: "1px solid #ffffff22",
-                  background: "rgba(255,255,255,0.92)",
+                  border: foundItemReveal ? "none" : "1px solid #ffffff22",
+                  background: foundItemReveal ? "transparent" : "rgba(255,255,255,0.92)",
                   boxSizing: "border-box",
                 }}
+                className={foundItemReveal ? styles.cardFoundItemArtFrame : undefined}
               >
                 <img
                   src={artImageSrc(effectiveArtKey)}

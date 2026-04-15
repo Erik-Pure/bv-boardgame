@@ -244,7 +244,7 @@ export const MONSTERS: MonsterDef[] = [
   },
   {
     id: "fermentation_hydra",
-    name: "Fermenteringshydran",
+    name: "Sura Bär-särkare",
     strength: 9,
     baseDamage: 6,
     rulesText: "",

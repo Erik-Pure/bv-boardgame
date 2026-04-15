@@ -348,6 +348,47 @@
   box-shadow: 0 -14px 44px rgba(0, 0, 0, 0.38);
 }
 
+.bottomSheetActiveTurn {
+  isolation: isolate;
+  overflow: visible;
+}
+
+.bottomSheetActiveTurnBg {
+  position: absolute;
+  inset: 0;
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bottomSheetActiveTurnBg::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220vmax;
+  height: 220vmax;
+  margin: 0;
+  clip-path: inset(0 round 22px 22px 0 0);
+  background: conic-gradient(
+    from 0deg,
+    hsl(350, 95%, 58%),
+    hsl(300, 92%, 56%),
+    hsl(250, 90%, 58%),
+    hsl(200, 88%, 52%),
+    hsl(150, 85%, 48%),
+    hsl(100, 88%, 50%),
+    hsl(50, 95%, 54%),
+    hsl(350, 95%, 58%)
+  );
+  filter: blur(24px) saturate(1.6);
+  opacity: 0.5;
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: bottomSheetRainbowSpin 11s linear infinite;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .bottomSheet {
     background: rgba(11, 18, 38, 0.92);
@@ -359,6 +400,8 @@
   margin: 0 auto;
   padding: 14px 16px 16px;
   color: #ffffff;
+  position: relative;
+  z-index: 1;
 }
 
 .equipmentGridWrap {
@@ -391,6 +434,65 @@
   font-size: 14px;
   font-weight: 600;
   text-align: center;
+}
+
+.itemModalArtFrame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.itemModalArtFrame::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background:
+    conic-gradient(from 0deg, #ff2d95, #7c4dff, #30b7ff, #2bd67b, #ffd23f, #ff7a00, #ff2d95);
+  animation: itemModalRainbowSpin 7s linear infinite;
+  z-index: 0;
+}
+
+.itemModalArtImage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cardFoundItemArtFrame {
+  position: relative;
+  isolation: isolate;
+}
+
+.cardFoundItemArtFrame::before {
+  content: "";
+  position: absolute;
+  inset: -55%;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 42%),
+    conic-gradient(from 0deg, #ff2d95, #7c4dff, #30b7ff, #2bd67b, #ffd23f, #ff7a00, #ff2d95);
+  animation: itemModalRainbowSpin 6.8s linear infinite;
+  transform-origin: center center;
+  z-index: 0;
+}
+
+.cardFoundItemArtFrame > img {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes itemModalRainbowSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Tärning + resultatrad. Tom caption (före kast / idle-snurr) ska inte reservera 3em — annars stor lucka till knappen. */
@@ -493,6 +595,15 @@
   }
 }
 
+@keyframes bottomSheetRainbowSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bottomSheetInnerFlash::before {
     animation: none;
@@ -502,8 +613,25 @@
     animation: none;
   }
 
+  .bottomSheetActiveTurnBg::before {
+    animation: none;
+    transform: translate(-50%, -50%);
+  }
+
   .statsCellRadialRun {
     animation: statsRadialPopReduced 0.55s ease-out forwards;
+  }
+
+  .itemModalArtFrame {
+    animation: none;
+  }
+
+  .itemModalArtFrame::before {
+    animation: none;
+  }
+
+  .cardFoundItemArtFrame::before {
+    animation: none;
   }
 
   .statIconWobble {

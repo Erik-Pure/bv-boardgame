@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.15 |
-| Senast uppdaterad | 2026-04-14 |
+| Version | 0.16 |
+| Senast uppdaterad | 2026-04-15 |
 
 ---
 
@@ -32,7 +32,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 | Webb (stor skärm / laptop / surfplatta) | Spelplan, gemensam logg, animationer |
 | Webb (mobil) | Personlig kontroll: inventory, val, tärning/duell, bekräfta klunkar |
 
-**Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) ska bakgrunden ge en **tydlig, livlig signal**: **regnbågsfärgad gradient** som **roterar** och **pulserar** i intensitet — **endast i mobilvy** (`/play`), inte på storskärmsbrädet (`/table`), så TV-vyn förblir neutral för hela gruppen.
+**Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) ska UI ge en tydlig signal via **interaktionspanelen längst ned** (där tärning/knappar visas): en **regnbågsfärgad gradient** som **roterar** bakom panelinnehållet. Effekten ligger **inte** över hela `/play`-bakgrunden och används inte på storskärmsbrädet (`/table`), så TV-vyn förblir neutral.
 
 ### 2.1 Storskärmsvy: pan, zoom och fokus
 
@@ -254,12 +254,16 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Föremålsbrickor (mobil, Safari / WebKit):** inventory-rutorna för **föremål** ska använda **lagerindelad layout** (t.ex. CSS grid med gemensam **“stack”**-cell): **bilden** i ett **eget** lager med `overflow: hidden` och avrundade hörn, **antal** (stack) och **effekt-badge** (ikon + siffra/text) i ett **overlay-lager** ovanpå med `z-index`. Syfte: undvika att **`object-fit: cover`** + **`height: 100%`** på `<img>` klipper bort **nederkant** på badge/siffror (känt iOS Safari när yttre knapp har `overflow: hidden`). Utrustningsfyran kan följa **samma mönster** så små märken längst ner inte klipps.
 
+**Fynd-kort i modal (händelse/skatt):** när spelaren hittar item via kort (`event_find_item_*`, `treasure_item_*`) använder bildrutan i kortmodalen en **roterande radial/conic-regnbågsbakgrund** bakom item-arten. Bilden fyller rutan (`object-fit: cover`) och bakgrundseffekten är avgränsad till själva bildramen.
+
 ---
 
 ## 12. Död och respawn
 
-- Spelaren kan **välja att respawna** efter att ha blivit besegrad/“död” (exakt trigger definieras i combat-regler).
-- **Kostnad:** vid respawn **tappar spelaren all utrustning** förutom **en (1) vald pryl** som får behållas (spelaren väljer vilken innan respawn genomförs).
+- Spelaren kan **välja att starta om på nytt** efter att ha blivit besegrad/“död” (exakt trigger definieras i combat-regler).
+- **Omstart (nuvarande implementation):** spelaren återställs till ett nytt startläge: **start-ruta** (nivå 1, tile 0), **0 pant**, **0 klunkar**, tomt **inventory**, ingen **utrustning**, och strids-/statusflaggor nollställs.
+- **HP vid omstart:** sätts till grundvärde (nuvarande implementation: **10/10**).
+- **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1.
 - **Respawn-plats:** definiera i implementation (t.ex. starttile på aktuell nivå eller alltid nivå 1 — dokumentera här när fastställt).
 
 ---
@@ -341,7 +345,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
 - Utrustningsplatser, liten händelse-/kortlek, klunk-räknare kopplad till några kort.
 - Tre slutbossar (individuell strid); standard-vinst **döda boss först**; variant **gyllene öl + flykt till start/slutpunkt**.
-- Respawn med “behåll en pryl”.
+- Respawn/omstart enligt §12 (full reset till startläge).
 
 **Senare**
 
@@ -400,4 +404,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.13 | 2026-04-12 | Monster styrkekrav **per våning** (+`levelIndex`, lokalt) — inte globalt; §7.3/§13.1/§19; nivåvals-modalcopy |
 | 0.14 | 2026-04-13 | Skatt: slump **Tom gömma**, återbesök samma ruta; §10.1 Skägget/Lengräddad/Canman/`randomItem`+utrustning; slutbossar (3 st, UI); §11 utrustningsmodal + badges; header (Zzz); **`/cards`** kortkatalog (§16.2); rörelse §8: ingen skägg-dubbling av rörelse |
 | 0.15 | 2026-04-14 | §9.2 BvB: `pvpDieBonus` i duelltotal; **duell-förlust-notis** på mobil (`duel_loss`, rubrik, ikon, “Fattar”); §7.4/§10.2 **Panta burkar** synkad med katalog (ankare + effekt-/prislinje); §11 föremål + utrustning **Safari-klipp** (stack-layout); utrustning: t.ex. **Fathammare** +1 BvB; finjusterade pantpriser (t.ex. Skumvisir) |
+| 0.16 | 2026-04-15 | Aktiv-tur-regnbåge flyttad till **interaktionspanelen** (inte full bakgrund); fynd-kort (händelse/skatt) med roterande regnbågsbakgrund i bildram; respawn/“starta om på nytt” uppdaterad till full reset (start-ruta, 0 pant/klunkar, tom utrustning/förråd); monsternamn: **Fermenteringshydran** → **Sura Bär-särkare** (*Lika som bär*) |
 

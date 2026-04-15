@@ -16,6 +16,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/humlan": "Humlan sommaröl, Bryggverket",
   "monster/megasouruz": "Megasouruz, Bryggverket & Brygghus 19",
   "monster/pimp": "Pimp, Puff Imperial Porter, Bryggverket & Tempel brygghus",
+  "monster/fermentation-hydra": "Lika som bär, Bryggverket",
   "monster/skum-banan": "Skum banan, Bryggverket",
   "monster/rabarbapappa": "Rabarbapappa, Bryggverket",
   "monster/brottningsmatch": "Lengräddad, Bryggverket & Tempel brygghus",

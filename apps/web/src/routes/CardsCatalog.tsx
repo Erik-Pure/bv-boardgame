@@ -45,6 +45,12 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_spill_intentional",
 ]);
 
+function imageFileNameFromSrc(src: string): string {
+  const clean = src.split("?")[0]?.split("#")[0] ?? src;
+  const parts = clean.split("/");
+  return parts[parts.length - 1] || clean;
+}
+
 function groupCardsByKind(cards: CardDef[]): Map<CardKind, CardDef[]> {
   const m = new Map<CardKind, CardDef[]>();
   for (const k of KIND_ORDER) m.set(k, []);
@@ -351,6 +357,7 @@ function MonsterCatalogCard(props: {
 }) {
   const m = props.monster;
   const src = artImageSrc(m.artKey);
+  const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(m.artKey);
   const tagline = props.showBossTagline ? finalBossCardTagline(m.id) : null;
   return (
@@ -411,6 +418,7 @@ function MonsterCatalogCard(props: {
         </div>
         <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{m.id}</code>
         <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>{m.artKey}</code>
+        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         {tagline ? (
           <div style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35 }}>{tagline}</div>
         ) : null}
@@ -422,6 +430,7 @@ function MonsterCatalogCard(props: {
 
 function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
   const src = equipmentCatalogImageSrc(item.name, item.slot);
+  const fileName = imageFileNameFromSrc(src);
   return (
     <article
       style={{
@@ -463,6 +472,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{item.name}</div>
         <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.4 }}>{formatShopItemEffectSummary(item)}</div>
         <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{item.id}</code>
+        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         <div style={{ fontSize: 11, opacity: 0.65 }}>
           {capitalizeWord(equipmentSlotSv(item.slot))} · {item.price} pant
         </div>
@@ -473,6 +483,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
 
 function CatalogCard({ card }: { card: CardDef }) {
   const src = artImageSrc(card.artKey);
+  const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(card.artKey);
   return (
     <article
@@ -508,6 +519,7 @@ function CatalogCard({ card }: { card: CardDef }) {
         {card.artKey ? (
           <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>{card.artKey}</code>
         ) : null}
+        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         {card.text ? (
           <div
             style={{

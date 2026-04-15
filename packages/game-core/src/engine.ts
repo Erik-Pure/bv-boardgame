@@ -1364,8 +1364,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     if (action.choice === "retry") {
       victim.eliminated = false;
+      victim.levelIndex = 0;
+      victim.tileIndex = 0;
+      victim.gold = 0;
+      victim.klunkar = 0;
+      victim.equipment = {};
+      victim.inventory = [];
+      victim.nextMoveBonus = 0;
+      victim.nextCombatModifier = 0;
+      victim.nextCombatAttackDiceDouble = undefined;
+      victim.skippedTurns = 0;
+      victim.maxHp = 10;
       victim.hp = victim.maxHp;
-      log(next, `${victim.name} reser sig och fortsätter med full HP (${victim.maxHp}).`);
+      log(next, `${victim.name} startar om på nytt: tillbaka till start, utan utrustning/föremål, 0 pant och 0 klunkar.`);
       next.pending = null;
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, victim.id);
