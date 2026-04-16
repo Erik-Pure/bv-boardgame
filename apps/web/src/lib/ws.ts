@@ -1,3 +1,7 @@
+import { createLogger } from "./logger";
+
+const log = createLogger("ws");
+
 export type WsStatus = "disconnected" | "connecting" | "connected";
 
 export type ServerMessage =
@@ -89,8 +93,7 @@ export function createClient(params: {
 
   const timeoutId = window.setTimeout(() => {
     if (ws.readyState === WebSocket.CONNECTING) {
-      // eslint-disable-next-line no-console
-      console.warn("[ws] connect timeout", url);
+      log.warn("connect timeout", url);
       ws.close();
       params.onStatus("disconnected");
       params.onMessage({
@@ -106,13 +109,11 @@ export function createClient(params: {
   ws.onopen = () => {
     clearConnTimeout();
     // Viktigt: inte "connected" förrän helloAck — annars tror mobil-UI att allt är OK när TCP-zombie är OPEN.
-    // eslint-disable-next-line no-console
-    console.log("[ws] open", { as: params.as, roomCode: params.roomCode });
+    log.debug("open", { as: params.as, roomCode: params.roomCode });
     handshakeTimeoutId = window.setTimeout(() => {
       handshakeTimeoutId = null;
       if (!helloAcked && ws.readyState === WebSocket.OPEN) {
-        // eslint-disable-next-line no-console
-        console.warn("[ws] handshake timeout (no helloAck)", url);
+        log.warn("handshake timeout (no helloAck)", url);
         ws.close();
         params.onStatus("disconnected");
         params.onMessage({
@@ -138,22 +139,19 @@ export function createClient(params: {
     clearConnTimeout();
     clearHandshakeTimeout();
     params.onStatus("disconnected");
-    // eslint-disable-next-line no-console
-    console.log("[ws] close");
+    log.debug("close");
   };
   ws.onerror = () => {
     clearConnTimeout();
     clearHandshakeTimeout();
     params.onStatus("disconnected");
-    // eslint-disable-next-line no-console
-    console.log("[ws] error");
+    log.debug("error");
   };
 
   ws.onmessage = (ev) => {
     try {
       const msg = JSON.parse(String(ev.data)) as ServerMessage;
-      // eslint-disable-next-line no-console
-      console.log("[ws] recv", msg);
+      log.debug("recv", msg.type);
       if (msg.type === "helloAck") {
         if (!helloAcked) {
           helloAcked = true;
@@ -174,16 +172,14 @@ export function createClient(params: {
     getReadyState: () => ws.readyState,
     send: (payload) => {
       if (ws.readyState !== WebSocket.OPEN) {
-        // eslint-disable-next-line no-console
-        console.log("[ws] send blocked; readyState=", ws.readyState);
+        log.debug("send blocked; readyState=", ws.readyState);
         params.onMessage({
           type: "error",
           message: "Not connected to the server (WebSocket not open).",
         });
         return;
       }
-      // eslint-disable-next-line no-console
-      console.log("[ws] send", payload);
+      log.debug("send", (payload as any)?.type ?? payload);
       ws.send(JSON.stringify(payload));
     },
     close: () => {

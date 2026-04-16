@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { WebSocketServer, type WebSocket } from "ws";
 import { clientMessageSchema, type ServerMessage } from "./protocol.js";
+import { createLogger } from "./logger.js";
 import {
   broadcastState,
   getOrCreateRoom,
@@ -13,6 +14,8 @@ import {
 const PORT = Number(process.env.PORT ?? 3001);
 /** 0.0.0.0 = lyssna på alla nätverksgränssnitt så mobiler på LAN kan ansluta. Sätt HOST=127.0.0.1 om du bara vill lokalt. */
 const HOST = process.env.HOST ?? "0.0.0.0";
+
+const log = createLogger("ws");
 
 const app = Fastify({ logger: false });
 
@@ -55,9 +58,7 @@ wss.on("connection", (ws) => {
   ws.on("message", (data) => {
     try {
       const msg = clientMessageSchema.parse(JSON.parse(String(data)));
-      // Minimal runtime debug (MVP)
-      // eslint-disable-next-line no-console
-      console.log("[ws] recv", msg.type);
+      log.debug("recv", msg.type);
 
       if (msg.type === "hello") {
         if (joined) return;
@@ -86,8 +87,7 @@ wss.on("connection", (ws) => {
         };
         ws.send(JSON.stringify(ack));
         broadcastState(res.room);
-        // eslint-disable-next-line no-console
-        console.log("[ws] helloAck + state", res.room.code, res.conn.playerId);
+        log.debug("helloAck + state", res.room.code, res.conn.playerId);
         return;
       }
 
@@ -98,21 +98,14 @@ wss.on("connection", (ws) => {
 
       if (msg.type === "action") {
         const room = getOrCreateRoom(joined.roomCode).room;
-        // eslint-disable-next-line no-console
-        console.log(
-          "[ws] action",
-          joined.roomCode,
-          joined.playerId,
-          (msg.action as any)?.type,
-        );
+        log.debug("action", joined.roomCode, joined.playerId, (msg.action as any)?.type);
         const err = handleAction(room, joined.playerId, msg.action);
         if (err) {
           sendError(ws, err);
           return;
         }
         broadcastState(room);
-        // eslint-disable-next-line no-console
-        console.log("[ws] broadcast state", joined.roomCode);
+        log.debug("broadcast state", joined.roomCode);
       }
     } catch (e) {
       sendError(ws, e instanceof Error ? e.message : "Unknown error");
@@ -125,8 +118,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// eslint-disable-next-line no-console
-console.log(
-  `[server] HTTP + WebSocket on port ${PORT} (host ${HOST}). Health: http://127.0.0.1:${PORT}/health — mobiler använder samma port mot datorns LAN-IP.`,
+createLogger("server").info(
+  `HTTP + WebSocket on port ${PORT} (host ${HOST}). Health: http://127.0.0.1:${PORT}/health — mobiler använder samma port mot datorns LAN-IP.`,
 );
 

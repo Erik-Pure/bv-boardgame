@@ -39,11 +39,16 @@ import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLi
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
+import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
+import { CombatEnemyIntroWaiting } from "../components/play/CombatEnemyIntroWaiting";
+import { CombatRollPreviewSheet } from "../components/play/CombatRollPreviewSheet";
+import { CombatHitMitigationSheet } from "../components/play/CombatHitMitigationSheet";
 import styles from "./PlayView.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
+import { createLogger } from "../lib/logger";
 import { artAttributionLabel, artImageSrc, resolveCardRevealArtKey } from "../lib/cardArt";
 import { equipmentUniqueImageSrc } from "../lib/equipmentImageSrc";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
@@ -138,6 +143,7 @@ const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
 
 export function PlayView() {
+  const log = useMemo(() => createLogger("play"), []);
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
@@ -394,13 +400,11 @@ export function PlayView() {
   const send = (action: ClientAction) => {
     if (status !== "connected") {
       setErr(sv.play.notConnected);
-      // eslint-disable-next-line no-console
-      console.log("[play] blocked send; ws status:", status, action);
+      log.debug("blocked send; ws status:", status, (action as any)?.type ?? action);
       return;
     }
     setErr(null);
-    // eslint-disable-next-line no-console
-    console.log("[play] send action", action);
+    log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
 
@@ -499,175 +503,38 @@ export function PlayView() {
     }
 
     if (pending?.type === "combat" && pending.phase === "chooseTeammate") {
-      const isAttacker = pending.attackerId === me.id;
-      const attacker = state.players.find((p) => p.id === pending.attackerId);
-      const options = state.players.filter((p) => p.id !== pending.attackerId);
-      if (isAttacker) {
-        return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.95 }}>{sv.play.chooseTeammate}</div>
-            <div style={{ textAlign: "center", opacity: 0.78, fontSize: 13 }}>{sv.play.teammateMustFight}</div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {options.map((p) => (
-                <ArcadeButton
-                  key={p.id}
-                  variant="blue"
-                  fullWidth
-                  onClick={() => send({ type: "chooseCombatTeammate", playerId: me.id, teammateId: p.id })}
-                >
-                  {p.name}
-                </ArcadeButton>
-              ))}
-            </div>
-          </div>
-        );
-      }
-      return (
-        <div style={{ textAlign: "center", opacity: 0.85 }}>
-          {sv.play.waitAttackerChooseTeammate(attacker?.name ?? capitalizeWord(sv.play.theAttacker))}
-        </div>
-      );
+      return <CombatChooseTeammateSheet state={state} me={me} pending={pending} send={send} />;
     }
 
     if (pending?.type === "combat" && pending.phase === "enemyIntro") {
-      const isAttacker = pending.attackerId === me.id;
-      const attacker = state.players.find((p) => p.id === pending.attackerId);
-      if (isAttacker) {
-        return null; // shown as flipping modal instead
-      }
-      return (
-        <div style={{ textAlign: "center", opacity: 0.85 }}>
-          {sv.play.attackerViewingEncounter(attacker?.name ?? capitalizeWord(sv.play.theAttacker))}
-        </div>
-      );
+      return <CombatEnemyIntroWaiting state={state} me={me} pending={pending} />;
     }
 
     if (pending?.type === "combat" && pending.phase === "rollPreview") {
-      const isAttacker = pending.attackerId === me.id;
-      const attacker = state.players.find((p) => p.id === pending.attackerId);
-      const die = pending.previewDie ?? 1;
-      const total = pending.previewTotal ?? 0;
-      const need = pending.previewNeed ?? 0;
-      const broDie = pending.previewBroDie;
-      const effAtt = pending.previewAttackDiceDoubled ? die * 2 : die;
-      const effBro =
-        broDie != null ? (pending.previewBroAttackDiceDoubled ? broDie * 2 : broDie) : null;
-      const baseDiceTotal = effAtt + (effBro ?? 0);
-      const bonus = total - baseDiceTotal;
-      const bonusText = bonus === 0 ? "" : bonus > 0 ? ` (+${bonus})` : ` (${bonus})`;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div className={styles.sheetDiceBlock}>
-            <div
-              style={{
-                display: "flex",
-                gap: 14,
-                justifyContent: "center",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <DiceCube3D value={die} size={76} oneAsMonsterIcon />
-              {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
-            </div>
-            <div className={styles.sheetDiceCaption}>
-              <span
-                className={styles.sheetDiceCaptionText}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  flexWrap: "wrap",
-                }}
-              >
-                <span>{`Attack totalt ${total}${bonusText} mot`}</span>
-                <img
-                  src="/icons/combat-icon.svg"
-                  alt=""
-                  aria-hidden
-                  style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
-                />
-                <span>{need}</span>
-              </span>
-            </div>
-            {pending.previewAttackDiceDoubled || pending.previewBroAttackDiceDoubled ? (
-              <div style={{ textAlign: "center", fontSize: 12, opacity: 0.85, marginTop: 4 }}>
-                {sv.play.combatAttackDoubledHint}
-              </div>
-            ) : null}
-          </div>
-          {isAttacker ? (
-            <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatRollAck", playerId: me.id })}>
-              {sv.play.continue}
-            </ArcadeButton>
-          ) : (
-            <div style={{ textAlign: "center", opacity: 0.85 }}>
-              {sv.play.waitAttackerContinue(attacker?.name ?? sv.play.theAttacker)}
-            </div>
-          )}
-        </div>
+        <CombatRollPreviewSheet
+          state={state}
+          me={me}
+          pending={pending}
+          send={send}
+          sheetDiceBlockClass={styles.sheetDiceBlock}
+          sheetDiceCaptionClass={styles.sheetDiceCaption}
+          sheetDiceCaptionTextClass={styles.sheetDiceCaptionText}
+        />
       );
     }
 
     if (pending?.type === "combat" && pending.phase === "chooseHitMitigation") {
-      const isAttacker = pending.attackerId === me.id;
-      const attacker = state.players.find((p) => p.id === pending.attackerId);
-      const die = pending.previewDie ?? 1;
-      const total = pending.previewTotal ?? 0;
-      const need = pending.previewNeed ?? 0;
-      const broDie = pending.previewBroDie;
-      const reduce = pending.monsterId === "kapten_interrobang" ? 3 : 2;
-      const full = pending.monsterId === "kapten_interrobang" ? 5 : 4;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div className={styles.sheetDiceBlock}>
-            <div
-              style={{
-                display: "flex",
-                gap: 14,
-                justifyContent: "center",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <DiceCube3D value={die} size={76} oneAsMonsterIcon />
-              {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
-            </div>
-            <div className={styles.sheetDiceCaption}>
-              <span className={styles.sheetDiceCaptionText}>
-                {sv.play.youLostTotal(total, need)}
-              </span>
-            </div>
-          </div>
-          <div style={{ textAlign: "center", opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>
-            {sv.play.hitChoiceIntro(pending.enemyName)}
-            <br />
-            <span style={{ opacity: 0.88 }}>{sv.play.hitChoiceDetail(reduce, full)}</span>
-          </div>
-          {isAttacker ? (
-            <div style={{ display: "grid", gap: 8 }}>
-              <ArcadeButton
-                variant="pink"
-                fullWidth
-                onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "sip" })}
-              >
-                {sv.play.takeSipReduce(reduce)}
-              </ArcadeButton>
-              <ArcadeButton
-                variant="gray"
-                fullWidth
-                onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "no_sip" })}
-              >
-                {sv.play.fullDamageNoSip(full)}
-              </ArcadeButton>
-            </div>
-          ) : (
-            <div style={{ textAlign: "center", opacity: 0.85 }}>
-              {sv.play.waitAttackerChoose(attacker?.name ?? sv.play.theAttacker)}
-            </div>
-          )}
-        </div>
+        <CombatHitMitigationSheet
+          state={state}
+          me={me}
+          pending={pending}
+          send={send}
+          sheetDiceBlockClass={styles.sheetDiceBlock}
+          sheetDiceCaptionClass={styles.sheetDiceCaption}
+          sheetDiceCaptionTextClass={styles.sheetDiceCaptionText}
+        />
       );
     }
 
