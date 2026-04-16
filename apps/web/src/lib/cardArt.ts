@@ -99,19 +99,19 @@ export function artImageSrc(artKey?: string): string {
   if (artKey.startsWith("monster/")) {
     const mKey = artKey.slice("monster/".length);
     if (mKey === "store-narcissius") {
-      return "/monsters/den-store-narcissus.png";
+      return "/monsters/den-store-narcissus.webp";
     }
     if (mKey === "onda-bryggverket") {
-      return "/monsters/onda-bryggverket.png";
+      return "/monsters/onda-bryggverket.webp";
     }
-    if (mKey === "oldomaren") return "/monsters/beer-judge.png";
-    return `/monsters/${mKey}.png`;
+    if (mKey === "oldomaren") return "/monsters/beer-judge.webp";
+    return `/monsters/${mKey}.webp`;
   }
   // Filer i apps/web/public/event/{namn}.png — t.ex. event/rest → public/event/rest.png
-  if (artKey.startsWith("event/")) return `/event/${artKey.slice("event/".length)}.png`;
+  if (artKey.startsWith("event/")) return `/event/${artKey.slice("event/".length)}.webp`;
   if (artKey.startsWith("item/")) {
     const key0 = artKey.slice("item/".length);
-    if (key0 === "lengraddad") return "/event/lengraddad.png";
+    if (key0 === "lengraddad") return "/event/lengraddad.webp";
     const itemArtMap: Record<string, string> = {
       heal: "healing-potion",
       sleep: "sleep-potion",
@@ -135,9 +135,9 @@ export function artImageSrc(artKey?: string): string {
     };
     const key = key0;
     const mapped = itemArtMap[key];
-    if (mapped) return `/items/${mapped}.png`;
+    if (mapped) return `/items/${mapped}.webp`;
     const underscored = key.replace(/-/g, "_");
-    return `/items/${underscored}.png`;
+    return `/items/${underscored}.webp`;
   }
   return "/card-placeholder.png";
 }
