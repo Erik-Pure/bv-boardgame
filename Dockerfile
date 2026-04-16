@@ -15,6 +15,7 @@ ENV CI=true
 RUN apk add --no-cache libc6-compat
 
 COPY package.json package-lock.json ./
+COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
 
