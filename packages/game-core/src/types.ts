@@ -412,7 +412,8 @@ export type ClientAction =
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string }
-  | { type: "combatRoll"; playerId: string }
+  /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = +1 klunk och +sipAttackBonus på slaget). */
+  | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
   | { type: "combatIntroAck"; playerId: string }
   | { type: "chooseCombatTeammate"; playerId: string; teammateId: string }
   | { type: "combatRollAck"; playerId: string }

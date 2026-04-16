@@ -3,7 +3,7 @@ import { createRng, pick, rollDie } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./cards/grantedItemText.js";
 import type { EffectApplyOut } from "./cards/types.js";
-import { drawFromDeck, getCard, itemDeckItemIds } from "./cards/db.js";
+import { drawFromDeck, getCard, itemDeckItemIds, itemDisplayTitle } from "./cards/db.js";
 import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
@@ -504,7 +504,7 @@ function destroyOneRandomItemOrEquipmentGlobally(
     o.player.inventory = inv;
     logFn(
       state,
-      `${o.player.name} tappar ett föremål${removed ? ` (${String(removed.itemId)})` : ""} — Onda bryggverket.`,
+      `${o.player.name} tappar ett föremål${removed ? ` (${itemDisplayTitle(removed.itemId)})` : ""} — Onda bryggverket.`,
     );
   } else {
     const slot = o.slot;
@@ -1802,13 +1802,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const stolen = target.inventory.splice(ti, 1)[0]!;
         user.inventory ??= [];
         user.inventory.push(stolen);
-        log(next, `${user.name} stjäl ${String(stolen.itemId)} från ${target.name}.`);
+        log(next, `${user.name} stjäl ${itemDisplayTitle(stolen.itemId)} från ${target.name}.`);
         pushPlayerNotice(
           next,
           target.id,
           user.name,
           "En enkel stöld",
-          `${user.name} stal ${String(stolen.itemId)} från dig.`,
+          `${user.name} stal ${itemDisplayTitle(stolen.itemId)} från dig.`,
         );
       } else {
         const slot = randomEquippedSlot(target, rng);
@@ -1849,13 +1849,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if ((target.inventory ?? []).length > 0) {
         const ti = Math.floor(rng() * target.inventory.length);
         const ruined = target.inventory.splice(ti, 1)[0]!;
-        log(next, `${user.name} spiller med flit och förstör ${String(ruined.itemId)} hos ${target.name}.`);
+        log(next, `${user.name} spiller med flit och förstör ${itemDisplayTitle(ruined.itemId)} hos ${target.name}.`);
         pushPlayerNotice(
           next,
           target.id,
           user.name,
           "Spilla med flit",
-          `${user.name} förstörde ${String(ruined.itemId)} hos dig.`,
+          `${user.name} förstörde ${itemDisplayTitle(ruined.itemId)} hos dig.`,
         );
       } else {
         const slot = randomEquippedSlot(target, rng);
@@ -1939,9 +1939,21 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     let sipBoost = 0;
     const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
     if (sipBonus > 0) {
-      roller.klunkar += 1;
-      sipBoost = sipBonus;
-      log(next, `${roller.name} tar en klunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`);
+      if (typeof action.useSipWeaponBonus !== "boolean") {
+        return {
+          state,
+          events: [],
+          error: "Välj om du vill ta en straffklunk för extra vapenstyrka innan du slår.",
+        };
+      }
+      if (action.useSipWeaponBonus) {
+        roller.klunkar += 1;
+        sipBoost = sipBonus;
+        log(
+          next,
+          `${roller.name} tar en straffklunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
+        );
+      }
     }
     const total = dieContribution + weaponPower(roller) + mod + sipBoost;
 

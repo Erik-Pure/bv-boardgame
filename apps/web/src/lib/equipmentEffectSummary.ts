@@ -28,7 +28,9 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.powerAtGold20 === "number") parts.push(`Vid 20+ pant: Kraft +${it.powerAtGold20}`);
   if (typeof it.powerAtGold30 === "number") parts.push(`Vid 30+ pant: Kraft +${it.powerAtGold30}`);
   if (typeof it.combatBonus === "number" && it.combatBonus > 0) parts.push(`Attack +${it.combatBonus}`);
-  if (typeof it.sipAttackBonus === "number") parts.push(`Sip-attack +${it.sipAttackBonus}`);
+  if (typeof it.sipAttackBonus === "number") {
+    parts.push(`Strid mot monster: valfri straffklunk före slag för +${it.sipAttackBonus} attack`);
+  }
   if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
   if (typeof it.damageNegate === "number") parts.push(`Skada −${it.damageNegate}`);
   if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {

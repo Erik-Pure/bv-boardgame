@@ -214,6 +214,8 @@ export const sv = {
     scoreboardHint:
       "Vinnaren överst, därefter flest klunkar. Jämte: pant, sedan namn. Ikoner: bryggnivå, klunkar, pant, liv.",
     winner: "Vinnare",
+    /** Knapp i modalen när spelet är slut — går till startsidan. */
+    gameOverLeaveToHome: "Avsluta spelet",
     debugLine: (parts: {
       ws: string;
       myId: string;
@@ -260,6 +262,10 @@ export const sv = {
     combatWinRoll: (roll: number, need: number) => `Slag: ${roll} (krävdes ${need})`,
     combatWinRandomOtherSip: (recipient: string) =>
       `${recipient} får en straffklunk — slumpad annan spelare.`,
+    combatSipWeaponPrompt: (weaponName: string, bonus: number) =>
+      `${weaponName}: vill du ta en straffklunk för +${bonus} attack på detta slag?`,
+    combatSipWeaponRollWith: (bonus: number) => `Slå med straffklunk (+${bonus} attack)`,
+    combatSipWeaponRollWithout: "Slå utan straffklunk",
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
@@ -292,6 +298,9 @@ export const sv = {
     canIntervene: "Kan ingripa:",
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
+    /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */
+    diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} med straffklunk (valfritt)`,
+    diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} med straffklunk (valfritt)`,
     pvpSubtitle: "Bryggare mot bryggare",
     pvpDuel: "Duell",
     pvpRound: (n: number) => `Rond ${n}`,

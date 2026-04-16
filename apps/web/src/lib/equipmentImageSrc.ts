@@ -11,6 +11,7 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     "Beer-chucks": "/equipment/weapon/beer-chucks.png",
     "Öl-nunchucks": "/equipment/weapon/beer-chucks.png",
     Fathammare: "/equipment/weapon/fathammare.png",
+    Humleklubba: "/equipment/weapon/humleklubba.png",
     Padel: "/equipment/weapon/padel.png",
     Mäskpaddel: "/equipment/weapon/padel.png",
     "Cap-front": "/equipment/helmet/cap-front.png",

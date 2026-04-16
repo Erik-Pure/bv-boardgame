@@ -13,6 +13,15 @@ export function getCard(id: string): CardDef {
   return c;
 }
 
+/** Visningsnamn för ett inventory-`itemId` (samma titel som på kortet `item_${itemId}`). */
+export function itemDisplayTitle(itemId: string): string {
+  try {
+    return getCard(`item_${itemId}`).title;
+  } catch {
+    return itemId;
+  }
+}
+
 export function drawFromDeck(kind: CardKind, rng: () => number): CardDef {
   const deck = db.decks?.[kind];
   if (!deck || deck.length === 0) throw new Error(`No deck for kind: ${kind}`);

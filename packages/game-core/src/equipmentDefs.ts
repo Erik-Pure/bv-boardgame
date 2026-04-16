@@ -18,6 +18,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     powerDynamicMax: 4,
   },
   { id: "ew_padel", slot: "weapon", name: "Mäskpaddel", price: 9, power: 1 },
+  { id: "ew_humleklubba", slot: "weapon", name: "Humleklubba", price: 12, power: 1, pvpDieBonus: 2 },
   { id: "ew_doublepipe", slot: "weapon", name: "Dubbelpipa", price: 15, power: 2, sipAttackBonus: 3 },
   { id: "ew_singlepipe", slot: "weapon", name: "Enkelpipa", price: 11, power: 1, sipAttackBonus: 2 },
   { id: "eh_cap_front", slot: "helmet", name: "Keps", price: 7, damageNegate: 1 },

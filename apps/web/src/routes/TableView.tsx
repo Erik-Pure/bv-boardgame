@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   BOARD_RING_GRID_SIZE,
   FINAL_BOSS_LIFE_TOTAL,
@@ -202,13 +202,17 @@ function pendingCardOwner(state: GameState | null) {
 
 type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
-/** Kort/items + vapnets sip-bonus (läggs på vid slag) — samma delar som motorn använder till attacktärningen. */
+/** Kort/items som alltid räknas in i attackmodifiern (t6 + kraft + detta). Pip-vapnets bonus visas separat som valfri. */
 function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: GameState): number {
   const attacker = state.players.find((p) => p.id === pending.attackerId);
   const fromCards = pending.attackMods?.[pending.attackerId] ?? 0;
   const fromItems = attacker?.nextCombatModifier ?? 0;
-  const fromWeaponSip = attacker?.equipment.weapon?.sipAttackBonus ?? 0;
-  return fromCards + fromItems + fromWeaponSip;
+  return fromCards + fromItems;
+}
+
+function boardAttackerOptionalSipWeaponBonus(state: GameState, pending: TableCombatPending): number {
+  const attacker = state.players.find((p) => p.id === pending.attackerId);
+  return attacker?.equipment.weapon?.sipAttackBonus ?? 0;
 }
 
 function formatSignedDiceModifier(sum: number): string | null {
@@ -471,7 +475,17 @@ function TableCombatBoardPanel({ state }: { state: GameState }) {
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
   const boardDiceModifierLabel =
     pending.phase === "reactions"
-      ? formatSignedDiceModifier(boardAttackerOutgoingRollModifier(pending, state))
+      ? (() => {
+          const base = boardAttackerOutgoingRollModifier(pending, state);
+          const sipOpt = boardAttackerOptionalSipWeaponBonus(state, pending);
+          const baseStr = formatSignedDiceModifier(base);
+          if (sipOpt > 0) {
+            return baseStr
+              ? `${baseStr} ${sv.table.diceModifierOptionalSipSuffix(sipOpt)}`
+              : sv.table.diceModifierOnlyOptionalSip(sipOpt);
+          }
+          return baseStr;
+        })()
       : null;
   const monsterCardWrapTransform =
     monsterTableAnim === "intro"
@@ -1020,6 +1034,7 @@ function tablePlayersAtTile(
 }
 
 export function TableView() {
+  const navigate = useNavigate();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const name = sp.get("name") ?? "Bord";
@@ -1950,6 +1965,11 @@ export function TableView() {
                       </li>
                     ))}
                 </ol>
+                <div style={{ marginTop: 20, width: "100%" }}>
+                  <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
+                    {sv.play.gameOverLeaveToHome}
+                  </ArcadeButton>
+                </div>
               </div>
             </div>
           ) : null}

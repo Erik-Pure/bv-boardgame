@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   brewerKlunkProgressRatio,
   brewerLevel,
@@ -138,6 +138,7 @@ const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
 
 export function PlayView() {
+  const navigate = useNavigate();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const name = sp.get("name") ?? "Bryggare";
@@ -777,19 +778,60 @@ export function PlayView() {
                   ? sv.play.waitTeammateCombatRoll(otherFighterName)
                   : sv.play.waitTeamSecondRoll}
               </div>
-            ) : (
-              <ArcadeButton
-                variant="pink"
-                fullWidth
-                onClick={() => {
-                  setCombatDiceSpinning(false);
-                  send({ type: "combatRoll", playerId: me.id });
-                }}
-                disabled={!!myTeamRoll}
-              >
-                {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
-              </ArcadeButton>
-            )}
+            ) : (() => {
+              const sipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
+              if (sipBonus > 0) {
+                return (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div
+                      style={{
+                        textAlign: "center",
+                        opacity: 0.92,
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {sv.play.combatSipWeaponPrompt(me.equipment.weapon?.name ?? "Vapnet", sipBonus)}
+                    </div>
+                    <ArcadeButton
+                      variant="pink"
+                      fullWidth
+                      onClick={() => {
+                        setCombatDiceSpinning(false);
+                        send({ type: "combatRoll", playerId: me.id, useSipWeaponBonus: true });
+                      }}
+                      disabled={!!myTeamRoll}
+                    >
+                      {sv.play.combatSipWeaponRollWith(sipBonus)}
+                    </ArcadeButton>
+                    <ArcadeButton
+                      variant="gray"
+                      fullWidth
+                      onClick={() => {
+                        setCombatDiceSpinning(false);
+                        send({ type: "combatRoll", playerId: me.id, useSipWeaponBonus: false });
+                      }}
+                      disabled={!!myTeamRoll}
+                    >
+                      {sv.play.combatSipWeaponRollWithout}
+                    </ArcadeButton>
+                  </div>
+                );
+              }
+              return (
+                <ArcadeButton
+                  variant="pink"
+                  fullWidth
+                  onClick={() => {
+                    setCombatDiceSpinning(false);
+                    send({ type: "combatRoll", playerId: me.id });
+                  }}
+                  disabled={!!myTeamRoll}
+                >
+                  {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
+                </ArcadeButton>
+              );
+            })()}
           </div>
         );
       }
@@ -2061,6 +2103,11 @@ export function PlayView() {
                   </li>
                 ))}
             </ol>
+            <div style={{ marginTop: 20, width: "100%" }}>
+              <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
+                {sv.play.gameOverLeaveToHome}
+              </ArcadeButton>
+            </div>
           </div>
         </div>
       )}
@@ -2974,6 +3021,11 @@ function equipmentModalEffectLines(
   }
   if ("pvpDieBonus" in piece && typeof piece.pvpDieBonus === "number") {
     lines.push(sv.play.pvpWeaponDieBonus(piece.pvpDieBonus));
+  }
+  if ("sipAttackBonus" in piece && typeof piece.sipAttackBonus === "number" && piece.sipAttackBonus > 0) {
+    lines.push(
+      `Strid mot monster: valfri straffklunk före stridstärningen för +${piece.sipAttackBonus} attack.`,
+    );
   }
   if ("pvpCannotBeChallenged" in piece && piece.pvpCannotBeChallenged) {
     lines.push("Andra spelare kan inte utmana dig till BvB, men du kan utmana dem.");
