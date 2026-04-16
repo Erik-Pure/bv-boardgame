@@ -3,7 +3,7 @@ import styles from "./ArcadeButton.module.css";
 
 export function ArcadeButton(
   props: ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "blue" | "pink" | "gray";
+    variant?: "blue" | "pink" | "gray" | "merchant";
     size?: "md" | "sm";
     fullWidth?: boolean;
     children: ReactNode;

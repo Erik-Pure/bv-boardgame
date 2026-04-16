@@ -16,6 +16,39 @@
   color: #ffffff;
 }
 
+.playerBoardPanel {
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Utrustning + föremål: full fönsteryta under fixed header; helt svart som stats-raden. */
+.playerEquipmentShell {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+  z-index: 5;
+  background: #000000;
+  border-radius: 0;
+  padding: 12px max(16px, env(safe-area-inset-left)) calc(56px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* top sätts inline = headerTopPad (under namn + ev. stats) */
+}
+
 .headerPlayersBtn {
   flex: 0 0 auto;
   display: grid;
@@ -47,6 +80,10 @@
 .headerStatsBar {
   padding-top: 11px;
   padding-bottom: 11px;
+  background: #000000;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  overflow: hidden;
 }
 
 .headerStatsInner {
@@ -59,7 +96,7 @@
 /* HP / pant / klunk — tre kolumner, ikon vänster och värde höger (horisontell rad under spelarnamn). */
 .statsStrip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   width: 100%;
   box-sizing: border-box;
@@ -80,6 +117,41 @@
 
 .statsCell:last-child {
   border-right: none;
+}
+
+.levelRingCell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 2px 4px;
+}
+
+.levelRingOuter {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(from 0deg, #f59e0b, #22d3ee, #60a5fa, #a78bfa, #f59e0b);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.levelRingInner {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(8, 12, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  line-height: 1;
+}
+
+.levelRingValue {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
 .statsCellIconSlot {
@@ -472,7 +544,9 @@
   z-index: 0;
 }
 
-.cardFoundItemArtFrame > img {
+.cardFoundItemArtFrame > img,
+.cardFoundItemArtFrame > picture,
+.cardFoundItemArtFrame > picture > img {
   position: relative;
   z-index: 1;
 }

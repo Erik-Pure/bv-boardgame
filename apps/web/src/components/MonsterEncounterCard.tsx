@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { CardArtAttribution } from "./CardArtAttribution";
-import { artAttributionLabel, artImageSrc } from "../lib/cardArt";
+import { artAttributionLabel, artImageSources } from "../lib/cardArt";
 import { FINAL_BOSS_LIFE_TOTAL } from "@bv/game-core";
 import { monsterSpecialRulesForDisplay } from "../lib/monsterCardCopy";
+import { PictureImg } from "./PictureImg";
 import styles from "./MonsterEncounterCard.module.css";
 
 const ICON = {
@@ -187,6 +188,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
   );
 
   const showAttribution = !!artAttributionLabel(props.artKey);
+  const artSources = artImageSources(props.artKey);
 
   return (
     <div className={[styles.wrap, fill && styles.wrapFill].filter(Boolean).join(" ")}>
@@ -304,8 +306,8 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           boxSizing: "border-box",
         }}
       >
-        <img
-          src={artImageSrc(props.artKey)}
+        <PictureImg
+          sources={artSources}
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
           }}

@@ -11,10 +11,11 @@ import {
   type EquipmentShopItem,
   type MonsterDef,
 } from "@bv/game-core";
-import { artAttributionLabel, artImageSrc } from "../lib/cardArt";
+import { artAttributionLabel, artImageSources } from "../lib/cardArt";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
-import { equipmentCatalogImageSrc } from "../lib/equipmentImageSrc";
+import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
+import { PictureImg } from "../components/PictureImg";
 
 const KIND_ORDER: CardKind[] = ["event", "item", "combat", "treasure", "rest", "empty"];
 
@@ -356,7 +357,8 @@ function MonsterCatalogCard(props: {
   showBossTagline?: boolean;
 }) {
   const m = props.monster;
-  const src = artImageSrc(m.artKey);
+  const sources = artImageSources(m.artKey);
+  const src = sources.webp ?? sources.fallback;
   const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(m.artKey);
   const tagline = props.showBossTagline ? finalBossCardTagline(m.id) : null;
@@ -401,8 +403,8 @@ function MonsterCatalogCard(props: {
           placeItems: "center",
         }}
       >
-        <img
-          src={src}
+        <PictureImg
+          sources={sources}
           alt=""
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
@@ -429,7 +431,8 @@ function MonsterCatalogCard(props: {
 }
 
 function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
-  const src = equipmentCatalogImageSrc(item.name, item.slot);
+  const sources = equipmentImageSources(item.name, item.slot);
+  const src = sources.webp ?? sources.fallback;
   const fileName = imageFileNameFromSrc(src);
   return (
     <article
@@ -452,8 +455,8 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
           boxSizing: "border-box",
         }}
       >
-        <img
-          src={src}
+        <PictureImg
+          sources={sources}
           alt=""
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
@@ -482,7 +485,8 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
 }
 
 function CatalogCard({ card }: { card: CardDef }) {
-  const src = artImageSrc(card.artKey);
+  const sources = artImageSources(card.artKey);
+  const src = sources.webp ?? sources.fallback;
   const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(card.artKey);
   return (
@@ -504,8 +508,8 @@ function CatalogCard({ card }: { card: CardDef }) {
           placeItems: "center",
         }}
       >
-        <img
-          src={src}
+        <PictureImg
+          sources={sources}
           alt=""
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";

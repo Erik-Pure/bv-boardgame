@@ -41,6 +41,17 @@ export function artAttributionLabel(artKey?: string): string | undefined {
   return ART_ATTRIBUTION_SV[artKey];
 }
 
+export type ArtImageSources = { avif?: string; webp?: string; fallback: string };
+
+function sourcesFromPath(webpPath: string): ArtImageSources {
+  // vi genererar .avif + .webp med samma basnamn; png ligger kvar som säker fallback.
+  if (webpPath.endsWith(".webp")) {
+    const base = webpPath.slice(0, -".webp".length);
+    return { avif: `${base}.avif`, webp: webpPath, fallback: `${base}.png` };
+  }
+  return { fallback: webpPath };
+}
+
 function randomItemRevealStillGeneric(artKey: string | undefined, cardId: string | undefined): boolean {
   if (!cardId) return false;
   if (cardId.startsWith("treasure_item_")) return (artKey ?? "").startsWith("tile/treasure");
@@ -142,7 +153,23 @@ export function artImageSrc(artKey?: string): string {
   return "/card-placeholder.png";
 }
 
+/** AVIF-first (med WebP-fallback) för artKey som pekar på rasterbilder. */
+export function artImageSources(artKey?: string): ArtImageSources {
+  const fallback = artImageSrc(artKey);
+  // svg eller png som inte har optimerade varianter
+  if (fallback.endsWith(".svg") || fallback.endsWith(".png")) return { fallback };
+  return sourcesFromPath(fallback);
+}
+
 /** Bild-URL för kort-pending med valfritt slumpat föremål (mobil + bord). */
 export function artImageSrcForPending(artKey?: string, grantedItemId?: string, meta?: CardRevealArtMeta): string {
   return artImageSrc(resolveCardRevealArtKey(artKey, grantedItemId, meta));
+}
+
+export function artImageSourcesForPending(
+  artKey?: string,
+  grantedItemId?: string,
+  meta?: CardRevealArtMeta,
+): ArtImageSources {
+  return artImageSources(resolveCardRevealArtKey(artKey, grantedItemId, meta));
 }

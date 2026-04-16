@@ -102,6 +102,7 @@ export const sv = {
     waitTeamSecondRoll: "Väntar på lagkamratens tärning.",
     chooseBeerBroPartner: "Välj spelare som slår med angriparen (egen t6 + vapen):",
     attackerViewingEncounter: (name: string) => `${name} tittar på mötet…`,
+    skipMonsterEncounter: "Undvik strid",
     theAttacker: "angriparen",
     yourD6: "Din t6",
     beerBroD6: "Ölkompis t6",

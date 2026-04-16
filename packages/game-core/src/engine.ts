@@ -202,7 +202,7 @@ function maxHpFor(p: Player): number {
 }
 
 function weaponPower(p: Player): number {
-  return effectiveWeaponPower(p) + helmetAttackBonus(p);
+  return effectiveWeaponPower(p) + helmetAttackBonus(p) + (p.equipment.accessory?.combatBonus ?? 0);
 }
 
 function effectiveWeaponPower(p: Player): number {
@@ -227,6 +227,25 @@ function applyWeaponWinGoldBonus(winner: Player): number {
   if (bonus <= 0) return 0;
   winner.gold += bonus;
   return bonus;
+}
+
+function applyPerCombatAccessoryRewards(state: GameState, participantId: string) {
+  const p = state.players.find((x) => x.id === participantId);
+  if (!p) return;
+  const acc = p.equipment.accessory;
+  if (!acc) return;
+  const goldGain = acc.gainGoldPerCombat ?? 0;
+  const klunkGain = acc.gainKlunkPerCombat ?? 0;
+  if (goldGain > 0) p.gold += goldGain;
+  if (klunkGain > 0) p.klunkar += klunkGain;
+  if (goldGain > 0 || klunkGain > 0) {
+    log(
+      state,
+      `${p.name} får bonus per strid: ${goldGain > 0 ? `+${goldGain} pant` : ""}${
+        goldGain > 0 && klunkGain > 0 ? " och " : ""
+      }${klunkGain > 0 ? `+${klunkGain} klunk` : ""}.`,
+    );
+  }
 }
 
 function applyWeaponWinRandomDamage(params: {
@@ -407,7 +426,17 @@ function grantRandomCombatReward(
             klunkAttackBonusMax: eq.klunkAttackBonusMax,
           };
         } else {
-          player.equipment.accessory = { name: eq.name, damageNegate: eq.damageNegate, moveBonus: eq.moveBonus };
+          player.equipment.accessory = {
+            name: eq.name,
+            damageNegate: eq.damageNegate,
+            combatBonus: eq.combatBonus,
+            moveBonus: eq.moveBonus,
+            gainGoldPerCombat: eq.gainGoldPerCombat,
+            gainKlunkPerCombat: eq.gainKlunkPerCombat,
+            preventTheft: eq.preventTheft,
+            levelUpDiscountGold: eq.levelUpDiscountGold,
+            canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
+          };
         }
         log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
         return;
@@ -858,7 +887,9 @@ function canOfferLevelUp(state: GameState, p: Player): {
 } | null {
   const targetLevelIndex = p.levelIndex + 1;
   if (targetLevelIndex >= state.levels.length) return null;
-  const costs = levelUpCostsForTargetLevel(targetLevelIndex);
+  const baseCosts = levelUpCostsForTargetLevel(targetLevelIndex);
+  const discount = p.equipment.accessory?.levelUpDiscountGold ?? 0;
+  const costs = { ...baseCosts, gold: Math.max(0, baseCosts.gold - Math.max(0, discount)) };
   /** Nivåval efter tur: klunkantal eller bryggnivå (samma som UI). Dörren kan fortfarande öppnas med pant. */
   if (!canAscendByKlunkRequirement(p, targetLevelIndex)) return null;
   return { targetLevelIndex, costs };
@@ -995,7 +1026,7 @@ export function startGame(
   if (bossMonster) {
     log(
       next,
-      `Slutboss ${bossMonster.name} — tre liv, vinn tre rundor. (Boss-ruta finns även på nivå 1 för enklare test.)`,
+      `Slutboss ${bossMonster.name} — tre liv, vinn tre rundor.`,
     );
   }
   const cur = currentPlayer(next);
@@ -1030,6 +1061,11 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     klunkAttackBonus20: eq.klunkAttackBonus20,
     klunkAttackBonusMax: eq.klunkAttackBonusMax,
     moveBonus: eq.moveBonus,
+    gainGoldPerCombat: eq.gainGoldPerCombat,
+    gainKlunkPerCombat: eq.gainKlunkPerCombat,
+    preventTheft: eq.preventTheft,
+    levelUpDiscountGold: eq.levelUpDiscountGold,
+    canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
     power: eq.power,
     sipAttackBonus: eq.sipAttackBonus,
     pvpDieBonus: eq.pvpDieBonus,
@@ -1256,7 +1292,9 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
     }
     case "door": {
       const target = tile.doorTargetLevelIndex ?? p.levelIndex + 1;
-      const costs = levelUpCostsForTargetLevel(target);
+      const baseCosts = levelUpCostsForTargetLevel(target);
+      const discount = p.equipment.accessory?.levelUpDiscountGold ?? 0;
+      const costs = { ...baseCosts, gold: Math.max(0, baseCosts.gold - Math.max(0, discount)) };
       const canGold = p.gold >= costs.gold;
       const canSips = canAscendByKlunkRequirement(p, target);
       if (!canGold && !canSips) {
@@ -1404,6 +1442,25 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   const cp = currentPlayer(next);
   if (!cp) return { state, events: [], error: "Ingen aktiv spelare" };
+
+  if (
+    action.type === "skipMonsterEncounter" &&
+    next.pending?.type === "combat" &&
+    (next.pending.phase === "enemyIntro" || next.pending.phase === "reactions")
+  ) {
+    const pending = next.pending;
+    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan välja" };
+    if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
+    const p = next.players.find((x) => x.id === pending.attackerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    if (p.equipment.accessory?.canSkipMonsterEncounter !== true) {
+      return { state, events: [], error: "Du kan inte undvika monsterstrider utan rätt accessoar" };
+    }
+    log(next, `${p.name} undviker monstermötet (${pending.enemyName}).`);
+    next.pending = null;
+    endTurnOrOfferLevelUp(next, p.id);
+    return { state: next, events: ["state"] };
+  }
 
   if (action.type === "combatIntroAck" && next.pending?.type === "combat" && next.pending.phase === "enemyIntro") {
     const pending = next.pending;
@@ -1758,6 +1815,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if (target.equipment.accessory?.preventTheft) {
+        return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
+      }
       const steal = Math.floor((target.gold ?? 0) / 2);
       target.gold -= steal;
       user.gold += steal;
@@ -1797,6 +1857,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if (target.equipment.accessory?.preventTheft) {
+        return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
+      }
       if ((target.inventory ?? []).length > 0) {
         const ti = Math.floor(rng() * target.inventory.length);
         const stolen = target.inventory.splice(ti, 1)[0]!;
@@ -1983,6 +2046,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     /** Kritisk miss: spelarnas t6 får inte vara 1 — då förlorar de oavsett total mot styrka. */
     const critFailOnOne =
       attackerRoll.die === 1 || (previewBroDie !== null && previewBroDie === 1);
+
+    // Per-strid bonus (accessoarer): tillämpas exakt en gång när striden låser till preview.
+    applyPerCombatAccessoryRewards(next, pending.attackerId);
+    if (assistId) applyPerCombatAccessoryRewards(next, assistId);
 
     next.pending = {
       type: "combat",
@@ -2386,7 +2453,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         klunkAttackBonusMax: item.klunkAttackBonusMax,
       };
     } else if (item.slot === "accessory") {
-      p.equipment.accessory = { name: item.name, damageNegate: item.damageNegate, moveBonus: item.moveBonus };
+      p.equipment.accessory = {
+        name: item.name,
+        damageNegate: item.damageNegate,
+        combatBonus: item.combatBonus,
+        moveBonus: item.moveBonus,
+        gainGoldPerCombat: item.gainGoldPerCombat,
+        gainKlunkPerCombat: item.gainKlunkPerCombat,
+        preventTheft: item.preventTheft,
+        levelUpDiscountGold: item.levelUpDiscountGold,
+        canSkipMonsterEncounter: item.canSkipMonsterEncounter,
+      };
     } else if (item.slot === "heal") {
       p.hp = Math.min(p.maxHp, p.hp + (item.healAmount ?? 4));
     } else if (item.slot === "gold") {
@@ -2476,7 +2553,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const winner = next.players.find((x) => x.id === pending.winnerId);
     const loser = next.players.find((x) => x.id === pending.loserId);
     if (!winner || !loser) return { state, events: [], error: "Player not found" };
+    const theftBlocked = loser.equipment.accessory?.preventTheft === true;
     if (action.choice === "gold") {
+      if (theftBlocked) {
+        log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
+      } else {
       const steal = Math.min(5, loser.gold);
       loser.gold -= steal;
       winner.gold += steal;
@@ -2489,6 +2570,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         `${winner.name} tog ${steal} pant från dig efter duellen.`,
         "duel_loss",
       );
+      }
     } else if (action.choice === "sip") {
       const gain = penaltySipTotalForPlayer(loser, 1);
       loser.klunkar += gain;
@@ -2513,6 +2595,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Ogiltigt byte" };
       }
       const piece = loser.equipment[slot];
+      if (theftBlocked) {
+        log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
+        next.pending = null;
+        if (next.phase === "playing") {
+          queueFirstBrewerDownIfNeeded(next);
+          if (!next.pending) endTurnOrOfferLevelUp(next, winner.id);
+        }
+        return { state: next, events: ["state"] };
+      }
       if (piece) {
         loser.equipment[slot] = undefined;
         if (slot === "weapon") {
@@ -2536,6 +2627,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           "duel_loss",
         );
       } else {
+        if (theftBlocked) {
+          log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
+        } else {
         const steal = Math.min(3, loser.gold);
         loser.gold -= steal;
         winner.gold += steal;
@@ -2548,6 +2642,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           `${winner.name} valde en tom plats och tog ${steal} pant från dig i stället.`,
           "duel_loss",
         );
+        }
       }
     }
     next.pending = null;

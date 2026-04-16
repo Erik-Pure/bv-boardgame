@@ -21,6 +21,9 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.gainGoldOnWin === "number" && it.gainGoldOnWin > 0) {
     parts.push(`Vid vinst: +${it.gainGoldOnWin} pant`);
   }
+  if (typeof it.gainGoldPerCombat === "number" && it.gainGoldPerCombat > 0) {
+    parts.push(`Per strid: +${it.gainGoldPerCombat} pant`);
+  }
   if (typeof it.randomOtherDamageOnWin === "number" && it.randomOtherDamageOnWin > 0) {
     parts.push(`Vid vinst: slumpad annan −${it.randomOtherDamageOnWin} HP`);
   }
@@ -32,7 +35,18 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     parts.push(`Strid mot monster: valfri straffklunk före slag för +${it.sipAttackBonus} attack`);
   }
   if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
-  if (typeof it.damageNegate === "number") parts.push(`Skada −${it.damageNegate}`);
+  if (typeof it.damageNegate === "number") {
+    const v = it.damageNegate;
+    parts.push(v >= 0 ? `Skada −${v}` : `Skada +${Math.abs(v)}`);
+  }
+  if (typeof it.gainKlunkPerCombat === "number" && it.gainKlunkPerCombat > 0) {
+    parts.push(`Per strid: +${it.gainKlunkPerCombat} klunk`);
+  }
+  if (it.preventTheft) parts.push("Kan inte bli bestulen");
+  if (typeof it.levelUpDiscountGold === "number" && it.levelUpDiscountGold > 0) {
+    parts.push(`Nivå upp: −${it.levelUpDiscountGold} pant`);
+  }
+  if (it.canSkipMonsterEncounter) parts.push("Kan välja att undvika monsterstrid");
   if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {
     parts.push(`Boss-skada −${it.bossDamageNegateBonus} extra`);
   }

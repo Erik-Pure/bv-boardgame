@@ -2,10 +2,16 @@ import type { ClientAction, GameState, Player } from "@bv/game-core";
 import { ArcadeButton } from "../ArcadeButton";
 import { capitalizeWord, sv } from "../../lib/uiStrings";
 
+type CombatChooseTeammatePending = {
+  type: "combat";
+  phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
+  attackerId: string;
+};
+
 export function CombatChooseTeammateSheet(props: {
   state: GameState;
   me: Player;
-  pending: Extract<NonNullable<GameState["pending"]>, { type: "combat"; phase: "chooseTeammate" }>;
+  pending: CombatChooseTeammatePending;
   send: (action: ClientAction) => void;
 }) {
   const { state, me, pending, send } = props;

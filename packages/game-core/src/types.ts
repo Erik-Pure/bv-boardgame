@@ -96,6 +96,18 @@ export interface Helmet {
 export interface Accessory {
   name: string;
   damageNegate?: number;
+  /** +attack i strid (monster). */
+  combatBonus?: number;
+  /** Få pant per strid (oavsett utfall). */
+  gainGoldPerCombat?: number;
+  /** Få klunk per strid (oavsett utfall). */
+  gainKlunkPerCombat?: number;
+  /** Om true: andra kan inte stjäla pant/prylar från dig. */
+  preventTheft?: boolean;
+  /** Rabatt i pant när du går upp en nivå. */
+  levelUpDiscountGold?: number;
+  /** Om true: angriparen kan välja att undvika monstermöte. */
+  canSkipMonsterEncounter?: boolean;
   /** Extra steps added to movement roll. */
   moveBonus?: number;
 }
@@ -151,6 +163,11 @@ export interface ShopItem {
   klunkAttackBonus20?: number;
   klunkAttackBonusMax?: number;
   moveBonus?: number;
+  gainGoldPerCombat?: number;
+  gainKlunkPerCombat?: number;
+  preventTheft?: boolean;
+  levelUpDiscountGold?: number;
+  canSkipMonsterEncounter?: boolean;
   healAmount?: number;
   goldAmount?: number;
 }
@@ -414,6 +431,7 @@ export type ClientAction =
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string }
   /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = +1 klunk och +sipAttackBonus på slaget). */
   | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
+  | { type: "skipMonsterEncounter"; playerId: string }
   | { type: "combatIntroAck"; playerId: string }
   | { type: "chooseCombatTeammate"; playerId: string; teammateId: string }
   | { type: "combatRollAck"; playerId: string }

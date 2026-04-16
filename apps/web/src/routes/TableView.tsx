@@ -1,14 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   BOARD_RING_GRID_SIZE,
-  FINAL_BOSS_LIFE_TOTAL,
-  isFinalBossMonsterId,
-  playerCanCombatIntervene,
   ringGridSizeFromTileCount,
   ringTileCount,
   type GameState,
-  type MonsterId,
   type Player,
   type TileType,
 } from "@bv/game-core";
@@ -17,13 +13,10 @@ import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { ArcadeButton } from "../components/ArcadeButton";
-import { DiceCube3D } from "../components/DiceCube3D";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
-import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import { TreasureCardContent } from "../components/TreasureCardContent";
-import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
@@ -34,7 +27,7 @@ import turnBannerStyles from "./turnBanner.module.css";
 import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossViewer, resolveCombatWinViewer } from "../lib/combatUi";
 import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
-import { CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
+import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
@@ -42,7 +35,6 @@ import {
   TABLE_CARD_MODAL_DELAY_MS,
   TABLE_BOARD_MODAL_KEYFRAMES_CSS,
   TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
-  TABLE_BOARD_MODAL_CARD_ANIMATION,
   TABLE_BOARD_OVERLAY_BG,
   TABLE_BOSS_OVERLAY_BG,
   TABLE_BOSS_OVERLAY_PULSE,
@@ -193,20 +185,6 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   );
 }
 
-function tablePlayersAtTile(
-  players: GameState["players"] | undefined,
-  levelIndex: number,
-  tileIndex: number,
-  nTiles: number,
-) {
-  if (!players?.length) return [];
-  return players.filter((p) => {
-    if (p.levelIndex !== levelIndex) return false;
-    const ti = nTiles <= 0 ? 0 : Math.min(Math.max(0, p.tileIndex), nTiles - 1);
-    return ti === tileIndex;
-  });
-}
-
 export function TableView() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
@@ -273,7 +251,7 @@ export function TableView() {
     stackCount === 0 ? 0 : levelIndex * (boardWidth + RING_STACK_GAP);
 
   const logRef = useRef<HTMLDivElement | null>(null);
-  const { cam, targetCam, boardViewportRef, zoomIn, zoomOut, viewportHandlers } = useTableCamera({
+  const { cam, boardViewportRef, zoomIn, zoomOut, viewportHandlers } = useTableCamera({
     state,
     boardWidth,
     boardHeight,

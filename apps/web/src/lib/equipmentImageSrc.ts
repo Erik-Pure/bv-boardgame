@@ -38,9 +38,13 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     "Beer-filled-helmet": "/equipment/helmet/beer-filled-helmet.webp",
     "Ölfylld rymdhjälm": "/equipment/helmet/beer-filled-helmet.webp",
     Pilsnersköld: "/equipment/accessory/pilsnerskold.webp",
-    Humleklor: "/equipment/accessory/humleklor.webp",
+    Guldkedja: "/equipment/accessory/gold-chain.webp",
+    Mantel: "/equipment/accessory/beer-cape.webp",
+    Solbrillor: "/equipment/accessory/sunglasses.webp",
+    "Taproom nyckel": "/equipment/accessory/taproom-nyckelring.webp",
+    Ring: "/equipment/accessory/ring.webp",
+    "Svart bälte": "/equipment/accessory/beer-belt.webp",
     Skumvisir: "/equipment/helmet/skumvisir.webp",
-    "Disig mantel": "/equipment/accessory/disig-mantel.webp",
     "Taproom-nyckelring": "/equipment/accessory/taproom-nyckelring.webp",
     Robotarm: "/equipment/weapon/robot-arm.webp",
     Robothjälm: "/equipment/helmet/robot-helm.webp",
@@ -63,4 +67,18 @@ export function equipmentCatalogImageSrc(
   slot: "weapon" | "armor" | "helmet" | "accessory",
 ): string {
   return equipmentUniqueImageSrc(name) ?? SLOT_FALLBACK[slot];
+}
+
+export type EquipmentImageSources = { avif?: string; webp?: string; fallback: string };
+
+export function equipmentImageSources(
+  name: string,
+  slot: "weapon" | "armor" | "helmet" | "accessory",
+): EquipmentImageSources {
+  const fallback = equipmentCatalogImageSrc(name, slot);
+  if (fallback.endsWith(".webp")) {
+    const base = fallback.slice(0, -".webp".length);
+    return { avif: `${base}.avif`, webp: fallback, fallback: `${base}.png` };
+  }
+  return { fallback };
 }

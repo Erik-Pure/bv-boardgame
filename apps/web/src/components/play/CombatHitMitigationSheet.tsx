@@ -3,10 +3,22 @@ import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { sv } from "../../lib/uiStrings";
 
+type CombatHitMitigationPending = {
+  type: "combat";
+  phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
+  attackerId: string;
+  enemyName: string;
+  monsterId: string;
+  previewDie?: number;
+  previewTotal?: number;
+  previewNeed?: number;
+  previewBroDie?: number | null;
+};
+
 export function CombatHitMitigationSheet(props: {
   state: GameState;
   me: Player;
-  pending: Extract<NonNullable<GameState["pending"]>, { type: "combat"; phase: "chooseHitMitigation" }>;
+  pending: CombatHitMitigationPending;
   send: (action: ClientAction) => void;
   sheetDiceBlockClass: string;
   sheetDiceCaptionClass: string;

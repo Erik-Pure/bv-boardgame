@@ -49,9 +49,10 @@ import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { createLogger } from "../lib/logger";
-import { artAttributionLabel, artImageSrc, resolveCardRevealArtKey } from "../lib/cardArt";
-import { equipmentUniqueImageSrc } from "../lib/equipmentImageSrc";
+import { artAttributionLabel, artImageSources, resolveCardRevealArtKey } from "../lib/cardArt";
+import { equipmentImageSources, equipmentUniqueImageSrc } from "../lib/equipmentImageSrc";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
+import { PictureImg } from "../components/PictureImg";
 import {
   combatLossKlunksForDisplay,
   parseLegacyCombatLoseText,
@@ -192,6 +193,31 @@ export function PlayView() {
 
   const me = findMe(state, myId);
 
+  /** Spelarfärg på #root/html så ytan under fixed header skiljer sig från den svarta stats-raden (rundade hörn). */
+  useEffect(() => {
+    const root = document.getElementById("root");
+    const html = document.documentElement;
+    if (!root) return;
+    const tint = me?.color;
+    if (tint) {
+      root.style.background = tint;
+      root.style.backgroundColor = tint;
+      html.style.background = tint;
+      html.style.backgroundColor = tint;
+    } else {
+      root.style.removeProperty("background");
+      root.style.removeProperty("background-color");
+      html.style.removeProperty("background");
+      html.style.removeProperty("background-color");
+    }
+    return () => {
+      root.style.removeProperty("background");
+      root.style.removeProperty("background-color");
+      html.style.removeProperty("background");
+      html.style.removeProperty("background-color");
+    };
+  }, [me?.color]);
+
   const prevHpRef = useRef<number | undefined>(undefined);
   const prevGoldRef = useRef<number | undefined>(undefined);
   const prevKlunkRef = useRef<number | undefined>(undefined);
@@ -259,7 +285,10 @@ export function PlayView() {
     const ratio = brewerKlunkProgressRatio(me.klunkar);
     return { brewerLevel: bl, ratio };
   }, [state, me]);
-  const headerTopPad = showHeaderStatsBar ? (brewerProgressUi ? 168 : 160) : 76;
+  /* Namnrad: 12+46+12=70 (knapp 46px). Stats: 11+11 + strip ~52 (level ring 48+cellpadding) = 74. Summa 144 — tidigare 154 gav blå glipa mot fixed shell. */
+  const headerTopPad = showHeaderStatsBar ? 144 : 70;
+  /** Fixed utrustningspanel har egen botten-padding; minska sidans så blå inte syns vid scroll. */
+  const pageBottomPad = me && state && state.phase === "playing" ? 12 : 78;
   const pending = state?.pending ?? null;
   const onRollDieScreen = !!isMyTurn && !pending;
   useEffect(() => {
@@ -392,6 +421,9 @@ export function PlayView() {
     if (state.pending?.type !== "combat" || state.pending.phase !== "enemyIntro") return null;
     return state.pending.attackerId === me.id ? state.pending : null;
   }, [state?.pending, state?.phase, me?.id]);
+
+  const canSkipMonsterEncounter =
+    !!myEnemyIntroPending && me?.equipment?.accessory?.canSkipMonsterEncounter === true;
 
   /** Straffklunk efter monsterförlust: visa Vaskad-kortet först, sedan sip-modal (motorn lägger sip i kö före kortet). */
   const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
@@ -1137,13 +1169,14 @@ export function PlayView() {
           <div style={{ display: "grid", gap: 10 }}>
             {pending.items.slice(0, 4).map((it) => {
               const effectSummary = formatShopItemEffectSummary(it);
+              const cantAfford = me.gold < it.price;
               return (
               <ArcadeButton
                 key={it.id}
                 onClick={() => requestMerchantBuy(it)}
-                variant="blue"
+                variant="merchant"
                 fullWidth
-                disabled={me.gold < it.price}
+                disabled={cantAfford}
               >
                 <span
                   style={{
@@ -1167,7 +1200,18 @@ export function PlayView() {
                       <span>{it.name}</span>
                     </div>
                     {effectSummary !== "—" ? (
-                      <span style={{ opacity: 0.82, fontSize: 12, fontWeight: 800 }}>{effectSummary}</span>
+                      <span
+                        style={{
+                          opacity: 0.88,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fontFamily: "var(--sans)",
+                          letterSpacing: "0.03em",
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {effectSummary}
+                      </span>
                     ) : null}
                   </div>
                   <span
@@ -1179,6 +1223,14 @@ export function PlayView() {
                       gap: 5,
                       flexShrink: 0,
                       alignSelf: "start",
+                      ...(cantAfford
+                        ? {
+                            background: "rgba(178, 38, 52, 0.95)",
+                            borderRadius: 8,
+                            padding: "5px 10px",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+                          }
+                        : {}),
                     }}
                   >
                     <span style={{ fontWeight: 900, fontSize: 18, lineHeight: 1, opacity: 0.98 }}>{it.price}</span>
@@ -1279,9 +1331,20 @@ export function PlayView() {
     if (hasBlockingSipNotice) return null;
     if (myEnemyIntroPending) {
       return (
-        <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
-          {sv.play.continue}
-        </ArcadeButton>
+        <div style={{ display: "grid", gap: 10 }}>
+          {canSkipMonsterEncounter ? (
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "skipMonsterEncounter", playerId: me.id })}
+            >
+              {sv.play.skipMonsterEncounter}
+            </ArcadeButton>
+          ) : null}
+          <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
+            {sv.play.continue}
+          </ArcadeButton>
+        </div>
       );
     }
     if (!myCardPending) return null;
@@ -1646,8 +1709,8 @@ export function PlayView() {
         width: "100%",
         maxWidth: 740,
         margin: "0 auto",
-        /* Headerhöjd (namn + stat-rad med 11px padding upp/ned) + ~20px luft innan utrustning */
-        padding: `${headerTopPad}px 16px 78px`,
+        /* Headerhöjd = exakt under fixed header (namn + ev. stats); ska matcha .playerEquipmentShell top */
+        padding: `${headerTopPad}px 16px ${pageBottomPad}px`,
         boxSizing: "border-box",
       }}
     >
@@ -1736,22 +1799,12 @@ export function PlayView() {
                   flashKey={klunkFlashKey}
                   iconSize={36}
                 />
+                <LevelRingCell
+                  ariaLabel={sv.play.levelUpProgressAria(brewerProgressUi?.brewerLevel ?? 1)}
+                  level={brewerProgressUi?.brewerLevel ?? 1}
+                  ratio={brewerProgressUi?.ratio ?? 0}
+                />
               </div>
-              {brewerProgressUi ? (
-                <div
-                  className={styles.levelProgressWrap}
-                  aria-label={sv.play.levelUpProgressAria(brewerProgressUi.brewerLevel)}
-                >
-                  <div className={styles.levelProgressRow}>
-                    <div className={styles.levelProgressStack}>
-                      <LevelProgressBar ratio={brewerProgressUi.ratio} tintClass={styles.levelProgressKlunk} />
-                    </div>
-                    <div className={styles.levelProgressBadgeLevel} aria-hidden>
-                      {brewerProgressUi.brewerLevel}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         ) : null}
@@ -1980,7 +2033,9 @@ export function PlayView() {
       )}
 
       <div className={styles.content}>
-        {err && <div style={{ color: "#b91c1c", marginBottom: 12 }}>{err}</div>}
+        {err && (
+          <div style={{ color: "#b91c1c", marginBottom: 12, position: "relative", zIndex: 25 }}>{err}</div>
+        )}
 
         {!state && <div>{sv.play.waitingState}</div>}
 
@@ -1988,8 +2043,9 @@ export function PlayView() {
           <>
             {(!me || state.phase !== "lobby") && (
               <section
+                className={styles.playerBoardPanel}
                 style={{
-                  marginBottom: 12,
+                  marginBottom: me ? 0 : 12,
                   width: "100%",
                   minWidth: 0,
                   boxSizing: "border-box",
@@ -1997,15 +2053,7 @@ export function PlayView() {
               >
                 {!me && <div>{sv.play.lookingForPlayer}</div>}
                 {me && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: 10,
-                      width: "100%",
-                      minWidth: 0,
-                      gridTemplateColumns: "minmax(0, 1fr)",
-                    }}
-                  >
+                  <div className={styles.playerEquipmentShell} style={{ top: headerTopPad }}>
                     <div className={styles.equipmentGridWrap}>
                       <div className={styles.equipmentGrid}>
                         <EquipButton
@@ -2505,11 +2553,21 @@ function PlayerStatCell(props: {
   );
 }
 
-function LevelProgressBar(props: { ratio: number; tintClass: string }) {
-  const widthPct = `${Math.round(Math.max(0, Math.min(1, props.ratio)) * 100)}%`;
+function LevelRingCell(props: { ariaLabel: string; level: number; ratio: number }) {
+  const clamped = Number.isFinite(props.ratio) ? Math.max(0, Math.min(1, props.ratio)) : 0;
+  const deg = Math.round(clamped * 360);
   return (
-    <div className={styles.levelProgressTrack}>
-      <div className={`${styles.levelProgressFill} ${props.tintClass}`} style={{ width: widthPct }} />
+    <div className={styles.levelRingCell} role="group" aria-label={props.ariaLabel}>
+      <div
+        className={styles.levelRingOuter}
+        style={{
+          background: `conic-gradient(from 270deg, #22d3ee 0deg ${deg}deg, rgba(255,255,255,0.2) ${deg}deg 360deg)`,
+        }}
+      >
+        <div className={styles.levelRingInner}>
+          <span className={styles.levelRingValue}>{props.level}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2540,7 +2598,6 @@ function LootFlashShell(props: { flash: StatFlash | null; flashKey: number; chil
         className={props.flash ? styles.statIconWobble : undefined}
         style={{
           position: "relative",
-          zIndex: 1,
           width: "100%",
           height: "100%",
           display: "grid",
@@ -2587,9 +2644,13 @@ function EquipButton(props: {
         aspectRatio: "1 / 1",
         minHeight: 0,
         borderRadius: 14,
-        border: `2px solid ${disabled ? "rgba(255,255,255,0.12)" : "rgba(59,130,246,0.85)"}`,
-        background: disabled ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)",
-        boxShadow: disabled ? "none" : "0 10px 22px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.05) inset",
+        border: "none",
+        background: disabled
+          ? "radial-gradient(155% 100% at 50% 112%, rgba(107,114,128,0.52) 0%, rgba(31,41,55,0.62) 42%, rgba(0,0,0,0.66) 100%)"
+          : "radial-gradient(175% 125% at 50% 114%, rgba(34,211,238,1) 0%, rgba(14,165,233,0.92) 24%, rgba(15,23,42,0.52) 52%, rgba(0,0,0,0.62) 100%)",
+        boxShadow: disabled
+          ? "none"
+          : "0 10px 22px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -22px 30px rgba(34,211,238,0.28)",
         cursor: disabled ? "not-allowed" : "pointer",
         display: "grid",
         placeItems: "center",
@@ -2625,23 +2686,7 @@ function EquipButton(props: {
           >
             <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
           </div>
-          <div
-            style={{
-              gridArea: "stack",
-              zIndex: 2,
-              pointerEvents: "none",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              justifyContent: "flex-end",
-              width: "100%",
-              height: "100%",
-              boxSizing: "border-box",
-              padding: 4,
-            }}
-          >
-            <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
-          </div>
+          <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
         </div>
       </LootFlashShell>
     </button>
@@ -2676,20 +2721,44 @@ function EquipIcon(props: {
       ? "brightness(0) invert(0.78) opacity(0.72)"
       : "brightness(0) invert(0.98) drop-shadow(0 0 8px rgba(96,165,250,0.38))";
   const genericPx = props.iconSize ?? 36;
-  /** Unik PNG: `100%`×`100%` i grid kan ge fel centrering/klipp — begränsa till ramen och centrera. */
-  const uniqueBox =
-    uniqueSrc != null
-      ? ({
-          width: "auto" as const,
-          height: "auto" as const,
-          maxWidth: "100%",
-          maxHeight: "100%",
-        } as const)
-      : null;
   const size = uniqueSrc ? undefined : genericPx;
+  const sources =
+    uniqueSrc != null
+      ? equipmentImageSources(props.equippedName ?? "", props.slot)
+      : { fallback: src };
+  if (!uniqueSrc) {
+    return (
+      <img
+        src={src}
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src =
+            props.slot === "weapon"
+              ? "/equipment/weapon/weapon.svg"
+              : props.slot === "armor"
+                ? "/equipment/armor/armor.svg"
+                : props.slot === "helmet"
+                  ? "/equipment/helmet/helmet.svg"
+                  : "/equipment/accessory/accesory.svg";
+        }}
+        alt=""
+        aria-hidden
+        style={{
+          width: size,
+          height: size,
+          margin: "auto",
+          objectFit: "contain",
+          objectPosition: "center",
+          borderRadius: 0,
+          display: "block",
+          flexShrink: 0,
+          filter: tintFilter,
+        }}
+      />
+    );
+  }
   return (
-    <img
-      src={src}
+    <PictureImg
+      sources={sources}
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).src =
           props.slot === "weapon"
@@ -2703,7 +2772,8 @@ function EquipIcon(props: {
       alt=""
       aria-hidden
       style={{
-        ...(uniqueBox ?? { width: size, height: size }),
+        width: "100%",
+        height: "100%",
         objectFit: "contain",
         objectPosition: "center",
         borderRadius: uniqueSrc ? 12 : 0,
@@ -2716,19 +2786,19 @@ function EquipIcon(props: {
 }
 
 function merchantHealArtSrc(name: string): string {
-  return equipmentUniqueImageSrc(name) ?? "/items/healing-potion.png";
+  return equipmentUniqueImageSrc(name) ?? "/items/healing-potion.webp";
 }
 
 const MERCHANT_ART_FRAME: CSSProperties = {
   width: 52,
   height: 52,
   flexShrink: 0,
-  borderRadius: 14,
+  borderRadius: 8,
   overflow: "hidden",
   display: "grid",
   placeItems: "center",
-  background: "rgba(0,0,0,0.28)",
-  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(0,0,0,0.45)",
+  border: "1px solid rgba(72, 75, 85, 0.95)",
   boxSizing: "border-box",
 };
 
@@ -2738,10 +2808,12 @@ const MERCHANT_TYPE_ICON_PX = 18;
 function MerchantShopItemArt(props: { item: ShopItem }) {
   const { item } = props;
   if (item.slot === "heal") {
+    const src = merchantHealArtSrc(item.name);
+    const sources = src.endsWith(".webp") ? { avif: src.slice(0, -".webp".length) + ".avif", webp: src, fallback: src } : { fallback: src };
     return (
       <div style={MERCHANT_ART_FRAME}>
-        <img
-          src={merchantHealArtSrc(item.name)}
+        <PictureImg
+          sources={sources}
           alt=""
           aria-hidden
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -3079,7 +3151,7 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
         alignItems: "center",
         gap: 3,
         padding: "3px 5px 3px 5px",
-        borderRadius: "8px 0 8px 0",
+        borderRadius: 999,
         background: "rgba(11,18,38,0.92)",
         border: "1px solid rgba(255,255,255,0.2)",
         boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
@@ -3117,28 +3189,35 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
 function EquipmentInventoryEffectBadges({ piece }: { piece?: Player["equipment"][EquipmentSlot] }) {
   const badges = equipmentInventoryEffectBadges(piece);
   if (badges.length === 0) return null;
+  const cornerStyle = (idx: number): CSSProperties => {
+    const row = Math.floor(idx / 2);
+    if (idx % 2 === 0) return { bottom: 4 + row * 26, right: 4 };
+    return { bottom: 4 + row * 26, left: 4 };
+  };
   return (
     <span
       aria-hidden
       style={{
-        display: "grid",
-        gap: 4,
-        justifyItems: "end",
+        gridArea: "stack",
+        position: "relative",
+        width: "100%",
+        height: "100%",
         pointerEvents: "none",
       }}
     >
-      {badges.map((b) => {
+      {badges.map((b, idx) => {
         const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
         return (
           <span
             key={`${b.icon}:${b.label}`}
             style={{
+              position: "absolute",
+              ...cornerStyle(idx),
               display: "inline-flex",
               alignItems: "center",
-              justifySelf: "end",
               gap: 3,
               padding: "3px 5px",
-              borderRadius: "8px 0 8px 0",
+              borderRadius: 999,
               background: "rgba(11,18,38,0.92)",
               border: "1px solid rgba(255,255,255,0.2)",
               boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
@@ -3306,6 +3385,7 @@ function MoveOptionLabel(props: {
 }
 
 function CardArtFrame({ artKey }: { artKey?: string }) {
+  const sources = artImageSources(artKey);
   return (
     <div style={{ width: "100%", margin: "0 0 10px", boxSizing: "border-box" }}>
       <div
@@ -3317,8 +3397,8 @@ function CardArtFrame({ artKey }: { artKey?: string }) {
           background: "transparent",
         }}
       >
-        <img
-          src={artImageSrc(artKey)}
+        <PictureImg
+          sources={sources}
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
           }}
@@ -3805,8 +3885,8 @@ function CardModal(props: {
                 }}
                 className={foundItemReveal ? styles.cardFoundItemArtFrame : undefined}
               >
-                <img
-                  src={artImageSrc(effectiveArtKey)}
+                <PictureImg
+                  sources={artImageSources(effectiveArtKey)}
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
                   }}

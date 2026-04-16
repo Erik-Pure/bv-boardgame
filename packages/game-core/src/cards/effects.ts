@@ -58,7 +58,17 @@ function applyRandomEquipmentReward(
       klunkAttackBonusMax: eq.klunkAttackBonusMax,
     };
   } else {
-    player.equipment.accessory = { name: eq.name, damageNegate: eq.damageNegate, moveBonus: eq.moveBonus };
+    player.equipment.accessory = {
+      name: eq.name,
+      damageNegate: eq.damageNegate,
+      combatBonus: eq.combatBonus,
+      moveBonus: eq.moveBonus,
+      gainGoldPerCombat: eq.gainGoldPerCombat,
+      gainKlunkPerCombat: eq.gainKlunkPerCombat,
+      preventTheft: eq.preventTheft,
+      levelUpDiscountGold: eq.levelUpDiscountGold,
+      canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
+    };
   }
   return { name: eq.name, slot };
 }

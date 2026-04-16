@@ -92,6 +92,16 @@
   opacity: 0.75;
 }
 
+.btn:disabled:active .inner {
+  transform: none;
+}
+
+/* Panta burkar: ingen global nedtoning — röd markering på priset i PlayView */
+.btn:disabled.variant_merchant .inner {
+  filter: none;
+  opacity: 1;
+}
+
 .fullWidth {
   width: 100%;
 }
@@ -123,5 +133,23 @@
 
 .variant_gray .inner {
   background: linear-gradient(180deg, #9aa6b2 0%, #6b7280 55%, #4b5563 100%);
+}
+
+/* Panta burkar — platta svarta rutor, tunn mörkgrå kant (ingen glans) */
+.variant_merchant .inner {
+  border-radius: 10px;
+  border: 1px solid rgba(72, 75, 85, 0.98);
+  background: rgba(10, 10, 13, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42);
+  text-shadow: none;
+}
+
+.variant_merchant .inner::before,
+.variant_merchant .inner::after {
+  display: none;
+}
+
+.variant_merchant.btn:active .inner {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 
