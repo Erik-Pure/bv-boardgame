@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.16 |
-| Senast uppdaterad | 2026-04-15 |
+| Version | 0.18 |
+| Senast uppdaterad | 2026-04-16 |
 
 ---
 
@@ -57,6 +57,14 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: **[TECH_SPEC.md](./TECH_SPEC.md)**.
 
 **Kort:** TypeScript-monorepo, React + Vite, **SVG-baserad** spelplan **utan PixiJS i första läget**, Node (Fastify) + WebSocket på server, spelregler i delat paket `game-core` utan leverantörs-API:er.
+
+### 3.1 Drift och deploy (nuvarande produktion)
+
+- **Frontend (`apps/web`):** [Vercel](https://vercel.com) — projekt kopplat till **GitHub-repot** med **root directory = repo-rot** (inte `apps/server`). Bygge styrs av `vercel.json` i roten: `npm install`, därefter `npm run -w @bv/game-core build && npm run -w web build`, output **`apps/web/dist`**, SPA-rewrite till `index.html`.
+- **WebSocket mot produktionsserver:** i Vercel **Settings → Environment Variables** sätts **`VITE_WS_URL`** till **`wss://<host för spelserver-appen>`** (samma som CapRover-servern exponerar över HTTPS). Värdet bakas in vid **`vite build`** — efter ändring krävs **ombyggnad** (Redeploy).
+- **Spelserver (`apps/server`):** [CapRover](https://caprover.com) (eller motsvarande) med **Docker** från repo-roten: `Dockerfile` bygger `@bv/game-core` + `server`; **`captain-definition`** pekar på `./Dockerfile`. Servern lyssnar på **`process.env.PORT`** (CapRover sätter `PORT`); lokalt default **3001**. Hälsokontroll: **`GET /health`** → `{ "ok": true }`.
+- **Lokalt:** `npm run dev` — Vite på **5173**, WebSocket i dev proxas via **`/bv-ws`** till servern (se `apps/web/vite.config.ts`).
+- **Deploy från terminal (repo):** `npm run deploy:web` / `npm run deploy:web:preview` (Vercel CLI via `npx vercel`; första gången `npx vercel login` + ev. `npx vercel link`). `npm run deploy:server` / `npm run deploy:server:staging` (CapRover CLI; variabler i **`.env`**, se `.env.example`). Alias **`deploy:caprover`** / **`deploy:caprover:staging`** anropar samma som server-skripten.
 
 ---
 
@@ -406,4 +414,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.15 | 2026-04-14 | §9.2 BvB: `pvpDieBonus` i duelltotal; **duell-förlust-notis** på mobil (`duel_loss`, rubrik, ikon, “Fattar”); §7.4/§10.2 **Panta burkar** synkad med katalog (ankare + effekt-/prislinje); §11 föremål + utrustning **Safari-klipp** (stack-layout); utrustning: t.ex. **Fathammare** +1 BvB; finjusterade pantpriser (t.ex. Skumvisir) |
 | 0.16 | 2026-04-15 | Aktiv-tur-regnbåge flyttad till **interaktionspanelen** (inte full bakgrund); fynd-kort (händelse/skatt) med roterande regnbågsbakgrund i bildram; respawn/“starta om på nytt” uppdaterad till full reset (start-ruta, 0 pant/klunkar, tom utrustning/förråd); monsternamn: **Fermenteringshydran** → **Surkartar** |
 | 0.17 | 2026-04-16 | Föremålsmodal: neutral bakgrund (ingen regnbågsram i inventory-detalj); notiser/logg visar **korttitlar** (inte itemId); slutmodal: knapp **Avsluta spelet** → startsidan; Enkelpipa/Dubbelpipa: prompt före monstertärning (valfri straffklunk för extra attack); nytt vapen: **Humleklubba** (+1 strid, +2 BvB) |
+| 0.18 | 2026-04-16 | §3.1 **Drift och deploy:** Vercel (web, repo-root + `vercel.json`), `VITE_WS_URL` / `wss://`; CapRover + Docker för server (`PORT`, `/health`); lokalt `npm run dev`; npm-skript `deploy:web*` / `deploy:server*` (CapRover-alias dokumenterade) |
 
