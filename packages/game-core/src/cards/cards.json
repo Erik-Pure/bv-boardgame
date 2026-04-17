@@ -58,7 +58,7 @@
       "id": "event_ljuset_i_tunneln",
       "kind": "event",
       "title": "Ljuset i tunneln",
-      "text": "Du ser ljuset längst bort. Andas ut, läk 2 HP och plocka upp 2 pant på vägen ut.",
+      "text": "Du ser ljuset längst bort. Andas ut, återfå 2 HP och plocka upp 2 pant på vägen ut.",
       "artKey": "event/ljuset-i-tunneln",
       "effects": [
         {
