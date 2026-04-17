@@ -143,6 +143,8 @@ export function artImageSrc(artKey?: string): string {
       "not-my-round": "not_my_round",
       canman: "canman",
       "split-the-g": "split-the-g",
+      /** Raster: `public/items/item_early_night.png` (inte `early_night.*`). */
+      "early-night": "item_early_night",
     };
     const key = key0;
     const mapped = itemArtMap[key];

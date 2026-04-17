@@ -306,6 +306,13 @@ export function PlayView() {
     return Object.entries(acc).map(([groupKey, v]) => ({ groupKey, ...v }));
   }, [me]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
+  const footerTurnCaption = useMemo(() => {
+    if (!state || state.phase !== "playing" || !activeId) return null;
+    const p = state.players.find((x) => x.id === activeId);
+    const name = p?.name?.trim() || "—";
+    if (me && activeId === me.id) return sv.play.footerTurnYou;
+    return sv.play.footerTurnOther(name);
+  }, [state, activeId, me?.id]);
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
   const headerStatusTag = me && (me.skippedTurns ?? 0) > 0 ? "(Zzz)" : "";
@@ -2413,8 +2420,7 @@ export function PlayView() {
           bottom: 0,
           zIndex: showReconnectOverlay ? 90 : 40,
           borderTop: "1px solid #ffffff22",
-          background: "rgba(11, 18, 38, 0.75)",
-          backdropFilter: "blur(10px)",
+          background: "#0b1226",
           paddingBottom: "max(10px, env(safe-area-inset-bottom))",
         }}
       >
@@ -2458,6 +2464,22 @@ export function PlayView() {
                 retryLabel={sv.play.wsRetry}
                 onRetry={requestReconnect}
               />
+            ) : footerTurnCaption ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  maxWidth: "48%",
+                  fontSize: 12,
+                  fontWeight: 400,
+                  lineHeight: 1.25,
+                  textAlign: "right",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {footerTurnCaption}
+              </div>
             ) : null}
           </div>
         </div>
@@ -3415,7 +3437,7 @@ function itemImageSrc(itemId: any): string {
     canman: "/items/canman.png",
     not_my_round: "/items/not_my_round.png",
     spill_intentional: "/items/spill_intentional.png",
-    early_night: "/items/spill_intentional.png",
+    early_night: "/items/item_early_night.webp",
   };
   return m[id] ?? "/card-placeholder.png";
 }
