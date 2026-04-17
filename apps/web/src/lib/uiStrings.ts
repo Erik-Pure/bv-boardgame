@@ -193,6 +193,9 @@ export const sv = {
     /** Under strid efter Skägget rakt bak — t6 visas som slaget men bidraget till total är 2×. */
     combatAttackDoubledHint: "Tärningen räknas dubbelt i attacktotalen (Skägget rakt bak).",
     lobbyHeader: (room: string, status: string) => `Lobby ${room} · ${status}`,
+    /** Statusfot i PlayView när spelet pågår — egen rad ovanför lobby-raden. */
+    footerTurnYou: "Din tur",
+    footerTurnOther: (name: string) => `Tur · ${name}`,
     players: "Spelare",
     waitingState: "Väntar på tillstånd…",
     lookingForPlayer: "Letar efter din spelare…",
