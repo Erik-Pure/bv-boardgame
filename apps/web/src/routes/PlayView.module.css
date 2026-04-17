@@ -606,6 +606,21 @@
   will-change: transform, opacity;
 }
 
+.bottomSheetTurnSwapIn {
+  animation: sheetTurnSwap 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity, filter;
+}
+
+.bottomSheetTurnSwapOut {
+  animation: sheetTurnSwapOut 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity, filter;
+}
+
+.bottomSheetHeightAnim {
+  overflow: visible;
+  transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* På inner så slide-up-animationen på .bottomSheet inte skrivs över */
 .bottomSheetInnerFlash {
   position: relative;
@@ -660,6 +675,42 @@
   }
 }
 
+@keyframes sheetTurnSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+    filter: saturate(0.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: saturate(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: none;
+  }
+}
+
+@keyframes sheetTurnSwapOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: none;
+  }
+  50% {
+    opacity: 0.36;
+    transform: translateY(20px);
+    filter: saturate(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: none;
+  }
+}
+
 @keyframes bottomSheetRainbowSpin {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
@@ -676,6 +727,15 @@
 
   .bottomSheetEnter {
     animation: none;
+  }
+
+  .bottomSheetTurnSwapIn,
+  .bottomSheetTurnSwapOut {
+    animation: none;
+  }
+
+  .bottomSheetHeightAnim {
+    transition: none;
   }
 
   .bottomSheetActiveTurnBg::before {

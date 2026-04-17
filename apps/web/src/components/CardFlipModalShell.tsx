@@ -106,6 +106,8 @@ export function CardFlipModalShell(props: {
   instantFront?: boolean;
   /** Slutboss: röd pulserande gradient bakom möteskortet. */
   bossPulsingBackdrop?: boolean;
+  /** Enkel modal-animation utan kort-baksida/flip (fade + slide-up). */
+  simpleEntrance?: boolean;
 }) {
   const stackAbove = props.aboveScene != null;
 
@@ -143,15 +145,28 @@ export function CardFlipModalShell(props: {
           {props.aboveScene}
         </div>
       ) : null}
-      <CardFlipScene
-        maxWidth={props.maxWidth}
-        faceInnerClassName={props.faceInnerClassName}
-        blockPointerUntilFlipped={props.blockPointerUntilFlipped}
-        instantFront={props.instantFront}
-        sceneStyle={stackAbove ? { flexShrink: 0 } : undefined}
-      >
-        {props.children}
-      </CardFlipScene>
+      {props.simpleEntrance ? (
+        <div
+          className={styles.simpleEntrance}
+          style={{
+            width: "100%",
+            maxWidth: "min(var(--card-ref-w, 400px), 100%)",
+            ["--card-ref-w" as string]: `${Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W)}px`,
+          }}
+        >
+          {props.children}
+        </div>
+      ) : (
+        <CardFlipScene
+          maxWidth={props.maxWidth}
+          faceInnerClassName={props.faceInnerClassName}
+          blockPointerUntilFlipped={props.blockPointerUntilFlipped}
+          instantFront={props.instantFront}
+          sceneStyle={stackAbove ? { flexShrink: 0 } : undefined}
+        >
+          {props.children}
+        </CardFlipScene>
+      )}
     </div>
   );
 }

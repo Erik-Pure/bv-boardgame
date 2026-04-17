@@ -301,7 +301,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
           aspectRatio: "4/3",
           borderRadius: 14,
           overflow: "hidden",
-          border: "1px solid #ffffff22",
+          border: "none",
           background: "rgba(255,255,255,0.92)",
           boxSizing: "border-box",
         }}

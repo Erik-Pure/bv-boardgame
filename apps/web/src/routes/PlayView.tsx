@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -143,6 +143,44 @@ function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string 
 const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
 
+/** Matchar `.page` max-width — smal skärm får vertikal gradient (spelarfärg → svart). */
+const PLAY_ROOT_MOBILE_GRADIENT_MQ = "(max-width: 740px)";
+
+function clearPlayRootBackground(): void {
+  const root = document.getElementById("root");
+  const html = document.documentElement;
+  if (!root) return;
+  for (const el of [root, html]) {
+    el.style.removeProperty("background");
+    el.style.removeProperty("background-image");
+    el.style.removeProperty("background-color");
+  }
+}
+
+function applyPlayRootBackground(playerTint: string | undefined): void {
+  const root = document.getElementById("root");
+  const html = document.documentElement;
+  if (!root) return;
+  if (!playerTint) {
+    clearPlayRootBackground();
+    return;
+  }
+  const useGradient = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
+  if (useGradient) {
+    const gradient = `linear-gradient(180deg, ${playerTint} 0%, ${playerTint} 10%, #0a0a12 45%, #000000 100%)`;
+    for (const el of [root, html]) {
+      el.style.background = gradient;
+      el.style.backgroundColor = "#000000";
+    }
+  } else {
+    for (const el of [root, html]) {
+      el.style.removeProperty("background-image");
+      el.style.background = playerTint;
+      el.style.backgroundColor = playerTint;
+    }
+  }
+}
+
 export function PlayView() {
   const log = useMemo(() => createLogger("play"), []);
   const navigate = useNavigate();
@@ -169,6 +207,11 @@ export function PlayView() {
   const [pvpDiceSpinning, setPvpDiceSpinning] = useState(true);
   const [sheetFlashGen, setSheetFlashGen] = useState(0);
   const [sheetFlash, setSheetFlash] = useState(false);
+  const [sheetTurnAnim, setSheetTurnAnim] = useState<"in" | "out" | null>(null);
+  const bottomSheetMeasureRef = useRef<HTMLDivElement | null>(null);
+  const turnSwapTimerRef = useRef<number | null>(null);
+  const prevIsMyTurnRef = useRef(false);
+  const [bottomSheetAnimatedHeight, setBottomSheetAnimatedHeight] = useState<number | null>(null);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
 
@@ -193,28 +236,15 @@ export function PlayView() {
 
   const me = findMe(state, myId);
 
-  /** Spelarfärg på #root/html så ytan under fixed header skiljer sig från den svarta stats-raden (rundade hörn). */
+  /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
   useEffect(() => {
-    const root = document.getElementById("root");
-    const html = document.documentElement;
-    if (!root) return;
-    const tint = me?.color;
-    if (tint) {
-      root.style.background = tint;
-      root.style.backgroundColor = tint;
-      html.style.background = tint;
-      html.style.backgroundColor = tint;
-    } else {
-      root.style.removeProperty("background");
-      root.style.removeProperty("background-color");
-      html.style.removeProperty("background");
-      html.style.removeProperty("background-color");
-    }
+    const mq = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ);
+    const apply = () => applyPlayRootBackground(me?.color);
+    apply();
+    mq.addEventListener("change", apply);
     return () => {
-      root.style.removeProperty("background");
-      root.style.removeProperty("background-color");
-      html.style.removeProperty("background");
-      html.style.removeProperty("background-color");
+      mq.removeEventListener("change", apply);
+      clearPlayRootBackground();
     };
   }, [me?.color]);
 
@@ -375,6 +405,14 @@ export function PlayView() {
     pending.phase === "awaitingRolls" &&
     !!me &&
     (pending.attackerId === me.id || pending.defenderId === me.id);
+  const isThirdPartyCombatIntervention =
+    !!me &&
+    inCombatReactions &&
+    pending?.type === "combat" &&
+    pending.attackerId !== me.id &&
+    pending.assistId !== me.id &&
+    (pending.reactors?.includes(me.id) ?? false) &&
+    playerCanCombatIntervene(me);
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
     if (itemId === "lengraddad" && inCombatReactions) return true;
@@ -385,25 +423,34 @@ export function PlayView() {
   };
   const itemCardTone = (itemId: string, target: ItemUseTarget) => {
     const playable = isItemPlayableNow(itemId, target);
-    if (playable && (target === "combat" || target === "combat_bro")) {
-      return {
-        border: "2px solid rgba(96,165,250,0.95)",
-        background: "rgba(37,99,235,0.13)",
-        boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(96,165,250,0.45) inset",
-      };
-    }
-    if (playable) {
-      return {
-        border: "2px solid rgba(74,222,128,0.9)",
-        background: "rgba(21,128,61,0.13)",
-        boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(74,222,128,0.35) inset",
-      };
-    }
-    return {
+    const id = String(itemId);
+    const bluePlayable = {
+      border: "2px solid rgba(96,165,250,0.95)",
+      background: "rgba(37,99,235,0.13)",
+      boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(96,165,250,0.45) inset",
+    };
+    const greenPositive = {
+      border: "2px solid rgba(74,222,128,0.9)",
+      background: "rgba(21,128,61,0.13)",
+      boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(74,222,128,0.35) inset",
+    };
+    const redEvil = {
+      border: "2px solid rgba(248,113,113,0.95)",
+      background: "rgba(127,29,29,0.14)",
+      boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(248,113,113,0.4) inset",
+    };
+    const neutral = {
       border: "2px solid rgba(255,255,255,0.16)",
       background: "rgba(255,255,255,0.04)",
       boxShadow: "0 8px 16px rgba(0,0,0,0.28)",
     };
+
+    if (isThirdPartyCombatIntervention) {
+      if (COMBAT_INTERVENE_EVIL_ITEM_IDS.has(id)) return redEvil;
+      if (COMBAT_INTERVENE_GOOD_ITEM_IDS.has(id)) return greenPositive;
+    }
+    if (playable) return bluePlayable;
+    return neutral;
   };
 
   const mySipNotice = useMemo(() => {
@@ -1473,6 +1520,64 @@ export function PlayView() {
 
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? (!hasBlockingSipNotice ? interaction : null);
+  const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
+
+  useEffect(() => {
+    const curr = !!isMyTurn;
+    if (state?.phase !== "playing" || !bottomSheetVisible) {
+      prevIsMyTurnRef.current = curr;
+      setSheetTurnAnim(null);
+      return;
+    }
+    const prev = prevIsMyTurnRef.current;
+    if (prev !== curr) {
+      setSheetTurnAnim(curr ? "in" : "out");
+      if (turnSwapTimerRef.current) clearTimeout(turnSwapTimerRef.current);
+      turnSwapTimerRef.current = window.setTimeout(() => {
+        setSheetTurnAnim(null);
+        turnSwapTimerRef.current = null;
+      }, 430);
+    }
+    prevIsMyTurnRef.current = curr;
+  }, [isMyTurn, state?.phase, bottomSheetVisible]);
+
+  useEffect(
+    () => () => {
+      if (turnSwapTimerRef.current) clearTimeout(turnSwapTimerRef.current);
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    if (!bottomSheetVisible) {
+      setBottomSheetAnimatedHeight(null);
+      return;
+    }
+    const el = bottomSheetMeasureRef.current;
+    if (!el) return;
+
+    let raf = 0;
+    const syncHeight = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => {
+        const h = Math.ceil(el.getBoundingClientRect().height);
+        setBottomSheetAnimatedHeight((prev) => {
+          if (prev == null) return h;
+          return Math.abs(prev - h) < 1 ? prev : h;
+        });
+      });
+    };
+
+    syncHeight();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncHeight) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", syncHeight);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener("resize", syncHeight);
+    };
+  }, [bottomSheetVisible]);
 
   /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
   const bottomSheetOverTeamBattleIntro =
@@ -2264,11 +2369,13 @@ export function PlayView() {
         )}
       </div>
 
-      {pending?.type !== "brewerDown" && bottomSheetPrimary && (
+      {bottomSheetVisible && (
         <div
           className={[
             styles.bottomSheet,
             styles.bottomSheetEnter,
+            sheetTurnAnim === "in" ? styles.bottomSheetTurnSwapIn : "",
+            sheetTurnAnim === "out" ? styles.bottomSheetTurnSwapOut : "",
             highlightPulse ? styles.bottomSheetActiveTurn : "",
             itemDetailSheet ||
               equipDetailSheet ||
@@ -2283,11 +2390,17 @@ export function PlayView() {
         >
           {highlightPulse ? <div className={styles.bottomSheetActiveTurnBg} aria-hidden /> : null}
           <div
-            className={[styles.bottomSheetInner, sheetFlash && styles.bottomSheetInnerFlash]
-              .filter(Boolean)
-              .join(" ")}
+            className={styles.bottomSheetHeightAnim}
+            style={bottomSheetAnimatedHeight == null ? undefined : { height: bottomSheetAnimatedHeight }}
           >
-            {bottomSheetPrimary}
+            <div
+              ref={bottomSheetMeasureRef}
+              className={[styles.bottomSheetInner, sheetFlash && styles.bottomSheetInnerFlash]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {bottomSheetPrimary}
+            </div>
           </div>
         </div>
       )}
@@ -2893,6 +3006,22 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   early_night: "combat",
 };
 
+/** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */
+const COMBAT_INTERVENE_EVIL_ITEM_IDS = new Set<string>([
+  "weak_beer",
+  "tripwire",
+  "hangover",
+  "monster_hype",
+]);
+const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
+  "light_beer",
+  "folk_beer",
+  "double_hops",
+  "beer_bomb",
+  "yeast_sabotage",
+  "beer_bro",
+]);
+
 const ITEM_EFFECT_BADGE_ICONS = {
   heart: "/icons/heart-icon.svg",
   monster: "/icons/monster-icon.svg",
@@ -3271,11 +3400,11 @@ function itemImageSrc(itemId: any): string {
     weak_beer: "/items/drunk-too-much.png",
     light_beer: "/items/energy-drink.png",
     folk_beer: "/items/8-bit-beer.png",
-    tripwire: "/items/tripwire.png",
+    tripwire: "/items/tripwire.webp",
     pretzel_snack: "/items/brezel.png",
     coin_purse: "/items/coin-purse.png",
     double_hops: "/items/double-hops.png",
-    beer_bomb: "/items/beer-bomb.png",
+    beer_bomb: "/items/beer-bomb.webp",
     beard_back: "/items/beard-back.png",
     hangover: "/items/hangover.png",
     monster_hype: "/items/monster-hype.png",
@@ -3393,7 +3522,7 @@ function CardArtFrame({ artKey }: { artKey?: string }) {
           aspectRatio: "4/3",
           borderRadius: 14,
           overflow: "hidden",
-          border: "1px solid #ffffff22",
+          border: "none",
           background: "transparent",
         }}
       >
@@ -3748,6 +3877,7 @@ function CardModal(props: {
     props.cardId.startsWith("event_find_item_") || props.cardId.startsWith("treasure_item_");
   const showDoorLocked = props.cardId === "door_locked";
   const centeredCombatOutcome = showCombatWin || showCombatLose || showTreasure;
+  const useSimpleOutcomeEntrance = showCombatWin || showCombatLose;
   const eventStoryLayout =
     !centeredCombatOutcome && !showDoorLocked && !useMonsterLayout;
   const showBeerRef = !!artAttributionLabel(effectiveArtKey);
@@ -3755,6 +3885,7 @@ function CardModal(props: {
   return (
     <CardFlipModalShell
       zIndex={100}
+      simpleEntrance={useSimpleOutcomeEntrance}
       faceInnerClassName={
         eventStoryLayout || (useMonsterLayout && mon)
           ? cardFlipShellStyles.faceInnerNoVerticalOverflow
@@ -3879,7 +4010,7 @@ function CardModal(props: {
                   aspectRatio: "4/3",
                   borderRadius: 14,
                   overflow: "hidden",
-                  border: foundItemReveal ? "none" : "1px solid #ffffff22",
+                  border: "none",
                   background: foundItemReveal ? "transparent" : "rgba(255,255,255,0.92)",
                   boxSizing: "border-box",
                 }}
