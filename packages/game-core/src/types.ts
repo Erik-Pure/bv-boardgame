@@ -170,6 +170,8 @@ export interface ShopItem {
   canSkipMonsterEncounter?: boolean;
   healAmount?: number;
   goldAmount?: number;
+  /** Kort smaktext / särregler för UI (affär, inventarie). */
+  rulesText?: string;
 }
 
 /** Visning av vinst efter strid (`cardId === "combat_win"`). */

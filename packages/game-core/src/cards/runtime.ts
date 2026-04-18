@@ -78,7 +78,7 @@ export function createMonsterCombatPending(
     enemyName: monster.name,
     need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex),
     needMod: 0,
-    baseDamage: monster.baseDamage,
+    baseDamage: monster.baseDamage + monsterNeedBonusForBoardLevel(attacker.levelIndex),
     lossSipsOnLose: monster.lossSipsOnLose,
     phase: teamBattleRequired ? "chooseTeammate" : "enemyIntro",
     attackMods: {},

@@ -453,23 +453,27 @@ function computeMonsterDamage(
   /** Kapten Interrobang / Sura bär: true = take sip for reduced damage, false = full base damage */
   sipMitigation?: boolean,
 ): { damage: number; redirected: boolean } {
-  if (monsterId === "skum_banan") return { damage: isAfter2030() ? 3 : 2, redirected: false };
-  if (monsterId === "folke_bengtsson") return { damage: p.klunkar > 5 ? 3 : 1, redirected: false };
-  if (monsterId === "kapten_interrobang") {
+  const levelDmg = monsterNeedBonusForBoardLevel(p.levelIndex);
+  let raw: number;
+  let redirected = false;
+  if (monsterId === "skum_banan") {
+    raw = isAfter2030() ? 3 : 2;
+  } else if (monsterId === "folke_bengtsson") {
+    raw = p.klunkar > 5 ? 3 : 1;
+  } else if (monsterId === "kapten_interrobang") {
     const base = MONSTERS.find((m) => m.id === "kapten_interrobang")!.baseDamage;
-    return sipMitigation === true
-      ? { damage: Math.max(0, base - 3), redirected: false }
-      : { damage: base, redirected: false };
-  }
-  if (monsterId === "sura_bar") {
+    raw = sipMitigation === true ? Math.max(0, base - 3) : base;
+  } else if (monsterId === "sura_bar") {
     const base = MONSTERS.find((m) => m.id === "sura_bar")!.baseDamage;
-    return sipMitigation === true
-      ? { damage: Math.max(0, base - 2), redirected: false }
-      : { damage: base, redirected: false };
+    raw = sipMitigation === true ? Math.max(0, base - 2) : base;
+  } else if (monsterId === "rabarbapappa" && die === 1) {
+    raw = 3;
+    redirected = true;
+  } else {
+    const def = MONSTERS.find((m) => m.id === monsterId);
+    raw = def?.baseDamage ?? 3;
   }
-  if (monsterId === "rabarbapappa" && die === 1) return { damage: 3, redirected: true };
-  const def = MONSTERS.find((m) => m.id === monsterId);
-  return { damage: def?.baseDamage ?? 3, redirected: false };
+  return { damage: raw + levelDmg, redirected };
 }
 
 function showCard(
@@ -609,7 +613,8 @@ function applyCombatLoss(
     const target = pick(rng, others);
     redirectedTargetName = target.name;
     const tb = target.hp;
-    applyDamage({ state: next, player: target, amount: dmgOut.damage, log });
+    const dmgTarget = computeMonsterDamage(monsterId, target, die, sipForMonster);
+    applyDamage({ state: next, player: target, amount: dmgTarget.damage, log });
     log(next, `${p.name} slog 1 — Rabarbapappan missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
   } else {
     applyDamage({ state: next, player: p, amount: dmgOut.damage, isBossHit, log });
@@ -617,8 +622,9 @@ function applyCombatLoss(
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
+      const dmgBro = computeMonsterDamage(monsterId, bro, die, sipForMonster);
       const bb = bro.hp;
-      applyDamage({ state: next, player: bro, amount: dmgOut.damage, isBossHit, log });
+      applyDamage({ state: next, player: bro, amount: dmgBro.damage, isBossHit, log });
       log(next, `${bro.name} takes the hit too (HP ${bb} → ${bro.hp}).`);
     }
   }
@@ -627,19 +633,19 @@ function applyCombatLoss(
   const lossSips = (def?.lossSipsOnLose ?? 0) + MONSTER_LOSS_SIP_FLAT;
   /** En körad per mottagare — annars visar straffklunk-modalen bara första posten (fel antal vid team battle +1). */
   const totalLossSips = lossSips + (ctx.teamBattleRequired ? 1 : 0);
-  p.klunkar += penaltySipTotalForPlayer(p, totalLossSips);
-  pushSipNotice(next, p.id, ctx.enemyName, totalLossSips);
+  const mitigationKlunk =
+    (monsterId === "kapten_interrobang" || monsterId === "sura_bar") && ctx.sipMitigation ? 1 : 0;
+  const primaryLossApplied = penaltySipTotalForPlayer(p, totalLossSips);
+  p.klunkar += primaryLossApplied;
+  if (mitigationKlunk) p.klunkar += mitigationKlunk;
+  /** En notis med samma total som tilldelats (inkl. valfri klunk för lägre skada hos Kapten Interrobang / Sura bär). */
+  pushSipNotice(next, p.id, ctx.enemyName, primaryLossApplied + mitigationKlunk);
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
       bro.klunkar += penaltySipTotalForPlayer(bro, totalLossSips);
       pushSipNotice(next, bro.id, ctx.enemyName, totalLossSips);
     }
-  }
-
-  if ((monsterId === "kapten_interrobang" || monsterId === "sura_bar") && ctx.sipMitigation) {
-    p.klunkar += 1;
-    pushSipNotice(next, p.id, ctx.enemyName, 1);
   }
   let lostEquipmentName: string | undefined;
   if (monsterId === "keg_lifter") {

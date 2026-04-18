@@ -342,6 +342,15 @@ export function TableView() {
     return new Set(state.pending.options.map((o) => `${o.target.levelIndex}-${o.target.tileIndex}`));
   }, [state?.pending]);
 
+  /** Samma läge som när `rollMove` får köras: ingen annan pending, aktiv spelare kan röra sig. */
+  const highlightRollMoveOrigin = useMemo(() => {
+    if (state?.phase !== "playing") return false;
+    if (state.pending != null) return false;
+    if (!cur || cur.eliminated) return false;
+    if (cur.hp <= 0) return false;
+    return true;
+  }, [state?.phase, state?.pending, cur]);
+
   const playingTurn = state?.phase === "playing" && cur;
   const nextPlayer = playingTurn ? nextTurnPlayer(state) : null;
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
@@ -592,7 +601,14 @@ export function TableView() {
                         const w = tileSize - 12;
                         const h = tileSize - 12;
                         const clipId = `tile-clip-${li}-${t.id}`;
-                        const isTarget = moveTargets?.has(`${li}-${i}`) ?? false;
+                        const tileKey = `${li}-${i}`;
+                        const isTarget = moveTargets?.has(tileKey) ?? false;
+                        const isRollMoveOrigin =
+                          highlightRollMoveOrigin &&
+                          cur != null &&
+                          li === cur.levelIndex &&
+                          i === cur.tileIndex;
+                        const showTargetRing = isTarget || isRollMoveOrigin;
                         const ringW = w + 2 * targetRingOutset;
                         const ringH = h + 2 * targetRingOutset;
                         const ringR = 14 + targetRingOutset;
@@ -610,7 +626,7 @@ export function TableView() {
                                 preserveAspectRatio="xMidYMid slice"
                               />
                             </g>
-                            {isTarget ? (
+                            {showTargetRing ? (
                               <g pointerEvents="none" transform={`translate(${ringCx}, ${ringCy})`}>
                                 <g className="bv-target-ring-pulse">
                                   <rect

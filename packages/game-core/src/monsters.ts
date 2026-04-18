@@ -289,8 +289,8 @@ export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]):
 }
 
 /**
- * Extra som läggs på **styrkekrav** för strider **på en given våning** (0-baserat `levelIndex`).
- * Våning 0 → +0, våning 1 → +1, osv. Påverkar inte pant, klunkar eller skada — bara `need` i strid.
+ * Extra per våning (0-baserat `levelIndex`) som läggs på **styrkekrav** i strid och på **HP-skada** vid
+ * monsterförlust (samma +0/+1/+2 …). Påverkar inte pant eller klunkar i sig.
  */
 export function monsterNeedBonusForBoardLevel(levelIndex: number): number {
   return Math.max(0, Math.floor(levelIndex));

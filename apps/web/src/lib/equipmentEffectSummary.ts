@@ -35,7 +35,12 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     parts.push(`Strid mot monster: valfri straffklunk före slag för +${it.sipAttackBonus} attack`);
   }
   if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
-  if (typeof it.damageNegate === "number") {
+  const beerSetPieceIds = new Set(["ea_can_armor", "eh_beer_cap_helm_1", "ex_buckler"]);
+  if (beerSetPieceIds.has(it.id)) {
+    parts.push("Burk-set: −1 / −2 / −3 skada (rustning + Burkhjälm + sköld; sköld max −1)");
+  } else if (it.id === "eh_beer_cap_helm_2" && typeof it.damageNegate === "number" && it.damageNegate > 0) {
+    parts.push(`Skada −${it.damageNegate} (aktiv från 15 klunkar)`);
+  } else if (typeof it.damageNegate === "number") {
     const v = it.damageNegate;
     parts.push(v >= 0 ? `Skada −${v}` : `Skada +${Math.abs(v)}`);
   }

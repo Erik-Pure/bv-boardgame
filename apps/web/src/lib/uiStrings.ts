@@ -59,23 +59,21 @@ export function capitalizeWord(s: string): string {
 /** Samlad svensk copy tills riktig i18n finns */
 export const sv = {
   home: {
-    title: "Bryggmästarens väg (MVP)",
-    subtitle: "Öppna brädet på en stor skärm och anslut från mobilen.",
-    bigScreenTitle: "Stor skärm / bräde",
-    bigScreenHint: "Skapa en ny lobby (första spelaren som ansluter blir värd).",
-    gameMode: "Spelläge",
-    modeBossKill: "Döda boss",
-    modeGoldenBeer: "Gyllene öl",
-    createLobby: (code: string) => `Skapa lobby (${code})`,
-    goToBoard: "Gå till brädvyn",
-    phoneTitle: "Mobil / spelare",
-    code: "Kod",
-    name: "Namn",
+    title: "Bryggmästarens väg",
+    subtitle: "Storskärmsbräde och mobila spelkontroller — samma lobbykod.",
+    primaryJoin: "Gå med i ett spel",
+    createLobby: "Skapa lobby",
+    footerCards: "Kortkatalog",
+    footerRules: "Spelets regler",
+  },
+  joinPage: {
+    title: "Gå med i spel",
+    subtitle: "Skriv in lobbyn som värden visar och välj ditt namn.",
+    back: "Till startsidan",
+    roomLabel: "Lobbykod",
+    nameLabel: "Namn",
     namePlaceholder: "Ditt namn",
-    join: "Anslut",
-    tip: "Tips: öppna brädet på en dator och anslut som spelare på mobiler.",
-    lanHint:
-      "Samma Wi‑Fi: kör `npm run dev` (Vite + spelserver). Öppna http://192.168.x.x:5173 — WebSocket går via Vite (`/bv-ws` → port 3001) så mobilen behöver normalt inte nå 3001 direkt. Vid egen build/preview: server på 3001 eller sätt `?ws=…`.",
+    connect: "Anslut",
   },
   play: {
     wsConnecting: "Ansluter till spelet…",

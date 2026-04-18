@@ -34,9 +34,12 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     "Beer-cap-helm-1": "/equipment/helmet/beer-cap-helm-1.webp",
     Burkhjälm: "/equipment/helmet/beer-cap-helm-1.webp",
     "Beer-cap-helm-2": "/equipment/helmet/beer-cap-helm-2.webp",
+    "Legendarisk Burkhjälm": "/equipment/helmet/beer-cap-helm-2.webp",
     "Burkhjälm II": "/equipment/helmet/beer-cap-helm-2.webp",
     "Beer-filled-helmet": "/equipment/helmet/beer-filled-helmet.webp",
     "Ölfylld rymdhjälm": "/equipment/helmet/beer-filled-helmet.webp",
+    Burksköld: "/equipment/accessory/pilsnerskold.webp",
+    /** Äldre sparade tillstånd / namn före omdöpning */
     Pilsnersköld: "/equipment/accessory/pilsnerskold.webp",
     Guldkedja: "/equipment/accessory/gold-chain.webp",
     Mantel: "/equipment/accessory/beer-cape.webp",

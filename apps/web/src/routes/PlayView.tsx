@@ -12,6 +12,7 @@ import {
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
   CANMAN_DRAWS_INITIAL,
+  EQUIPMENT_CATALOG,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -212,6 +213,7 @@ export function PlayView() {
   const turnSwapTimerRef = useRef<number | null>(null);
   const prevIsMyTurnRef = useRef(false);
   const [bottomSheetAnimatedHeight, setBottomSheetAnimatedHeight] = useState<number | null>(null);
+  const [bottomSheetHeightInstant, setBottomSheetHeightInstant] = useState(false);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
 
@@ -1529,41 +1531,44 @@ export function PlayView() {
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? (!hasBlockingSipNotice ? interaction : null);
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const curr = !!isMyTurn;
     if (state?.phase !== "playing" || !bottomSheetVisible) {
       prevIsMyTurnRef.current = curr;
       setSheetTurnAnim(null);
-      return;
+    } else {
+      const prev = prevIsMyTurnRef.current;
+      if (prev !== curr) {
+        setSheetTurnAnim(curr ? "in" : "out");
+        if (turnSwapTimerRef.current) clearTimeout(turnSwapTimerRef.current);
+        turnSwapTimerRef.current = window.setTimeout(() => {
+          setSheetTurnAnim(null);
+          turnSwapTimerRef.current = null;
+        }, 620);
+      }
+      prevIsMyTurnRef.current = curr;
     }
-    const prev = prevIsMyTurnRef.current;
-    if (prev !== curr) {
-      setSheetTurnAnim(curr ? "in" : "out");
-      if (turnSwapTimerRef.current) clearTimeout(turnSwapTimerRef.current);
-      turnSwapTimerRef.current = window.setTimeout(() => {
-        setSheetTurnAnim(null);
+    return () => {
+      if (turnSwapTimerRef.current) {
+        clearTimeout(turnSwapTimerRef.current);
         turnSwapTimerRef.current = null;
-      }, 430);
-    }
-    prevIsMyTurnRef.current = curr;
+      }
+    };
   }, [isMyTurn, state?.phase, bottomSheetVisible]);
-
-  useEffect(
-    () => () => {
-      if (turnSwapTimerRef.current) clearTimeout(turnSwapTimerRef.current);
-    },
-    [],
-  );
 
   useLayoutEffect(() => {
     if (!bottomSheetVisible) {
       setBottomSheetAnimatedHeight(null);
+      setBottomSheetHeightInstant(false);
       return;
     }
+    setBottomSheetHeightInstant(true);
     const el = bottomSheetMeasureRef.current;
     if (!el) return;
 
     let raf = 0;
+    let rafUnlock1 = 0;
+    let rafUnlock2 = 0;
     const syncHeight = () => {
       if (raf) cancelAnimationFrame(raf);
       raf = window.requestAnimationFrame(() => {
@@ -1576,11 +1581,18 @@ export function PlayView() {
     };
 
     syncHeight();
+    rafUnlock1 = window.requestAnimationFrame(() => {
+      rafUnlock2 = window.requestAnimationFrame(() => {
+        setBottomSheetHeightInstant(false);
+      });
+    });
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncHeight) : null;
     ro?.observe(el);
     window.addEventListener("resize", syncHeight);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      if (rafUnlock1) cancelAnimationFrame(rafUnlock1);
+      if (rafUnlock2) cancelAnimationFrame(rafUnlock2);
       ro?.disconnect();
       window.removeEventListener("resize", syncHeight);
     };
@@ -2380,9 +2392,13 @@ export function PlayView() {
         <div
           className={[
             styles.bottomSheet,
-            styles.bottomSheetEnter,
-            sheetTurnAnim === "in" ? styles.bottomSheetTurnSwapIn : "",
-            sheetTurnAnim === "out" ? styles.bottomSheetTurnSwapOut : "",
+            sheetTurnAnim === "in"
+              ? styles.bottomSheetTurnSwapIn
+              : sheetTurnAnim === "out"
+                ? styles.bottomSheetTurnSwapOut
+                : highlightPulse
+                  ? ""
+                  : styles.bottomSheetEnter,
             highlightPulse ? styles.bottomSheetActiveTurn : "",
             itemDetailSheet ||
               equipDetailSheet ||
@@ -2397,7 +2413,12 @@ export function PlayView() {
         >
           {highlightPulse ? <div className={styles.bottomSheetActiveTurnBg} aria-hidden /> : null}
           <div
-            className={styles.bottomSheetHeightAnim}
+            className={[
+              styles.bottomSheetHeightAnim,
+              bottomSheetHeightInstant ? styles.bottomSheetHeightInstant : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             style={bottomSheetAnimatedHeight == null ? undefined : { height: bottomSheetAnimatedHeight }}
           >
             <div
@@ -2571,7 +2592,8 @@ export function PlayView() {
         const equipped = !!pieceName;
         const slotLabel = capitalizeWord(equipmentSlotSv(slot));
         const modalTitle = pieceName ?? slotLabel;
-        const bodyLines = equipped ? equipmentModalEffectLines(slot, equipPiece) : [];
+        const catalogRow = equipped ? equipmentCatalogByEquippedName(pieceName) : undefined;
+        const bodyLines = equipped ? equipmentModalDetailLines(slot, equipPiece, pieceName) : [];
         const uniqueArt = pieceName ? equipmentUniqueImageSrc(pieceName) : null;
         return (
           <Modal
@@ -2608,13 +2630,29 @@ export function PlayView() {
               </div>
               {!equipped ? (
                 <div style={{ opacity: 0.9, fontSize: 15 }}>{sv.play.emptySlot}</div>
-              ) : bodyLines.length > 0 ? (
-                <div style={{ display: "grid", gap: 8, opacity: 0.92, fontSize: 15, lineHeight: 1.45 }}>
-                  {bodyLines.map((line, i) => (
-                    <div key={i}>{line}</div>
-                  ))}
-                </div>
-              ) : null}
+              ) : (
+                <>
+                  {bodyLines.length > 0 ? (
+                    <div style={{ display: "grid", gap: 8, opacity: 0.92, fontSize: 15, lineHeight: 1.45 }}>
+                      {bodyLines.map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {catalogRow?.rulesText ? (
+                    <div
+                      style={{
+                        opacity: 0.88,
+                        fontSize: 14,
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {catalogRow.rulesText}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </Modal>
         );
@@ -2647,7 +2685,7 @@ export function PlayView() {
                     className={styles.itemModalArtImage}
                   />
                 </div>
-                <div style={{ opacity: 0.9 }}>{itemMeta(inst.itemId).text}</div>
+                <div style={{ opacity: 0.9, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{itemMeta(inst.itemId).text}</div>
               </div>
             )}
           </Modal>
@@ -3071,6 +3109,32 @@ function equipmentInventoryEffectBadges(piece?: Player["equipment"][EquipmentSlo
     badges.push({ icon: "armor", label: defenseLabel });
   }
   return badges;
+}
+
+function equipmentCatalogByEquippedName(name: string | undefined) {
+  if (!name) return undefined;
+  const direct = EQUIPMENT_CATALOG.find((e) => e.name === name);
+  if (direct) return direct;
+  /** Tidigare namn på ex_buckler */
+  if (name === "Pilsnersköld") return EQUIPMENT_CATALOG.find((e) => e.id === "ex_buckler");
+  /** Tidigare namn på eh_beer_cap_helm_2 */
+  if (name === "Burkhjälm II") return EQUIPMENT_CATALOG.find((e) => e.id === "eh_beer_cap_helm_2");
+  return undefined;
+}
+
+/** Effektrader för modal: samma sammandrag som i affären när prylen finns i katalogen (annars fallback). */
+function equipmentModalDetailLines(
+  slot: EquipmentSlot,
+  piece: Player["equipment"][EquipmentSlot] | undefined,
+  pieceName: string | undefined,
+): string[] {
+  const cat = equipmentCatalogByEquippedName(pieceName);
+  if (cat) {
+    const s = formatShopItemEffectSummary(cat);
+    if (s && s !== "—") return s.split(" · ").map((x) => x.trim());
+    return [];
+  }
+  return equipmentModalEffectLines(slot, piece);
 }
 
 function equipmentModalEffectLines(

@@ -1,12 +1,23 @@
 import type { GameState, Player } from "./types.js";
+import {
+  accessoryDamageNegateExcludingBeerCanSet,
+  armorDamageNegateExcludingBeerCanSet,
+  beerCanTrioDamageNegate,
+  helmetDamageNegateExcludingBeerCanSet,
+} from "./beerCanEquipment.js";
 
 export function equipmentDamageNegate(p: Player): number {
-  const a = p.equipment.armor?.damageNegate ?? 0;
-  const h = p.equipment.helmet?.damageNegate ?? 0;
-  const x = p.equipment.accessory?.damageNegate ?? 0;
   const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
   const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
-  return Math.max(0, a + h + x + armorBossExtra + helmetBossExtra);
+  return Math.max(
+    0,
+    armorDamageNegateExcludingBeerCanSet(p) +
+      helmetDamageNegateExcludingBeerCanSet(p) +
+      accessoryDamageNegateExcludingBeerCanSet(p) +
+      beerCanTrioDamageNegate(p) +
+      armorBossExtra +
+      helmetBossExtra,
+  );
 }
 
 export function hasNegateAllOnce(p: Player): boolean {

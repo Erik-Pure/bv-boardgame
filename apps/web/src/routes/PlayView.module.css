@@ -602,23 +602,28 @@
 }
 
 .bottomSheetEnter {
-  animation: slideUpSheet 240ms cubic-bezier(0.2, 0.85, 0.2, 1) both;
+  animation: slideUpSheet 360ms cubic-bezier(0.12, 0.9, 0.2, 1) both;
   will-change: transform, opacity;
 }
 
 .bottomSheetTurnSwapIn {
-  animation: sheetTurnSwap 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sheetTurnSwap 580ms cubic-bezier(0.26, 1, 0.48, 1) both;
   will-change: transform, opacity, filter;
 }
 
 .bottomSheetTurnSwapOut {
-  animation: sheetTurnSwapOut 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sheetTurnSwapOut 520ms cubic-bezier(0.26, 1, 0.48, 1) both;
   will-change: transform, opacity, filter;
 }
 
 .bottomSheetHeightAnim {
   overflow: visible;
-  transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: height 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/** Första layout efter att arket visas: undvik blink när height går från auto → px. */
+.bottomSheetHeightInstant {
+  transition: none !important;
 }
 
 /* På inner så slide-up-animationen på .bottomSheet inte skrivs över */
@@ -666,7 +671,7 @@
 
 @keyframes slideUpSheet {
   from {
-    transform: translateY(28px);
+    transform: translateY(32px);
     opacity: 0;
   }
   to {
@@ -678,10 +683,10 @@
 @keyframes sheetTurnSwap {
   0% {
     opacity: 0;
-    transform: translateY(22px);
+    transform: translateY(26px);
     filter: saturate(0.94);
   }
-  65% {
+  72% {
     opacity: 1;
     transform: translateY(0);
     filter: saturate(1.02);
@@ -734,7 +739,8 @@
     animation: none;
   }
 
-  .bottomSheetHeightAnim {
+  .bottomSheetHeightAnim,
+  .bottomSheetHeightInstant {
     transition: none;
   }
 

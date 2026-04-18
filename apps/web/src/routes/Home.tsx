@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { sv } from "../lib/uiStrings";
@@ -13,72 +13,69 @@ function randomCode(): string {
 
 export function Home() {
   const nav = useNavigate();
-  const [roomCode, setRoomCode] = useState("");
-  const [name, setName] = useState("");
-  const suggested = useMemo(() => randomCode(), []);
+  const suggestedRoom = useMemo(() => randomCode(), []);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ marginBottom: 8 }}>{sv.home.title}</h1>
-      <p style={{ marginTop: 0, opacity: 0.8 }}>{sv.home.subtitle}</p>
+    <div
+      style={{
+        maxWidth: 520,
+        margin: "0 auto",
+        padding: "40px 20px 56px",
+        minHeight: "100vh",
+        boxSizing: "border-box",
+        color: "#f8fafc",
+        background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+      }}
+    >
+      <h1 style={{ margin: "0 0 10px", fontSize: "clamp(1.65rem, 5vw, 2rem)", fontWeight: 800, letterSpacing: "0.02em" }}>
+        {sv.home.title}
+      </h1>
+      <p style={{ margin: "0 0 32px", opacity: 0.88, lineHeight: 1.5, fontSize: 16 }}>{sv.home.subtitle}</p>
 
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
-        <div style={{ padding: 16, border: "1px solid #3333", borderRadius: 12 }}>
-          <h2 style={{ marginTop: 0 }}>{sv.home.bigScreenTitle}</h2>
-          <p style={{ opacity: 0.8 }}>{sv.home.bigScreenHint}</p>
-          <ArcadeButton
-            variant="blue"
-            onClick={() => nav(`/table?room=${suggested}&name=Bord`)}
-          >
-            {sv.home.createLobby(suggested)}
-          </ArcadeButton>
-          <div style={{ marginTop: 12 }}>
-            <Link to="/table">{sv.home.goToBoard}</Link>
-          </div>
-        </div>
+      <ArcadeButton variant="pink" fullWidth onClick={() => nav("/join")}>
+        {sv.home.primaryJoin}
+      </ArcadeButton>
 
-        <div style={{ padding: 16, border: "1px solid #3333", borderRadius: 12 }}>
-          <h2 style={{ marginTop: 0 }}>{sv.home.phoneTitle}</h2>
-          <div style={{ display: "grid", gap: 8 }}>
-            <label>
-              {sv.home.code}
-              <input
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                placeholder="ABC123"
-                style={{ width: "100%", padding: 8, borderRadius: 10 }}
-              />
-            </label>
-            <label>
-              {sv.home.name}
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={sv.home.namePlaceholder}
-                style={{ width: "100%", padding: 8, borderRadius: 10 }}
-              />
-            </label>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() =>
-                nav(`/play?room=${encodeURIComponent(roomCode)}&name=${encodeURIComponent(name || "Bryggare")}`)
-              }
-              disabled={!roomCode.trim()}
-            >
-              {sv.home.join}
-            </ArcadeButton>
-          </div>
-          <p style={{ opacity: 0.7, marginTop: 12 }}>{sv.home.tip}</p>
-          <p style={{ opacity: 0.65, marginTop: 8, fontSize: 14, lineHeight: 1.45 }}>{sv.home.lanHint}</p>
-        </div>
+      <div style={{ marginTop: 14 }}>
+        <ArcadeButton variant="blue" fullWidth onClick={() => nav(`/table?room=${suggestedRoom}&name=Bord`)}>
+          {sv.home.createLobby}
+        </ArcadeButton>
       </div>
 
-      <p style={{ marginTop: 28, opacity: 0.65, fontSize: 14 }}>
-        <Link to="/cards">Kortkatalog</Link>
-        {" — "}
-        översikt över alla kort och monster med bilder (design / QA).
-      </p>
+      <nav
+        style={{
+          marginTop: 40,
+          paddingTop: 28,
+          borderTop: "1px solid rgba(148,163,184,0.25)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 14,
+        }}
+      >
+        <Link
+          to="/cards"
+          style={{
+            color: "#94a3b8",
+            fontSize: 15,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          {sv.home.footerCards}
+        </Link>
+        <Link
+          to="/rules"
+          style={{
+            color: "#94a3b8",
+            fontSize: 15,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          {sv.home.footerRules}
+        </Link>
+      </nav>
     </div>
   );
 }
