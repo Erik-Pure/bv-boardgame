@@ -20,6 +20,7 @@ import {
   createFinalBossCombatPending,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
+import { effectiveWeaponPiecePower } from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
@@ -206,20 +207,7 @@ function weaponPower(p: Player): number {
 }
 
 function effectiveWeaponPower(p: Player): number {
-  const w = p.equipment.weapon;
-  if (!w) return 0;
-  let pow = w.power ?? 0;
-  if (typeof w.powerAtGold30 === "number" && p.gold >= 30) {
-    pow = w.powerAtGold30;
-  } else if (typeof w.powerAtGold20 === "number" && p.gold >= 20) {
-    pow = w.powerAtGold20;
-  } else if (typeof w.powerAtGold10 === "number" && p.gold >= 10) {
-    pow = w.powerAtGold10;
-  }
-  if (typeof w.powerDynamicMax === "number") {
-    pow = Math.min(pow, w.powerDynamicMax);
-  }
-  return pow;
+  return effectiveWeaponPiecePower(p.equipment.weapon, p.gold);
 }
 
 function applyWeaponWinGoldBonus(winner: Player): number {

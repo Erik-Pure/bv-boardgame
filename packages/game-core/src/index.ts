@@ -20,6 +20,7 @@ export type {
   SipNoticeKind,
   Tile,
   TileType,
+  Weapon,
 } from "./types.js";
 export { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 export {
@@ -29,6 +30,7 @@ export {
   ringTileCount,
 } from "./board.js";
 export { createRng, rollDie, pick } from "./rng.js";
+export { effectiveWeaponPiecePower } from "./weaponPower.js";
 export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 export {
   applyAction,

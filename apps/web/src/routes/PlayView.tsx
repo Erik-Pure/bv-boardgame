@@ -13,6 +13,7 @@ import {
   playerCanCombatIntervene,
   CANMAN_DRAWS_INITIAL,
   EQUIPMENT_CATALOG,
+  effectiveWeaponPiecePower,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -24,6 +25,7 @@ import {
   type Player,
   type ShopItem,
   type SipNoticeKind,
+  type Weapon,
 } from "@bv/game-core";
 import { isGameState } from "../lib/gameTypes";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
@@ -2185,6 +2187,7 @@ export function PlayView() {
                           equipped={!!me.equipment.weapon}
                           equippedName={me.equipment.weapon?.name}
                           equippedPiece={me.equipment.weapon}
+                          effectBadgeGold={me.gold}
                           lootFlash={equipFlash.weapon}
                           lootFlashKey={equipFlashKey.weapon}
                           onClick={() => setEquipDetail({ slot: "weapon" })}
@@ -2602,7 +2605,9 @@ export function PlayView() {
             instantFront
             hideClose
             titleStyle={ITEM_MODAL_TITLE_STYLE}
-            headerRight={equipped ? <EquipmentModalEffectBadge piece={equipPiece} /> : undefined}
+            headerRight={
+              equipped ? <EquipmentModalEffectBadge piece={equipPiece} playerGold={me.gold} /> : undefined
+            }
           >
             <div style={{ display: "grid", gap: 10 }}>
               <div
@@ -2789,6 +2794,8 @@ function EquipButton(props: {
   equipped: boolean;
   equippedName?: string;
   equippedPiece?: Player["equipment"][EquipmentSlot];
+  /** Vapenbricka: pant för Burksvärd m.fl. (samma trösklar som i strid). */
+  effectBadgeGold?: number;
   lootFlash: StatFlash | null;
   lootFlashKey: number;
   onClick: () => void;
@@ -2859,7 +2866,10 @@ function EquipButton(props: {
           >
             <EquipIcon slot={props.slot} disabled={disabled} equippedName={props.equippedName} />
           </div>
-          <EquipmentInventoryEffectBadges piece={props.equippedPiece} />
+          <EquipmentInventoryEffectBadges
+            piece={props.equippedPiece}
+            playerGold={props.slot === "weapon" ? props.effectBadgeGold : undefined}
+          />
         </div>
       </LootFlashShell>
     </button>
@@ -3097,10 +3107,20 @@ function formatSigned(n: number): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
-function equipmentInventoryEffectBadges(piece?: Player["equipment"][EquipmentSlot]): EffectBadgeData[] {
+function equipmentInventoryEffectBadges(
+  piece?: Player["equipment"][EquipmentSlot],
+  playerGold?: number,
+): EffectBadgeData[] {
   if (!piece) return [];
   const badges: EffectBadgeData[] = [];
-  const attackMod = (("power" in piece ? piece.power ?? 0 : 0) + ("combatBonus" in piece ? piece.combatBonus ?? 0 : 0));
+  const powerPart =
+    "power" in piece
+      ? typeof playerGold === "number"
+        ? effectiveWeaponPiecePower(piece as Weapon, playerGold)
+        : (piece as Weapon).power ?? 0
+      : 0;
+  const combatBonus = "combatBonus" in piece ? ((piece as { combatBonus?: number }).combatBonus ?? 0) : 0;
+  const attackMod = powerPart + combatBonus;
   if (attackMod !== 0) badges.push({ icon: "attack", label: formatSigned(attackMod) });
   const damageNegate = "damageNegate" in piece ? (piece.damageNegate ?? 0) : 0;
   const negateAllOnce = "negateAllOnce" in piece && !!piece.negateAllOnce;
@@ -3294,8 +3314,11 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
   );
 }
 
-function EquipmentModalEffectBadge({ piece }: { piece?: Player["equipment"][EquipmentSlot] }) {
-  const badges = equipmentInventoryEffectBadges(piece);
+function EquipmentModalEffectBadge(props: {
+  piece?: Player["equipment"][EquipmentSlot];
+  playerGold?: number;
+}) {
+  const badges = equipmentInventoryEffectBadges(props.piece, props.playerGold);
   if (badges.length === 0) return null;
   return (
     <span
@@ -3401,8 +3424,11 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
   );
 }
 
-function EquipmentInventoryEffectBadges({ piece }: { piece?: Player["equipment"][EquipmentSlot] }) {
-  const badges = equipmentInventoryEffectBadges(piece);
+function EquipmentInventoryEffectBadges(props: {
+  piece?: Player["equipment"][EquipmentSlot];
+  playerGold?: number;
+}) {
+  const badges = equipmentInventoryEffectBadges(props.piece, props.playerGold);
   if (badges.length === 0) return null;
   const cornerStyle = (idx: number): CSSProperties => {
     const row = Math.floor(idx / 2);
