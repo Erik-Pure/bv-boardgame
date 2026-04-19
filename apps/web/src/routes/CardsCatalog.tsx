@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import {
   allCards,
@@ -12,7 +12,9 @@ import {
   type MonsterDef,
 } from "@bv/game-core";
 import { artAttributionLabel, artImageSources } from "../lib/cardArt";
+import { CatalogImageBadgeStrip, cardDefOverviewBadges } from "../lib/catalogCardOverviewBadges";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
+import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/inventoryEffectBadges";
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
 import { PictureImg } from "../components/PictureImg";
@@ -33,6 +35,22 @@ const EXTRA_OVERVIEW_EQUIPMENT: EquipmentShopItem[] = [
   { id: "special_robotarm", slot: "weapon", name: "Robotarm", price: 0, power: 0, pvpDieBonus: 1 },
   { id: "special_robothjalm", slot: "helmet", name: "Robothjälm", price: 0, damageNegate: 1 },
 ];
+const CATALOG_SECTION_LABEL: CSSProperties = {
+  fontSize: 10,
+  opacity: 0.62,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  fontWeight: 700,
+};
+
+const CATALOG_BODY_TEXT: CSSProperties = {
+  fontSize: 12,
+  opacity: 0.88,
+  lineHeight: 1.5,
+  whiteSpace: "pre-wrap",
+};
+
+/** Föremål som främst saboterar andra eller sänker attack i strid — sorteras under "Negativa" i översikten. */
 const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_sleep_potion",
   "item_sip_card",
@@ -40,6 +58,7 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_tripwire",
   "item_hangover",
   "item_monster_hype",
+  "item_yeast_sabotage",
   "item_split_the_g",
   "item_lengraddad",
   "item_not_my_round",
@@ -50,6 +69,13 @@ function imageFileNameFromSrc(src: string): string {
   const clean = src.split("?")[0]?.split("#")[0] ?? src;
   const parts = clean.split("/");
   return parts[parts.length - 1] || clean;
+}
+
+function monsterOverviewBadges(m: MonsterDef): EffectBadgeData[] {
+  const badges: EffectBadgeData[] = [{ icon: "monster", label: String(m.strength) }];
+  const teamGold = m.teamBattleBonusGold ?? 0;
+  if (m.teamBattleRequired && teamGold > 0) badges.push({ icon: "pant", label: `+${teamGold}` });
+  return badges;
 }
 
 function groupCardsByKind(cards: CardDef[]): Map<CardKind, CardDef[]> {
@@ -401,6 +427,7 @@ function MonsterCatalogCard(props: {
           background: "rgba(0,0,0,0.35)",
           display: "grid",
           placeItems: "center",
+          position: "relative",
         }}
       >
         <PictureImg
@@ -411,6 +438,7 @@ function MonsterCatalogCard(props: {
           }}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
+        <CatalogImageBadgeStrip badges={monsterOverviewBadges(m)} />
       </div>
       <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{m.name}</div>
@@ -418,8 +446,12 @@ function MonsterCatalogCard(props: {
           Styrka {m.strength}
           {m.teamBattleRequired ? ` · +${m.teamBattleBonusGold ?? 0} pant/medhjälpare vid team-seger` : null}
         </div>
-        <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{m.id}</code>
-        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>{m.artKey}</code>
+        {m.rulesText ? (
+          <>
+            <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
+            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{m.rulesText}</div>
+          </>
+        ) : null}
         <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         {tagline ? (
           <div style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35 }}>{tagline}</div>
@@ -453,6 +485,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
           placeItems: "center",
           padding: 12,
           boxSizing: "border-box",
+          position: "relative",
         }}
       >
         <PictureImg
@@ -470,11 +503,17 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
             filter: src.endsWith(".svg") ? "brightness(0) invert(0.92)" : undefined,
           }}
         />
+        <CatalogImageBadgeStrip badges={equipmentShopCatalogBadges(item)} />
       </div>
       <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{item.name}</div>
         <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.4 }}>{formatShopItemEffectSummary(item)}</div>
-        <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{item.id}</code>
+        {item.rulesText ? (
+          <>
+            <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
+            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{item.rulesText}</div>
+          </>
+        ) : null}
         <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         <div style={{ fontSize: 11, opacity: 0.65 }}>
           {capitalizeWord(equipmentSlotSv(item.slot))} · {item.price} pant
@@ -489,6 +528,7 @@ function CatalogCard({ card }: { card: CardDef }) {
   const src = sources.webp ?? sources.fallback;
   const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(card.artKey);
+  const overviewBadges = cardDefOverviewBadges(card);
   return (
     <article
       style={{
@@ -506,6 +546,7 @@ function CatalogCard({ card }: { card: CardDef }) {
           background: "rgba(0,0,0,0.35)",
           display: "grid",
           placeItems: "center",
+          position: "relative",
         }}
       >
         <PictureImg
@@ -516,29 +557,23 @@ function CatalogCard({ card }: { card: CardDef }) {
           }}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
+        <CatalogImageBadgeStrip badges={overviewBadges} />
       </div>
       <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{card.title}</div>
-        <code style={{ fontSize: 11, opacity: 0.65, wordBreak: "break-all" }}>{card.id}</code>
-        {card.artKey ? (
-          <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>{card.artKey}</code>
+        {card.flavourText ? (
+          <>
+            <div style={CATALOG_SECTION_LABEL}>Smaktext</div>
+            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{card.flavourText}</div>
+          </>
+        ) : null}
+        {card.text ? (
+          <>
+            <div style={CATALOG_SECTION_LABEL}>{card.flavourText ? "Regler" : "Korttext"}</div>
+            <div style={CATALOG_BODY_TEXT}>{card.text}</div>
+          </>
         ) : null}
         <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
-        {card.text ? (
-          <div
-            style={{
-              fontSize: 12,
-              opacity: 0.82,
-              lineHeight: 1.45,
-              display: "-webkit-box",
-              WebkitLineClamp: 5,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {card.text}
-          </div>
-        ) : null}
         {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}
       </div>
     </article>

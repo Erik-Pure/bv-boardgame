@@ -4,7 +4,7 @@ import { getCard } from "./db.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemText.js";
 import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
-import type { CombatLoseSummary, CombatWinSummary, GameState, Pending, Player } from "../types.js";
+import type { CombatLoseSummary, CombatWinSummary, EquipmentSlot, GameState, Pending, Player } from "../types.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import {
   finalBossCardTagline,
@@ -27,6 +27,7 @@ export type ShowCardFn = (state: GameState, params: {
   choices?: Array<{ id: string; label: string }>;
   combatWin?: CombatWinSummary;
   combatLoss?: CombatLoseSummary;
+  equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
 }) => void;
 
 /** Endast specialregler — standard styrka/vinst/förlust visas i UI med ikoner. */
@@ -155,7 +156,6 @@ export function resolveEventCardOnLand(params: {
   if (card.id === "event_apocalypse") {
     for (const pl of state.players) {
       pl.klunkar += 1;
-      pushSipNotice(state, pl.id, `${p.name} (Apocalypse)`);
     }
     log(state, `Händelse: ${card.title}`);
     showCard(state, { playerId: p.id, kind: "event", cardId: card.id, title: card.title, text: card.text, artKey: card.artKey });
@@ -236,6 +236,7 @@ export function resolveEventCardOnLand(params: {
       formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
     artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
     grantedItemId: effectOut.grantedItemId,
+    equipmentReplaceOffer: effectOut.equipmentReplaceOffer,
   });
 }
 
@@ -313,6 +314,7 @@ export function handleCardOption(params: {
     choices: undefined,
     artKey: artKeyForGrantedItem(effectOut, pending.artKey) ?? pending.artKey,
     grantedItemId: effectOut.grantedItemId ?? pending.grantedItemId,
+    equipmentReplaceOffer: effectOut.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
     text:
       `${def.text}\nVal: ${choice.label}` +
       appendTextForGrantedItem(effectOut) +

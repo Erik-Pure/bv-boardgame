@@ -116,8 +116,9 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "helmet",
     name: "Beanie",
     price: 10,
-    damageNegate: 2,
-    rulesText: "Mysigt skydd mot hårda träffar.",
+    bonusHp: 2,
+    damageNegate: 1,
+    rulesText: "Mysig mössa: lite mer liv och lättare att stå emot smällar.",
   },
   {
     id: "eh_beer_cap_helm_1",
@@ -126,13 +127,13 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 12,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet med Burkrustning och Burksköld: tillsammans räknas skada bort upp till −3.",
+      "Del av burk-setet: +1 / +2 / +3 attack i strid beroende på hur många burk-delar du har utrustat (rustning, hjälm, sköld).",
   },
   {
     id: "eh_beer_cap_helm_2",
     slot: "helmet",
     name: "Legendarisk Burkhjälm",
-    price: 13,
+    price: 25,
     damageNegate: 3,
     rulesText: "Ger −4 skada per träff när du har minst 15 klunkar — annars ingen reduktion.",
   },
@@ -154,7 +155,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 8,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet: skölden bidrar alltid högst −1 till setets totala skadereduktion (tillsammans med Burkrustning och Burkhjälm upp till −3).",
+      "Del av burk-setet: +1 / +2 / +3 sköld (skadereduktion) beroende på hur många burk-delar du har utrustat.",
   },
   {
     id: "ex_gold_chain",
@@ -251,8 +252,9 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Öltunna",
     price: 13,
     bonusHp: 0,
-    damageNegate: 3,
-    rulesText: "Tung rustning: rejält skydd mot HP-skada.",
+    damageNegate: 2,
+    healHpPerTurn: 1,
+    rulesText: "Stadig sköld och lite läckande öl: +1 HP vid varje turstart (upp till max HP).",
   },
   {
     id: "ea_can_armor",
@@ -262,7 +264,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet med Burkhjälm och Burksköld: tillsammans räknas skada bort upp till −3 (sköld bidrar alltid max −1).",
+      "Del av burk-setet: +2 / +4 / +10 max HP beroende på hur många burk-delar du har utrustat.",
   },
 ];
 

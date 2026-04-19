@@ -177,7 +177,7 @@
       "id": "event_sotsug",
       "kind": "event",
       "title": "Sötsug",
-      "text": "Du får sötsug. Drick 2 klunkar och läk 2 HP.",
+      "text": "Du får sötsug. Drick 2 klunkar och återfå 2 HP.",
       "artKey": "event/munchies",
       "effects": [
         {
@@ -261,7 +261,7 @@
       "id": "event_spilled_pints",
       "kind": "event",
       "title": "Spilld öl",
-      "text": "Golvet är en enda röra. Ta 1 skada och +1 klunk.",
+      "text": "Vilket slöseri! Ta 1 skada och +1 klunk.",
       "artKey": "event/spilled",
       "effects": [
         {
@@ -410,7 +410,7 @@
       "id": "item_monster_hype",
       "kind": "item",
       "title": "Okontrollerad jäsning",
-      "text": "Stridsreaktion: +2 på monstrets styrka. Påverkar inte spelarnas attack.",
+      "text": "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
       "artKey": "item/hype",
       "effects": []
     },
@@ -418,7 +418,7 @@
       "id": "item_yeast_sabotage",
       "kind": "item",
       "title": "Skakad öl",
-      "text": "Stridsreaktion: −2 på monstrets styrka. Påverkar inte spelarnas attack.",
+      "text": "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
       "artKey": "item/sabotage",
       "effects": []
     },
@@ -426,7 +426,7 @@
       "id": "item_beer_bro",
       "kind": "item",
       "title": "Ölkompis",
-      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen.",
+      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
       "artKey": "item/bro",
       "effects": []
     },
@@ -499,7 +499,7 @@
     {
       "id": "item_early_night",
       "kind": "item",
-      "title": "Vaska direkt",
+      "title": "Vaska",
       "text": "Använd i strid som angripare: skippa monstret och avsluta mötet.",
       "artKey": "item/early-night",
       "effects": []

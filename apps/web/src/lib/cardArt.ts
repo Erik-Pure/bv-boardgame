@@ -31,6 +31,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/store-narcissius": "Den store Narcissus, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
+  "item/hops": "Kaakao kaakao, Bryggverket & Mabrouk Chocolate",
   "item/8-bit-beer": "41337, Bryggverket",
   "monster/taproom-titan": "The Bru-Team, Bryggverket",
 };

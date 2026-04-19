@@ -1,6 +1,6 @@
 import type { Player } from "./types.js";
 
-/** Tillbehör som räknas in i burk-trio (gamla sparningar kan ha det gamla namnet). */
+/** Tillbehör som räknas in i burk-setet (gamla sparningar kan ha det gamla namnet). */
 export const BEER_CAN_SHIELD_NAMES = ["Burksköld", "Pilsnersköld"] as const;
 
 export const BEER_CAN_RUSTNING_NAME = "Burkrustning";
@@ -20,24 +20,84 @@ export function isLegendariskBurkhjälmName(name: string | undefined): boolean {
   return name === BEER_CAN_HELM2_NAME || name === BEER_CAN_HELM2_LEGACY_NAME;
 }
 
+/** Extra max HP från Burkrustning per antal set-delar (1 → 3). */
+const BURK_TIER_EXTRA_MAX_HP = [2, 4, 10] as const;
+
+/** Sköld-skada bort från Burksköld per antal set-delar (1 → 3). */
+const BURK_TIER_SHIELD_NEGATE = [1, 2, 3] as const;
+
+/** Antal utrustade burk-set-delar (rustning, Burkhjälm eller leg. Burkhjälm, burksköld). Högst 3. */
+export function beerCanSetPiecesEquippedCount(p: Player): number {
+  let n = 0;
+  if (p.equipment.armor?.name === BEER_CAN_RUSTNING_NAME) n++;
+  if (p.equipment.helmet?.name === BEER_CAN_HELM1_NAME) n++;
+  if (isLegendariskBurkhjälmName(p.equipment.helmet?.name)) n++;
+  if (isBeerCanShieldName(p.equipment.accessory?.name)) n++;
+  return n;
+}
+
+/** Antal burk-set-delar utrustade, begränsat till 1–3 (index i tier-tabeller). */
+function burkSetTierIndex(p: Player): number {
+  const n = beerCanSetPiecesEquippedCount(p);
+  return Math.min(3, Math.max(0, n));
+}
+
 /**
- * Extra skadereduktion från burk-setet (rustning + Burkhjälm I + sköld).
- * Rustning + hjälm I räknas ihop max −2; sköld bidrar alltid högst −1 till totalen.
- * Alltså: 1 del → −1, 2 delar → −2, alla tre → −3.
+ * Skadereduktion från Burksköld/Pilsnersköld: +1 / +2 / +3 sköld beroende på hur många
+ * burk-delar (rustning, Burkhjälm I, leg. Burkhjälm, sköld) du har utrustat totalt.
  */
 export function beerCanTrioDamageNegate(p: Player): number {
-  const rust = p.equipment.armor?.name === BEER_CAN_RUSTNING_NAME ? 1 : 0;
-  const h1 = p.equipment.helmet?.name === BEER_CAN_HELM1_NAME ? 1 : 0;
-  const rustHelm = Math.min(rust + h1, 2);
-  const sh = isBeerCanShieldName(p.equipment.accessory?.name) ? 1 : 0;
-  return Math.min(rustHelm + sh, 3);
+  if (!isBeerCanShieldName(p.equipment.accessory?.name)) return 0;
+  const n = burkSetTierIndex(p);
+  if (n < 1) return 0;
+  return BURK_TIER_SHIELD_NEGATE[n - 1];
+}
+
+/** Extra max HP när Burkrustning är utrustad: +2 / +4 / +10 beroende på antal set-delar. */
+export function beerCanBurkrustningBonusMaxHp(p: Player): number {
+  if (p.equipment.armor?.name !== BEER_CAN_RUSTNING_NAME) return 0;
+  const n = burkSetTierIndex(p);
+  if (n < 1) return 0;
+  return BURK_TIER_EXTRA_MAX_HP[n - 1];
+}
+
+/** Extra monster-/stridsattack när Burkhjälm (I) är utrustad: +1 / +2 / +3 beroende på antal set-delar. */
+export function beerCanBurkhjälmSetCombatBonus(p: Player): number {
+  if (p.equipment.helmet?.name !== BEER_CAN_HELM1_NAME) return 0;
+  const n = burkSetTierIndex(p);
+  if (n < 1) return 0;
+  return n;
+}
+
+/** Total stridsattack från hjälmen (bas + klunk-trappor + burk-set), samma som i strid. */
+export function helmetAttackBonus(p: Player): number {
+  const h = p.equipment.helmet;
+  if (!h) return 0;
+  let bonus = h.combatBonus ?? 0;
+  const k = p.klunkar ?? 0;
+  if (typeof h.klunkAttackBonus20 === "number" && k >= 20) {
+    bonus += h.klunkAttackBonus20;
+  } else if (typeof h.klunkAttackBonus10 === "number" && k >= 10) {
+    bonus += h.klunkAttackBonus10;
+  }
+  if (typeof h.klunkAttackBonusMax === "number") {
+    return Math.min(bonus, h.klunkAttackBonusMax) + beerCanBurkhjälmSetCombatBonus(p);
+  }
+  return bonus + beerCanBurkhjälmSetCombatBonus(p);
+}
+
+/** Effektiv skadereduktion från hjälmen (0 under {@link BEER_HELM2_MIN_KLUNKAR} klunkar). */
+export function burkhjälmIIEffectiveDamageNegateFrom(
+  klunkar: number,
+  helmet: Player["equipment"]["helmet"] | undefined,
+): number {
+  if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return 0;
+  if (klunkar < BEER_HELM2_MIN_KLUNKAR) return 0;
+  return Math.max(0, helmet.damageNegate ?? 0);
 }
 
 export function burkhjälmIIEffectiveDamageNegate(p: Player): number {
-  const h = p.equipment.helmet;
-  if (!h || !isLegendariskBurkhjälmName(h.name)) return 0;
-  if ((p.klunkar ?? 0) < BEER_HELM2_MIN_KLUNKAR) return 0;
-  return Math.max(0, h.damageNegate ?? 0);
+  return burkhjälmIIEffectiveDamageNegateFrom(p.klunkar ?? 0, p.equipment.helmet);
 }
 
 export function armorDamageNegateExcludingBeerCanSet(p: Player): number {

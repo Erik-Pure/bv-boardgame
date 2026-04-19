@@ -78,8 +78,8 @@
 
 /* Symmetrisk vertikal padding; ingår i headerhöjd så innehållet inte hamnar under fixed header */
 .headerStatsBar {
-  padding-top: 11px;
-  padding-bottom: 11px;
+  padding-top: 9px;
+  padding-bottom: 9px;
   background: #000000;
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
@@ -89,7 +89,7 @@
 .headerStatsInner {
   max-width: 740px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 12px;
   box-sizing: border-box;
 }
 
@@ -107,8 +107,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 2px 8px;
+  gap: 7px;
+  padding: 2px 5px;
   min-width: 0;
   position: relative;
   overflow: visible;
@@ -127,8 +127,8 @@
 }
 
 .levelRingOuter {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -137,8 +137,8 @@
 }
 
 .levelRingInner {
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   border-radius: 999px;
   background: rgba(8, 12, 28, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -149,15 +149,15 @@
 }
 
 .levelRingValue {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
 
 .statsCellIconSlot {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -284,9 +284,18 @@
   }
 }
 
+.statsCellValueRow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
 .statsCellValue {
   font-family: var(--sans);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.1;
   color: #fff;
@@ -295,6 +304,92 @@
   z-index: 1;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   font-variant-numeric: tabular-nums;
+}
+
+.statsCellValueMuted {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lågt HP (≤3): ljusröd nuvarande HP + pulserande röd gradient bakom siffran */
+.statsHpCurrentWrap {
+  position: relative;
+  display: inline-block;
+  padding: 1px 5px;
+  margin: -1px -3px;
+  border-radius: 8px;
+  isolation: isolate;
+}
+
+.statsHpDangerGlow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 130%;
+  height: 160%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 85% 95% at 50% 45%,
+    rgba(254, 202, 202, 0.55) 0%,
+    rgba(248, 113, 113, 0.35) 38%,
+    rgba(185, 28, 28, 0.12) 62%,
+    transparent 78%
+  );
+  animation: statsHpDangerPulse 1.35s ease-in-out infinite;
+}
+
+.statsCellValueDanger {
+  color: #fecaca;
+  text-shadow:
+    0 0 10px rgba(248, 113, 113, 0.65),
+    0 0 18px rgba(220, 38, 38, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes statsHpDangerPulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statsHpDangerGlow {
+    animation: none;
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (max-width: 360px) {
+  .headerStatsInner {
+    padding: 0 8px;
+  }
+  .statsCellValue {
+    font-size: 16px;
+  }
+  .statsCellValueMuted {
+    font-size: 13px;
+  }
+  .statsCell {
+    gap: 5px;
+    padding: 2px 3px;
+  }
 }
 
 .levelProgressWrap {

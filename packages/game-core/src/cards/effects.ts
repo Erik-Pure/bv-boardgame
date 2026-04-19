@@ -12,15 +12,19 @@ function newInstanceId(rng: () => number): string {
 
 const RANDOM_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
 
-function applyRandomEquipmentReward(
-  player: Player,
-  rng: () => number,
-): { name: string; slot: EquipmentSlot } | null {
+type RandomEquipRoll =
+  | { kind: "equipped"; name: string; slot: EquipmentSlot }
+  | { kind: "offer"; name: string; slot: EquipmentSlot; catalogId: string };
+
+/** Tom slot → utrusta direkt; upptagen slot → erbjud byte (hanteras efter kort i motorn). */
+function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): RandomEquipRoll | null {
   const slot = pick(rng, RANDOM_REWARD_EQUIPMENT_SLOTS);
-  if (player.equipment[slot]) return null;
   const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
   if (pool.length === 0) return null;
   const eq = pick(rng, pool);
+  if (player.equipment[slot]) {
+    return { kind: "offer", name: eq.name, slot, catalogId: eq.id };
+  }
   if (slot === "weapon") {
     player.equipment.weapon = {
       name: eq.name,
@@ -42,12 +46,15 @@ function applyRandomEquipmentReward(
       negateAllOnce: eq.negateAllOnce,
       pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
       gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
+      healHpPerTurn: eq.healHpPerTurn,
     };
-    player.maxHp = 10 + (player.equipment.armor?.bonusHp ?? 0);
+    player.maxHp =
+      10 + (player.equipment.armor?.bonusHp ?? 0) + (player.equipment.helmet?.bonusHp ?? 0);
     player.hp = Math.min(player.hp, player.maxHp);
   } else if (slot === "helmet") {
     player.equipment.helmet = {
       name: eq.name,
+      bonusHp: eq.bonusHp ?? 0,
       combatBonus: eq.combatBonus ?? 0,
       damageNegate: eq.damageNegate,
       bossDamageNegateBonus: eq.bossDamageNegateBonus,
@@ -57,6 +64,11 @@ function applyRandomEquipmentReward(
       klunkAttackBonus20: eq.klunkAttackBonus20,
       klunkAttackBonusMax: eq.klunkAttackBonusMax,
     };
+    player.maxHp =
+      10 + (player.equipment.armor?.bonusHp ?? 0) + (player.equipment.helmet?.bonusHp ?? 0);
+    const helmHp = eq.bonusHp ?? 0;
+    if (helmHp > 0) player.hp = Math.min(player.hp + helmHp, player.maxHp);
+    else player.hp = Math.min(player.hp, player.maxHp);
   } else {
     player.equipment.accessory = {
       name: eq.name,
@@ -70,7 +82,7 @@ function applyRandomEquipmentReward(
       canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
     };
   }
-  return { name: eq.name, slot };
+  return { kind: "equipped", name: eq.name, slot };
 }
 
 export function applyEffects(params: {
@@ -98,18 +110,28 @@ export function applyEffects(params: {
       params.player.inventory.push(createItemInstance(e.itemId as any, newInstanceId(params.rng)));
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "randomItem") {
-      const grantedEquipment = params.rng() < 0.35 ? applyRandomEquipmentReward(params.player, params.rng) : null;
-      if (!grantedEquipment) {
+      const tryEquip = params.rng() < 0.35;
+      const equipRoll = tryEquip ? tryGrantRandomEquipmentOrOffer(params.player, params.rng) : null;
+      if (equipRoll?.kind === "equipped") {
+        out.grantedEquipmentName = equipRoll.name;
+        out.grantedEquipmentSlot = equipRoll.slot;
+      } else if (equipRoll?.kind === "offer") {
+        out.equipmentReplaceOffer = {
+          slot: equipRoll.slot,
+          catalogId: equipRoll.catalogId,
+          newName: equipRoll.name,
+        };
+      }
+      if (!out.grantedItemId && !out.grantedEquipmentName && !out.equipmentReplaceOffer) {
         const pool = itemDeckItemIds();
         const itemId = pick(params.rng, pool);
         params.player.inventory ??= [];
         params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
         out.grantedItemId = itemId;
-      } else {
-        out.grantedEquipmentName = grantedEquipment.name;
-        out.grantedEquipmentSlot = grantedEquipment.slot;
       }
-      out.item = (out.item ?? 0) + 1;
+      if (out.grantedItemId || out.grantedEquipmentName || out.equipmentReplaceOffer) {
+        out.item = (out.item ?? 0) + 1;
+      }
     } else if (e.type === "nextCombatMod") {
       params.player.nextCombatModifier = (params.player.nextCombatModifier ?? 0) + e.amount;
       out.nextCombatMod = (out.nextCombatMod ?? 0) + e.amount;

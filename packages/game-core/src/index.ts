@@ -57,6 +57,16 @@ export {
   type MonsterDef,
   type MonsterId,
 } from "./monsters.js";
+export {
+  BEER_CAN_HELM1_NAME,
+  BEER_CAN_RUSTNING_NAME,
+  BEER_HELM2_MIN_KLUNKAR,
+  beerCanSetPiecesEquippedCount,
+  burkhjälmIIEffectiveDamageNegateFrom,
+  helmetAttackBonus,
+  isBeerCanShieldName,
+  isLegendariskBurkhjälmName,
+} from "./beerCanEquipment.js";
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
@@ -65,4 +75,4 @@ export {
   artKeyFromDuFickAppend,
 } from "./cards/grantedItemText.js";
 export { allCards, getCard } from "./cards/db.js";
-export type { CardDef, CardKind } from "./cards/types.js";
+export type { CardDef, CardChoice, CardKind, Effect } from "./cards/types.js";

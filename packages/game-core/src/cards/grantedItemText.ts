@@ -14,6 +14,10 @@ export function artKeyForGrantedItem(out: EffectApplyOut, fallback?: string): st
   if (typeof out.grantedEquipmentName === "string" && typeof out.grantedEquipmentSlot === "string") {
     return `equipment/${out.grantedEquipmentSlot}/${encodeURIComponent(out.grantedEquipmentName)}`;
   }
+  if (out.equipmentReplaceOffer) {
+    const o = out.equipmentReplaceOffer;
+    return `equipment/${o.slot}/${encodeURIComponent(o.newName)}`;
+  }
   return fallback;
 }
 
@@ -29,6 +33,10 @@ export function appendTextForGrantedItem(out: EffectApplyOut): string {
   }
   if (typeof out.grantedEquipmentName === "string") {
     return `\n\nDu fick utrustning: ${out.grantedEquipmentName}.`;
+  }
+  if (out.equipmentReplaceOffer) {
+    const o = out.equipmentReplaceOffer;
+    return `\n\nDu hittade: ${o.newName}. Du har redan något utrustat på denna plats — välj efter att du stängt kortet om du vill byta ut.`;
   }
   return "";
 }

@@ -74,10 +74,14 @@ export interface ArmorPiece {
   pvpCannotBeChallenged?: boolean;
   /** Gain this much gold whenever you actually take damage. */
   gainGoldOnDamageTaken?: number;
+  /** HP som återställs vid turstart (drag), upp till max HP. */
+  healHpPerTurn?: number;
 }
 
 export interface Helmet {
   name: string;
+  /** Extra max HP (räknas in i {@link Player.maxHp} tillsammans med rustning). */
+  bonusHp?: number;
   /** +1 till stridsslag t.o.m. nästa duell */
   combatBonus?: number;
   damageNegate?: number;
@@ -152,6 +156,7 @@ export interface ShopItem {
   randomOtherDamageOnWin?: number;
   /** rustning */
   bonusHp?: number;
+  healHpPerTurn?: number;
   damageNegate?: number;
   bossDamageNegateBonus?: number;
   negateAllOnce?: boolean;
@@ -235,6 +240,19 @@ export type Pending =
       choices?: Array<{ id: string; label: string }>;
       combatWin?: CombatWinSummary;
       combatLoss?: CombatLoseSummary;
+      /** Efter skatt/händelse m.m.: ny utrustning när motsvarande slot redan är full. */
+      equipmentReplaceOffer?: {
+        slot: EquipmentSlot;
+        catalogId: string;
+        newName: string;
+      };
+    }
+  | {
+      type: "equipmentReplaceOffer";
+      playerId: string;
+      slot: EquipmentSlot;
+      catalogId: string;
+      newName: string;
     }
   | {
       type: "encounterChoice";
@@ -301,13 +319,15 @@ export type Pending =
       phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
       /** Per-player attack modifiers for this combat. */
       attackMods: Partial<Record<string, number>>;
+      /** Skakad öl: spelare som fick −1 attack; vid förlust mot monster → hoppar tur + "Öl i ögat". */
+      yeastSabotageVictimId?: string;
       /** Team battle: attacker must pick one teammate before combat starts. */
       teamBattleRequired?: boolean;
       /** Team battle: bonus gold each on win. */
       teamBattleBonusGold?: number;
       /** Optional assisting player (e.g. Ölkompis). */
       assistId?: string;
-      /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6 (krit på 1). */
+      /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6. Med två slag: auto-förlust bara om båda är 1. */
       teamRolls?: Partial<Record<string, { die: number; total: number; attackDiceDoubled?: boolean }>>;
       reactors: string[];
       reacted: Partial<Record<string, "pass" | "intervened">>;
@@ -361,6 +381,8 @@ export interface Player {
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
   skippedTurns: number;
+  /** FIFO med orsak till varje köad hopptur (sömn = normal, skakad öl-förlust = oil). */
+  skipTurnReasons?: ("normal" | "oil")[];
   /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
   eliminated?: boolean;
 }
@@ -399,6 +421,8 @@ export interface GameState {
   levels: LevelBoard[];
   pending: Pending | null;
   log: LogEntry[];
+  /** Monotont räknare per loggrad; används till RNG (log kapas vid 200 rader). */
+  logSeq?: number;
   winnerId: string | null;
   winnerName: string | null;
   goldenBeerCarrierId: string | null;
@@ -440,7 +464,8 @@ export type ClientAction =
   | { type: "chooseCombatHitMitigation"; playerId: string; choice: "sip" | "no_sip" }
   | { type: "combatReact"; playerId: string; choice: "intervene" | "pass" }
   | { type: "sipNoticeAck"; playerId: string }
-  | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" };
+  | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" }
+  | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean };
 
 export interface ApplyResult {
   state: GameState;

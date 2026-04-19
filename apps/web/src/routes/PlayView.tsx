@@ -2,6 +2,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  BEER_CAN_HELM1_NAME,
+  BEER_CAN_RUSTNING_NAME,
+  beerCanSetPiecesEquippedCount,
+  isBeerCanShieldName,
   brewerKlunkProgressRatio,
   brewerLevel,
   canAscendByKlunkRequirement,
@@ -11,9 +15,7 @@ import {
   isFinalBossMonsterId,
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
-  CANMAN_DRAWS_INITIAL,
-  EQUIPMENT_CATALOG,
-  effectiveWeaponPiecePower,
+  levelUpCostsForTargetLevel,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -25,8 +27,13 @@ import {
   type Player,
   type ShopItem,
   type SipNoticeKind,
-  type Weapon,
 } from "@bv/game-core";
+import {
+  equipmentCatalogByEquippedName,
+  equipmentInventoryEffectBadges,
+  itemInventoryEffectBadge,
+  ITEM_EFFECT_BADGE_ICONS,
+} from "../lib/inventoryEffectBadges";
 import { isGameState } from "../lib/gameTypes";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { type ServerMessage } from "../lib/ws";
@@ -74,6 +81,7 @@ function isMyPending(pending: Pending | null, me: Player | null) {
   if (!pending || !me) return false;
   if (pending.type === "moveChoice") return pending.playerId === me.id;
   if (pending.type === "card") return pending.playerId === me.id;
+  if (pending.type === "equipmentReplaceOffer") return pending.playerId === me.id;
   if (pending.type === "merchant") return pending.playerId === me.id;
   if (pending.type === "door") return pending.playerId === me.id;
   if (pending.type === "levelUpOffer") return pending.playerId === me.id;
@@ -319,15 +327,21 @@ export function PlayView() {
   }, [state, activeId, me?.id]);
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
-  const headerStatusTag = me && (me.skippedTurns ?? 0) > 0 ? "(Zzz)" : "";
+  const headerStatusTag = useMemo(() => {
+    if (!me) return "";
+    const parts: string[] = [];
+    if ((me.skippedTurns ?? 0) > 0) parts.push("(Zzz)");
+    if (me.skipTurnReasons?.includes("oil")) parts.push(sv.table.playerStatusOilInEye);
+    return parts.length ? parts.join(" ") : "";
+  }, [me]);
   const brewerProgressUi = useMemo(() => {
     if (!state || !me || state.phase !== "playing") return null;
     const bl = brewerLevel(me);
     const ratio = brewerKlunkProgressRatio(me.klunkar);
     return { brewerLevel: bl, ratio };
   }, [state, me]);
-  /* Namnrad: 12+46+12=70 (knapp 46px). Stats: 11+11 + strip ~52 (level ring 48+cellpadding) = 74. Summa 144 — tidigare 154 gav blå glipa mot fixed shell. */
-  const headerTopPad = showHeaderStatsBar ? 144 : 70;
+  /* Namnrad: 12+46+12=70 (knapp 46px). Stats: 9+9 + strip ~46 (ring 42 + cellpadding) = 64. Summa 134 — måste matcha fixed header så utrustningspanelen inte lämnar glipa (spelarfärg syns). */
+  const headerTopPad = showHeaderStatsBar ? 134 : 70;
   /** Fixed utrustningspanel har egen botten-padding; minska sidans så blå inte syns vid scroll. */
   const pageBottomPad = me && state && state.phase === "playing" ? 12 : 78;
   const pending = state?.pending ?? null;
@@ -1102,6 +1116,49 @@ export function PlayView() {
       );
     }
 
+    if (pending?.type === "equipmentReplaceOffer" && myPending) {
+      const slot = pending.slot;
+      return (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ textAlign: "center", opacity: 0.95, fontSize: 16, lineHeight: 1.35 }}>
+            {sv.play.lootEquipmentReplaceTitle}
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+            <div style={{ width: 96, height: 96, flexShrink: 0 }}>
+              <PictureImg
+                sources={equipmentImageSources(pending.newName, slot)}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
+            </div>
+          </div>
+          <div style={{ textAlign: "center", fontSize: 14, lineHeight: 1.45, color: "#e8e8f0" }}>
+            {sv.play.merchantReplaceBody(
+              capitalizeWord(equipmentSlotSv(slot)),
+              merchantEquippedName(me, slot),
+              pending.newName,
+            )}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: true })}
+            >
+              {sv.play.merchantReplaceConfirm}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: false })}
+            >
+              {sv.play.lootEquipmentReplaceDecline}
+            </ArcadeButton>
+          </div>
+        </div>
+      );
+    }
+
     if (pending?.type === "levelUpOffer" && myPending) {
       return (
         <div style={{ display: "grid", gap: 12 }}>
@@ -1618,6 +1675,7 @@ export function PlayView() {
     state?.phase === "playing" &&
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
+      !!(myPending && pending?.type === "equipmentReplaceOffer") ||
       !!itemDetail ||
       !!equipDetail ||
       !!cardOrSipActions ||
@@ -1903,11 +1961,13 @@ export function PlayView() {
               <div className={styles.statsStrip}>
                 <PlayerStatCell
                   ariaLabel={`HP ${me.hp}/${me.maxHp}`}
-                  value={`${me.hp}/${me.maxHp}`}
+                  value={String(me.hp)}
+                  valueMutedSuffix={`/${me.maxHp}`}
                   icon="hp"
                   flash={hpFlash}
                   flashKey={hpFlashKey}
-                  iconSize={36}
+                  iconSize={32}
+                  lowHpDanger={me.hp <= 3}
                 />
                 <PlayerStatCell
                   ariaLabel={`${sv.play.pant} ${me.gold}`}
@@ -1915,7 +1975,7 @@ export function PlayView() {
                   icon="pant"
                   flash={pantFlash}
                   flashKey={pantFlashKey}
-                  iconSize={36}
+                  iconSize={32}
                 />
                 <PlayerStatCell
                   ariaLabel={`${sv.play.klunkar} ${me.klunkar}`}
@@ -1923,7 +1983,7 @@ export function PlayView() {
                   icon="klunk"
                   flash={klunkFlash}
                   flashKey={klunkFlashKey}
-                  iconSize={36}
+                  iconSize={32}
                 />
                 <LevelRingCell
                   ariaLabel={sv.play.levelUpProgressAria(brewerProgressUi?.brewerLevel ?? 1)}
@@ -2188,6 +2248,7 @@ export function PlayView() {
                           equippedName={me.equipment.weapon?.name}
                           equippedPiece={me.equipment.weapon}
                           effectBadgeGold={me.gold}
+                          effectBadgePlayer={me}
                           lootFlash={equipFlash.weapon}
                           lootFlashKey={equipFlashKey.weapon}
                           onClick={() => setEquipDetail({ slot: "weapon" })}
@@ -2197,6 +2258,12 @@ export function PlayView() {
                           equipped={!!me.equipment.armor}
                           equippedName={me.equipment.armor?.name}
                           equippedPiece={me.equipment.armor}
+                          burkSetEquippedCount={
+                            me.equipment.armor?.name === BEER_CAN_RUSTNING_NAME
+                              ? beerCanSetPiecesEquippedCount(me)
+                              : undefined
+                          }
+                          effectBadgePlayer={me}
                           lootFlash={equipFlash.armor}
                           lootFlashKey={equipFlashKey.armor}
                           onClick={() => setEquipDetail({ slot: "armor" })}
@@ -2206,6 +2273,13 @@ export function PlayView() {
                           equipped={!!me.equipment.helmet}
                           equippedName={me.equipment.helmet?.name}
                           equippedPiece={me.equipment.helmet}
+                          burkSetEquippedCount={
+                            me.equipment.helmet?.name === BEER_CAN_HELM1_NAME
+                              ? beerCanSetPiecesEquippedCount(me)
+                              : undefined
+                          }
+                          effectBadgeKlunkar={me.klunkar ?? 0}
+                          effectBadgePlayer={me}
                           lootFlash={equipFlash.helmet}
                           lootFlashKey={equipFlashKey.helmet}
                           onClick={() => setEquipDetail({ slot: "helmet" })}
@@ -2215,6 +2289,13 @@ export function PlayView() {
                           equipped={!!me.equipment.accessory}
                           equippedName={me.equipment.accessory?.name}
                           equippedPiece={me.equipment.accessory}
+                          burkSetEquippedCount={
+                            me.equipment.accessory?.name &&
+                            isBeerCanShieldName(me.equipment.accessory.name)
+                              ? beerCanSetPiecesEquippedCount(me)
+                              : undefined
+                          }
+                          effectBadgePlayer={me}
                           lootFlash={equipFlash.accessory}
                           lootFlashKey={equipFlashKey.accessory}
                           onClick={() => setEquipDetail({ slot: "accessory" })}
@@ -2606,7 +2687,21 @@ export function PlayView() {
             hideClose
             titleStyle={ITEM_MODAL_TITLE_STYLE}
             headerRight={
-              equipped ? <EquipmentModalEffectBadge piece={equipPiece} playerGold={me.gold} /> : undefined
+              equipped ? (
+                <EquipmentModalEffectBadge
+                  piece={equipPiece}
+                  playerGold={me.gold}
+                  burkSetEquippedCount={
+                    (slot === "armor" && pieceName === BEER_CAN_RUSTNING_NAME) ||
+                    (slot === "helmet" && pieceName === BEER_CAN_HELM1_NAME) ||
+                    (slot === "accessory" && pieceName && isBeerCanShieldName(pieceName))
+                      ? beerCanSetPiecesEquippedCount(me)
+                      : undefined
+                  }
+                  playerKlunkar={slot === "helmet" ? (me.klunkar ?? 0) : undefined}
+                  player={me}
+                />
+              ) : undefined
             }
           >
             <div style={{ display: "grid", gap: 10 }}>
@@ -2704,6 +2799,10 @@ export function PlayView() {
 function PlayerStatCell(props: {
   ariaLabel: string;
   value: string;
+  /** HP: maxliv visas utgråat efter nuvarande värde, t.ex. `"/10"`. */
+  valueMutedSuffix?: string;
+  /** HP: visuell varning när nuvarande HP är kritiskt lågt (≤3). */
+  lowHpDanger?: boolean;
   icon: StatIconKind;
   iconSize?: number;
   flash?: StatFlash;
@@ -2712,6 +2811,23 @@ function PlayerStatCell(props: {
   const sz = props.iconSize ?? 40;
   const flash = props.flash ?? null;
   const radialTone = flash ? statsRadialToneClass(props.icon, flash) : null;
+  const danger = !!props.lowHpDanger;
+  const valueEl =
+    props.valueMutedSuffix != null ? (
+      <span className={styles.statsCellValueRow}>
+        {danger ? (
+          <span className={styles.statsHpCurrentWrap}>
+            <span className={styles.statsHpDangerGlow} aria-hidden />
+            <span className={`${styles.statsCellValue} ${styles.statsCellValueDanger}`}>{props.value}</span>
+          </span>
+        ) : (
+          <span className={styles.statsCellValue}>{props.value}</span>
+        )}
+        <span className={styles.statsCellValueMuted}>{props.valueMutedSuffix}</span>
+      </span>
+    ) : (
+      <span className={styles.statsCellValue}>{props.value}</span>
+    );
   return (
     <div className={styles.statsCell} role="group" aria-label={props.ariaLabel}>
       <div className={styles.statsCellIconSlot}>
@@ -2726,7 +2842,7 @@ function PlayerStatCell(props: {
           <StatIcon kind={props.icon} size={sz} />
         </div>
       </div>
-      <span className={styles.statsCellValue}>{props.value}</span>
+      {valueEl}
     </div>
   );
 }
@@ -2794,8 +2910,14 @@ function EquipButton(props: {
   equipped: boolean;
   equippedName?: string;
   equippedPiece?: Player["equipment"][EquipmentSlot];
+  /** Burk-set: antal utrustade delar (tier för rustning / Burkhjälm I / sköld). */
+  burkSetEquippedCount?: number;
   /** Vapenbricka: pant för Burksvärd m.fl. (samma trösklar som i strid). */
   effectBadgeGold?: number;
+  /** Hjälmbricka: klunkar för Legendarisk Burkhjälm (sköld-badge först vid 15+). */
+  effectBadgeKlunkar?: number;
+  /** För hjälmbonus som följer spelarens klunkar (t.ex. Ölfylld rymdhjälm). */
+  effectBadgePlayer?: Player;
   lootFlash: StatFlash | null;
   lootFlashKey: number;
   onClick: () => void;
@@ -2869,6 +2991,9 @@ function EquipButton(props: {
           <EquipmentInventoryEffectBadges
             piece={props.equippedPiece}
             playerGold={props.slot === "weapon" ? props.effectBadgeGold : undefined}
+            burkSetEquippedCount={props.burkSetEquippedCount}
+            playerKlunkar={props.slot === "helmet" ? props.effectBadgeKlunkar : undefined}
+            player={props.effectBadgePlayer}
           />
         </div>
       </LootFlashShell>
@@ -3092,56 +3217,6 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "beer_bro",
 ]);
 
-const ITEM_EFFECT_BADGE_ICONS = {
-  heart: "/icons/heart-icon.svg",
-  monster: "/icons/monster-icon.svg",
-  attack: "/icons/combat-icon.svg",
-  armor: "/icons/armor-icon.svg",
-  klunk: "/icons/klunk-icon.svg",
-  pant: "/icons/pant-icon.svg",
-} as const;
-
-type EffectBadgeData = { icon: keyof typeof ITEM_EFFECT_BADGE_ICONS; label: string };
-
-function formatSigned(n: number): string {
-  return n > 0 ? `+${n}` : String(n);
-}
-
-function equipmentInventoryEffectBadges(
-  piece?: Player["equipment"][EquipmentSlot],
-  playerGold?: number,
-): EffectBadgeData[] {
-  if (!piece) return [];
-  const badges: EffectBadgeData[] = [];
-  const powerPart =
-    "power" in piece
-      ? typeof playerGold === "number"
-        ? effectiveWeaponPiecePower(piece as Weapon, playerGold)
-        : (piece as Weapon).power ?? 0
-      : 0;
-  const combatBonus = "combatBonus" in piece ? ((piece as { combatBonus?: number }).combatBonus ?? 0) : 0;
-  const attackMod = powerPart + combatBonus;
-  if (attackMod !== 0) badges.push({ icon: "attack", label: formatSigned(attackMod) });
-  const damageNegate = "damageNegate" in piece ? (piece.damageNegate ?? 0) : 0;
-  const negateAllOnce = "negateAllOnce" in piece && !!piece.negateAllOnce;
-  if (negateAllOnce || damageNegate > 0) {
-    const defenseLabel = negateAllOnce ? (damageNegate > 0 ? `+${damageNegate}+ALL` : "+ALL") : `+${damageNegate}`;
-    badges.push({ icon: "armor", label: defenseLabel });
-  }
-  return badges;
-}
-
-function equipmentCatalogByEquippedName(name: string | undefined) {
-  if (!name) return undefined;
-  const direct = EQUIPMENT_CATALOG.find((e) => e.name === name);
-  if (direct) return direct;
-  /** Tidigare namn på ex_buckler */
-  if (name === "Pilsnersköld") return EQUIPMENT_CATALOG.find((e) => e.id === "ex_buckler");
-  /** Tidigare namn på eh_beer_cap_helm_2 */
-  if (name === "Burkhjälm II") return EQUIPMENT_CATALOG.find((e) => e.id === "eh_beer_cap_helm_2");
-  return undefined;
-}
-
 /** Effektrader för modal: samma sammandrag som i affären när prylen finns i katalogen (annars fallback). */
 function equipmentModalDetailLines(
   slot: EquipmentSlot,
@@ -3184,6 +3259,14 @@ function equipmentModalEffectLines(
   if ("combatBonus" in piece && typeof piece.combatBonus === "number" && piece.combatBonus > 0) {
     lines.push(sv.play.combatBonus(piece.combatBonus));
   }
+  if ("bonusHp" in piece && typeof (piece as { bonusHp?: number }).bonusHp === "number") {
+    const bh = (piece as { bonusHp?: number }).bonusHp ?? 0;
+    if (bh > 0) lines.push(sv.play.bonusHp(bh));
+  }
+  if ("healHpPerTurn" in piece && typeof (piece as { healHpPerTurn?: number }).healHpPerTurn === "number") {
+    const ht = (piece as { healHpPerTurn?: number }).healHpPerTurn ?? 0;
+    if (ht > 0) lines.push(sv.play.healHpPerTurn(ht));
+  }
   if ("damageNegate" in piece && typeof piece.damageNegate === "number" && piece.damageNegate > 0) {
     lines.push(sv.play.negatePerHit(piece.damageNegate));
   }
@@ -3223,41 +3306,6 @@ function equipmentModalEffectLines(
   return lines;
 }
 
-/** Snabb överblick i inventory-rutan: ikon + tal (läk, pant, monster, spelar-attack i strid). */
-function itemInventoryEffectBadge(
-  itemId: string,
-  instance?: ItemInstance | null,
-): EffectBadgeData | null {
-  if (itemId === "canman") {
-    const left = instance?.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
-    return { icon: "pant", label: String(left) };
-  }
-  const m: Record<string, EffectBadgeData> = {
-    healing_potion: { icon: "heart", label: "+3" },
-    pretzel_snack: { icon: "heart", label: "+2" },
-    coin_purse: { icon: "pant", label: "+4" },
-    weak_beer: { icon: "attack", label: "−2" },
-    light_beer: { icon: "attack", label: "+1" },
-    folk_beer: { icon: "attack", label: "+2" },
-    tripwire: { icon: "attack", label: "−1" },
-    double_hops: { icon: "attack", label: "+2" },
-    beer_bomb: { icon: "attack", label: "+3" },
-    hangover: { icon: "attack", label: "−3" },
-    monster_hype: { icon: "monster", label: "+2" },
-    yeast_sabotage: { icon: "monster", label: "−2" },
-    sip_card: { icon: "klunk", label: "+1" },
-    split_the_g: { icon: "pant", label: "½" },
-    lengraddad: { icon: "attack", label: "−2" },
-    early_night: { icon: "monster", label: "skip" },
-    beer_bro: { icon: "attack", label: "×2" },
-    sleep_potion: { icon: "monster", label: "Zzz" },
-    beard_back: { icon: "monster", label: "×2" },
-    not_my_round: { icon: "attack", label: "−" },
-    spill_intentional: { icon: "attack", label: "×" },
-  };
-  return m[String(itemId)] ?? null;
-}
-
 const ITEM_MODAL_TITLE_STYLE: CSSProperties = {
   fontFamily: '"Permanent Marker", var(--heading), sans-serif',
   fontWeight: 400,
@@ -3271,6 +3319,7 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
   const b = itemInventoryEffectBadge(itemId, instance);
   if (!b) return null;
   const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  const danger = b.labelTone === "danger";
   return (
     <span
       aria-hidden
@@ -3281,7 +3330,7 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
         padding: "6px 10px",
         borderRadius: 12,
         background: "rgba(11,18,38,0.88)",
-        border: "1px solid rgba(255,255,255,0.22)",
+        border: danger ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(255,255,255,0.22)",
         boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
         flexShrink: 0,
       }}
@@ -3295,7 +3344,9 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
         style={{
           display: "block",
           objectFit: "contain",
-          filter: "brightness(0) invert(1)",
+          filter: danger
+            ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
+            : "brightness(0) invert(1)",
         }}
       />
       <span
@@ -3303,7 +3354,8 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
           fontSize: 15,
           fontWeight: 900,
           fontVariantNumeric: "tabular-nums",
-          color: "#f8fafc",
+          color: danger ? "#fca5a5" : "#f8fafc",
+          textShadow: danger ? "0 0 10px rgba(248,113,113,0.5)" : undefined,
           lineHeight: 1,
           letterSpacing: "-0.02em",
         }}
@@ -3317,8 +3369,17 @@ function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?:
 function EquipmentModalEffectBadge(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
+  burkSetEquippedCount?: number;
+  playerKlunkar?: number;
+  player?: Player;
 }) {
-  const badges = equipmentInventoryEffectBadges(props.piece, props.playerGold);
+  const badges = equipmentInventoryEffectBadges(
+    props.piece,
+    props.playerGold,
+    props.burkSetEquippedCount,
+    props.playerKlunkar,
+    props.player,
+  );
   if (badges.length === 0) return null;
   return (
     <span
@@ -3330,11 +3391,12 @@ function EquipmentModalEffectBadge(props: {
         flexShrink: 0,
       }}
     >
-      {badges.map((b) => {
+      {badges.map((b, idx) => {
         const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+        const danger = b.labelTone === "danger";
         return (
           <span
-            key={`${b.icon}:${b.label}`}
+            key={`${idx}-${b.icon}:${b.label}:${b.labelTone ?? ""}`}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -3342,7 +3404,7 @@ function EquipmentModalEffectBadge(props: {
               padding: "6px 10px",
               borderRadius: 12,
               background: "rgba(11,18,38,0.88)",
-              border: "1px solid rgba(255,255,255,0.22)",
+              border: danger ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(255,255,255,0.22)",
               boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
             }}
           >
@@ -3355,7 +3417,9 @@ function EquipmentModalEffectBadge(props: {
               style={{
                 display: "block",
                 objectFit: "contain",
-                filter: "brightness(0) invert(1)",
+                filter: danger
+                  ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
+                  : "brightness(0) invert(1)",
               }}
             />
             <span
@@ -3363,7 +3427,8 @@ function EquipmentModalEffectBadge(props: {
                 fontSize: 15,
                 fontWeight: 900,
                 fontVariantNumeric: "tabular-nums",
-                color: "#f8fafc",
+                color: danger ? "#fca5a5" : "#f8fafc",
+                textShadow: danger ? "0 0 10px rgba(248,113,113,0.5)" : undefined,
                 lineHeight: 1,
                 letterSpacing: "-0.02em",
               }}
@@ -3381,6 +3446,7 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
   const b = itemInventoryEffectBadge(itemId, instance);
   if (!b) return null;
   const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  const danger = b.labelTone === "danger";
   return (
     <span
       aria-hidden
@@ -3391,7 +3457,7 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
         padding: "3px 5px 3px 5px",
         borderRadius: 999,
         background: "rgba(11,18,38,0.92)",
-        border: "1px solid rgba(255,255,255,0.2)",
+        border: danger ? "1px solid rgba(248,113,113,0.42)" : "1px solid rgba(255,255,255,0.2)",
         boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
         pointerEvents: "none",
       }}
@@ -3405,7 +3471,9 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
         style={{
           display: "block",
           objectFit: "contain",
-          filter: "brightness(0) invert(1)",
+          filter: danger
+            ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
+            : "brightness(0) invert(1)",
         }}
       />
       <span
@@ -3413,7 +3481,8 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
           fontSize: 11,
           fontWeight: 900,
           fontVariantNumeric: "tabular-nums",
-          color: "#f8fafc",
+          color: danger ? "#fca5a5" : "#f8fafc",
+          textShadow: danger ? "0 0 6px rgba(248,113,113,0.45)" : undefined,
           lineHeight: 1,
           letterSpacing: "-0.02em",
         }}
@@ -3427,8 +3496,17 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
 function EquipmentInventoryEffectBadges(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
+  burkSetEquippedCount?: number;
+  playerKlunkar?: number;
+  player?: Player;
 }) {
-  const badges = equipmentInventoryEffectBadges(props.piece, props.playerGold);
+  const badges = equipmentInventoryEffectBadges(
+    props.piece,
+    props.playerGold,
+    props.burkSetEquippedCount,
+    props.playerKlunkar,
+    props.player,
+  );
   if (badges.length === 0) return null;
   const cornerStyle = (idx: number): CSSProperties => {
     const row = Math.floor(idx / 2);
@@ -3448,9 +3526,10 @@ function EquipmentInventoryEffectBadges(props: {
     >
       {badges.map((b, idx) => {
         const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+        const danger = b.labelTone === "danger";
         return (
           <span
-            key={`${b.icon}:${b.label}`}
+            key={`${idx}-${b.icon}:${b.label}:${b.labelTone ?? ""}`}
             style={{
               position: "absolute",
               ...cornerStyle(idx),
@@ -3460,7 +3539,7 @@ function EquipmentInventoryEffectBadges(props: {
               padding: "3px 5px",
               borderRadius: 999,
               background: "rgba(11,18,38,0.92)",
-              border: "1px solid rgba(255,255,255,0.2)",
+              border: danger ? "1px solid rgba(248,113,113,0.42)" : "1px solid rgba(255,255,255,0.2)",
               boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
               maxWidth: "100%",
             }}
@@ -3471,14 +3550,21 @@ function EquipmentInventoryEffectBadges(props: {
               width={15}
               height={15}
               draggable={false}
-              style={{ display: "block", objectFit: "contain", filter: "brightness(0) invert(1)" }}
+              style={{
+                display: "block",
+                objectFit: "contain",
+                filter: danger
+                  ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
+                  : "brightness(0) invert(1)",
+              }}
             />
             <span
               style={{
                 fontSize: 11,
                 fontWeight: 900,
                 fontVariantNumeric: "tabular-nums",
-                color: "#f8fafc",
+                color: danger ? "#fca5a5" : "#f8fafc",
+                textShadow: danger ? "0 0 6px rgba(248,113,113,0.45)" : undefined,
                 lineHeight: 1,
                 letterSpacing: "-0.02em",
               }}
@@ -3604,6 +3690,22 @@ function titleCaseTileType(t: string): string {
   return (tileTypeSv as Record<string, string>)[t] ?? String(t);
 }
 
+/** Pant som krävs för nivå upp via dörren — samma som vid `door`-pending (rabatt på tillbehör). */
+function doorTileAscendGoldCost(
+  state: GameState,
+  playerId: string,
+  doorLevelIndex: number,
+  doorTileIndex: number,
+): number | null {
+  const tile = state.levels[doorLevelIndex]?.tiles[doorTileIndex];
+  if (!tile || tile.type !== "door") return null;
+  const targetLevelIndex = tile.doorTargetLevelIndex ?? doorLevelIndex + 1;
+  const base = levelUpCostsForTargetLevel(targetLevelIndex);
+  const me = state.players.find((p) => p.id === playerId);
+  const discount = me?.equipment.accessory?.levelUpDiscountGold ?? 0;
+  return Math.max(0, base.gold - Math.max(0, discount));
+}
+
 function MoveOptionLabel(props: {
   state: GameState;
   meId: string;
@@ -3618,9 +3720,54 @@ function MoveOptionLabel(props: {
       p.tileIndex === props.tileIndex,
   );
   const primary = hasOtherPlayer ? sv.play.moveChoiceBvbLabel : titleCaseTileType(props.tileType);
+  const showDoorPant = props.tileType === "door" && !hasOtherPlayer;
+  const doorGoldCost = showDoorPant
+    ? doorTileAscendGoldCost(props.state, props.meId, props.levelIndex, props.tileIndex)
+    : null;
   return (
     <span style={{ display: "grid", gap: 2, textAlign: "center", width: "100%" }}>
-      <span style={{ fontWeight: 900 }}>{primary}</span>
+      <span
+        style={{
+          fontWeight: 900,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          flexWrap: "wrap",
+          lineHeight: 1.15,
+        }}
+      >
+        <span>{primary}</span>
+        {showDoorPant && doorGoldCost != null ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              fontWeight: 900,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {"("}
+            {doorGoldCost}
+            <img
+              src="/icons/pant-icon.svg"
+              alt=""
+              width={15}
+              height={15}
+              draggable={false}
+              style={{
+                display: "block",
+                objectFit: "contain",
+                flexShrink: 0,
+                filter: "brightness(0) invert(1)",
+                opacity: 0.95,
+              }}
+            />
+            {")"}
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }
@@ -3932,8 +4079,7 @@ function SipNoticeCardModal(props: {
               maxWidth: "100%",
             }}
           >
-            {sv.sipNotice.bodyPrefix(recipient, count)}
-            <br />
+            {sv.sipNotice.bodyPrefix(count)}
             <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
           </p>
         )}

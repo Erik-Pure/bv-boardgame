@@ -1,5 +1,5 @@
 import { generateLevels } from "./board.js";
-import { createRng, pick, rollDie } from "./rng.js";
+import { createRng, fnv1a32, pick, rollDie, stableStringify } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./cards/grantedItemText.js";
 import type { EffectApplyOut } from "./cards/types.js";
@@ -23,6 +23,7 @@ import { applyDamage, moveBonusSteps } from "./damage.js";
 import { effectiveWeaponPiecePower } from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
+import { beerCanBurkrustningBonusMaxHp, helmetAttackBonus } from "./beerCanEquipment.js";
 import { pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
@@ -79,6 +80,8 @@ export function createEmptyLobby(roomCode: string): GameState {
 }
 
 function log(state: GameState, message: string): void {
+  if (state.logSeq == null) state.logSeq = state.log.length;
+  state.logSeq += 1;
   state.log.push({ at: Date.now(), message });
   if (state.log.length > 200) state.log.shift();
 }
@@ -179,8 +182,8 @@ export function brewerKlunkProgressRatio(klunkar: number): number {
 export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: number; sips: number } {
   const step = Math.max(0, targetLevelIndex - 1);
   return {
-    /** Pant per nivåbyte: var tidigare 10 + step*5 (för lätt). */
-    gold: 25 + step * 15,
+    /** Pant: 20 för första uppstigningen, 30 för nästa (och vidare). */
+    gold: step === 0 ? 20 : 30,
     /** Klunkar: dubbelt mot tidigare 5 + step*3. */
     sips: 10 + step * 6,
   };
@@ -199,7 +202,83 @@ export function canAscendByKlunkRequirement(p: Player, targetLevelIndex: number)
 
 function maxHpFor(p: Player): number {
   const arm = p.equipment.armor?.bonusHp ?? 0;
-  return 10 + arm;
+  const helm = p.equipment.helmet?.bonusHp ?? 0;
+  return 10 + arm + helm + beerCanBurkrustningBonusMaxHp(p);
+}
+
+/** Sätter utrustning från affär/skatt-byte (samma fält som `merchantBuy`). */
+function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
+  if (item.slot === "weapon") {
+    p.equipment.weapon = {
+      name: item.name,
+      power: item.power ?? 1,
+      sipAttackBonus: item.sipAttackBonus,
+      pvpDieBonus: item.pvpDieBonus,
+      gainGoldOnWin: item.gainGoldOnWin,
+      powerAtGold10: item.powerAtGold10,
+      powerAtGold20: item.powerAtGold20,
+      powerAtGold30: item.powerAtGold30,
+      powerDynamicMax: item.powerDynamicMax,
+      randomOtherDamageOnWin: item.randomOtherDamageOnWin,
+    };
+  } else if (item.slot === "armor") {
+    p.equipment.armor = {
+      name: item.name,
+      bonusHp: item.bonusHp ?? 0,
+      damageNegate: item.damageNegate,
+      bossDamageNegateBonus: item.bossDamageNegateBonus,
+      negateAllOnce: item.negateAllOnce,
+      pvpCannotBeChallenged: item.pvpCannotBeChallenged,
+      gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
+      healHpPerTurn: item.healHpPerTurn,
+    };
+    p.maxHp = maxHpFor(p);
+    p.hp = Math.min(p.hp + 2, p.maxHp);
+  } else if (item.slot === "helmet") {
+    p.equipment.helmet = {
+      name: item.name,
+      bonusHp: item.bonusHp ?? 0,
+      combatBonus: item.combatBonus ?? 0,
+      damageNegate: item.damageNegate,
+      bossDamageNegateBonus: item.bossDamageNegateBonus,
+      negateAllOnce: item.negateAllOnce,
+      penaltySipExtra: item.penaltySipExtra,
+      klunkAttackBonus10: item.klunkAttackBonus10,
+      klunkAttackBonus20: item.klunkAttackBonus20,
+      klunkAttackBonusMax: item.klunkAttackBonusMax,
+    };
+    p.maxHp = maxHpFor(p);
+    const helmHp = item.bonusHp ?? 0;
+    if (helmHp > 0) p.hp = Math.min(p.hp + helmHp, p.maxHp);
+    else p.hp = Math.min(p.hp, p.maxHp);
+  } else if (item.slot === "accessory") {
+    p.equipment.accessory = {
+      name: item.name,
+      damageNegate: item.damageNegate,
+      combatBonus: item.combatBonus,
+      moveBonus: item.moveBonus,
+      gainGoldPerCombat: item.gainGoldPerCombat,
+      gainKlunkPerCombat: item.gainKlunkPerCombat,
+      preventTheft: item.preventTheft,
+      levelUpDiscountGold: item.levelUpDiscountGold,
+      canSkipMonsterEncounter: item.canSkipMonsterEncounter,
+    };
+  }
+}
+
+/** +HP vid turstart för rustning med {@link ArmorPiece.healHpPerTurn} (t.ex. Öltunna). */
+function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): void {
+  const h = player.equipment.armor?.healHpPerTurn;
+  if (!h || h <= 0) return;
+  if (player.eliminated || player.hp <= 0) return;
+  if (player.hp >= player.maxHp) return;
+  const gain = Math.min(h, player.maxHp - player.hp);
+  if (gain <= 0) return;
+  player.hp += gain;
+  log(
+    state,
+    `${player.name} får +${gain} HP från ${player.equipment.armor?.name ?? "rustningen"} (turstart).`,
+  );
 }
 
 function weaponPower(p: Player): number {
@@ -252,22 +331,6 @@ function applyWeaponWinRandomDamage(params: {
   const applied = Math.max(0, before - target.hp);
   if (applied <= 0) return null;
   return { targetName: target.name, damage: applied };
-}
-
-function helmetAttackBonus(p: Player): number {
-  const h = p.equipment.helmet;
-  if (!h) return 0;
-  let bonus = h.combatBonus ?? 0;
-  const k = p.klunkar;
-  if (typeof h.klunkAttackBonus20 === "number" && k >= 20) {
-    bonus += h.klunkAttackBonus20;
-  } else if (typeof h.klunkAttackBonus10 === "number" && k >= 10) {
-    bonus += h.klunkAttackBonus10;
-  }
-  if (typeof h.klunkAttackBonusMax === "number") {
-    return Math.min(bonus, h.klunkAttackBonusMax);
-  }
-  return bonus;
 }
 
 function penaltySipTotalForPlayer(p: Player, baseCount: number): number {
@@ -398,12 +461,14 @@ function grantRandomCombatReward(
             negateAllOnce: eq.negateAllOnce,
             pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
             gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
+            healHpPerTurn: eq.healHpPerTurn,
           };
           player.maxHp = maxHpFor(player);
           player.hp = Math.min(player.hp, player.maxHp);
         } else if (slot === "helmet") {
           player.equipment.helmet = {
             name: eq.name,
+            bonusHp: eq.bonusHp ?? 0,
             combatBonus: eq.combatBonus ?? 0,
             damageNegate: eq.damageNegate,
             bossDamageNegateBonus: eq.bossDamageNegateBonus,
@@ -413,6 +478,8 @@ function grantRandomCombatReward(
             klunkAttackBonus20: eq.klunkAttackBonus20,
             klunkAttackBonusMax: eq.klunkAttackBonusMax,
           };
+          player.maxHp = maxHpFor(player);
+          player.hp = Math.min(player.hp, player.maxHp);
         } else {
           player.equipment.accessory = {
             name: eq.name,
@@ -477,6 +544,7 @@ function showCard(
     choices?: Array<{ id: string; label: string }>;
     combatWin?: CombatWinSummary;
     combatLoss?: CombatLoseSummary;
+    equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
   },
 ): void {
   state.pending = {
@@ -491,6 +559,7 @@ function showCard(
     choices: params.choices,
     combatWin: params.combatWin,
     combatLoss: params.combatLoss,
+    equipmentReplaceOffer: params.equipmentReplaceOffer,
   };
 }
 
@@ -566,7 +635,38 @@ function applySlutbossLossPartyEffects(
   }
 }
 
+/**
+ * Kritisk miss (auto-förlust oavsett total mot styrka): solo räcker etta på t6.
+ * Med två stridsslag (t.ex. Ölkompis eller lagkamrat) krävs att båda tärningarna är 1.
+ */
+function combatCritFailFromDice(
+  assistId: string | undefined,
+  attackerDie: number,
+  broDie: number | null | undefined,
+): boolean {
+  if (assistId) return attackerDie === 1 && broDie === 1;
+  return attackerDie === 1;
+}
+
 /** Efter förlorat slag: skada, monster-effekter, förlustkort. `sipMitigation` gäller bara Kapten Interrobang/Sura bär. */
+/** Efter förlorad monsterstrid: skakad öl ger en hopptur med status "Öl i ögat" (FIFO). */
+function applyYeastSabotageAfterMonsterLoss(
+  next: GameState,
+  yeastSabotageVictimId: string | undefined,
+  enemyName: string,
+): void {
+  if (!yeastSabotageVictimId) return;
+  const victim = next.players.find((x) => x.id === yeastSabotageVictimId);
+  if (!victim || victim.eliminated) return;
+  victim.skippedTurns = (victim.skippedTurns ?? 0) + 1;
+  victim.skipTurnReasons ??= [];
+  victim.skipTurnReasons.push("oil");
+  log(
+    next,
+    `${victim.name} har öl i ögat efter förlusten mot ${enemyName} och står över nästa tur.`,
+  );
+}
+
 function applyCombatLoss(
   next: GameState,
   ctx: {
@@ -581,7 +681,7 @@ function applyCombatLoss(
     teamBattleRequired?: boolean;
     enemyName: string;
     sipMitigation: boolean;
-    /** Minst en spelart6 var 1 — förlust oavsett total mot styrka. */
+    /** Etta solo, eller båda ettor med assist — förlust oavsett total mot styrka. */
     critFailOnOne?: boolean;
   },
   log: (s: GameState, m: string) => void,
@@ -651,7 +751,9 @@ function applyCombatLoss(
   log(
     next,
     ctx.critFailOnOne
-      ? `${p.name} förlorar striden (etta på t6 — kritisk miss; totalt ${pr} mot styrka ${need}).`
+      ? assistId
+        ? `${p.name} förlorar striden (båda slog 1 — kritisk miss; totalt ${pr} mot styrka ${need}).`
+        : `${p.name} förlorar striden (etta på t6 — kritisk miss; totalt ${pr} mot styrka ${need}).`
       : `${p.name} förlorar striden (slag ${pr}<${need}).`,
   );
   const damageTaken = before - p.hp;
@@ -696,9 +798,11 @@ function finalizeCombatAfterRollPreview(
   const rewardGold = pending.rewardGold ?? 4;
   const rewardItems = pending.rewardItems ?? 1;
   const previewWon = pending.previewWon ?? false;
-  const critFailOnOne =
-    (pending.previewDie ?? 1) === 1 ||
-    (pending.previewBroDie != null && pending.previewBroDie === 1);
+  const critFailOnOne = combatCritFailFromDice(
+    assistId,
+    pending.previewDie ?? 1,
+    pending.previewBroDie,
+  );
 
   if (!p) {
     next.pending = null;
@@ -867,6 +971,7 @@ function finalizeCombatAfterRollPreview(
       log,
       rng,
     );
+    applyYeastSabotageAfterMonsterLoss(next, pending.yeastSabotageVictimId, pending.enemyName);
   }
 }
 
@@ -1024,7 +1129,10 @@ export function startGame(
     );
   }
   const cur = currentPlayer(next);
-  if (cur) log(next, `${cur.name}s tur. Slå tärningen.`);
+  if (cur) {
+    log(next, `${cur.name}s tur. Slå tärningen.`);
+    applyArmorHealHpPerTurnAtTurnStart(next, cur);
+  }
   return { state: next, events: ["gameStarted"] };
 }
 
@@ -1069,11 +1177,15 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     powerAtGold30: eq.powerAtGold30,
     powerDynamicMax: eq.powerDynamicMax,
     randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
+    healHpPerTurn: eq.healHpPerTurn,
   };
 }
 
-/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + läkning + två slumpade från katalogen (5 st), sedan `slice(0, 4)` efter blandning. Köp per besök tills spelaren lämnar. */
+/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + läkning + två slumpade från katalogen (utan redan fasta ew_padel/ea_can_armor). Köp per besök tills spelaren lämnar. */
 const MERCHANT_SHELF_SLOTS = 4;
+
+/** Redan garanterade hyllplatser — får inte förekomma bland de två slumpade katalograderna. */
+const MERCHANT_FIXED_CATALOG_IDS = new Set(["ew_padel", "ea_can_armor"]);
 
 function rollMerchantItems(rng: () => number): ShopItem[] {
   const padel = EQUIPMENT_CATALOG.find((e) => e.id === "ew_padel");
@@ -1092,7 +1204,7 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
       healAmount: 4,
     },
   ];
-  const catalog = [...EQUIPMENT_CATALOG];
+  const catalog = EQUIPMENT_CATALOG.filter((e) => !MERCHANT_FIXED_CATALOG_IDS.has(e.id));
   shuffleArrayInPlace(catalog, rng);
   for (const it of catalog.slice(0, 2)) {
     items.push(catalogEquipmentToMerchantShopItem(it, it.id));
@@ -1180,15 +1292,21 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const beforeHp = p.hp;
       const beforeGold = p.gold;
       const beforeKlunk = p.klunkar;
-      const out = applyEffects({ state, player: p, effects: card.effects ?? [], rng });
+      const out: EffectApplyOut = {};
+      applyEffects({ state, player: p, effects: card.effects ?? [], rng, out });
       log(state, `${p.name} vilar på bryggeriet (+${out.heal ?? 0} HP, max ${p.maxHp}).`);
       showCard(state, {
         playerId: p.id,
         kind: "rest",
         cardId: card.id,
         title: card.title,
-        text: card.text + formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
-        artKey: card.artKey,
+        text:
+          card.text +
+          appendTextForGrantedItem(out) +
+          formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+        artKey: artKeyForGrantedItem(out, card.artKey) ?? card.artKey,
+        grantedItemId: out.grantedItemId,
+        equipmentReplaceOffer: out.equipmentReplaceOffer,
       });
       break;
     }
@@ -1226,6 +1344,7 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
           card.text.replace("{gold}", String(out.gold ?? 0)) + appendTextForGrantedItem(effectOut),
         artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
         grantedItemId: effectOut.grantedItemId,
+        equipmentReplaceOffer: effectOut.equipmentReplaceOffer,
       });
       break;
     }
@@ -1349,7 +1468,10 @@ function resolveLanding(state: GameState, p: Player, rng: () => number): void {
 }
 
 export function applyAction(state: GameState, action: ClientAction): ApplyResult {
-  const rng = createRng(state.seed + state.log.length * 997 + action.type.length);
+  const logEntropy = state.logSeq ?? state.log.length;
+  const base = (state.seed + Math.imul(logEntropy, 997)) >>> 0;
+  const actionMix = fnv1a32(stableStringify(action));
+  const rng = createRng((base ^ actionMix) >>> 0);
   const next = cloneState(state);
   const events: string[] = [];
 
@@ -1406,6 +1528,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.nextCombatModifier = 0;
       victim.nextCombatAttackDiceDouble = undefined;
       victim.skippedTurns = 0;
+      victim.skipTurnReasons = undefined;
       victim.maxHp = 10;
       victim.hp = victim.maxHp;
       log(next, `${victim.name} startar om på nytt: tillbaka till start, utan utrustning/föremål, 0 pant och 0 klunkar.`);
@@ -1557,6 +1680,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       target.skippedTurns = (target.skippedTurns ?? 0) + 1;
+      target.skipTurnReasons ??= [];
+      target.skipTurnReasons.push("normal");
       log(next, `${user.name} använder sömnmedel på ${target.name} (hoppar över nästa tur).`);
       pushPlayerNotice(
         next,
@@ -1752,8 +1877,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      pending.needMod = (pending.needMod ?? 0) + 2;
-      log(next, `${user.name} hajpar fienden: +2 styrka.`);
+      const targetId = action.targetPlayerId ?? pending.attackerId;
+      pending.attackMods ??= {};
+      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 2;
+      log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
@@ -1767,8 +1894,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      pending.needMod = (pending.needMod ?? 0) - 2;
-      log(next, `${user.name} saboterar monstret: −2 styrka.`);
+      const targetId = action.targetPlayerId ?? pending.attackerId;
+      pending.yeastSabotageVictimId = targetId;
+      pending.attackMods ??= {};
+      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 1;
+      log(next, `${user.name} spelar Skakad öl: −1 attack i striden.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
@@ -1881,7 +2011,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         } else if (slot === "weapon") {
           user.equipment.weapon = { ...(piece as any) };
         } else if (slot === "helmet") {
+          target.maxHp = maxHpFor(target);
+          if (target.hp > target.maxHp) target.hp = target.maxHp;
           user.equipment.helmet = { ...(piece as any) };
+          user.maxHp = maxHpFor(user);
+          if (user.hp > user.maxHp) user.hp = user.maxHp;
         } else {
           user.equipment.accessory = { ...(piece as any) };
         }
@@ -1919,7 +2053,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (!slot) return { state, events: [], error: "Målet har inget att förstöra" };
         const piece = target.equipment[slot]!;
         target.equipment[slot] = undefined as any;
-        if (slot === "armor") {
+        if (slot === "armor" || slot === "helmet") {
           target.maxHp = maxHpFor(target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
         }
@@ -1943,7 +2077,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Kan bara användas under ett pågående monstermöte" };
       }
       if (pending.attackerId !== user.id) return { state, events: [], error: "Endast angriparen kan skippa mötet" };
-      log(next, `${user.name} spelar Vaska direkt och skippar monstret.`);
+      log(next, `${user.name} spelar Vaska och skippar monstret.`);
       inv.splice(idx, 1);
       user.inventory = inv;
       next.pending = null;
@@ -2037,9 +2171,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const previewBroDie = assistRollObj?.die ?? null;
     const pr = prBase + (assistRoll ?? 0);
     const need = pending.need + (pending.needMod ?? 0);
-    /** Kritisk miss: spelarnas t6 får inte vara 1 — då förlorar de oavsett total mot styrka. */
-    const critFailOnOne =
-      attackerRoll.die === 1 || (previewBroDie !== null && previewBroDie === 1);
+    const critFailOnOne = combatCritFailFromDice(assistId, attackerRoll.die, previewBroDie);
 
     // Per-strid bonus (accessoarer): tillämpas exakt en gång när striden låser till preview.
     applyPerCombatAccessoryRewards(next, pending.attackerId);
@@ -2058,6 +2190,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       baseDamage: pending.baseDamage,
       lossSipsOnLose: pending.lossSipsOnLose,
       attackMods: pending.attackMods,
+      yeastSabotageVictimId: pending.yeastSabotageVictimId,
       teamBattleRequired: pending.teamBattleRequired,
       teamBattleBonusGold: pending.teamBattleBonusGold,
       rewardGold: pending.rewardGold,
@@ -2118,9 +2251,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         : `${p.name} takes the full force of ${pending.enemyName}'s attack (no sip).`,
     );
     next.pending = null;
-    const critFailOnOneMit =
-      (pending.previewDie ?? 1) === 1 ||
-      (pending.previewBroDie != null && pending.previewBroDie === 1);
+    const critFailOnOneMit = combatCritFailFromDice(
+      pending.assistId,
+      pending.previewDie ?? 1,
+      pending.previewBroDie,
+    );
     applyCombatLoss(
       next,
       {
@@ -2140,6 +2275,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log,
       rng,
     );
+    applyYeastSabotageAfterMonsterLoss(next, pending.yeastSabotageVictimId, pending.enemyName);
     return { state: next, events: ["state"] };
   }
 
@@ -2172,12 +2308,25 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== pending.playerId) {
       return { state, events: [], error: "Inte ditt kort" };
     }
+    if (action.playerId !== cp.id) {
+      return { state, events: [], error: "Inte din tur" };
+    }
     if (pending.choices && pending.choices.length > 0) {
       return { state, events: [], error: "Välj ett alternativ först" };
     }
+    const replaceOffer = pending.equipmentReplaceOffer;
     const handled = handleCardConfirm({ state: next, pending, rng, log });
     if (handled.handled) {
       next.pending = handled.startCombat ?? null;
+      if (!next.pending && replaceOffer && next.phase === "playing") {
+        next.pending = {
+          type: "equipmentReplaceOffer",
+          playerId: pending.playerId,
+          slot: replaceOffer.slot,
+          catalogId: replaceOffer.catalogId,
+          newName: replaceOffer.newName,
+        };
+      }
       if (!next.pending && next.phase === "playing") {
         queueFirstBrewerDownIfNeeded(next);
         if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
@@ -2185,6 +2334,23 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
     next.pending = null;
+    if (pending.cardId === "event_apocalypse") {
+      const drawer = next.players.find((x) => x.id === pending.playerId);
+      const from = drawer ? `${drawer.name} (Apocalypse)` : "Apocalypse";
+      for (const pl of next.players) {
+        pushSipNotice(next, pl.id, from);
+      }
+    }
+    if (replaceOffer && next.phase === "playing") {
+      next.pending = {
+        type: "equipmentReplaceOffer",
+        playerId: pending.playerId,
+        slot: replaceOffer.slot,
+        catalogId: replaceOffer.catalogId,
+        newName: replaceOffer.newName,
+      };
+      return { state: next, events: ["state"] };
+    }
     if (next.phase === "playing") {
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
@@ -2197,6 +2363,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== pending.playerId) {
       return { state, events: [], error: "Inte ditt kort" };
     }
+    if (action.playerId !== cp.id) {
+      return { state, events: [], error: "Inte din tur" };
+    }
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
     const optRes = handleCardOption({ state: next, player: p, pending, choiceId: action.choiceId, rng, log });
@@ -2207,8 +2376,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state: next, events: ["state"] };
       }
       if (optRes.completeCard) {
-        next.pending = null;
-        if (next.phase === "playing") {
+        const replaceOffer = pending.equipmentReplaceOffer;
+        if (replaceOffer && next.phase === "playing") {
+          next.pending = {
+            type: "equipmentReplaceOffer",
+            playerId: pending.playerId,
+            slot: replaceOffer.slot,
+            catalogId: replaceOffer.catalogId,
+            newName: replaceOffer.newName,
+          };
+        } else {
+          next.pending = null;
+        }
+        if (!next.pending && next.phase === "playing") {
           queueFirstBrewerDownIfNeeded(next);
           if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
         }
@@ -2233,11 +2413,42 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       choices: undefined,
       artKey: artKeyForGrantedItem(effectOutFallback, pending.artKey) ?? pending.artKey,
       grantedItemId: effectOutFallback.grantedItemId ?? pending.grantedItemId,
+      equipmentReplaceOffer: effectOutFallback.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
       text:
-        `${def.text}\nChoice: ${choice.label}` +
+        `${def.text}\nVal: ${choice.label}` +
         appendTextForGrantedItem(effectOutFallback) +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
     };
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "equipmentReplaceDecision" && next.pending?.type === "equipmentReplaceOffer") {
+    const erPending = next.pending;
+    if (action.playerId !== erPending.playerId) {
+      return { state, events: [], error: "Inte ditt val" };
+    }
+    if (action.playerId !== cp.id) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    const turnPid = erPending.playerId;
+    if (action.accept) {
+      const eq = EQUIPMENT_CATALOG.find((e) => e.id === erPending.catalogId);
+      if (!eq || eq.slot !== erPending.slot) {
+        return { state, events: [], error: "Ogiltig utrustning" };
+      }
+      const item = catalogEquipmentToMerchantShopItem(eq, eq.id);
+      equipShopLikeItemToPlayer(p, item);
+      log(next, `${p.name} byter ut ${erPending.slot} mot ${erPending.newName}.`);
+    } else {
+      log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
+    }
+    next.pending = null;
+    if (next.phase === "playing") {
+      queueFirstBrewerDownIfNeeded(next);
+      if (!next.pending) endTurnOrOfferLevelUp(next, turnPid);
+    }
     return { state: next, events: ["state"] };
   }
 
@@ -2409,55 +2620,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!item) return { state, events: [], error: "Ogiltigt föremål" };
     if (p.gold < item.price) return { state, events: [], error: "För lite pant" };
     p.gold -= item.price;
-    if (item.slot === "weapon") {
-      p.equipment.weapon = {
-        name: item.name,
-        power: item.power ?? 1,
-        sipAttackBonus: item.sipAttackBonus,
-        pvpDieBonus: item.pvpDieBonus,
-        gainGoldOnWin: item.gainGoldOnWin,
-        powerAtGold10: item.powerAtGold10,
-        powerAtGold20: item.powerAtGold20,
-        powerAtGold30: item.powerAtGold30,
-        powerDynamicMax: item.powerDynamicMax,
-        randomOtherDamageOnWin: item.randomOtherDamageOnWin,
-      };
-    } else if (item.slot === "armor") {
-      p.equipment.armor = {
-        name: item.name,
-        bonusHp: item.bonusHp ?? 0,
-        damageNegate: item.damageNegate,
-        bossDamageNegateBonus: item.bossDamageNegateBonus,
-        negateAllOnce: item.negateAllOnce,
-        pvpCannotBeChallenged: item.pvpCannotBeChallenged,
-        gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
-      };
-      p.maxHp = maxHpFor(p);
-      p.hp = Math.min(p.hp + 2, p.maxHp);
-    } else if (item.slot === "helmet") {
-      p.equipment.helmet = {
-        name: item.name,
-        combatBonus: item.combatBonus ?? 0,
-        damageNegate: item.damageNegate,
-        bossDamageNegateBonus: item.bossDamageNegateBonus,
-        negateAllOnce: item.negateAllOnce,
-        penaltySipExtra: item.penaltySipExtra,
-        klunkAttackBonus10: item.klunkAttackBonus10,
-        klunkAttackBonus20: item.klunkAttackBonus20,
-        klunkAttackBonusMax: item.klunkAttackBonusMax,
-      };
-    } else if (item.slot === "accessory") {
-      p.equipment.accessory = {
-        name: item.name,
-        damageNegate: item.damageNegate,
-        combatBonus: item.combatBonus,
-        moveBonus: item.moveBonus,
-        gainGoldPerCombat: item.gainGoldPerCombat,
-        gainKlunkPerCombat: item.gainKlunkPerCombat,
-        preventTheft: item.preventTheft,
-        levelUpDiscountGold: item.levelUpDiscountGold,
-        canSkipMonsterEncounter: item.canSkipMonsterEncounter,
-      };
+    if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
+      equipShopLikeItemToPlayer(p, item);
     } else if (item.slot === "heal") {
       p.hp = Math.min(p.maxHp, p.hp + (item.healAmount ?? 4));
     } else if (item.slot === "gold") {
@@ -2600,6 +2764,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (piece) {
         loser.equipment[slot] = undefined;
+        if (slot === "armor" || slot === "helmet") {
+          loser.maxHp = maxHpFor(loser);
+          if (loser.hp > loser.maxHp) loser.hp = loser.maxHp;
+        }
         if (slot === "weapon") {
           winner.equipment.weapon = { ...piece } as typeof winner.equipment.weapon;
         } else if (slot === "armor") {
@@ -2608,6 +2776,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
         } else if (slot === "helmet") {
           winner.equipment.helmet = { ...piece } as typeof winner.equipment.helmet;
+          winner.maxHp = maxHpFor(winner);
+          if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
         } else {
           winner.equipment.accessory = { ...piece } as typeof winner.equipment.accessory;
         }
@@ -2776,10 +2946,12 @@ function advanceTurn(state: GameState): void {
     }
     if ((n.skippedTurns ?? 0) > 0) {
       n.skippedTurns -= 1;
+      if (n.skipTurnReasons && n.skipTurnReasons.length > 0) n.skipTurnReasons.shift();
       log(state, `— ${n.name} skips a turn —`);
       continue;
     }
     log(state, `— ${n.name}'s turn —`);
+    applyArmorHealHpPerTurnAtTurnStart(state, n);
     maybeCreateLevelUpOffer(state, n, false);
     break;
   }

@@ -20,6 +20,7 @@ export function pendingTypeLabelSv(t: string | undefined): string {
   const m: Record<string, string> = {
     moveChoice: "rörelseval",
     card: "kort",
+    equipmentReplaceOffer: "byte av utrustning",
     merchant: "panta burkar",
     door: "nivå upp",
     levelUpOffer: "nivåval",
@@ -130,8 +131,8 @@ export const sv = {
     itemSuffixDoubleHops: " (+2 spelarattack)",
     itemSuffixBeerBomb: " (+3 spelarattack)",
     itemSuffixHangover: " (−3 spelarattack)",
-    itemSuffixMonsterHype: " (+2 monsterstyrka)",
-    itemSuffixYeast: " (−2 monsterstyrka)",
+    itemSuffixMonsterHype: " (−2 attack)",
+    itemSuffixYeast: " (−1 attack)",
     itemSuffixBeerBro: " (häng på i striden)",
     back: "Tillbaka",
     inCombat: (name: string) => `${name} är i strid`,
@@ -153,7 +154,7 @@ export const sv = {
     haveKlunkar: (n: number) => `Ha minst ${n} klunkar`,
     /** Dörr/nivå: klunkantal _eller_ bryggnivå (header) kan räcka utan att siffran nåtts. */
     doorAscendSipsOrBrewer: (minKlunk: number) =>
-      `Stig med klunkar (minst ${minKlunk} eller räckande bryggnivå)`,
+      `Stig med klunkar (minst ${minKlunk})`,
     stay: "Stanna",
     levelUpPrompt: (levelDisplay: number) =>
       `Som bryggmästare kan du stiga till nivå ${levelDisplay}. Gör du det?`,
@@ -179,6 +180,8 @@ export const sv = {
       `Du har redan ${currentName} som ${slot}. Vill du byta mot ${newName}? Den gamla utrustningen ersätts.`,
     merchantReplaceConfirm: "Ja, byt ut",
     merchantReplaceCancel: "Avbryt",
+    lootEquipmentReplaceTitle: "Ny utrustning — vill du byta?",
+    lootEquipmentReplaceDecline: "Nej, behåll det jag har",
     merchantCantAfford: "Du har inte råd.",
     leave: "Lämna",
     pvpChooseLoot: "BvB — välj byte",
@@ -246,6 +249,7 @@ export const sv = {
     armorNegateAllOnce: "Nollställ all skada en gång (går sedan sönder)",
     negatePerHit: (n: number) => `Nollställ ${n} skada per träff`,
     bonusHp: (n: number) => `Bonus-HP +${n}`,
+    healHpPerTurn: (n: number) => `Varje drag: +${n} HP (upp till max).`,
     combatBonus: (n: number) => `Stridsbonus +${n}`,
     moveSteps: (n: number) => `Rörelse +${n} steg`,
     powerPlus: (n: number) => `Kraft +${n}`,
@@ -321,6 +325,8 @@ export const sv = {
       skippedTurns === 1
         ? "Står över nästa tur (sömn)"
         : `Står över ${skippedTurns} turer (sömn)`,
+    /** Skakad öl: förlust mot monster — hopptur med denna etikett tills motsvarande tur förbrukats. */
+    playerStatusOilInEye: "Öl i ögat",
     floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
@@ -383,15 +389,15 @@ export const sv = {
     coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Okontrollerad jäsning",
-      text: "Stridsreaktion: +2 på monstrets styrka (svårare för spelarna). Påverkar inte spelarnas attack.",
+      text: "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
     },
     yeast_sabotage: {
       title: "Skakad öl",
-      text: "Stridsreaktion: −2 på monstrets styrka (lättare för spelarna). Påverkar inte spelarnas attack.",
+      text: "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
     },
     beer_bro: {
       title: "Ölkompis",
-      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka. Vid vinst får ölkompisen lika många skatter som angriparen.",
+      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka. Vid vinst får ölkompisen lika många skatter som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
     },
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
     lengraddad: {
@@ -404,15 +410,15 @@ export const sv = {
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt item eller utrustning från ett mål." },
     spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt item eller utrustning hos ett mål." },
-    early_night: { title: "Vaska direkt", text: "Som angripare i monstermöte: skippa monstret och avsluta mötet." },
+    early_night: { title: "Vaska", text: "Som angripare i monstermöte: skippa monstret och avsluta mötet." },
 
   },
   sipNotice: {
     title: "Straffklunk",
-    /** Avslutande mening; avsändarnamnet «…» färgsätts separat i UI. */
-    bodyPrefix: (recipient: string, count: number) => {
-      const k = count === 1 ? "en straffklunk" : `${count} straffklunkar`;
-      return `${recipient} fick just ${k} från`;
+    /** Inledning under mottagarens namn (namnet upprepas inte här); avsändarnamnet «…» färgsätts separat i UI. */
+    bodyPrefix: (count: number) => {
+      const k = count === 1 ? "En straffklunk" : `${count} straffklunkar`;
+      return `${k} från `;
     },
     cheers: "Skål!",
     ack: "Fattat",

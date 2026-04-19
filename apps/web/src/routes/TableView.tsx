@@ -115,6 +115,9 @@ function tablePlayerAfflictionLines(p: Player): string[] {
   if ((p.skippedTurns ?? 0) > 0) {
     lines.push(sv.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
   }
+  if (p.skipTurnReasons?.includes("oil")) {
+    lines.push(sv.table.playerStatusOilInEye);
+  }
   return lines;
 }
 

@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.18 |
-| Senast uppdaterad | 2026-04-16 |
+| Version | 0.19 |
+| Senast uppdaterad | 2026-04-18 |
 
 ---
 
@@ -40,6 +40,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Automatiskt fokus:** när turen byter spelare (och vid t.ex. val av rörelse) ska vyn **centrera och zooma** så att **den aktiva pjäsen och relevanta målrutor** ryms i **den faktiska spelytan** (rektangulär viewport — inte bara kvadratisk brädes-SVG). Pan ska vara **konsekvent med zoom** (centrering skalar med aktuell `scale`).
 - **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **aktiv spelares färg som bakgrund** och **spelarnamn centrerat** (tydligt för bordet vems tur det är).
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
+- **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
 - **Manuell överstyring:** efter auto-fokus ska spelare vid bordet kunna **pana/zooma fritt** tills nästa auto-fokus.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
@@ -60,7 +61,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 
 ### 3.1 Drift och deploy (nuvarande produktion)
 
-- **Frontend (`apps/web`):** [Vercel](https://vercel.com) — projekt kopplat till **GitHub-repot** med **root directory = repo-rot** (inte `apps/server`). Bygge styrs av `vercel.json` i roten: `npm install`, därefter `npm run -w @bv/game-core build && npm run -w web build`, output **`apps/web/dist`**, SPA-rewrite till `index.html`.
+- **Frontend (`apps/web`):** [Vercel](https://vercel.com) — projekt kopplat till **GitHub-repot** med **root directory = repo-rot** (inte `apps/server`). Bygge styrs av `vercel.json` i roten: `npm install`, därefter `npm run -w @bv/game-core build && npm run -w web build`, output **`apps/web/dist`**, SPA-rewrite till `index.html`. **Viktigt:** ändringar i **`packages/game-core`** måste också **byggas och deployas på spelservern** (`apps/server`); annars kan klient och server divergera eftersom **`applyAction`** körs på servern med samma paket.
 - **WebSocket mot produktionsserver:** i Vercel **Settings → Environment Variables** sätts **`VITE_WS_URL`** till **`wss://<host för spelserver-appen>`** (samma som CapRover-servern exponerar över HTTPS). Värdet bakas in vid **`vite build`** — efter ändring krävs **ombyggnad** (Redeploy).
 - **Spelserver (`apps/server`):** [CapRover](https://caprover.com) (eller motsvarande) med **Docker** från repo-roten: `Dockerfile` bygger `@bv/game-core` + `server`; **`captain-definition`** pekar på `./Dockerfile`. Servern lyssnar på **`process.env.PORT`** (CapRover sätter `PORT`); lokalt default **3001**. Hälsokontroll: **`GET /health`** → `{ "ok": true }`.
 - **Lokalt:** `npm run dev` — Vite på **5173**, WebSocket i dev proxas via **`/bv-ws`** till servern (se `apps/web/vite.config.ts`).
@@ -122,10 +123,10 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 ### 7.2 Nivåer (våningsplan)
 
-- Spelet använder **fyra** våningsplan i följd (visas som **Nivå 1–4** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
+- Spelet använder **tre** våningsplan i följd (**`levelIndex` 0–2**, visas som **Nivå 1–3** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
-- **Sista våningen:** väg till **slutboss**; boss **slumpas** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle); varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
+- **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle); stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
 ### 7.3 Dörrar mellan nivåer
@@ -135,7 +136,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
   - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
   - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
 - **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår). **Nivåvals-modal (mobil):** kort rubrik i *Permanent Marker* (“Gå upp till nästa nivå?”) och kort brödtext om utmaning; inga långa duplicerade förklaringar om monster-+ per våning i samma modal (den informationen finns i regler/UI annorstädes).
-- **Monster på våningen:** extra styrkekrav (`need`) är **+1 per brädesnivå** på **just det planet** (våning 1 → +0, våning 2 → +1, …) — **inte** global skalning efter “högsta spelaren”. Pant, klunkar och skada påverkas **inte** av denna bonus.
+- **Monster på våningen:** extra **styrkekrav** (`need`) och **HP-skada vid monsterförlust** är **+1 per brädesnivå** på **just det planet** (våning 1 → +0, våning 2 → +1, våning 3 → +2) — **inte** global skalning efter “högsta spelaren”. (Pant/klunkar i sig påverkas inte av denna bonus; skadan läggs ovanpå monstrets bas-skada per mottagare vid team battle / omriktade träffar.)
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
 ### 7.4 Rutyper (tiles)
@@ -148,7 +149,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | **Affär / köpman** | Öppnar **handel** (i spelet: **Panta burkar**): spendera **pant** på items, hälsa, engångs-boosts eller sällsynt loot. Sortiment och priser följer **`EQUIPMENT_CATALOG`** (se §10.2). |
 | **Strid** | **Slumpat monster**; samma grundmekanik som §9.1 (tärning + vapen mot fiende). |
 | **Dörr / nivåbyte** | Se §7.3. |
-| **Boss** | Slutboss på nivå 3 (eller dedikerad boss-tile). |
+| **Boss** | Slutboss på **sista våningen** (tredje planet, `levelIndex` 2). |
 | **Vila / bryggeri** | Lätt positiv effekt: t.ex. återhämtning, ta bort en debuff, eller billigare “ölstop” utan strid. |
 | **Skatt / gömma** | Vid landning: **slumpat** innehåll från skattleken (pant och/eller `randomItem` — kan bli föremål eller, om ledig utrustningsslot finns, utrustning). **Tom gömma** kan inträffa **slumpmässigt**; samma skattruta kan **besökas flera gånger** av olika eller samma spelare (ingen permanent “tömd”-flagga per ruta). |
 | **Ödes-/valruta** | Spelaren väljer mellan två tydliga risker (t.ex. “säker liten belöning” vs “slå tärning för större eller värre”). |
@@ -180,7 +181,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 **Särskilda monster (val som spelaren gör):**
 
 - **Sip Snatcher:** spelaren ska kunna välja **ta en sip (monstret försvinner, ingen strid)** eller **slåss** som mot ett vanligt monster.
-- **Brewizard / Sourceress:** vid **förlorat** slag ska spelaren efter tärningsresultatet välja **ta en sip för reducerad skada** (och då +1 sip) **eller** **ta full skada enligt monsterets basvärde utan sip**. *(Exakta tal i data: t.ex. −3 / −2 mot full bas-skada.)*
+- **Brewizard / Sourceress:** vid **förlorat** slag ska spelaren efter tärningsresultatet välja **ta en sip för reducerad skada** (och då +1 sip) **eller** **ta full skada enligt monsterets basvärde utan sip**. *(Exakta tal i data: t.ex. −3 / −2 mot full bas-skada.)* **Straffklunk-notis:** sip-meddelandet efter förlust ska visa **samma total** som tilldelats (monsterförlustens klunkar **plus** den valfria mitigations-klunken i **en** notis, inte två i rad.)
 - **Klunk på förlust:** fler monster än tidigare ger nu explicit klunk-straff vid förlust (utöver HP-skada), inte bara specialfall.
 
 ### 9.1.1 Team battle-monster
@@ -223,7 +224,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
 - **Hyllan (4 platser):** poolen byggs av **Mäskpaddel**, **Burkrustning**, **Första hjälpen-lager** plus **två slumpade** rader från **`EQUIPMENT_CATALOG`**; efter blandning visas **exakt fyra** erbjudanden. De två ankar-utrustningarna ska ha **samma namn, pris och spelregler** som motsvarande katalogposter (**Mäskpaddel** `ew_padel`, **Burkrustning** `ea_can_armor`) — inga parallella “butiksversioner” med avvikande stats.
-- **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, boss-extra, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`).
+- **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
@@ -239,7 +240,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 - **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot.
-- **Vaska direkt** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
+- **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
 ---
 
@@ -256,7 +257,9 @@ Hård cap per spelare:
 
 Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” införs).
 
-**Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. **Vanliga statrader** (Kraft +2, Försvar …) ska **inte** upprepas som löptext i modalen; textytan under bilden är för **särskilda** regler (t.ex. BvB-tärningsbonus på vapen). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
+**Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. Under bilden visas en **kompakt effektlista** (samma princip som Panta burkar / kortkatalog) **och** valfri **`rulesText`** per katalogpost (smaktext / särregler, t.ex. **Solbrillor**, **Svart bälte**, burk-setet). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
+
+**Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **−1** skada per träff **först när spelaren har minst 15 klunkar**; ingen separat boss-extra på burk-prylarna längre.
 
 **Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** t.ex. **(Zzz)** när spelaren har kvarvarande sömnturer (`skippedTurns`).
 
@@ -347,7 +350,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 **MVP**
 
 - Lobby med kod, upp till 6 spelare, konfigurerbar turtid.
-- Slumpad bana, flera våningsplan (fyra ringar med dörrar uppåt), dörrar med **pant- eller klunkspår** (§7.3) + **bryggnivå** (§13.1), **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
+- Slumpad bana, **tre** våningsplan (ringar med dörrar uppåt), dörrar med **pant- eller klunkspår** (§7.3) + **bryggnivå** (§13.1), **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
 - **Storskärm:** pan, zoom, **auto-fokus anpassad till viewport** och **målrutor vid rörelseval** (§2.1); tur-rad under meny.
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
@@ -386,7 +389,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
 - **Team-monsterfrekvens per nivå:** ~8% / 18% / 28%.
-- **Monster `need`:** +`levelIndex` på styrkekrav för strid på den våningen (lokalt per plan).
+- **Monster `need` och förlust-skada:** +`levelIndex` på styrkekrav respektive HP-skada vid förlust på den våningen (lokalt per plan).
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
 - **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool).
 - **Reaktionsfönster i PvE:** spelare kan spela **flera reaktionskort** innan de slutmarkerar med “gör inget”.
@@ -415,4 +418,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.16 | 2026-04-15 | Aktiv-tur-regnbåge flyttad till **interaktionspanelen** (inte full bakgrund); fynd-kort (händelse/skatt) med roterande regnbågsbakgrund i bildram; respawn/“starta om på nytt” uppdaterad till full reset (start-ruta, 0 pant/klunkar, tom utrustning/förråd); monsternamn: **Fermenteringshydran** → **Surkartar** |
 | 0.17 | 2026-04-16 | Föremålsmodal: neutral bakgrund (ingen regnbågsram i inventory-detalj); notiser/logg visar **korttitlar** (inte itemId); slutmodal: knapp **Avsluta spelet** → startsidan; Enkelpipa/Dubbelpipa: prompt före monstertärning (valfri straffklunk för extra attack); nytt vapen: **Humleklubba** (+1 strid, +2 BvB) |
 | 0.18 | 2026-04-16 | §3.1 **Drift och deploy:** Vercel (web, repo-root + `vercel.json`), `VITE_WS_URL` / `wss://`; CapRover + Docker för server (`PORT`, `/health`); lokalt `npm run dev`; CapRover-deploy via `npm run deploy:caprover*` + `.env` |
+| 0.19 | 2026-04-18 | §7.2 **tre våningar** (0–2) + slutboss styrka med våningsbonus; §7.3 monster **skada** skalar med våning; §2.1 markering före rörelsetärning; §9.1 en sip-notis vid mitigation; §10.2/§11 **Burksvärd**-badge + `rulesText` i modal; **burk-set** + **Legendarisk Burkhjälm**; §3.1 påminnelse om server-deploy vid `game-core`-ändringar; §19 balansrad skada |
 

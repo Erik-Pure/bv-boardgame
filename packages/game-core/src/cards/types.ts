@@ -23,6 +23,12 @@ export type EffectApplyOut = {
   grantedItemId?: string;
   grantedEquipmentName?: string;
   grantedEquipmentSlot?: "weapon" | "armor" | "helmet" | "accessory";
+  /** Utrustning hittad men slot upptagen — byte erbjuds efter kortbekräftelse. */
+  equipmentReplaceOffer?: {
+    slot: "weapon" | "armor" | "helmet" | "accessory";
+    catalogId: string;
+    newName: string;
+  };
 };
 
 export interface CardChoice {
@@ -36,6 +42,8 @@ export interface CardDef {
   kind: CardKind;
   title: string;
   text: string;
+  /** Valfri smaktext — visas före {@link text} i kortkatalogen när den sätts. */
+  flavourText?: string;
   artKey?: string;
   effects?: Effect[];
   choices?: CardChoice[];
