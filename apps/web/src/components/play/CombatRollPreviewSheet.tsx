@@ -3,17 +3,7 @@ import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { sv } from "../../lib/uiStrings";
 
-type CombatRollPreviewPending = {
-  type: "combat";
-  phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
-  attackerId: string;
-  previewDie?: number;
-  previewTotal?: number;
-  previewNeed?: number;
-  previewBroDie?: number | null;
-  previewAttackDiceDoubled?: boolean;
-  previewBroAttackDiceDoubled?: boolean;
-};
+type CombatRollPreviewPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
 export function CombatRollPreviewSheet(props: {
   state: GameState;

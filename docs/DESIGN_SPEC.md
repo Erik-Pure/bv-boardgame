@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.22 |
+| Version | 0.23 |
 | Senast uppdaterad | 2026-04-20 |
 
 ---
@@ -189,6 +189,9 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Sip Snatcher:** spelaren ska kunna välja **ta en sip (monstret försvinner, ingen strid)** eller **slåss** som mot ett vanligt monster.
 - **Brewizard / Sourceress:** vid **förlorat** slag ska spelaren efter tärningsresultatet välja **ta en sip för reducerad skada** (och då +1 sip) **eller** **ta full skada enligt monsterets basvärde utan sip**. *(Exakta tal i data: t.ex. −3 / −2 mot full bas-skada.)* **Straffklunk-notis:** sip-meddelandet efter förlust ska visa **samma total** som tilldelats (monsterförlustens klunkar **plus** den valfria mitigations-klunken i **en** notis, inte två i rad.)
 - **Klunk på förlust:** fler monster än tidigare ger nu explicit klunk-straff vid förlust (utöver HP-skada), inte bara specialfall.
+- **Begär hjälp i monsterstrid (efter reaktioner, före slag):** angriparen kan välja **Be om hjälp** om det finns andra aktiva spelare med **positiva hjälpkort** för attack. Angriparen väljer hjälpare, hjälparen väljer kontrakt (**gratis**, **pant**, **skatt**, **dela lika**) eller nekar. Om hjälparen accepterar måste den spela **minst ett positivt kort** innan striden får gå vidare till slag.
+- **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid förlust sker ingen utbetalning.
+- **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
 
 ### 9.1.1 Team battle-monster
 
@@ -268,7 +271,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **−1** skada per träff **först när spelaren har minst 15 klunkar**; ingen separat boss-extra på burk-prylarna längre.
 
-**Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** t.ex. **(Zzz)** när spelaren har kvarvarande sömnturer (`skippedTurns`).
+**Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
 
 **Föremålsbrickor (mobil, Safari / WebKit):** inventory-rutorna för **föremål** ska använda **lagerindelad layout** (t.ex. CSS grid med gemensam **“stack”**-cell): **bilden** i ett **eget** lager med `overflow: hidden` och avrundade hörn, **antal** (stack) och **effekt-badge** (ikon + siffra/text) i ett **overlay-lager** ovanpå med `z-index`. Syfte: undvika att **`object-fit: cover`** + **`height: 100%`** på `<img>` klipper bort **nederkant** på badge/siffror (känt iOS Safari när yttre knapp har `overflow: hidden`). Utrustningsfyran kan följa **samma mönster** så små märken längst ner inte klipps.
 
@@ -431,4 +434,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.20 | 2026-04-19 | §2 **toast** för kortlivade fel/info på mobil (`/play`); §10 **startpant 5** vid spelstart + §19 tuning; §18 öppen punkt om startpant avprickad |
 | 0.21 | 2026-04-20 | §10.2 **Panta burkar**: fast hyllplats **Första hjälpen-lager** ersatt med **Helande brygd** (shop-copy synkad med implementation) |
 | 0.22 | 2026-04-20 | §2.1 bord-UI: turbanner med ikonstats + färgad “Nästa”-pill, förenklad header, mörkare kort-overlay, animerad item-solfjäder in bakom banner, mobil-lik spelarinformation i sidopanel under pågående spel; §10.2 förtydligat **Helande brygd +3 HP**; §16.1 fyndkort-text börjar med itemnamn + effekt |
+| 0.23 | 2026-04-20 | §9.1 utökad med **Begär hjälp** i PvE (välj hjälpare + kontrakt: gratis/pant/skatt/dela lika, krav på minst ett positivt hjälpkort); kontraktsbelöning för hjälpare endast vid vinst; hjälpkort i hjälpfas renderas/rensas som stridskort; §11 statuscopy förtydligad: **(Öl i ögat)** utan extra **(Zzz)** |
 

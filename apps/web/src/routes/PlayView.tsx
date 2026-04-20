@@ -94,6 +94,8 @@ function isMyPending(pending: Pending | null, me: Player | null) {
   return false;
 }
 
+const POSITIVE_HELP_ITEM_IDS = ["light_beer", "folk_beer", "double_hops", "beer_bomb"] as const;
+
 type MerchantEquipmentSlot = "weapon" | "armor" | "helmet" | "accessory";
 
 function isShopItemEquipment(it: ShopItem): it is ShopItem & { slot: MerchantEquipmentSlot } {
@@ -349,7 +351,7 @@ export function PlayView() {
   const headerStatusTag = useMemo(() => {
     if (!me) return "";
     const parts: string[] = [];
-    if ((me.skippedTurns ?? 0) > 0) parts.push("(Zzz)");
+    if ((me.skippedTurns ?? 0) > 0 && me.skipTurnReasons?.includes("normal")) parts.push("(Zzz)");
     if (me.skipTurnReasons?.includes("oil")) parts.push(sv.table.playerStatusOilInEye);
     return parts.length ? parts.join(" ") : "";
   }, [me]);
@@ -660,6 +662,139 @@ export function PlayView() {
       );
     }
 
+    if (pending?.type === "combat" && pending.phase === "helpChooseHelper") {
+      const isAttacker = pending.attackerId === me.id;
+      const helperIds = pending.helpCandidateIds ?? [];
+      const helperPlayers = helperIds
+        .map((id) => state.players.find((p) => p.id === id))
+        .filter((p): p is Player => !!p);
+      if (isAttacker) {
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ textAlign: "center", opacity: 0.92 }}>{sv.play.combatHelpChooseHelper}</div>
+            {helperPlayers.length === 0 ? (
+              <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.combatHelpNoCandidates}</div>
+            ) : (
+              helperPlayers.map((pl) => (
+                <ArcadeButton
+                  key={pl.id}
+                  variant="pink"
+                  fullWidth
+                  onClick={() => send({ type: "combatChooseHelper", playerId: me.id, helperId: pl.id })}
+                >
+                  {pl.name}
+                </ArcadeButton>
+              ))
+            )}
+          </div>
+        );
+      }
+      const attackerName = state.players.find((p) => p.id === pending.attackerId)?.name ?? sv.play.theAttacker;
+      return (
+        <div style={{ textAlign: "center", opacity: 0.82 }}>
+          {sv.play.combatHelpWaitAttackerChoose(attackerName)}
+        </div>
+      );
+    }
+
+    if (pending?.type === "combat" && pending.phase === "helpAwaitDecision") {
+      const helperId = pending.helpSelectedHelperId;
+      const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
+      const isHelper = helperId === me.id;
+      if (!helperId) return <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.waitingState}</div>;
+      if (isHelper) {
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ textAlign: "center", opacity: 0.92 }}>{sv.play.combatHelpDecisionPrompt}</div>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "decline" })}
+            >
+              {sv.play.combatHelpDecisionDecline}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "free" })}
+            >
+              {sv.play.combatHelpDecisionFree}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "pant" })}
+            >
+              {sv.play.combatHelpDecisionPant}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "treasure" })}
+            >
+              {sv.play.combatHelpDecisionTreasure}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "split" })}
+            >
+              {sv.play.combatHelpDecisionSplit}
+            </ArcadeButton>
+          </div>
+        );
+      }
+      return (
+        <div style={{ textAlign: "center", opacity: 0.82 }}>
+          {sv.play.combatHelpWaitDecision(helperName)}
+        </div>
+      );
+    }
+
+    if (pending?.type === "combat" && pending.phase === "helpAwaitCard") {
+      const helperId = pending.helpSelectedHelperId;
+      const isHelper = helperId === me.id;
+      const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
+      const helperItems = (me.inventory ?? []).filter((it) =>
+        POSITIVE_HELP_ITEM_IDS.includes(String(it.itemId) as (typeof POSITIVE_HELP_ITEM_IDS)[number]),
+      );
+      if (isHelper) {
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ textAlign: "center", opacity: 0.92 }}>
+              {sv.play.combatHelpPlayPositiveCard}
+            </div>
+            {helperItems.length === 0 ? (
+              <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.combatHelpNoPlayablePositiveCards}</div>
+            ) : (
+              helperItems.map((it) => (
+                <ArcadeButton
+                  key={it.instanceId}
+                  variant="pink"
+                  fullWidth
+                  onClick={() =>
+                    send({
+                      type: "useItem",
+                      playerId: me.id,
+                      instanceId: it.instanceId,
+                      targetPlayerId: pending.attackerId,
+                    })
+                  }
+                >
+                  {itemTitle(it.itemId)}
+                </ArcadeButton>
+              ))
+            )}
+          </div>
+        );
+      }
+      return (
+        <div style={{ textAlign: "center", opacity: 0.82 }}>
+          {sv.play.combatHelpWaitHelperCard(helperName)}
+        </div>
+      );
+    }
+
     if (pending?.type === "combat" && pending.phase === "reactions") {
       const isAttacker = pending.attackerId === me.id;
       const isAssistPartner = pending.assistId === me.id;
@@ -688,6 +823,16 @@ export function PlayView() {
       const deadlineAt = pending.reactionsDeadlineAt ?? 0;
       const secondsLeft = deadlineAt > 0 ? Math.max(0, Math.ceil((deadlineAt - nowTick) / 1000)) : 0;
       const reactionOpen = deadlineAt <= 0 || secondsLeft > 0;
+      const helpCandidates = state.players.filter(
+        (pl) =>
+          pl.id !== pending.attackerId &&
+          pl.id !== pending.assistId &&
+          !pl.eliminated &&
+          pl.hp > 0 &&
+          (pl.inventory ?? []).some((it) =>
+            POSITIVE_HELP_ITEM_IDS.includes(String(it.itemId) as (typeof POSITIVE_HELP_ITEM_IDS)[number]),
+          ),
+      );
       const myTeamRoll = pending.teamRolls?.[me.id];
       const attackerRoll = pending.teamRolls?.[pending.attackerId];
       const teammateRoll = pending.assistId ? pending.teamRolls?.[pending.assistId] : undefined;
@@ -808,17 +953,32 @@ export function PlayView() {
                 );
               }
               return (
-                <ArcadeButton
-                  variant="pink"
-                  fullWidth
-                  onClick={() => {
-                    setCombatDiceSpinning(false);
-                    send({ type: "combatRoll", playerId: me.id });
-                  }}
-                  disabled={!!myTeamRoll}
-                >
-                  {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
-                </ArcadeButton>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {isAttacker &&
+                  !pending.teamBattleRequired &&
+                  !pending.assistId &&
+                  !isFinalBossMonsterId(pending.monsterId as MonsterId) &&
+                  helpCandidates.length > 0 ? (
+                    <ArcadeButton
+                      variant="gray"
+                      fullWidth
+                      onClick={() => send({ type: "combatRequestHelp", playerId: me.id })}
+                    >
+                      {sv.play.combatHelpRequest}
+                    </ArcadeButton>
+                  ) : null}
+                  <ArcadeButton
+                    variant="pink"
+                    fullWidth
+                    onClick={() => {
+                      setCombatDiceSpinning(false);
+                      send({ type: "combatRoll", playerId: me.id });
+                    }}
+                    disabled={!!myTeamRoll}
+                  >
+                    {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
+                  </ArcadeButton>
+                </div>
               );
             })()}
           </div>

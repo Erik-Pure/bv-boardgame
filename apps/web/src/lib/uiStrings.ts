@@ -117,6 +117,20 @@ export const sv = {
     attackModifier: (m: number) => `Attackmodifierare: ${m}`,
     waitIntervene: "Väntar på att andra spelare ingriper…",
     rollCombat: "Slå tärning",
+    combatHelpRequest: "Be om hjälp",
+    combatHelpChooseHelper: "Välj vem du vill be om hjälp",
+    combatHelpNoCandidates: "Ingen kan hjälpa till just nu.",
+    combatHelpWaitAttackerChoose: (name: string) => `Väntar på att ${name} väljer hjälpare…`,
+    combatHelpDecisionPrompt: "Vill du hjälpa till i striden?",
+    combatHelpDecisionDecline: "Hjälp inte till",
+    combatHelpDecisionFree: "Hjälp till (gratis)",
+    combatHelpDecisionPant: "Hjälp till mot panten",
+    combatHelpDecisionTreasure: "Hjälp till mot skatten",
+    combatHelpDecisionSplit: "Dela lika på vinsten",
+    combatHelpWaitDecision: (name: string) => `Väntar på svar från ${name}…`,
+    combatHelpPlayPositiveCard: "Spela minst ett positivt kort för att hjälpa till.",
+    combatHelpNoPlayablePositiveCards: "Du har inget positivt hjälpkort att spela.",
+    combatHelpWaitHelperCard: (name: string) => `Väntar på att ${name} spelar ett hjälpkort…`,
     intervenePickCard: "Ingrip — välj ett kort",
     /** Avslutar ingripande utan kort — skickar pass till servern (samma som “Gör inget”). */
     interveneCancelPass: "Avbryt ingripande",
@@ -302,6 +316,11 @@ export const sv = {
     isFighting: "möter",
     strength: "Styrka",
     canIntervene: "Kan ingripa:",
+    combatHelpAsking: "Begär hjälp:",
+    combatHelpAwaitDecision: (name: string) => `Väntar på svar från ${name}…`,
+    combatHelpAwaitCard: (name: string) => `${name} måste spela ett positivt hjälpkort.`,
+    combatHelpAcceptedContract: (name: string, contract: string) =>
+      `${name} hjälper till (${contract}).`,
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
     /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */

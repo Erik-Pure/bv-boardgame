@@ -1,11 +1,7 @@
 import type { GameState, Player } from "@bv/game-core";
 import { capitalizeWord, sv } from "../../lib/uiStrings";
 
-type CombatEnemyIntroPending = {
-  type: "combat";
-  phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
-  attackerId: string;
-};
+type CombatEnemyIntroPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
 export function CombatEnemyIntroWaiting(props: {
   state: GameState;

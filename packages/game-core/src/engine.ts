@@ -7,6 +7,7 @@ import { drawFromDeck, getCard, itemDeckItemIds, itemDisplayTitle } from "./card
 import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
+  isFinalBossMonsterId,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterNeedBonusForBoardLevel,
@@ -31,6 +32,7 @@ import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js
 import type {
   ApplyResult,
   ClientAction,
+  CombatHelpContract,
   CombatLoseSummary,
   CombatWinSummary,
   EquipmentSlot,
@@ -135,6 +137,41 @@ function notifyItemPlayForTableAfterUse(
     return;
   }
   recordTableItemPlay(next, itemId, actorId, targetPlayerId, side);
+}
+
+const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
+  "light_beer",
+  "folk_beer",
+  "double_hops",
+  "beer_bomb",
+]);
+
+function isPositiveHelpItemId(itemId: ItemId): boolean {
+  return POSITIVE_HELP_ITEM_IDS.has(itemId);
+}
+
+function playerHasPositiveHelpItem(player: Player): boolean {
+  return (player.inventory ?? []).some((it) => isPositiveHelpItemId(it.itemId));
+}
+
+function combatHelpCandidateIds(state: GameState, pending: Extract<Pending, { type: "combat" }>): string[] {
+  return state.players
+    .filter((pl) =>
+      pl.id !== pending.attackerId &&
+      pl.id !== pending.assistId &&
+      !pl.eliminated &&
+      pl.hp > 0 &&
+      playerHasPositiveHelpItem(pl),
+    )
+    .map((pl) => pl.id);
+}
+
+function clearCombatHelpRequest(pending: Extract<Pending, { type: "combat" }>): void {
+  pending.helpCandidateIds = undefined;
+  pending.helpSelectedHelperId = undefined;
+  pending.helpAccepted = undefined;
+  pending.helpUsedPositiveItem = undefined;
+  pending.helpContract = undefined;
 }
 
 /** +1 pant per Canman-instans i inventory per rörelsetärning; räknare på instansen, tom burk tas bort. */
@@ -900,6 +937,11 @@ function finalizeCombatAfterRollPreview(
     const attackerWeaponBonusGold = applyWeaponWinGoldBonus(p);
     const attackerWeaponRandomDamage = applyWeaponWinRandomDamage({ state: next, winner: p, rng, log });
     const assistMate = assistId ? (next.players.find((x) => x.id === assistId) ?? null) : null;
+    const helpMate =
+      pending.helpAccepted && pending.helpSelectedHelperId
+        ? (next.players.find((x) => x.id === pending.helpSelectedHelperId) ?? null)
+        : null;
+    const helpContract = pending.helpAccepted ? pending.helpContract : undefined;
     const assistName = assistMate?.name ?? null;
     if (teamBattleRequired && assistMate) {
       assistMate.gold += rewardGold;
@@ -919,7 +961,32 @@ function finalizeCombatAfterRollPreview(
     p.xp += tile.type === "boss" ? 8 : 2;
     p.maxHp = maxHpFor(p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
-    const attackerItemCount = rewardItems;
+    let attackerItemCount = rewardItems;
+    let helperItemCount = 0;
+    if (helpMate && helpContract === "pant") {
+      const transfer = Math.max(0, Math.min(rewardGold, p.gold));
+      if (transfer > 0) {
+        p.gold -= transfer;
+        helpMate.gold += transfer;
+        log(next, `${helpMate.name} hjälpte till och får pantbelöningen (${transfer}) enligt överenskommelsen.`);
+      }
+    } else if (helpMate && helpContract === "treasure") {
+      attackerItemCount = 0;
+      helperItemCount = rewardItems;
+      log(next, `${helpMate.name} hjälpte till och får skatten enligt överenskommelsen.`);
+    } else if (helpMate && helpContract === "split") {
+      const helperGold = Math.floor(rewardGold / 2);
+      const attackerGold = rewardGold - helperGold;
+      const currentAttackerReward = Math.max(0, Math.min(rewardGold, p.gold));
+      if (currentAttackerReward > attackerGold) {
+        const transfer = currentAttackerReward - attackerGold;
+        p.gold -= transfer;
+        helpMate.gold += transfer;
+      }
+      helperItemCount = Math.floor(rewardItems / 2);
+      attackerItemCount = rewardItems - helperItemCount;
+      log(next, `${p.name} och ${helpMate.name} delar vinsten lika enligt överenskommelsen.`);
+    }
     const winMonsterId = pending.monsterId as MonsterId | undefined;
     if (attackerItemCount > 0) {
       for (let i = 0; i < attackerItemCount; i++) {
@@ -929,6 +996,11 @@ function finalizeCombatAfterRollPreview(
         for (let i = 0; i < attackerItemCount; i++) {
           grantRandomCombatReward(next, assistMate, rng, pending.enemyName, winMonsterId);
         }
+      }
+    }
+    if (helperItemCount > 0 && helpMate) {
+      for (let i = 0; i < helperItemCount; i++) {
+        grantRandomCombatReward(next, helpMate, rng, pending.enemyName, winMonsterId);
       }
     }
 
@@ -1702,6 +1774,101 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state: next, events: ["state"] };
   }
 
+  if (action.type === "combatRequestHelp" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
+    const pending = next.pending;
+    if (action.playerId !== pending.attackerId) {
+      return { state, events: [], error: "Bara angriparen kan be om hjälp" };
+    }
+    if (pending.teamBattleRequired || isFinalBossMonsterId(pending.monsterId as MonsterId)) {
+      return { state, events: [], error: "Hjälp kan bara begäras i vanliga monsterstrider" };
+    }
+    const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
+    const reactionDeadlineAt = pending.reactionsDeadlineAt ?? 0;
+    const reactionClosed = reactionDeadlineAt > 0 && Date.now() > reactionDeadlineAt;
+    if (!everyoneDone && !reactionClosed) {
+      return { state, events: [], error: "Vänta tills ingripandefasen är klar" };
+    }
+    const candidateIds = combatHelpCandidateIds(next, pending);
+    if (candidateIds.length === 0) {
+      return { state, events: [], error: "Ingen spelare kan hjälpa till just nu" };
+    }
+    pending.helpCandidateIds = candidateIds;
+    pending.helpSelectedHelperId = undefined;
+    pending.helpAccepted = undefined;
+    pending.helpUsedPositiveItem = undefined;
+    pending.helpContract = undefined;
+    pending.phase = "helpChooseHelper";
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} ber om hjälp.`);
+    return { state: next, events: ["state"] };
+  }
+
+  // Idempotens: extra klick när hjälpfasen redan öppnats ska inte ge fallback-felet
+  // "Avsluta nuvarande val först".
+  if (
+    action.type === "combatRequestHelp" &&
+    next.pending?.type === "combat" &&
+    (next.pending.phase === "helpChooseHelper" ||
+      next.pending.phase === "helpAwaitDecision" ||
+      next.pending.phase === "helpAwaitCard")
+  ) {
+    return { state: next, events: ["state"] };
+  }
+
+  if (
+    action.type === "combatChooseHelper" &&
+    next.pending?.type === "combat" &&
+    next.pending.phase === "helpChooseHelper"
+  ) {
+    const pending = next.pending;
+    if (action.playerId !== pending.attackerId) {
+      return { state, events: [], error: "Bara angriparen kan välja hjälpare" };
+    }
+    const candidateIds = pending.helpCandidateIds ?? combatHelpCandidateIds(next, pending);
+    if (!candidateIds.includes(action.helperId)) {
+      return { state, events: [], error: "Ogiltig hjälpare" };
+    }
+    pending.helpCandidateIds = candidateIds;
+    pending.helpSelectedHelperId = action.helperId;
+    pending.helpAccepted = undefined;
+    pending.helpUsedPositiveItem = undefined;
+    pending.helpContract = undefined;
+    pending.phase = "helpAwaitDecision";
+    const helperName = next.players.find((p) => p.id === action.helperId)?.name ?? "okänd";
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} frågar ${helperName} om hjälp.`);
+    return { state: next, events: ["state"] };
+  }
+
+  if (
+    action.type === "combatHelperDecision" &&
+    next.pending?.type === "combat" &&
+    next.pending.phase === "helpAwaitDecision"
+  ) {
+    const pending = next.pending;
+    if (!pending.helpSelectedHelperId || action.playerId !== pending.helpSelectedHelperId) {
+      return { state, events: [], error: "Inte du som ska svara på hjälpförfrågan" };
+    }
+    const helper = next.players.find((p) => p.id === action.playerId);
+    if (!helper) return { state, events: [], error: "Spelaren hittades inte" };
+    if (action.decision === "decline") {
+      log(next, `${helper.name} avböjer att hjälpa till.`);
+      pending.helpSelectedHelperId = undefined;
+      pending.helpAccepted = false;
+      pending.helpUsedPositiveItem = undefined;
+      pending.helpContract = undefined;
+      pending.phase = "reactions";
+      return { state: next, events: ["state"] };
+    }
+    if (!playerHasPositiveHelpItem(helper)) {
+      return { state, events: [], error: "Du har inga positiva hjälpkort att spela" };
+    }
+    pending.helpAccepted = true;
+    pending.helpUsedPositiveItem = false;
+    pending.helpContract = action.decision as CombatHelpContract;
+    pending.phase = "helpAwaitCard";
+    log(next, `${helper.name} accepterar att hjälpa till (${action.decision}).`);
+    return { state: next, events: ["state"] };
+  }
+
   if (action.type === "useItem") {
     const user = next.players.find((p) => p.id === action.playerId);
     if (!user) return { state, events: [], error: "Spelaren hittades inte" };
@@ -1710,10 +1877,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (idx < 0) return { state, events: [], error: "Föremålet hittades inte" };
     const inst = inv[idx]!;
 
-    // Allow item usage on your turn, or during combat reactions.
-    const inCombatReactions = next.pending?.type === "combat" && next.pending.phase === "reactions";
+    // Allow item usage on your turn, during combat reactions, or as accepted helper.
+    const combatPending = next.pending?.type === "combat" ? next.pending : null;
+    const inCombatReactions = combatPending?.phase === "reactions";
+    const inCombatHelpAwaitCard = combatPending?.phase === "helpAwaitCard";
+    const inCombatItemWindow = inCombatReactions || inCombatHelpAwaitCard;
+    const inCombatTableFan = inCombatItemWindow;
     const reactionDeadlineAt =
-      inCombatReactions && next.pending?.type === "combat" ? (next.pending.reactionsDeadlineAt ?? 0) : 0;
+      inCombatReactions && combatPending ? (combatPending.reactionsDeadlineAt ?? 0) : 0;
     if (
       inCombatReactions &&
       reactionDeadlineAt > 0 &&
@@ -1724,8 +1895,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inCombatReactions && !playerCanCombatIntervene(user)) {
       return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
     }
+    if (inCombatHelpAwaitCard) {
+      if (!combatPending || action.playerId !== combatPending.helpSelectedHelperId || combatPending.helpAccepted !== true) {
+        return { state, events: [], error: "Endast vald hjälpare kan spela kort nu" };
+      }
+      if (combatPending.helpUsedPositiveItem) {
+        return { state, events: [], error: "Du har redan hjälpt till i denna strid" };
+      }
+      if (!isPositiveHelpItemId(inst.itemId)) {
+        return { state, events: [], error: "Du måste spela ett positivt hjälpkort" };
+      }
+    }
     const isYourTurn = cp.id === user.id;
-    if (!isYourTurn && !inCombatReactions) {
+    if (!isYourTurn && !inCombatItemWindow) {
       return { state, events: [], error: "Inte din tur" };
     }
 
@@ -1736,7 +1918,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "healing_potion", user.id, undefined, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "healing_potion", user.id, undefined, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1758,7 +1940,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "sleep_potion", user.id, target.id, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "sleep_potion", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1772,7 +1954,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "sip_card", user.id, target.id, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "sip_card", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1793,16 +1975,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "weak_beer", user.id, targetId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "weak_beer", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "light_beer") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
+      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 1;
       log(next, `${user.name} spelar Energidryck: +1 attack i striden.`);
@@ -1811,16 +1994,21 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "light_beer", user.id, targetId, inCombatReactions);
+      if (isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "light_beer", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "folk_beer") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
+      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
       log(next, `${user.name} spelar 8-bit beer: +2 attack i striden.`);
@@ -1829,7 +2017,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "folk_beer", user.id, targetId, inCombatReactions);
+      if (isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "folk_beer", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1847,16 +2039,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "tripwire", user.id, targetId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "tripwire", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "double_hops") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
+      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
       log(next, `${user.name} spelar En hjälpande hand: +2 attack i striden.`);
@@ -1867,16 +2060,21 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "double_hops", user.id, targetId, inCombatReactions);
+      if (isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "double_hops", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "beer_bomb") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
+      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 3;
       log(next, `${user.name} spelar Ölbomb: +3 attack i striden.`);
@@ -1885,7 +2083,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "beer_bomb", user.id, targetId, inCombatReactions);
+      if (isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "beer_bomb", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1928,7 +2130,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "hangover", user.id, targetId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "hangover", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1939,7 +2141,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "pretzel_snack", user.id, undefined, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "pretzel_snack", user.id, undefined, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1949,7 +2151,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "coin_purse", user.id, undefined, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "coin_purse", user.id, undefined, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1967,7 +2169,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "monster_hype", user.id, targetId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "monster_hype", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -1986,7 +2188,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "yeast_sabotage", user.id, targetId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "yeast_sabotage", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2014,7 +2216,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "beer_bro", user.id, broId, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "beer_bro", user.id, broId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2039,7 +2241,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       );
       inv.splice(idx, 1);
       user.inventory = inv;
-      notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2059,7 +2261,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "lengraddad", user.id, target.id, inCombatReactions);
+      notifyItemPlayForTableAfterUse(next, "lengraddad", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2119,7 +2321,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
-      notifyItemPlayForTableAfterUse(next, "not_my_round", user.id, target.id, inCombatReactions, stealSide);
+      notifyItemPlayForTableAfterUse(next, "not_my_round", user.id, target.id, inCombatTableFan, stealSide);
       return { state: next, events: ["state"] };
     }
 
@@ -2161,7 +2363,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
-      notifyItemPlayForTableAfterUse(next, "spill_intentional", user.id, target.id, inCombatReactions, spillSide);
+      notifyItemPlayForTableAfterUse(next, "spill_intentional", user.id, target.id, inCombatTableFan, spillSide);
       return { state: next, events: ["state"] };
     }
 
@@ -2292,6 +2494,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       rewardGold: pending.rewardGold,
       rewardItems: pending.rewardItems,
       assistId: pending.assistId,
+      helpCandidateIds: pending.helpCandidateIds,
+      helpSelectedHelperId: pending.helpSelectedHelperId,
+      helpContract: pending.helpContract,
+      helpAccepted: pending.helpAccepted,
+      helpUsedPositiveItem: pending.helpUsedPositiveItem,
       teamRolls: undefined,
       reactors: [],
       reacted: {},

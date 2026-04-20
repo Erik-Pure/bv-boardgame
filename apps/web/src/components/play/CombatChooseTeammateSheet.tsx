@@ -2,11 +2,7 @@ import type { ClientAction, GameState, Player } from "@bv/game-core";
 import { ArcadeButton } from "../ArcadeButton";
 import { capitalizeWord, sv } from "../../lib/uiStrings";
 
-type CombatChooseTeammatePending = {
-  type: "combat";
-  phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
-  attackerId: string;
-};
+type CombatChooseTeammatePending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
 export function CombatChooseTeammateSheet(props: {
   state: GameState;

@@ -30,6 +30,21 @@ function formatSignedDiceModifier(sum: number): string | null {
   return sum > 0 ? `+${sum}` : String(sum);
 }
 
+function helpContractLabel(contract: "free" | "pant" | "treasure" | "split" | undefined): string {
+  switch (contract) {
+    case "free":
+      return "gratis";
+    case "pant":
+      return "mot panten";
+    case "treasure":
+      return "mot skatten";
+    case "split":
+      return "dela lika";
+    default:
+      return "okänt val";
+  }
+}
+
 /** Kort/items som alltid räknas in i attackmodifiern (t6 + kraft + detta). Pip-vapnets bonus visas separat som valfri. */
 function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: GameState): number {
   const attacker = state.players.find((p) => p.id === pending.attackerId);
@@ -62,7 +77,13 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
       return;
     }
 
-    const isDicePhase = p.phase === "reactions" || p.phase === "rollPreview" || p.phase === "chooseHitMitigation";
+    const isDicePhase =
+      p.phase === "reactions" ||
+      p.phase === "helpChooseHelper" ||
+      p.phase === "helpAwaitDecision" ||
+      p.phase === "helpAwaitCard" ||
+      p.phase === "rollPreview" ||
+      p.phase === "chooseHitMitigation";
 
     if (!isDicePhase || !showMonsterForDiceAnim) {
       prevCombatPhaseRef.current = p.phase;
@@ -124,7 +145,12 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
     .map((p) => p.name);
   const showMonsterCard = pending.monsterId !== "boss";
   const diceBesideCardPhases =
-    pending.phase === "reactions" || pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation";
+    pending.phase === "reactions" ||
+    pending.phase === "helpChooseHelper" ||
+    pending.phase === "helpAwaitDecision" ||
+    pending.phase === "helpAwaitCard" ||
+    pending.phase === "rollPreview" ||
+    pending.phase === "chooseHitMitigation";
   /** Slutboss: röd overlay under intro + tärnings-/resultatfas (reactions → rollPreview → chooseHitMitigation). */
   const bossCombatPulse = isFinalBossCombat && (pending.phase === "enemyIntro" || diceBesideCardPhases);
   const finalBossRoundLabel = (() => {
@@ -140,6 +166,9 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
     showMonsterCard &&
     (pending.phase === "enemyIntro" ||
       pending.phase === "reactions" ||
+      pending.phase === "helpChooseHelper" ||
+      pending.phase === "helpAwaitDecision" ||
+      pending.phase === "helpAwaitCard" ||
       pending.phase === "rollPreview" ||
       pending.phase === "chooseHitMitigation");
 
@@ -176,6 +205,12 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
         ? sv.table.combatPhase1
         : pending.phase === "reactions"
           ? sv.table.combatPhase2
+          : pending.phase === "helpChooseHelper"
+            ? "2.5 — Välj hjälpare"
+            : pending.phase === "helpAwaitDecision"
+              ? "2.6 — Väntar hjälpsvar"
+              : pending.phase === "helpAwaitCard"
+                ? "2.7 — Väntar hjälpkort"
           : pending.phase === "chooseHitMitigation"
             ? sv.table.combatPhase3Choice
             : sv.table.combatPhase3Result;
@@ -498,6 +533,32 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
           <b>{sv.table.canIntervene}</b> {reactorNames.join(", ")}
         </div>
       )}
+      {pending.phase === "helpChooseHelper" ? (
+        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+          <b>{sv.table.combatHelpAsking}</b>{" "}
+          {(pending.helpCandidateIds ?? [])
+            .map((id) => playersById.get(id)?.name ?? id)
+            .join(", ")}
+        </div>
+      ) : null}
+      {pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId ? (
+        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+          {sv.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
+        </div>
+      ) : null}
+      {pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId ? (
+        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+          {sv.table.combatHelpAwaitCard(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
+          {pending.helpAccepted && pending.helpContract ? (
+            <div style={{ marginTop: 4, opacity: 0.88 }}>
+              {sv.table.combatHelpAcceptedContract(
+                playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren",
+                helpContractLabel(pending.helpContract),
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && !monsterDiceHeroLayout && (
         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
           <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />

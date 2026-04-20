@@ -209,6 +209,8 @@ export interface CombatLoseSummary {
   imperialAdjacentSplash?: boolean;
 }
 
+export type CombatHelpContract = "free" | "pant" | "treasure" | "split";
+
 export type Pending =
   | { type: "merchant"; items: ShopItem[]; playerId: string }
   | {
@@ -318,7 +320,15 @@ export type Pending =
       baseDamage: number;
       /** Klunk(ar) vid förlust enligt monsterkort (före team battle-extra +1 i motorn). */
       lossSipsOnLose?: number;
-      phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
+      phase:
+        | "chooseTeammate"
+        | "enemyIntro"
+        | "reactions"
+        | "helpChooseHelper"
+        | "helpAwaitDecision"
+        | "helpAwaitCard"
+        | "rollPreview"
+        | "chooseHitMitigation";
       /** Per-player attack modifiers for this combat. */
       attackMods: Partial<Record<string, number>>;
       /** Föremål spelade under reaktionsfasen — följer med tills striden är slut (solfjäder på bräd-tv). */
@@ -359,6 +369,16 @@ export type Pending =
       previewUsedSipWeaponBonus?: boolean;
       /** Attackbonus från den valfria klunken (2/3). */
       previewSipWeaponBonusValue?: number;
+      /** Hjälp-funktion: möjliga spelare som kan hjälpa med positivt kort. */
+      helpCandidateIds?: string[];
+      /** Hjälp-funktion: vald hjälpare för aktuell förfrågan. */
+      helpSelectedHelperId?: string;
+      /** Hjälp-funktion: ersättningsmodell om hjälp accepterats. */
+      helpContract?: CombatHelpContract;
+      /** Hjälp-funktion: hjälparen har accepterat att hjälpa. */
+      helpAccepted?: boolean;
+      /** Hjälp-funktion: hjälparen har spelat minst ett positivt kort i denna förfrågan. */
+      helpUsedPositiveItem?: boolean;
     };
 
 export interface LogEntry {
@@ -498,6 +518,13 @@ export type ClientAction =
   | { type: "combatRollAck"; playerId: string }
   | { type: "chooseCombatHitMitigation"; playerId: string; choice: "sip" | "no_sip" }
   | { type: "combatReact"; playerId: string; choice: "intervene" | "pass" }
+  | { type: "combatRequestHelp"; playerId: string }
+  | { type: "combatChooseHelper"; playerId: string; helperId: string }
+  | {
+      type: "combatHelperDecision";
+      playerId: string;
+      decision: "decline" | "free" | "pant" | "treasure" | "split";
+    }
   | { type: "sipNoticeAck"; playerId: string }
   | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" }
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean };
