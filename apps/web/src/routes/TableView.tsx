@@ -8,6 +8,8 @@ import {
   type Player,
   type TileType,
 } from "@bv/game-core";
+import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
+import { expandReactionPlaysToFanCards, expandTableRevealToFanCards } from "../lib/tableItemPlayFanCards";
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
@@ -31,6 +33,7 @@ import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
+import { StatIcon } from "../components/StatIcon";
 import {
   TABLE_CARD_MODAL_DELAY_MS,
   TABLE_BOARD_MODAL_KEYFRAMES_CSS,
@@ -105,10 +108,11 @@ function nextTurnPlayer(state: GameState | null): Player | null {
 }
 
 /** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
-const TABLE_TURN_BANNER_RESERVE_PX = 112;
+const TABLE_TURN_BANNER_RESERVE_PX = 132;
 /** Extra utrymme när statusrad (t.ex. sömn) visas under namnet */
-const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 148;
-
+const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 166;
+/** Vertikalt lyft (enkel + solfjäder); över bannerhöjd så spelarrad syns bakom banner */
+const TABLE_ITEM_PLAY_LIFT_PX = 50;
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
 function tablePlayerAfflictionLines(p: Player): string[] {
   const lines: string[] = [];
@@ -130,7 +134,8 @@ function pendingCardOwner(state: GameState | null) {
 
 type TableLobbyPlayer = GameState["players"][number];
 
-function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+/** Enkel rad för pre-game lobby (som tidigare). */
+function TablePreGameLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   const afflictions = tablePlayerAfflictionLines(p);
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
@@ -188,6 +193,131 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   );
 }
 
+function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+  const afflictions = tablePlayerAfflictionLines(p);
+  const weaponName = p.equipment.weapon?.name ?? "—";
+  const armorName = p.equipment.armor?.name ?? "—";
+  const helmetName = p.equipment.helmet?.name ?? "—";
+  const accessoryName = p.equipment.accessory?.name ?? "—";
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        borderRadius: 12,
+        border: "1px solid rgba(148, 163, 184, 0.28)",
+        background: "linear-gradient(180deg, rgba(22, 33, 66, 0.96) 0%, rgba(17, 26, 57, 0.96) 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          minWidth: 0,
+        }}
+      >
+        <div
+          style={{
+            minWidth: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            fontWeight: 800,
+            color: "#f8fafc",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              background: p.color,
+              flexShrink: 0,
+            }}
+          />
+          <span>
+            {p.name}
+            {p.isHost ? " (värd)" : ""}
+          </span>
+          <span aria-label={p.ready ? sv.play.ready : sv.play.unready}>
+            {p.ready ? "✅" : "⛔"}
+          </span>
+        </div>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+            fontWeight: 800,
+            fontVariantNumeric: "tabular-nums",
+            color: "#e5e7eb",
+          }}
+          aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <StatIcon kind="hp" size={18} />
+            {p.hp}/{p.maxHp}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <StatIcon kind="pant" size={18} />
+            {p.gold}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <StatIcon kind="klunk" size={18} />
+            {p.klunkar}
+          </span>
+        </div>
+      </div>
+      {afflictions.length > 0 ? (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.35,
+            opacity: 0.9,
+            color: "#cbd5e1",
+            wordBreak: "break-word",
+          }}
+        >
+          {afflictions.join(" · ")}
+        </div>
+      ) : null}
+      <div
+        style={{
+          marginTop: 10,
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: 8,
+          color: "#e2e8f0",
+          fontSize: 13,
+          lineHeight: 1.35,
+          fontWeight: 700,
+        }}
+      >
+        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {sv.play.equipWeapon}: {weaponName}
+        </div>
+        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {sv.play.equipArmor}: {armorName}
+        </div>
+        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {sv.play.equipHelmet}: {helmetName}
+        </div>
+        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {sv.play.equipAccessory}: {accessoryName}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TableView() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
@@ -196,7 +326,6 @@ export function TableView() {
 
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [lastStateAt, setLastStateAt] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
 
@@ -254,7 +383,7 @@ export function TableView() {
     stackCount === 0 ? 0 : levelIndex * (boardWidth + RING_STACK_GAP);
 
   const logRef = useRef<HTMLDivElement | null>(null);
-  const { cam, boardViewportRef, zoomIn, zoomOut, viewportHandlers } = useTableCamera({
+  const { cam, boardViewportRef, viewportHandlers } = useTableCamera({
     state,
     boardWidth,
     boardHeight,
@@ -279,7 +408,6 @@ export function TableView() {
         if (m.type === "error") setErr(m.message);
         if (m.type === "state" && isGameState(m.state)) {
           setState(m.state);
-          setLastStateAt(Date.now());
           setErr(null);
         }
       },
@@ -374,6 +502,17 @@ export function TableView() {
     }
     prevTurnPlayerIdRef.current = cur.id;
   }, [cur?.id]);
+  const itemPlayFanCards = useMemo(() => {
+    if (!state) return [];
+    if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
+      return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!);
+    }
+    if (state.tableItemPlayReveal) {
+      return expandTableRevealToFanCards(state, state.tableItemPlayReveal);
+    }
+    return [];
+  }, [state]);
+  const showItemPlayFan = itemPlayFanCards.length > 0;
   const turnBannerBottomReservePx =
     playingTurn && currentTurnAfflictions.length > 0
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
@@ -426,16 +565,16 @@ export function TableView() {
             style={{
               minWidth: 0,
               display: "flex",
-              flexWrap: "wrap",
+              flexWrap: "nowrap",
               alignItems: "center",
-              gap: "4px 10px",
+              gap: 10,
             }}
           >
-            <span style={{ fontWeight: 700, flexShrink: 0 }}>{sv.table.board}</span>
             <span
               style={{
-                opacity: 0.85,
-                fontSize: 13,
+                opacity: 0.96,
+                fontSize: "clamp(1rem, 2.1vmin, 1.28rem)",
+                fontWeight: 900,
                 minWidth: 0,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -446,43 +585,18 @@ export function TableView() {
             >
               {sv.table.lobby}: {room}
             </span>
-            <span style={{ opacity: 0.85, fontSize: 13, flexShrink: 0 }}>
-              {sv.table.status}: {wsStatusLabel(status)}
-            </span>
-            <span
-              style={{
-                opacity: 0.7,
-                fontSize: 11,
-                minWidth: 0,
-                flex: "1 1 120px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={
-                lastStateAt
-                  ? `${sv.table.lastState}: ${new Date(lastStateAt).toLocaleTimeString()}`
-                  : undefined
-              }
-            >
-              {sv.table.lastState}: {lastStateAt ? new Date(lastStateAt).toLocaleTimeString() : "—"}
-            </span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-            <ArcadeButton
-              variant="blue"
-              size="sm"
-              onClick={zoomIn}
+            <span
+              style={{
+                opacity: 0.88,
+                fontSize: 13,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
             >
-              +
-            </ArcadeButton>
-            <ArcadeButton
-              variant="blue"
-              size="sm"
-              onClick={zoomOut}
-            >
-              –
-            </ArcadeButton>
+              {sv.table.status}: {wsStatusLabel(status)}
+            </span>
           </div>
         </header>
       </div>
@@ -833,7 +947,7 @@ export function TableView() {
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {state.players.map((p) => (
-                    <TableLobbyPlayerRow key={p.id} p={p} />
+                    <TablePreGameLobbyPlayerRow key={p.id} p={p} />
                   ))}
                 </div>
               </div>
@@ -1382,31 +1496,36 @@ export function TableView() {
           }}
           aria-live="polite"
         >
-          <div
-            className={[
-              turnBannerStyles.colorBar,
-              turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            style={{
-              background: cur!.color,
-              minHeight: currentTurnAfflictions.length > 0 ? 118 : 96,
-              padding: "16px 20px",
-              boxShadow: "0 -8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
-              minWidth: 0,
-            }}
-          >
+          <div style={{ position: "relative", width: "100%", overflow: "visible" }}>
+            {showItemPlayFan && state ? (
+              <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
+            ) : null}
+            <div
+              className={[
+                turnBannerStyles.colorBar,
+                turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              style={{
+                position: "relative",
+                zIndex: 2,
+                background: cur!.color,
+                minHeight: currentTurnAfflictions.length > 0 ? 136 : 116,
+                padding: "16px 20px",
+                boxShadow: "0 -8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
+                minWidth: 0,
+              }}
+            >
             {turnBannerHandoff ? (
               <div className={turnBannerStyles.shineSweep} key={cur!.id} aria-hidden />
             ) : null}
             <div
               className={turnBannerStyles.bannerContent}
               style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) max-content",
+                display: "flex",
                 alignItems: "center",
-                gap: 14,
+                justifyContent: "center",
                 minWidth: 0,
               }}
             >
@@ -1441,6 +1560,68 @@ export function TableView() {
                 >
                   {cur!.name}
                 </h1>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px 14px",
+                    flexWrap: "wrap",
+                    fontSize: "clamp(0.76rem, 1.9vmin, 0.98rem)",
+                    fontWeight: 800,
+                    lineHeight: 1.2,
+                    color: "#f8fafc",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.65)",
+                    textAlign: "center",
+                    maxWidth: "100%",
+                    opacity: 0.96,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                  aria-label={sv.play.statsLine(cur!.hp, cur!.maxHp, cur!.gold, cur!.klunkar)}
+                >
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <StatIcon kind="hp" size={18} />
+                    <span>
+                      {cur!.hp}/{cur!.maxHp}
+                    </span>
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <StatIcon kind="pant" size={18} />
+                    <span>{cur!.gold}</span>
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <StatIcon kind="klunk" size={18} />
+                    <span>{cur!.klunkar}</span>
+                  </span>
+                </div>
+                {nextPlayer ? (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      background: nextPlayer.color,
+                      color: "#fafafa",
+                      fontSize: "clamp(0.72rem, 1.8vmin, 0.92rem)",
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 10px rgba(0,0,0,0.25)",
+                      maxWidth: "100%",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={
+                      [nextPlayer.name, ...tablePlayerAfflictionLines(nextPlayer)].filter(Boolean).join(" — ") ||
+                      nextPlayer.name
+                    }
+                  >
+                    {sv.table.turnBannerNext(nextPlayer.name)}
+                  </div>
+                ) : null}
                 {currentTurnAfflictions.length > 0 ? (
                   <div
                     style={{
@@ -1459,38 +1640,8 @@ export function TableView() {
                   </div>
                 ) : null}
               </div>
-              {nextPlayer ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "clamp(0.82rem, 2.2vmin, 1.12rem)",
-                      fontWeight: 800,
-                      lineHeight: 1.25,
-                      color: "#fafafa",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
-                      whiteSpace: "nowrap",
-                      flexShrink: 0,
-                      textAlign: "right",
-                    }}
-                    title={
-                      [nextPlayer.name, ...tablePlayerAfflictionLines(nextPlayer)].filter(Boolean).join(" — ") ||
-                      nextPlayer.name
-                    }
-                  >
-                    {sv.table.turnBannerNext(nextPlayer.name)}
-                  </span>
-                </div>
-              ) : (
-                <div style={{ width: 1, flexShrink: 0 }} aria-hidden />
-              )}
             </div>
+          </div>
           </div>
         </div>
       ) : null}

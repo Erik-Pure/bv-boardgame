@@ -39,10 +39,13 @@ import type {
   Pending,
   Player,
   ShopItem,
+  TableItemPlaySidePayload,
   Tile,
 } from "./types.js";
 
 const MAX_PLAYERS = 6;
+/** Pant varje spelare har när spelet startar (efter lobby). */
+const INITIAL_PLAYER_PANT = 5;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
 const COMBAT_REACTION_TIMEOUT_MS = 20_000;
@@ -84,6 +87,54 @@ function log(state: GameState, message: string): void {
   state.logSeq += 1;
   state.log.push({ at: Date.now(), message });
   if (state.log.length > 200) state.log.shift();
+}
+
+/** Bräd-tv: senaste spelade föremål + aktör/mål; rensas vid rörelse/stridsslag. */
+function recordTableItemPlay(
+  next: GameState,
+  itemId: ItemId,
+  actorId: string,
+  targetPlayerId: string | undefined,
+  side?: TableItemPlaySidePayload,
+): void {
+  const seq = (next.tableItemPlayReveal?.seq ?? 0) + 1;
+  next.tableItemPlayReveal = { seq, itemId, actorId, targetPlayerId, ...side };
+}
+
+function clearTableItemPlay(next: GameState): void {
+  next.tableItemPlayReveal = undefined;
+}
+
+/** Bräd-tv: lägg till föremål i solfjäder under strid (följer med pending tills striden är slut). */
+function appendCombatReactionItemPlay(
+  next: GameState,
+  itemId: ItemId,
+  actorId: string,
+  targetPlayerId: string | undefined,
+  side?: TableItemPlaySidePayload,
+): void {
+  const p = next.pending;
+  if (!p || p.type !== "combat") return;
+  const n = (p.reactionItemPlays?.length ?? 0) + 1;
+  p.reactionItemPlays = [
+    ...(p.reactionItemPlays ?? []),
+    { playSeq: n, itemId, actorId, targetPlayerId, ...side },
+  ];
+}
+
+function notifyItemPlayForTableAfterUse(
+  next: GameState,
+  itemId: ItemId,
+  actorId: string,
+  targetPlayerId: string | undefined,
+  inCombatReactions: boolean,
+  side?: TableItemPlaySidePayload,
+): void {
+  if (inCombatReactions && next.pending?.type === "combat") {
+    appendCombatReactionItemPlay(next, itemId, actorId, targetPlayerId, side);
+    return;
+  }
+  recordTableItemPlay(next, itemId, actorId, targetPlayerId, side);
 }
 
 /** +1 pant per Canman-instans i inventory per rörelsetärning; räknare på instansen, tom burk tas bort. */
@@ -683,6 +734,8 @@ function applyCombatLoss(
     sipMitigation: boolean;
     /** Etta solo, eller båda ettor med assist — förlust oavsett total mot styrka. */
     critFailOnOne?: boolean;
+    /** Pip-vapen: valfri straffklunk togs före tärningsslaget. */
+    weaponSipBeforeRoll?: boolean;
   },
   log: (s: GameState, m: string) => void,
   rng: () => number,
@@ -726,8 +779,10 @@ function applyCombatLoss(
   const primaryLossApplied = penaltySipTotalForPlayer(p, totalLossSips);
   p.klunkar += primaryLossApplied;
   if (mitigationKlunk) p.klunkar += mitigationKlunk;
-  /** En notis med samma total som tilldelats (inkl. valfri klunk för lägre skada hos Kapten Interrobang / Sura bär). */
-  pushSipNotice(next, p.id, ctx.enemyName, primaryLossApplied + mitigationKlunk);
+  /** Straffklunk-modal: inkludera klunken från pip-vapen före slaget i visat antal. */
+  const sipNoticeKlunks =
+    primaryLossApplied + mitigationKlunk + (ctx.weaponSipBeforeRoll ? 1 : 0);
+  pushSipNotice(next, p.id, ctx.enemyName, sipNoticeKlunks);
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
@@ -771,6 +826,7 @@ function applyCombatLoss(
       need,
       damage: damageTaken,
       klunkGained,
+      straffKlunkFromWeaponSip: ctx.weaponSipBeforeRoll ? 1 : undefined,
       assistRollNote:
         assistRoll !== null ? `Ölkompis-slag inkluderat: +${assistRoll}.` : undefined,
       redirectNote: redirectedTargetName
@@ -967,6 +1023,7 @@ function finalizeCombatAfterRollPreview(
         enemyName: pending.enemyName,
         sipMitigation: false,
         critFailOnOne,
+        weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
       },
       log,
       rng,
@@ -1107,6 +1164,7 @@ export function startGame(
   for (const p of next.players) {
     p.levelIndex = 0;
     p.tileIndex = 0;
+    p.gold = INITIAL_PLAYER_PANT;
     p.hp = maxHpFor(p);
     p.maxHp = maxHpFor(p);
     p.nextMoveBonus = 0;
@@ -1121,6 +1179,7 @@ export function startGame(
   next.lastDiceRoll = null;
   next.lastDiceRollerId = null;
   next.sipNotices = [];
+  next.tableItemPlayReveal = undefined;
   log(next, `— Bryggmästarens väg börjar! (seed ${seed}) —`);
   if (bossMonster) {
     log(
@@ -1181,7 +1240,7 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
   };
 }
 
-/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + läkning + två slumpade från katalogen (utan redan fasta ew_padel/ea_can_armor). Köp per besök tills spelaren lämnar. */
+/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + Helande brygd + två slumpade från katalogen (utan redan fasta ew_padel/ea_can_armor). Köp per besök tills spelaren lämnar. */
 const MERCHANT_SHELF_SLOTS = 4;
 
 /** Redan garanterade hyllplatser — får inte förekomma bland de två slumpade katalograderna. */
@@ -1199,9 +1258,9 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
     {
       id: "h",
       slot: "heal",
-      name: "Första hjälpen-lager",
+      name: "Helande brygd",
       price: 8,
-      healAmount: 4,
+      healAmount: 3,
     },
   ];
   const catalog = EQUIPMENT_CATALOG.filter((e) => !MERCHANT_FIXED_CATALOG_IDS.has(e.id));
@@ -1294,6 +1353,7 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const beforeKlunk = p.klunkar;
       const out: EffectApplyOut = {};
       applyEffects({ state, player: p, effects: card.effects ?? [], rng, out });
+      const grantedText = appendTextForGrantedItem(out);
       log(state, `${p.name} vilar på bryggeriet (+${out.heal ?? 0} HP, max ${p.maxHp}).`);
       showCard(state, {
         playerId: p.id,
@@ -1302,7 +1362,7 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         title: card.title,
         text:
           card.text +
-          appendTextForGrantedItem(out) +
+          grantedText +
           formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
         artKey: artKeyForGrantedItem(out, card.artKey) ?? card.artKey,
         grantedItemId: out.grantedItemId,
@@ -1333,6 +1393,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         rng,
         out: effectOut,
       });
+      const grantedText = appendTextForGrantedItem(effectOut);
+      const shouldReplaceBodyWithGrantedText = card.id === "treasure_item_random" && grantedText.length > 0;
       p.xp += 1;
       log(state, `${p.name} hittar skatt: +${out.gold ?? 0} pant.`);
       showCard(state, {
@@ -1341,7 +1403,9 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         cardId: card.id,
         title: card.title,
         text:
-          card.text.replace("{gold}", String(out.gold ?? 0)) + appendTextForGrantedItem(effectOut),
+          shouldReplaceBodyWithGrantedText
+            ? grantedText.trimStart()
+            : card.text.replace("{gold}", String(out.gold ?? 0)) + grantedText,
         artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
         grantedItemId: effectOut.grantedItemId,
         equipmentReplaceOffer: effectOut.equipmentReplaceOffer,
@@ -1672,6 +1736,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "healing_potion", user.id, undefined, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1693,6 +1758,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "sleep_potion", user.id, target.id, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1706,6 +1772,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "sip_card", user.id, target.id, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1726,6 +1793,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "weak_beer", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1743,6 +1811,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "light_beer", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1760,6 +1829,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "folk_beer", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1777,6 +1847,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "tripwire", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1796,6 +1867,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "double_hops", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1813,6 +1885,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "beer_bomb", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1833,6 +1906,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      if (inCombatReaction) {
+        notifyItemPlayForTableAfterUse(next, "beard_back", user.id, undefined, true);
+      } else if (inPvpRollWindow) {
+        recordTableItemPlay(next, "beard_back", user.id, undefined);
+      }
       return { state: next, events: ["state"] };
     }
 
@@ -1850,6 +1928,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "hangover", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1860,6 +1939,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "pretzel_snack", user.id, undefined, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1869,6 +1949,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "coin_purse", user.id, undefined, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1886,6 +1967,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "monster_hype", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1904,6 +1986,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "yeast_sabotage", user.id, targetId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1931,6 +2014,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "beer_bro", user.id, broId, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1955,6 +2039,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       );
       inv.splice(idx, 1);
       user.inventory = inv;
+      notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1974,6 +2059,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "lengraddad", user.id, target.id, inCombatReactions);
       return { state: next, events: ["state"] };
     }
 
@@ -1984,9 +2070,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.equipment.accessory?.preventTheft) {
         return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
       }
+      let stealSide: TableItemPlaySidePayload | undefined;
       if ((target.inventory ?? []).length > 0) {
         const ti = Math.floor(rng() * target.inventory.length);
         const stolen = target.inventory.splice(ti, 1)[0]!;
+        stealSide = { sideInventoryItemId: stolen.itemId };
         user.inventory ??= [];
         user.inventory.push(stolen);
         log(next, `${user.name} stjäl ${itemDisplayTitle(stolen.itemId)} från ${target.name}.`);
@@ -2001,6 +2089,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const slot = randomEquippedSlot(target, rng);
         if (!slot) return { state, events: [], error: "Målet har inget att stjäla" };
         const piece = target.equipment[slot]!;
+        stealSide = { sideEquipmentSlot: slot, sideEquipmentName: piece.name ?? String(slot) };
         target.equipment[slot] = undefined as any;
         if (slot === "armor") {
           target.maxHp = maxHpFor(target);
@@ -2030,6 +2119,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      notifyItemPlayForTableAfterUse(next, "not_my_round", user.id, target.id, inCombatReactions, stealSide);
       return { state: next, events: ["state"] };
     }
 
@@ -2037,9 +2127,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      let spillSide: TableItemPlaySidePayload | undefined;
       if ((target.inventory ?? []).length > 0) {
         const ti = Math.floor(rng() * target.inventory.length);
         const ruined = target.inventory.splice(ti, 1)[0]!;
+        spillSide = { sideInventoryItemId: ruined.itemId };
         log(next, `${user.name} spiller med flit och förstör ${itemDisplayTitle(ruined.itemId)} hos ${target.name}.`);
         pushPlayerNotice(
           next,
@@ -2052,6 +2144,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const slot = randomEquippedSlot(target, rng);
         if (!slot) return { state, events: [], error: "Målet har inget att förstöra" };
         const piece = target.equipment[slot]!;
+        spillSide = { sideEquipmentSlot: slot, sideEquipmentName: piece.name ?? String(slot) };
         target.equipment[slot] = undefined as any;
         if (slot === "armor" || slot === "helmet") {
           target.maxHp = maxHpFor(target);
@@ -2068,6 +2161,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      notifyItemPlayForTableAfterUse(next, "spill_intentional", user.id, target.id, inCombatReactions, spillSide);
       return { state: next, events: ["state"] };
     }
 
@@ -2080,6 +2174,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       log(next, `${user.name} spelar Vaska och skippar monstret.`);
       inv.splice(idx, 1);
       user.inventory = inv;
+      appendCombatReactionItemPlay(next, "early_night", user.id, undefined);
       next.pending = null;
       endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
@@ -2190,6 +2285,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       baseDamage: pending.baseDamage,
       lossSipsOnLose: pending.lossSipsOnLose,
       attackMods: pending.attackMods,
+      reactionItemPlays: pending.reactionItemPlays,
       yeastSabotageVictimId: pending.yeastSabotageVictimId,
       teamBattleRequired: pending.teamBattleRequired,
       teamBattleBonusGold: pending.teamBattleBonusGold,
@@ -2211,6 +2307,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       previewTotal: pr,
       previewNeed: need,
       previewWon: !critFailOnOne && pr >= need,
+      previewUsedSipWeaponBonus: sipBonus > 0 && action.useSipWeaponBonus === true,
+      previewSipWeaponBonusValue: sipBoost > 0 ? sipBonus : undefined,
     };
 
     return { state: next, events: ["state"] };
@@ -2271,6 +2369,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         enemyName: pending.enemyName,
         sipMitigation,
         critFailOnOne: critFailOnOneMit,
+        weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
       },
       log,
       rng,
@@ -2293,6 +2392,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
 
+    clearTableItemPlay(next);
     p.levelIndex = opt.target.levelIndex;
     p.tileIndex = opt.target.tileIndex;
     log(next, `${p.name} moves ${action.dir === "cw" ? "right" : "left"} to tile ${p.tileIndex + 1}.`);
@@ -2833,6 +2933,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state, events: [], error: "Ingen HP kvar — välj på stupad bryggare-kortet först" };
   }
 
+  clearTableItemPlay(next);
   applyCanmanOnMovementRoll(next, cp);
 
   const dice = rollDie(rng, 6);

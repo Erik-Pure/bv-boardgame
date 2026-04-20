@@ -1,5 +1,6 @@
 import { allCards, getCard } from "./db.js";
 import type { EffectApplyOut } from "./types.js";
+import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
 
 /** `artKey` för det kort som visar utdelat föremål (mobil / modal). */
 export function artKeyForGrantedItem(out: EffectApplyOut, fallback?: string): string | undefined {
@@ -26,17 +27,26 @@ export function appendTextForGrantedItem(out: EffectApplyOut): string {
   const gid = out.grantedItemId;
   if (typeof gid === "string") {
     try {
-      return `\n\nDu fick: ${getCard(`item_${gid}`).title}.`;
+      const item = getCard(`item_${gid}`);
+      const effect = item.text.trim();
+      return `\n\n${item.title}\n${effect}`;
     } catch {
-      return `\n\nFöremål: ${gid}.`;
+      return `\n\nFöremål\n${gid}`;
     }
   }
   if (typeof out.grantedEquipmentName === "string") {
-    return `\n\nDu fick utrustning: ${out.grantedEquipmentName}.`;
+    const eq = EQUIPMENT_CATALOG.find((x) =>
+      x.name === out.grantedEquipmentName &&
+      (!out.grantedEquipmentSlot || x.slot === out.grantedEquipmentSlot),
+    );
+    const effect = eq?.rulesText?.trim() || "Utrustning aktiverar sina effekter automatiskt när den är utrustad.";
+    return `\n\n${out.grantedEquipmentName}\n${effect}`;
   }
   if (out.equipmentReplaceOffer) {
     const o = out.equipmentReplaceOffer;
-    return `\n\nDu hittade: ${o.newName}. Du har redan något utrustat på denna plats — välj efter att du stängt kortet om du vill byta ut.`;
+    const eq = EQUIPMENT_CATALOG.find((x) => x.id === o.catalogId);
+    const effect = eq?.rulesText?.trim() || "Utrustning aktiverar sina effekter automatiskt när den är utrustad.";
+    return `\n\n${o.newName}\n${effect}\n\nDu har redan något utrustat på denna plats — välj efter att du stängt kortet om du vill byta ut.`;
   }
   return "";
 }

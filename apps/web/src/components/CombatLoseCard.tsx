@@ -112,7 +112,9 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
             marginBottom: 18,
           }}
         />
-        {data.damage > 0 || data.klunkGained > 0 ? (
+        {data.damage > 0 ||
+        data.klunkGained > 0 ||
+        (data.straffKlunkFromWeaponSip ?? 0) > 0 ? (
           <div
             style={{
               display: "flex",
@@ -126,8 +128,13 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
             {data.damage > 0 ? (
               <PenaltyLine iconSrc={HEART_ICON} tint={HEART_TINT} prefix="−" value={data.damage} />
             ) : null}
-            {data.klunkGained > 0 ? (
-              <PenaltyLine iconSrc={KLUNK_ICON} tint={KLUNK_TINT} prefix="+" value={data.klunkGained} />
+            {data.klunkGained > 0 || (data.straffKlunkFromWeaponSip ?? 0) > 0 ? (
+              <PenaltyLine
+                iconSrc={KLUNK_ICON}
+                tint={KLUNK_TINT}
+                prefix="+"
+                value={data.klunkGained + (data.straffKlunkFromWeaponSip ?? 0)}
+              />
             ) : null}
           </div>
         ) : (

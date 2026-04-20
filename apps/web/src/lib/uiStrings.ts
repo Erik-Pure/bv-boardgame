@@ -307,6 +307,8 @@ export const sv = {
     /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */
     diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} med straffklunk (valfritt)`,
     diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} med straffklunk (valfritt)`,
+    /** Bräd-tv: efter slag om valfri straffklunk med pip-vapen faktiskt togs — bara siffra + etikett vid tärningen. */
+    diceModifierSipTakenSub: "med straffklunk",
     pvpSubtitle: "Bryggare mot bryggare",
     pvpDuel: "Duell",
     pvpRound: (n: number) => `Rond ${n}`,
@@ -327,6 +329,11 @@ export const sv = {
         : `Står över ${skippedTurns} turer (sömn)`,
     /** Skakad öl: förlust mot monster — hopptur med denna etikett tills motsvarande tur förbrukats. */
     playerStatusOilInEye: "Öl i ögat",
+    /** Bräd-tv: vem som spelade (kortnamn visas separat ovanför) */
+    tableItemPlayActorLine: (actorName: string) => actorName,
+    /** Bräd-tv: spelare och mottagare */
+    tableItemPlayActorTargetLine: (actorName: string, targetName: string) =>
+      `${actorName} · ${targetName}`,
     floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
@@ -355,27 +362,27 @@ export const sv = {
     sip_card: { title: "Ölprovning", text: "Ge +1 klunk till ett mål." },
     weak_beer: {
       title: "Druckit för mycket",
-      text: "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Gäller spelare, inte monstret.",
+      text: "Stridsreaktion: −2 på vald spelares attack.",
     },
     light_beer: {
       title: "Energidryck",
-      text: "Stridsreaktion: +1 på vald spelares attack (angripare om du inte väljer).",
+      text: "Stridsreaktion: +1 på vald spelares attack.",
     },
     folk_beer: {
       title: "8-bit beer",
-      text: "Stridsreaktion: +2 på vald spelares attack (angripare om du inte väljer).",
+      text: "Stridsreaktion: +2 på vald spelares attack.",
     },
     tripwire: {
       title: "Halt golv",
-      text: "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer).",
+      text: "Stridsreaktion: −1 på vald spelares attack.",
     },
     double_hops: {
       title: "En hjälpande hand",
-      text: "Stridsreaktion: +2 på vald spelares attack (angripare om du inte väljer). Gäller spelare, inte monstret.",
+      text: "Stridsreaktion: +2 på vald spelares attack.",
     },
     beer_bomb: {
       title: "Ölbomb",
-      text: "Stridsreaktion: +3 på vald spelares attack (angripare om du inte väljer).",
+      text: "Stridsreaktion: +3 på vald spelares attack.",
     },
     beard_back: {
       title: "Skägget rakt bak",
@@ -383,17 +390,17 @@ export const sv = {
     },
     hangover: {
       title: "Baksmälla",
-      text: "Stridsreaktion: −3 på vald spelares attack (angripare om du inte väljer).",
+      text: "Stridsreaktion: −3 på vald spelares attack.",
     },
     pretzel_snack: { title: "Pretzel", text: "Återställ 2 HP." },
     coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Okontrollerad jäsning",
-      text: "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
+      text: "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte monstrets styrka.",
     },
     yeast_sabotage: {
       title: "Skakad öl",
-      text: "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
+      text: "Stridsreaktion: −1 på vald spelares attack. Om påverkad spelare förlorar en strid får den stå över en tur på grund av öl i ögat.",
     },
     beer_bro: {
       title: "Ölkompis",
@@ -406,11 +413,11 @@ export const sv = {
     },
     canman: {
       title: "Canman",
-      text: "Ligger i förrådet: +1 pant varje gång du slår rörelsetärningen, 10 gånger — ingen knapp.",
+      text: "+1 pant varje tur i 10 omgångar",
     },
-    not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt item eller utrustning från ett mål." },
-    spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt item eller utrustning hos ett mål." },
-    early_night: { title: "Vaska", text: "Som angripare i monstermöte: skippa monstret och avsluta mötet." },
+    not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
+    spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt föremål eller utrustning för en spelare." },
+    early_night: { title: "Vaska", text: "Skippa dålig batch." },
 
   },
   sipNotice: {

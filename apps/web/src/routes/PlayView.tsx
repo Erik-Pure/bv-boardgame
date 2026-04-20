@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -35,6 +35,7 @@ import {
   ITEM_EFFECT_BADGE_ICONS,
 } from "../lib/inventoryEffectBadges";
 import { isGameState } from "../lib/gameTypes";
+import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
@@ -200,7 +201,29 @@ export function PlayView() {
   const name = sp.get("name") ?? "Bryggare";
 
   const [state, setState] = useState<GameState | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastHideTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((message: string, durationMs = 3600) => {
+    if (toastHideTimerRef.current != null) {
+      window.clearTimeout(toastHideTimerRef.current);
+      toastHideTimerRef.current = null;
+    }
+    setToast(message);
+    toastHideTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastHideTimerRef.current = null;
+    }, durationMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastHideTimerRef.current != null) {
+        window.clearTimeout(toastHideTimerRef.current);
+        toastHideTimerRef.current = null;
+      }
+    };
+  }, []);
   const [myId, setMyId] = useState<string | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
   const [equipDetail, setEquipDetail] = useState<{
@@ -235,16 +258,12 @@ export function PlayView() {
       connectTimeoutMs: 10_000,
       onMessage: (m: ServerMessage) => {
         if (m.type === "helloAck") setMyId(m.playerId);
-        if (m.type === "error") setErr(m.message);
+        if (m.type === "error") showToast(m.message);
         if (m.type === "state" && isGameState(m.state)) {
           setState(m.state);
-          setErr(null);
         }
       },
     });
-  useEffect(() => {
-    if (status === "connected" || status === "connecting") setErr(null);
-  }, [status]);
 
   const me = findMe(state, myId);
 
@@ -503,11 +522,10 @@ export function PlayView() {
 
   const send = (action: ClientAction) => {
     if (status !== "connected") {
-      setErr(sv.play.notConnected);
+      showToast(sv.play.notConnected);
       log.debug("blocked send; ws status:", status, (action as any)?.type ?? action);
       return;
     }
-    setErr(null);
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
@@ -1191,7 +1209,7 @@ export function PlayView() {
     if (pending?.type === "merchant" && myPending) {
       const requestMerchantBuy = (it: ShopItem) => {
         if (me.gold < it.price) {
-          setErr(sv.play.merchantCantAfford);
+          showToast(sv.play.merchantCantAfford);
           return;
         }
         if (isShopItemEquipment(it) && merchantSlotOccupied(me, it.slot)) {
@@ -2219,10 +2237,6 @@ export function PlayView() {
       )}
 
       <div className={styles.content}>
-        {err && (
-          <div style={{ color: "#b91c1c", marginBottom: 12, position: "relative", zIndex: 25 }}>{err}</div>
-        )}
-
         {!state && <div>{sv.play.waitingState}</div>}
 
         {state && state.phase !== "ended" && (
@@ -2792,6 +2806,11 @@ export function PlayView() {
         );
       })()}
 
+      {toast ? (
+        <div className={styles.playToast} role="status" aria-live="polite">
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3587,35 +3606,6 @@ function itemMeta(itemId: any): { title: string; text: string; target: ItemUseTa
 
 function itemTitle(itemId: any): string {
   return itemMeta(itemId).title;
-}
-
-function itemImageSrc(itemId: any): string {
-  const id = String(itemId);
-  const m: Record<string, string> = {
-    healing_potion: "/items/healing-potion.png",
-    sleep_potion: "/items/sleep-potion.png",
-    sip_card: "/items/sip-card.png",
-    weak_beer: "/items/drunk-too-much.png",
-    light_beer: "/items/energy-drink.png",
-    folk_beer: "/items/8-bit-beer.png",
-    tripwire: "/items/tripwire.webp",
-    pretzel_snack: "/items/brezel.png",
-    coin_purse: "/items/coin-purse.png",
-    double_hops: "/items/double-hops.png",
-    beer_bomb: "/items/beer-bomb.webp",
-    beard_back: "/items/beard-back.png",
-    hangover: "/items/hangover.png",
-    monster_hype: "/items/monster-hype.png",
-    yeast_sabotage: "/items/yeast-sabotage.png",
-    beer_bro: "/items/beer-bro.png",
-    split_the_g: "/items/split-the-g.png",
-    lengraddad: "/event/lengraddad.png",
-    canman: "/items/canman.png",
-    not_my_round: "/items/not_my_round.png",
-    spill_intentional: "/items/spill_intentional.png",
-    early_night: "/items/item_early_night.webp",
-  };
-  return m[id] ?? "/card-placeholder.png";
 }
 
 function Modal(props: {

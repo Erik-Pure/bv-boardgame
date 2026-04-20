@@ -224,6 +224,8 @@ export function resolveEventCardOnLand(params: {
   // Default: apply effects immediately
   const effectOut: EffectApplyOut = {};
   applyEffects({ state, player: p, effects: card.effects ?? [], rng, out: effectOut });
+  const grantedText = appendTextForGrantedItem(effectOut);
+  const shouldReplaceBodyWithGrantedText = card.id === "event_find_item_random" && grantedText.length > 0;
   log(state, `Händelse: ${card.title}`);
   showCard(state, {
     playerId: p.id,
@@ -231,8 +233,7 @@ export function resolveEventCardOnLand(params: {
     cardId: card.id,
     title: card.title,
     text:
-      card.text +
-      appendTextForGrantedItem(effectOut) +
+      (shouldReplaceBodyWithGrantedText ? grantedText.trimStart() : card.text + grantedText) +
       formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
     artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
     grantedItemId: effectOut.grantedItemId,

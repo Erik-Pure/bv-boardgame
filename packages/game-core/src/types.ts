@@ -200,6 +200,8 @@ export interface CombatLoseSummary {
   need: number;
   damage: number;
   klunkGained: number;
+  /** +1 om valfri straffklunk med pip-vapen togs före slaget (ingår i visad totalsumma). */
+  straffKlunkFromWeaponSip?: number;
   assistRollNote?: string;
   redirectNote?: string;
   lostEquipmentName?: string;
@@ -319,6 +321,8 @@ export type Pending =
       phase: "chooseTeammate" | "enemyIntro" | "reactions" | "rollPreview" | "chooseHitMitigation";
       /** Per-player attack modifiers for this combat. */
       attackMods: Partial<Record<string, number>>;
+      /** Föremål spelade under reaktionsfasen — följer med tills striden är slut (solfjäder på bräd-tv). */
+      reactionItemPlays?: CombatReactionItemPlay[];
       /** Skakad öl: spelare som fick −1 attack; vid förlust mot monster → hoppar tur + "Öl i ögat". */
       yeastSabotageVictimId?: string;
       /** Team battle: attacker must pick one teammate before combat starts. */
@@ -351,6 +355,10 @@ export type Pending =
       previewTotal?: number;
       previewNeed?: number;
       previewWon?: boolean;
+      /** Pip-vapen: spelaren tog valfri straffklunk före slaget (för bräd-tv + förlustsummering). */
+      previewUsedSipWeaponBonus?: boolean;
+      /** Attackbonus från den valfria klunken (2/3). */
+      previewSipWeaponBonusValue?: number;
     };
 
 export interface LogEntry {
@@ -409,6 +417,31 @@ export interface SipNoticeEntry {
   noticeKind?: SipNoticeKind;
 }
 
+/** Sidokort i solfjäder: stulet/förstört inventory eller utrustning (bredvid spelat kort). */
+export interface TableItemPlaySidePayload {
+  sideInventoryItemId?: ItemId;
+  sideEquipmentSlot?: EquipmentSlot;
+  sideEquipmentName?: string;
+}
+
+/** Senaste föremåls-/kortspel för bräd-tv (mobil spelar; bordet ser kort + vem). */
+export interface TableItemPlayReveal extends TableItemPlaySidePayload {
+  /** Monotont; UI kan key:a om samma kort spelas flera gånger. */
+  seq: number;
+  itemId: ItemId;
+  actorId: string;
+  /** Mottagare/mål om kortet riktar sig mot annan spelare. */
+  targetPlayerId?: string;
+}
+
+/** Ett föremål spelat under stridsreaktioner (solfjäder på bräd-tv tills striden är klar). */
+export interface CombatReactionItemPlay extends TableItemPlaySidePayload {
+  playSeq: number;
+  itemId: ItemId;
+  actorId: string;
+  targetPlayerId?: string;
+}
+
 export interface GameState {
   phase: "lobby" | "playing" | "ended";
   seed: number;
@@ -437,6 +470,8 @@ export interface GameState {
   lastDiceRollerId: string | null;
   /** Kö av sip-meddelanden per mottagare; bekräftas med sipNoticeAck (en i taget). */
   sipNotices: SipNoticeEntry[];
+  /** Visas på TableView tills rörelsetärning, rörelseval eller stridsslag efter reaktioner. */
+  tableItemPlayReveal?: TableItemPlayReveal;
 }
 
 export type ClientAction =

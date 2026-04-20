@@ -9,12 +9,12 @@ export const TABLE_BOARD_MODAL_OVERLAY_ANIMATION =
 export const TABLE_BOARD_MODAL_CARD_ANIMATION =
   "bvTableCardIn 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) both";
 
-/** Halvtransparent dimning över brädet (strid, kortmodal m.m.). */
-export const TABLE_BOARD_OVERLAY_BG = "rgba(2, 6, 23, 0.4)";
+/** Kraftig dimning över brädet (strid, kortmodal m.m.) för bättre fokus på kort. */
+export const TABLE_BOARD_OVERLAY_BG = "rgba(1, 4, 16, 0.78)";
 
 /** Slutboss intro: stark röd radial puls som växer/krymper. */
 export const TABLE_BOSS_OVERLAY_BG =
-  "radial-gradient(ellipse 120% 90% at 50% 16%, rgba(254, 121, 121, 0.72) 0%, rgba(239, 68, 68, 0.54) 28%, rgba(127, 29, 29, 0.44) 52%, rgba(18, 4, 8, 0) 74%), linear-gradient(180deg, rgba(60, 8, 12, 0.8) 0%, rgba(9, 2, 5, 0.9) 100%)";
+  "radial-gradient(ellipse 120% 90% at 50% 16%, rgba(254, 121, 121, 0.62) 0%, rgba(239, 68, 68, 0.44) 26%, rgba(127, 29, 29, 0.38) 50%, rgba(18, 4, 8, 0) 72%), linear-gradient(180deg, rgba(22, 3, 7, 0.94) 0%, rgba(4, 1, 3, 0.97) 100%)";
 export const TABLE_BOSS_OVERLAY_PULSE = "bvBossTableOverlayPulse 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite";
 
 /** Tärningsstorlek i monster-raden: samma för idle-spin och resultat. */

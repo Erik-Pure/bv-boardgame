@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.19 |
-| Senast uppdaterad | 2026-04-18 |
+| Version | 0.22 |
+| Senast uppdaterad | 2026-04-20 |
 
 ---
 
@@ -32,6 +32,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 | Webb (stor skärm / laptop / surfplatta) | Spelplan, gemensam logg, animationer |
 | Webb (mobil) | Personlig kontroll: inventory, val, tärning/duell, bekräfta klunkar |
 
+**Kortlivade felmeddelanden (mobil, `/play`):** server- eller klientmeddelanden som **inte** ska blockera spel (t.ex. WebSocket **`error`** med text som *«En Ölkompis hjälper redan»*, eller *inte ansluten*) visas som en **toast** nära **nedre kanten** (över interaktionspanelen, med **safe area**), mörk bakgrund, **kort fade/slide-in**, och försvinner **automatiskt efter några sekunder** — i stället för lång röd felrad ovanför innehållet. (`role="status"`, `aria-live="polite"`.)
+
 **Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) ska UI ge en tydlig signal via **interaktionspanelen längst ned** (där tärning/knappar visas): en **regnbågsfärgad gradient** som **roterar** bakom panelinnehållet. Effekten ligger **inte** över hela `/play`-bakgrunden och används inte på storskärmsbrädet (`/table`), så TV-vyn förblir neutral.
 
 ### 2.1 Storskärmsvy: pan, zoom och fokus
@@ -39,9 +41,13 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - På **spelplansvyn** (stor skärm) ska kameran kunna **panorera** och **zooma** (t.ex. mushjul + dra, pinch på pekskärm, eller enkla +/--knappar).
 - **Automatiskt fokus:** när turen byter spelare (och vid t.ex. val av rörelse) ska vyn **centrera och zooma** så att **den aktiva pjäsen och relevanta målrutor** ryms i **den faktiska spelytan** (rektangulär viewport — inte bara kvadratisk brädes-SVG). Pan ska vara **konsekvent med zoom** (centrering skalar med aktuell `scale`).
 - **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **aktiv spelares färg som bakgrund** och **spelarnamn centrerat** (tydligt för bordet vems tur det är).
+- **Turindikator (detaljer):** i samma banner visas även aktiv spelares **HP / pant / klunkar** med ikoner; raden **“Nästa: <spelare>”** visas under statsrad i en pill med **nästa spelares färg** som bakgrund.
+- **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna.
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
 - **Manuell överstyring:** efter auto-fokus ska spelare vid bordet kunna **pana/zooma fritt** tills nästa auto-fokus.
+- **Kort över brädet (bord):** föremålskort i reaktionssolfjädern animerar in **nerifrån bakom turbannern**; mörk overlay bakom kort/strid är nu **betydligt mörkare** för bättre fokus på modalinnehållet (inkl. bossvariant).
+- **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation** (stats + utrustningsrader). I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
 **Sessionsflöde**
@@ -215,6 +221,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ## 10. Ekonomi och affärer
 
 - Spelare har **pant** (heltal ≥ 0) som huvudvaluta — **inte** “guld” i spelarens upplevelse.
+- **Startpant:** när värden **startar partiet** (fas går från lobby till spel) har **varje spelare 5 pant** (implementation: `INITIAL_PLAYER_PANT` i `game-core` vid `startGame`). I lobby visas ingen “startpant” — värdet sätts vid spelstart. **Respawn** efter omstart följer fortfarande §12 (**0 pant**).
 - **Affärer** nås via **affärsrutor** (§7.4) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
 - Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
@@ -223,7 +230,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ### 10.2 Panta burkar (affär på brädet)
 
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
-- **Hyllan (4 platser):** poolen byggs av **Mäskpaddel**, **Burkrustning**, **Första hjälpen-lager** plus **två slumpade** rader från **`EQUIPMENT_CATALOG`**; efter blandning visas **exakt fyra** erbjudanden. De två ankar-utrustningarna ska ha **samma namn, pris och spelregler** som motsvarande katalogposter (**Mäskpaddel** `ew_padel`, **Burkrustning** `ea_can_armor`) — inga parallella “butiksversioner” med avvikande stats.
+- **Hyllan (4 platser):** poolen byggs av **Mäskpaddel**, **Burkrustning**, **Helande brygd** (**+3 HP**) plus **två slumpade** rader från **`EQUIPMENT_CATALOG`**; efter blandning visas **exakt fyra** erbjudanden. De två ankar-utrustningarna ska ha **samma namn, pris och spelregler** som motsvarande katalogposter (**Mäskpaddel** `ew_padel`, **Burkrustning** `ea_can_armor`) — inga parallella “butiksversioner” med avvikande stats.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
 
@@ -342,6 +349,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 ### 16.1 Kortmodal och tydlighet
 
 - När ett kort visar **eftereffekter** (pant / HP / klunkar — i äldre byggen kan etiketten fortfarande säga “Gold”) ska **endast rader där värdet faktiskt ändrats** visas — undvik “Pant: 5 → 5” som ger intryck av förändring utan effekt.
+- När ett kort ger **slumpat föremål/utrustning** (`event_find_item_*`, `treasure_item_*`) ska texten börja med **föremåls-/utrustningsnamn** följt av **vad den gör** (effekt/rulesText), i stället för generisk “du hittade något användbart”-copy.
 
 ---
 
@@ -377,7 +385,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Hex vs kvadrat** för tiles.
 - **Min spelare** och om spelet får startas med färre än max.
 - **BvB:** ytterligare utlösare (kort, dedikerad tile) om de läggs till; **förlorarens** slutliga konsekvens efter duell; ev. begränsning av **vilka slots** vinnaren får stjäla från.
-- **Ekonomi:** startpant, BvB-pant-tak, affärs-sortiment per nivå.
+- **Ekonomi:** BvB-pant-tak, affärs-sortiment per nivå. *(Startpant vid spelstart: **5** — se §10.)*
 - **Kamera:** max/min zoom, om auto-fokus alltid återställer manuell pan eller “låses” tills nästa tur.
 - **Bryggverket-boost:** exakt verifieringsmetod, max antal användningar per parti, och juridisk copy tillsammans med bryggeriet.
 - **Lista över godkända ölnamn** att använda på kort (med bryggeriet).
@@ -388,6 +396,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
+- **Startpant vid spelstart:** 5 per spelare (inte vid respawn).
 - **Team-monsterfrekvens per nivå:** ~8% / 18% / 28%.
 - **Monster `need` och förlust-skada:** +`levelIndex` på styrkekrav respektive HP-skada vid förlust på den våningen (lokalt per plan).
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
@@ -419,4 +428,7 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.17 | 2026-04-16 | Föremålsmodal: neutral bakgrund (ingen regnbågsram i inventory-detalj); notiser/logg visar **korttitlar** (inte itemId); slutmodal: knapp **Avsluta spelet** → startsidan; Enkelpipa/Dubbelpipa: prompt före monstertärning (valfri straffklunk för extra attack); nytt vapen: **Humleklubba** (+1 strid, +2 BvB) |
 | 0.18 | 2026-04-16 | §3.1 **Drift och deploy:** Vercel (web, repo-root + `vercel.json`), `VITE_WS_URL` / `wss://`; CapRover + Docker för server (`PORT`, `/health`); lokalt `npm run dev`; CapRover-deploy via `npm run deploy:caprover*` + `.env` |
 | 0.19 | 2026-04-18 | §7.2 **tre våningar** (0–2) + slutboss styrka med våningsbonus; §7.3 monster **skada** skalar med våning; §2.1 markering före rörelsetärning; §9.1 en sip-notis vid mitigation; §10.2/§11 **Burksvärd**-badge + `rulesText` i modal; **burk-set** + **Legendarisk Burkhjälm**; §3.1 påminnelse om server-deploy vid `game-core`-ändringar; §19 balansrad skada |
+| 0.20 | 2026-04-19 | §2 **toast** för kortlivade fel/info på mobil (`/play`); §10 **startpant 5** vid spelstart + §19 tuning; §18 öppen punkt om startpant avprickad |
+| 0.21 | 2026-04-20 | §10.2 **Panta burkar**: fast hyllplats **Första hjälpen-lager** ersatt med **Helande brygd** (shop-copy synkad med implementation) |
+| 0.22 | 2026-04-20 | §2.1 bord-UI: turbanner med ikonstats + färgad “Nästa”-pill, förenklad header, mörkare kort-overlay, animerad item-solfjäder in bakom banner, mobil-lik spelarinformation i sidopanel under pågående spel; §10.2 förtydligat **Helande brygd +3 HP**; §16.1 fyndkort-text börjar med itemnamn + effekt |
 

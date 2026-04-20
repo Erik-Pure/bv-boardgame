@@ -38,11 +38,6 @@ function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: G
   return fromCards + fromItems;
 }
 
-function boardAttackerOptionalSipWeaponBonus(state: GameState, pending: TableCombatPending): number {
-  const attacker = state.players.find((p) => p.id === pending.attackerId);
-  return attacker?.equipment.weapon?.sipAttackBonus ?? 0;
-}
-
 export function TableCombatBoardPanel(props: { state: GameState; playersById: Map<string, Player> }) {
   const { state, playersById } = props;
   const pending = state.pending;
@@ -185,6 +180,20 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
             ? sv.table.combatPhase3Choice
             : sv.table.combatPhase3Result;
 
+  /** Ölkompis / team battle när medspelare redan vald — ska synas tydligt på brädet. */
+  const teammateChosenBannerStyle: CSSProperties = {
+    textAlign: "center",
+    opacity: 0.98,
+    marginBottom: 14,
+    fontSize: "clamp(22px, 5.2vw, 40px)",
+    fontWeight: 800,
+    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+    color: "#fef9c3",
+    letterSpacing: "0.03em",
+    lineHeight: 1.12,
+    textShadow: "0 2px 10px rgba(0,0,0,0.88), 0 0 24px rgba(250,204,21,0.35)",
+  };
+
   /** Boss / icke-kort: behåll äldre batch- + fasrubriker. */
   const combatBoardBossHeaderLines = (
     <>
@@ -198,9 +207,11 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
           Team battle: <b>väntar på val av medkämpe</b>
         </div>
       ) : pending.assistId ? (
-        <div style={{ opacity: 0.88, marginBottom: 8 }}>
+        <div style={{ ...teammateChosenBannerStyle, marginBottom: 10, textAlign: "left" }}>
           {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
-          <b>{state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}</b>
+          <span style={{ fontWeight: 900 }}>
+            {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
+          </span>
         </div>
       ) : null}
     </>
@@ -252,18 +263,11 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
           Team battle: <b>väntar på val av medkämpe</b>
         </div>
       ) : pending.assistId ? (
-        <div
-          style={{
-            textAlign: "center",
-            opacity: 0.95,
-            marginBottom: 10,
-            fontSize: 14,
-            color: "#f1f5f9",
-            textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
-          }}
-        >
+        <div style={teammateChosenBannerStyle}>
           {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
-          <b>{state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}</b>
+          <span style={{ fontWeight: 900 }}>
+            {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
+          </span>
         </div>
       ) : null}
     </>
@@ -288,17 +292,17 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
 
   const diceHeroMotionEase = "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
-  const boardDiceModifierLabel =
-    pending.phase === "reactions"
-      ? (() => {
-          const base = boardAttackerOutgoingRollModifier(pending, state);
-          const sipOpt = boardAttackerOptionalSipWeaponBonus(state, pending);
-          const baseStr = formatSignedDiceModifier(base);
-          if (sipOpt > 0) {
-            return baseStr ? `${baseStr} ${sv.table.diceModifierOptionalSipSuffix(sipOpt)}` : sv.table.diceModifierOnlyOptionalSip(sipOpt);
-          }
-          return baseStr;
-        })()
+  const diceBaseModifier = boardAttackerOutgoingRollModifier(pending, state);
+  const boardDiceModifierBaseStr = formatSignedDiceModifier(diceBaseModifier);
+  const showDiceModifierStack =
+    pending.phase === "reactions" ||
+    pending.phase === "rollPreview" ||
+    pending.phase === "chooseHitMitigation";
+  const sipWeaponTakenBonus =
+    (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
+    pending.previewUsedSipWeaponBonus === true &&
+    typeof pending.previewSipWeaponBonusValue === "number"
+      ? pending.previewSipWeaponBonusValue
       : null;
   const monsterCardWrapTransform =
     monsterTableAnim === "intro"
@@ -362,20 +366,67 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
                   </div>
                 )}
               </div>
-              {boardDiceModifierLabel ? (
+              {showDiceModifierStack && (boardDiceModifierBaseStr || sipWeaponTakenBonus != null) ? (
                 <div
                   style={{
-                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                    fontWeight: 400,
-                    fontSize: "clamp(30px, 7vw, 44px)",
-                    lineHeight: 1,
-                    letterSpacing: "0.02em",
-                    color: "#f8fafc",
-                    textAlign: "center",
-                    textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.45)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: sipWeaponTakenBonus != null ? 4 : 0,
                   }}
                 >
-                  {boardDiceModifierLabel}
+                  {boardDiceModifierBaseStr ? (
+                    <div
+                      style={{
+                        fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                        fontWeight: 400,
+                        fontSize: "clamp(30px, 7vw, 44px)",
+                        lineHeight: 1,
+                        letterSpacing: "0.02em",
+                        color: "#f8fafc",
+                        textAlign: "center",
+                        textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.45)",
+                      }}
+                    >
+                      {boardDiceModifierBaseStr}
+                    </div>
+                  ) : null}
+                  {sipWeaponTakenBonus != null ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                          fontWeight: 400,
+                          fontSize: "clamp(28px, 6.5vw, 40px)",
+                          lineHeight: 1,
+                          letterSpacing: "0.02em",
+                          color: "#e9d5ff",
+                          textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 18px rgba(139,92,246,0.35)",
+                        }}
+                      >
+                        +{sipWeaponTakenBonus}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "var(--sans), system-ui, sans-serif",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          letterSpacing: "0.04em",
+                          color: "rgba(248,250,252,0.92)",
+                          textShadow: "0 1px 8px rgba(0,0,0,0.65)",
+                        }}
+                      >
+                        {sv.table.diceModifierSipTakenSub}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {pending.phase === "chooseHitMitigation" ? (

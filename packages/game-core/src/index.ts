@@ -10,6 +10,9 @@ export type {
   GameConfig,
   GameMode,
   GameState,
+  CombatReactionItemPlay,
+  TableItemPlayReveal,
+  TableItemPlaySidePayload,
   ItemInstance,
   LevelBoard,
   LogEntry,
@@ -74,5 +77,5 @@ export {
   artKeyForGrantedItem,
   artKeyFromDuFickAppend,
 } from "./cards/grantedItemText.js";
-export { allCards, getCard } from "./cards/db.js";
+export { allCards, getCard, itemDisplayTitle } from "./cards/db.js";
 export type { CardDef, CardChoice, CardKind, Effect } from "./cards/types.js";
