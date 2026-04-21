@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.25 |
+| Version | 0.26 |
 | Senast uppdaterad | 2026-04-20 |
 
 ---
@@ -40,8 +40,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 - På **spelplansvyn** (stor skärm) ska kameran kunna **panorera** och **zooma** (t.ex. mushjul + dra, pinch på pekskärm, eller enkla +/--knappar).
 - **Automatiskt fokus:** när turen byter spelare (och vid t.ex. val av rörelse) ska vyn **centrera och zooma** så att **den aktiva pjäsen och relevanta målrutor** ryms i **den faktiska spelytan** (rektangulär viewport — inte bara kvadratisk brädes-SVG). Pan ska vara **konsekvent med zoom** (centrering skalar med aktuell `scale`).
-- **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **aktiv spelares färg som bakgrund** och **spelarnamn centrerat** (tydligt för bordet vems tur det är).
-- **Turindikator (detaljer):** i samma banner visas även aktiv spelares **HP / pant / klunkar** med ikoner; raden **“Nästa: <spelare>”** visas under statsrad i en pill med **nästa spelares färg** som bakgrund.
+- **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **aktiv spelares färg som bakgrund** (kompakt höjd).
+- **Turindikator (detaljer):** till vänster visas **aktiv spelares namn** med **HP / pant / klunkar** med ikoner **under namnet**; **“Nästa: <spelare>”** visas **högerställd** i en pill med **nästa spelares färg** som bakgrund. Eventuella statusrader (t.ex. sömn/öl i ögat) kan visas under huvudraden.
 - **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna.
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
@@ -80,6 +80,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Max antal spelare:** 6.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
+- **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Vid koden finns en **kopiera join-länk**-åtgärd (ikon). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`.
 
 ### 4.1 Mobilvy i lobby (väntan på start)
 
@@ -442,4 +443,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.23 | 2026-04-20 | §9.1 utökad med **Begär hjälp** i PvE (välj hjälpare + kontrakt: gratis/pant/skatt/dela lika, krav på minst ett positivt hjälpkort); kontraktsbelöning för hjälpare endast vid vinst; hjälpkort i hjälpfas renderas/rensas som stridskort; §11 statuscopy förtydligad: **(Öl i ögat)** utan extra **(Zzz)** |
 | 0.24 | 2026-04-20 | §9.2 BvB uppdaterad till **bäst av 3** med föremålsfönster före varje rond (båda markerar **Klar**), matchställning per rond och omslag i samma rond vid lika |
 | 0.25 | 2026-04-20 | §9.2 BvB: auto-klar när spelare saknar PvP-föremål i förberedelsefasen, samt ny rondresultatfas där båda bekräftar innan nästa rond eller byte |
+| 0.26 | 2026-04-20 | §4 lobby på bord: **QR + kopiera join-länk** till `/join?room=…`; §2.1 turbanner: **kompakt** layout med namn+ikoner under till vänster och **Nästa** högerställd |
 

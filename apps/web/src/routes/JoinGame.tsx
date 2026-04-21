@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { sv } from "../lib/uiStrings";
 
 export function JoinGame() {
   const nav = useNavigate();
-  const [roomCode, setRoomCode] = useState("");
+  const [sp] = useSearchParams();
+  const initialRoom = useMemo(() => (sp.get("room") ?? "").trim().toUpperCase(), [sp]);
+  const [roomCode, setRoomCode] = useState(initialRoom);
   const [name, setName] = useState("");
 
   return (

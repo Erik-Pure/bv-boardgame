@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import {
   BOARD_RING_GRID_SIZE,
   ringGridSizeFromTileCount,
@@ -108,9 +109,9 @@ function nextTurnPlayer(state: GameState | null): Player | null {
 }
 
 /** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
-const TABLE_TURN_BANNER_RESERVE_PX = 132;
+const TABLE_TURN_BANNER_RESERVE_PX = 92;
 /** Extra utrymme när statusrad (t.ex. sömn) visas under namnet */
-const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 166;
+const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 116;
 /** Vertikalt lyft (enkel + solfjäder); över bannerhöjd så spelarrad syns bakom banner */
 const TABLE_ITEM_PLAY_LIFT_PX = 50;
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
@@ -322,10 +323,15 @@ export function TableView() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
+  const joinQrUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/join?room=${encodeURIComponent(room)}`
+      : `/join?room=${encodeURIComponent(room)}`;
   const name = sp.get("name") ?? "Bord";
 
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [copyJoinState, setCopyJoinState] = useState<"idle" | "ok" | "err">("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
 
@@ -909,19 +915,69 @@ export function TableView() {
               >
                 <div
                   style={{
-                    fontSize: "clamp(2.4rem, 10vmin, 4rem)",
-                    fontWeight: 900,
-                    letterSpacing: "0.14em",
-                    lineHeight: 1.05,
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-                    color: "#f8fafc",
-                    textShadow: "0 2px 16px rgba(0,0,0,0.55)",
-                    textAlign: "center",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    width: "100%",
                     marginBottom: 4,
-                    wordBreak: "break-all",
                   }}
                 >
-                  {room}
+                  <div
+                    style={{
+                      fontSize: "clamp(2.4rem, 10vmin, 4rem)",
+                      fontWeight: 900,
+                      letterSpacing: "0.14em",
+                      lineHeight: 1.05,
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                      color: "#f8fafc",
+                      textShadow: "0 2px 16px rgba(0,0,0,0.55)",
+                      textAlign: "center",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {room}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Kopiera join-länk"
+                    title={
+                      copyJoinState === "ok"
+                        ? "Kopierad"
+                        : copyJoinState === "err"
+                          ? "Kunde inte kopiera"
+                          : "Kopiera join-länk"
+                    }
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(joinQrUrl);
+                        setCopyJoinState("ok");
+                      } catch {
+                        setCopyJoinState("err");
+                      }
+                      window.setTimeout(() => setCopyJoinState("idle"), 1800);
+                    }}
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.34)",
+                      background: copyJoinState === "ok" ? "rgba(59,130,246,0.35)" : "rgba(2,6,23,0.5)",
+                      color: "#f8fafc",
+                      borderRadius: 10,
+                      width: 36,
+                      height: 36,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden>
+                      <path
+                        d="M9 4.75A2.75 2.75 0 0 1 11.75 2h4.5A2.75 2.75 0 0 1 19 4.75V6h.25A2.75 2.75 0 0 1 22 8.75v10.5A2.75 2.75 0 0 1 19.25 22H8.75A2.75 2.75 0 0 1 6 19.25V19h-.25A2.75 2.75 0 0 1 3 16.25V5.75A2.75 2.75 0 0 1 5.75 3H9v1.75H5.75a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1H6V8.75A2.75 2.75 0 0 1 8.75 6H9V4.75ZM8.75 7.75a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h10.5a1 1 0 0 0 1-1V8.75a1 1 0 0 0-1-1H8.75ZM11 4.75V6h6.25V4.75a1 1 0 0 0-1-1h-4.5a1 1 0 0 0-1 1Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
                 </div>
                 <h2
                   style={{
@@ -944,6 +1000,29 @@ export function TableView() {
                   }}
                 >
                   {sv.table.readyAll(readyCount, state.players.length)}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    justifyItems: "center",
+                    gap: 8,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#ffffff",
+                      borderRadius: 12,
+                      padding: 8,
+                      boxShadow: "0 10px 24px rgba(0,0,0,0.32)",
+                    }}
+                    title={joinQrUrl}
+                  >
+                    <QRCodeSVG value={joinQrUrl} size={128} includeMargin />
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.86, textAlign: "center" }}>
+                    Skanna för att gå med i lobbyn
+                  </div>
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {state.players.map((p) => (
@@ -1511,8 +1590,8 @@ export function TableView() {
                 position: "relative",
                 zIndex: 2,
                 background: cur!.color,
-                minHeight: currentTurnAfflictions.length > 0 ? 136 : 116,
-                padding: "16px 20px",
+                minHeight: currentTurnAfflictions.length > 0 ? 98 : 78,
+                padding: "10px 16px",
                 boxShadow: "0 -8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
                 minWidth: 0,
               }}
@@ -1525,74 +1604,84 @@ export function TableView() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
                 minWidth: 0,
+                gap: 12,
               }}
             >
               <div
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
                   alignItems: "center",
+                  width: "100%",
                   minWidth: 0,
-                  gap: 6,
+                  gap: 12,
                   overflow: "hidden",
                 }}
               >
-                <h1
-                  className={turnBannerHandoff ? turnBannerStyles.playerNameHandoff : undefined}
-                  style={{
-                    margin: 0,
-                    fontSize: "clamp(1.35rem, 5.5vmin, 2.35rem)",
-                    fontWeight: 900,
-                    lineHeight: 1.12,
-                    color: "#fafafa",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.85)",
-                    letterSpacing: "-0.02em",
-                    textAlign: "center",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    width: "100%",
-                    maxWidth: "100%",
-                  }}
-                >
-                  {cur!.name}
-                </h1>
                 <div
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
                     justifyContent: "center",
-                    gap: "10px 14px",
-                    flexWrap: "wrap",
-                    fontSize: "clamp(0.76rem, 1.9vmin, 0.98rem)",
-                    fontWeight: 800,
-                    lineHeight: 1.2,
-                    color: "#f8fafc",
-                    textShadow: "0 1px 3px rgba(0,0,0,0.65)",
-                    textAlign: "center",
-                    maxWidth: "100%",
-                    opacity: 0.96,
-                    fontVariantNumeric: "tabular-nums",
+                    gap: 4,
+                    minWidth: 0,
+                    flex: "1 1 auto",
                   }}
-                  aria-label={sv.play.statsLine(cur!.hp, cur!.maxHp, cur!.gold, cur!.klunkar)}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <StatIcon kind="hp" size={18} />
-                    <span>
-                      {cur!.hp}/{cur!.maxHp}
+                  <h1
+                    className={turnBannerHandoff ? turnBannerStyles.playerNameHandoff : undefined}
+                    style={{
+                      margin: 0,
+                      fontSize: "clamp(1rem, 3.8vmin, 1.7rem)",
+                      fontWeight: 900,
+                      lineHeight: 1.08,
+                      color: "#fafafa",
+                      textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.85)",
+                      letterSpacing: "-0.02em",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                    }}
+                  >
+                    {cur!.name}
+                  </h1>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      gap: "6px 10px",
+                      flexWrap: "wrap",
+                      fontSize: "clamp(0.72rem, 1.6vmin, 0.9rem)",
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      color: "#f8fafc",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
+                      opacity: 0.96,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                    aria-label={sv.play.statsLine(cur!.hp, cur!.maxHp, cur!.gold, cur!.klunkar)}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <StatIcon kind="hp" size={16} />
+                      <span>
+                        {cur!.hp}/{cur!.maxHp}
+                      </span>
                     </span>
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <StatIcon kind="pant" size={18} />
-                    <span>{cur!.gold}</span>
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <StatIcon kind="klunk" size={18} />
-                    <span>{cur!.klunkar}</span>
-                  </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <StatIcon kind="pant" size={16} />
+                      <span>{cur!.gold}</span>
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <StatIcon kind="klunk" size={16} />
+                      <span>{cur!.klunkar}</span>
+                    </span>
+                  </div>
                 </div>
                 {nextPlayer ? (
                   <div
@@ -1600,16 +1689,19 @@ export function TableView() {
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      padding: "4px 10px",
+                      padding: "3px 9px",
                       borderRadius: 999,
                       background: nextPlayer.color,
                       color: "#fafafa",
-                      fontSize: "clamp(0.72rem, 1.8vmin, 0.92rem)",
+                      fontSize: "clamp(0.68rem, 1.6vmin, 0.84rem)",
                       fontWeight: 800,
                       lineHeight: 1.2,
                       textShadow: "0 1px 2px rgba(0,0,0,0.6)",
                       boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 10px rgba(0,0,0,0.25)",
-                      maxWidth: "100%",
+                      flex: "0 0 auto",
+                      alignSelf: "flex-start",
+                      marginTop: 1,
+                      maxWidth: "38%",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -1622,25 +1714,26 @@ export function TableView() {
                     {sv.table.turnBannerNext(nextPlayer.name)}
                   </div>
                 ) : null}
-                {currentTurnAfflictions.length > 0 ? (
-                  <div
-                    style={{
-                      fontSize: "clamp(0.72rem, 2vmin, 0.95rem)",
-                      fontWeight: 800,
-                      lineHeight: 1.3,
-                      color: "#fafafa",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
-                      textAlign: "center",
-                      maxWidth: "100%",
-                      opacity: 0.95,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {currentTurnAfflictions.join(" · ")}
-                  </div>
-                ) : null}
               </div>
             </div>
+            {currentTurnAfflictions.length > 0 ? (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: "clamp(0.68rem, 1.6vmin, 0.84rem)",
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  color: "#fafafa",
+                  textShadow: "0 1px 3px rgba(0,0,0,0.65)",
+                  textAlign: "center",
+                  maxWidth: "100%",
+                  opacity: 0.95,
+                  wordBreak: "break-word",
+                }}
+              >
+                {currentTurnAfflictions.join(" · ")}
+              </div>
+            ) : null}
           </div>
           </div>
         </div>
