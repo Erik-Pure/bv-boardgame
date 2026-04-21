@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.26 |
-| Senast uppdaterad | 2026-04-20 |
+| Version | 0.27 |
+| Senast uppdaterad | 2026-04-21 |
 
 ---
 
@@ -80,7 +80,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Max antal spelare:** 6.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
-- **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Vid koden finns en **kopiera join-länk**-åtgärd (ikon). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`.
+- **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`.
 
 ### 4.1 Mobilvy i lobby (väntan på start)
 
@@ -444,4 +444,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.24 | 2026-04-20 | §9.2 BvB uppdaterad till **bäst av 3** med föremålsfönster före varje rond (båda markerar **Klar**), matchställning per rond och omslag i samma rond vid lika |
 | 0.25 | 2026-04-20 | §9.2 BvB: auto-klar när spelare saknar PvP-föremål i förberedelsefasen, samt ny rondresultatfas där båda bekräftar innan nästa rond eller byte |
 | 0.26 | 2026-04-20 | §4 lobby på bord: **QR + kopiera join-länk** till `/join?room=…`; §2.1 turbanner: **kompakt** layout med namn+ikoner under till vänster och **Nästa** högerställd |
+| 0.27 | 2026-04-21 | §4 bord (pre-game lobby): **kopiera join-länk** borttagen från UI; **QR** till `/join?room=…` kvarstår |
 
