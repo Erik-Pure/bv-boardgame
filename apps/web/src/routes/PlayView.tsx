@@ -88,7 +88,13 @@ function isMyPending(pending: Pending | null, me: Player | null) {
   if (pending.type === "levelUpOffer") return pending.playerId === me.id;
   if (pending.type === "encounterChoice") return pending.moverId === me.id;
   if (pending.type === "pvp") {
-    if (pending.phase === "awaitingRolls") return pending.attackerId === me.id || pending.defenderId === me.id;
+    if (
+      pending.phase === "preRoundItems" ||
+      pending.phase === "awaitingRolls" ||
+      pending.phase === "roundReveal"
+    ) {
+      return pending.attackerId === me.id || pending.defenderId === me.id;
+    }
     return pending.winnerId === me.id || pending.loserId === me.id;
   }
   return false;
@@ -382,14 +388,17 @@ export function PlayView() {
     setCombatDiceSpinning(true);
   }, [combatFighterSheet]);
 
-  const pvpRollSheet =
-    !!me &&
-    pending?.type === "pvp" &&
-    pending.phase === "awaitingRolls" &&
-    (pending.attackerId === me.id || pending.defenderId === me.id);
-  const myPvpRoll =
-    me && pending?.type === "pvp" && pending.phase === "awaitingRolls" ? pending.rolls?.[me.id] : undefined;
-  const pvpRound = pending?.type === "pvp" && pending.phase === "awaitingRolls" ? pending.pvpRound ?? 1 : 1;
+  const pvpPending = pending?.type === "pvp" ? pending : null;
+  const pvpParticipant =
+    !!me && !!pvpPending && (pvpPending.attackerId === me.id || pvpPending.defenderId === me.id);
+  const pvpRollSheet = pvpParticipant && pvpPending?.phase === "awaitingRolls";
+  const myPvpRoll = me && pvpPending?.phase === "awaitingRolls" ? pvpPending.rolls?.[me.id] : undefined;
+  const pvpRound = pvpPending ? (pvpPending.roundNumber ?? pvpPending.pvpRound ?? 1) : 1;
+  const pvpWins =
+    pvpPending?.wins ?? {
+      attacker: 0,
+      defender: 0,
+    };
   useEffect(() => {
     if (!pvpRollSheet) {
       setPvpDiceSpinning(true);
@@ -446,11 +455,8 @@ export function PlayView() {
   const highlightPulse = !!isMyTurn || state?.phase === "lobby" || !!canStart;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
-  const inPvpAwaitingRolls =
-    pending?.type === "pvp" &&
-    pending.phase === "awaitingRolls" &&
-    !!me &&
-    (pending.attackerId === me.id || pending.defenderId === me.id);
+  const inPvpAwaitingRolls = pvpParticipant && pvpPending?.phase === "awaitingRolls";
+  const inPvpPreRoundItems = pvpParticipant && pvpPending?.phase === "preRoundItems";
   const isThirdPartyCombatIntervention =
     !!me &&
     inCombatReactions &&
@@ -463,6 +469,7 @@ export function PlayView() {
     if (target === "passive") return false;
     if (itemId === "lengraddad" && inCombatReactions) return true;
     if (itemId === "beard_back" && (inCombatReactions || inPvpAwaitingRolls)) return true;
+    if (inPvpPreRoundItems) return PVP_PRE_ROUND_ITEM_IDS.has(itemId);
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
@@ -1215,16 +1222,55 @@ export function PlayView() {
       );
     }
 
+    if (pending?.type === "pvp" && pending.phase === "preRoundItems") {
+      const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
+      if (!isParticipant) return null;
+      const bestOf = pending.bestOf ?? 3;
+      const meHasPvpItems = (me.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
+      const myReadyExplicit = pending.roundItemReady?.[me.id] === true;
+      const myEffectiveReady = myReadyExplicit || !meHasPvpItems;
+      const opponentId = pending.attackerId === me.id ? pending.defenderId : pending.attackerId;
+      const opponent = state.players.find((p) => p.id === opponentId);
+      const opponentHasPvpItems = (opponent?.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
+      const opponentReadyExplicit = opponentId ? pending.roundItemReady?.[opponentId] === true : false;
+      const opponentEffectiveReady = opponentReadyExplicit || !opponentHasPvpItems;
+      const scoreLine = `${sv.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`;
+      return (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ textAlign: "center", opacity: 0.92 }}>
+            {sv.play.pvpRoundBestOf(pvpRound, bestOf)}
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{scoreLine}</div>
+          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.88 }}>{sv.play.pvpPreRoundItemsHint}</div>
+          {meHasPvpItems ? (
+            <ArcadeButton
+              variant={myReadyExplicit ? "gray" : "pink"}
+              fullWidth
+              onClick={() => send({ type: "pvpRoundReady", playerId: me.id, ready: !myReadyExplicit })}
+            >
+              {myReadyExplicit ? sv.play.pvpReadyUndo : sv.play.pvpReady}
+            </ArcadeButton>
+          ) : (
+            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.85 }}>{sv.play.pvpNoItemsAutoReady}</div>
+          )}
+          <div style={{ textAlign: "center", fontSize: 12, opacity: 0.75 }}>
+            {myEffectiveReady
+              ? opponentEffectiveReady
+                ? sv.play.pvpBothReady
+                : sv.play.pvpWaitingOpponentItemsOrReady(opponent?.name ?? "motståndaren")
+              : sv.play.pvpPressReadyWhenDone}
+          </div>
+        </div>
+      );
+    }
+
     if (pending?.type === "pvp" && pending.phase === "awaitingRolls") {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
       if (!isParticipant) return null;
       const myRoll = pending.rolls?.[me.id];
-      const round = pending.pvpRound ?? 1;
       return (
         <div style={{ display: "grid", gap: 10 }}>
-          {round > 1 ? (
-            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{sv.play.pvpTieRerollHint}</div>
-          ) : null}
+          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{sv.play.pvpRollWindowHint}</div>
           <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpRollDie}</div>
           <div className={styles.sheetDiceBlock}>
             {myRoll ? (
@@ -1251,6 +1297,70 @@ export function PlayView() {
           >
             {myRoll ? sv.play.youRolled : sv.play.rollPvpDie}
           </ArcadeButton>
+        </div>
+      );
+    }
+
+    if (pending?.type === "pvp" && pending.phase === "roundReveal") {
+      const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
+      if (!isParticipant) return null;
+      const myAck = pending.roundRevealAcked?.[me.id] === true;
+      const opponentId = pending.attackerId === me.id ? pending.defenderId : pending.attackerId;
+      const opponent = state.players.find((p) => p.id === opponentId);
+      const oppAck = opponentId ? pending.roundRevealAcked?.[opponentId] === true : false;
+      const myRoll = pending.rolls?.[me.id];
+      const rt = pending.resolvedTotals;
+      const lead = pending.roundRevealLead;
+      return (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ textAlign: "center", opacity: 0.92, fontSize: 15, lineHeight: 1.35 }}>
+            {lead === "chooseLoot"
+              ? sv.play.pvpRoundRevealMatchEnd
+              : sv.play.pvpRoundRevealNextRound(pvpRound, pending.nextRoundNumber ?? pvpRound + 1)}
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>
+            {sv.play.pvpScoreLabel}: {pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–
+            {pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}
+          </div>
+          {rt ? (
+            <div style={{ textAlign: "center", fontSize: 14, opacity: 0.9 }}>
+              {sv.play.pvpRoundRevealTotals(rt.attackerTotal, rt.defenderTotal)}
+            </div>
+          ) : null}
+          {pending.winnerId ? (
+            <div style={{ textAlign: "center", fontSize: 15, fontWeight: 700, opacity: 0.95 }}>
+              {sv.play.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
+            </div>
+          ) : null}
+          <div className={styles.sheetDiceBlock}>
+            {myRoll ? (
+              <DiceCube3D value={myRoll.die} size={76} />
+            ) : (
+              <DiceCube3D idleSpin spinning={false} size={76} />
+            )}
+            <div className={styles.sheetDiceCaption}>
+              {myRoll ? (
+                <span className={styles.sheetDiceCaptionText}>
+                  {sv.play.yourD6TotalWeapon(myRoll.die, myRoll.total)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <ArcadeButton
+            variant="blue"
+            fullWidth
+            disabled={myAck}
+            onClick={() => send({ type: "pvpRoundRevealAck", playerId: me.id })}
+          >
+            {myAck ? sv.play.pvpRoundRevealDone : sv.play.pvpRoundRevealContinue}
+          </ArcadeButton>
+          <div style={{ textAlign: "center", fontSize: 12, opacity: 0.75 }}>
+            {myAck
+              ? oppAck
+                ? sv.play.pvpRoundRevealBothAcked
+                : sv.play.pvpRoundRevealWaitOther(opponent?.name ?? "motståndaren")
+              : sv.play.pvpRoundRevealTapToContinue}
+          </div>
         </div>
       );
     }
@@ -3394,6 +3504,17 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "beer_bomb",
   "yeast_sabotage",
   "beer_bro",
+]);
+const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
+  "weak_beer",
+  "light_beer",
+  "folk_beer",
+  "tripwire",
+  "double_hops",
+  "beer_bomb",
+  "hangover",
+  "monster_hype",
+  "beard_back",
 ]);
 
 /** Effektrader för modal: samma sammandrag som i affären när prylen finns i katalogen (annars fallback). */

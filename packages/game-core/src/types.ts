@@ -271,9 +271,25 @@ export type Pending =
       type: "pvp";
       attackerId: string;
       defenderId: string;
-      /** 1 = första slaget; ökas vid lika så båda måste slå om (rond 2, 3, …). */
+      /** Visad rond i bäst-av-3 (1..3). */
       pvpRound?: number;
-      phase: "awaitingRolls" | "chooseLoot";
+      /** Matchlängd i rundor (standard: 3). */
+      bestOf?: number;
+      /** Antal vunna rundor per duellant. */
+      wins?: { attacker: number; defender: number };
+      /** Aktiv rond i matchen. Alias till `pvpRound` för bakåtkompatibel UI. */
+      roundNumber?: number;
+      phase: "preRoundItems" | "awaitingRolls" | "roundReveal" | "chooseLoot";
+      /** Efter rondslag: vad som händer när båda bekräftat resultatet. */
+      roundRevealLead?: "nextRound" | "chooseLoot";
+      /** När `roundRevealLead === "nextRound"`: rondnummer som sätts vid övergång till `preRoundItems`. */
+      nextRoundNumber?: number;
+      /** Båda duellanterna måste skicka `pvpRoundRevealAck` innan `roundRevealLead` tillämpas. */
+      roundRevealAcked?: Partial<Record<string, boolean>>;
+      /** Båda spelare markerar redo innan rundans slag startar. */
+      roundItemReady?: Partial<Record<string, boolean>>;
+      /** Per-rond attackmodifierare från spelade PvP-föremål. */
+      pvpAttackMods?: Partial<Record<string, number>>;
       rolls?: Partial<
         Record<
           string,
@@ -287,6 +303,8 @@ export type Pending =
       loserId?: string;
       /** Satta när båda slagit (inkl. ev. omslag) — för bords-UI. */
       resolvedTotals?: { attackerTotal: number; defenderTotal: number };
+      /** Kort historik för spelade rundor i matchen. */
+      roundResults?: Array<{ round: number; attackerTotal: number; defenderTotal: number; winnerId?: string; tie?: boolean }>;
     }
   | {
       type: "door";
@@ -502,6 +520,8 @@ export type ClientAction =
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
   | { type: "chooseEncounter"; playerId: string; choice: "pvp" | "tile" }
   | { type: "choosePvpOpponent"; playerId: string; opponentId: string }
+  | { type: "pvpRoundReady"; playerId: string; ready: boolean }
+  | { type: "pvpRoundRevealAck"; playerId: string }
   | { type: "pvpRoll"; playerId: string }
   | { type: "confirmCard"; playerId: string }
   | { type: "chooseCardOption"; playerId: string; choiceId: string }

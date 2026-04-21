@@ -146,6 +146,55 @@ const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "beer_bomb",
 ]);
 
+const PVP_BEST_OF = 3;
+const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
+  "weak_beer",
+  "light_beer",
+  "folk_beer",
+  "tripwire",
+  "double_hops",
+  "beer_bomb",
+  "hangover",
+  "monster_hype",
+  "beard_back",
+]);
+
+function playerHasPvpPreRoundItem(player: Player): boolean {
+  return (player.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
+}
+
+/** Går till slag när båda är uttryckligen klara eller saknar PvB-föremål att spela i förberedelsen. */
+function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending, { type: "pvp" }>): void {
+  if (pending.phase !== "preRoundItems") return;
+  const attacker = state.players.find((p) => p.id === pending.attackerId);
+  const defender = state.players.find((p) => p.id === pending.defenderId);
+  if (!attacker || !defender) return;
+  pending.roundItemReady ??= {};
+  const attackerReady =
+    pending.roundItemReady[pending.attackerId] === true || !playerHasPvpPreRoundItem(attacker);
+  const defenderReady =
+    pending.roundItemReady[pending.defenderId] === true || !playerHasPvpPreRoundItem(defender);
+  if (attackerReady && defenderReady) {
+    pending.phase = "awaitingRolls";
+    pending.rolls = {};
+    log(state, "Båda PvP-spelare är redo — slagrundan startar.");
+  }
+}
+
+/** Efter kortspel: om spelaren inte längre har PvB-föremål markeras de klara automatiskt. */
+function maybePvpPreRoundAutoReadyAfterItemUse(state: GameState, playerId: string): void {
+  const pending = state.pending;
+  if (!pending || pending.type !== "pvp" || pending.phase !== "preRoundItems") return;
+  if (playerId !== pending.attackerId && playerId !== pending.defenderId) return;
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p) return;
+  if (!playerHasPvpPreRoundItem(p)) {
+    pending.roundItemReady ??= {};
+    pending.roundItemReady[playerId] = true;
+  }
+  tryAdvancePvpPreRoundToRolls(state, pending);
+}
+
 function isPositiveHelpItemId(itemId: ItemId): boolean {
   return POSITIVE_HELP_ITEM_IDS.has(itemId);
 }
@@ -172,6 +221,31 @@ function clearCombatHelpRequest(pending: Extract<Pending, { type: "combat" }>): 
   pending.helpAccepted = undefined;
   pending.helpUsedPositiveItem = undefined;
   pending.helpContract = undefined;
+}
+
+function pvpWinsWithDefaults(pending: Extract<Pending, { type: "pvp" }>): { attacker: number; defender: number } {
+  return pending.wins ?? { attacker: 0, defender: 0 };
+}
+
+function pvpRoundWithDefaults(pending: Extract<Pending, { type: "pvp" }>): number {
+  return pending.roundNumber ?? pending.pvpRound ?? 1;
+}
+
+function initPvpPending(attackerId: string, defenderId: string): Extract<Pending, { type: "pvp" }> {
+  return {
+    type: "pvp",
+    attackerId,
+    defenderId,
+    bestOf: PVP_BEST_OF,
+    wins: { attacker: 0, defender: 0 },
+    roundNumber: 1,
+    pvpRound: 1,
+    phase: "preRoundItems",
+    roundItemReady: {},
+    pvpAttackMods: {},
+    rolls: {},
+    roundResults: [],
+  };
 }
 
 /** +1 pant per Canman-instans i inventory per rörelsetärning; räknare på instansen, tom burk tas bort. */
@@ -1879,10 +1953,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     // Allow item usage on your turn, during combat reactions, or as accepted helper.
     const combatPending = next.pending?.type === "combat" ? next.pending : null;
+    const pvpPending = next.pending?.type === "pvp" ? next.pending : null;
     const inCombatReactions = combatPending?.phase === "reactions";
     const inCombatHelpAwaitCard = combatPending?.phase === "helpAwaitCard";
     const inCombatItemWindow = inCombatReactions || inCombatHelpAwaitCard;
     const inCombatTableFan = inCombatItemWindow;
+    const inPvpPreRoundItems =
+      pvpPending?.phase === "preRoundItems" &&
+      (action.playerId === pvpPending.attackerId || action.playerId === pvpPending.defenderId);
     const reactionDeadlineAt =
       inCombatReactions && combatPending ? (combatPending.reactionsDeadlineAt ?? 0) : 0;
     if (
@@ -1907,8 +1985,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     }
     const isYourTurn = cp.id === user.id;
-    if (!isYourTurn && !inCombatItemWindow) {
+    if (!isYourTurn && !inCombatItemWindow && !inPvpPreRoundItems) {
       return { state, events: [], error: "Inte din tur" };
+    }
+    if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId)) {
+      return { state, events: [], error: "Det kortet kan inte spelas i BvB före rundan." };
     }
 
     if (inst.itemId === "healing_potion") {
@@ -1960,134 +2041,250 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (inst.itemId === "weak_beer") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (!pending || (pending.type !== "combat" && !isPvpPreRound) || (pending.type === "combat" && pending.phase !== "reactions")) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 2;
-      log(next, `${user.name} spelar Druckit för mycket: −2 attack i striden.`);
-      // Mark this reactor as having acted (so attacker can roll once everyone either acted or passed).
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) {
-        pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 2;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Druckit för mycket: −2 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = action.targetPlayerId ?? combatPending.attackerId;
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 2;
+        log(next, `${user.name} spelar Druckit för mycket: −2 attack i striden.`);
+        // Mark this reactor as having acted (so attacker can roll once everyone either acted or passed).
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
       }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "weak_beer", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "weak_beer", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "light_beer") {
       const pending = next.pending;
       const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
-      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (
+        !pending ||
+        (!isPvpPreRound && (pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)))
+      ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 1;
-      log(next, `${user.name} spelar Energidryck: +1 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? user.id;
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 1;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Energidryck: +1 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 1;
+        log(next, `${user.name} spelar Energidryck: +1 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      if (isHelpCardPhase) {
+      if (!isPvpPreRound && isHelpCardPhase) {
         pending.helpUsedPositiveItem = true;
         pending.phase = "reactions";
       }
-      notifyItemPlayForTableAfterUse(next, "light_beer", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "light_beer", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "folk_beer") {
       const pending = next.pending;
       const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
-      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (
+        !pending ||
+        (!isPvpPreRound && (pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)))
+      ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
-      log(next, `${user.name} spelar 8-bit beer: +2 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? user.id;
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 2;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar 8-bit beer: +2 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 2;
+        log(next, `${user.name} spelar 8-bit beer: +2 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      if (isHelpCardPhase) {
+      if (!isPvpPreRound && isHelpCardPhase) {
         pending.helpUsedPositiveItem = true;
         pending.phase = "reactions";
       }
-      notifyItemPlayForTableAfterUse(next, "folk_beer", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "folk_beer", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "tripwire") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (!pending || (pending.type !== "combat" && !isPvpPreRound) || (pending.type === "combat" && pending.phase !== "reactions")) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 1;
-      log(next, `${user.name} spelar Halt golv: −1 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 1;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Halt golv: −1 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = action.targetPlayerId ?? combatPending.attackerId;
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 1;
+        log(next, `${user.name} spelar Halt golv: −1 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "tripwire", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "tripwire", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "double_hops") {
       const pending = next.pending;
       const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
-      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (
+        !pending ||
+        (!isPvpPreRound && (pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)))
+      ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 2;
-      log(next, `${user.name} spelar En hjälpande hand: +2 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) {
-        pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? user.id;
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 2;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar En hjälpande hand: +2 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 2;
+        log(next, `${user.name} spelar En hjälpande hand: +2 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
       }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      if (isHelpCardPhase) {
+      if (!isPvpPreRound && isHelpCardPhase) {
         pending.helpUsedPositiveItem = true;
         pending.phase = "reactions";
       }
-      notifyItemPlayForTableAfterUse(next, "double_hops", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "double_hops", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "beer_bomb") {
       const pending = next.pending;
       const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
-      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (
+        !pending ||
+        (!isPvpPreRound && (pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)))
+      ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = isHelpCardPhase ? pending.attackerId : (action.targetPlayerId ?? pending.attackerId);
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 3;
-      log(next, `${user.name} spelar Ölbomb: +3 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? user.id;
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 3;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Ölbomb: +3 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 3;
+        log(next, `${user.name} spelar Ölbomb: +3 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      if (isHelpCardPhase) {
+      if (!isPvpPreRound && isHelpCardPhase) {
         pending.helpUsedPositiveItem = true;
         pending.phase = "reactions";
       }
-      notifyItemPlayForTableAfterUse(next, "beer_bomb", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "beer_bomb", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -2096,11 +2293,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         next.pending?.type === "combat" &&
         next.pending.phase === "reactions" &&
         (next.pending.attackerId === user.id || next.pending.assistId === user.id);
+      const inPvpPreRoundWindow =
+        next.pending?.type === "pvp" &&
+        next.pending.phase === "preRoundItems" &&
+        (next.pending.attackerId === user.id || next.pending.defenderId === user.id);
       const inPvpRollWindow =
         next.pending?.type === "pvp" &&
         next.pending.phase === "awaitingRolls" &&
         (next.pending.attackerId === user.id || next.pending.defenderId === user.id);
-      if (!inCombatReaction && !inPvpRollWindow) {
+      if (!inCombatReaction && !inPvpPreRoundWindow && !inPvpRollWindow) {
         return { state, events: [], error: "Kan bara användas när du ska slå i strid" };
       }
       user.nextCombatAttackDiceDouble = true;
@@ -2110,27 +2311,50 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       markCombatReactorUsedItemIfNeeded(next, user.id);
       if (inCombatReaction) {
         notifyItemPlayForTableAfterUse(next, "beard_back", user.id, undefined, true);
+      } else if (inPvpPreRoundWindow && next.pending?.type === "pvp") {
+        next.pending.roundItemReady ??= {};
+        next.pending.roundItemReady[user.id] = false;
+        recordTableItemPlay(next, "beard_back", user.id, undefined);
       } else if (inPvpRollWindow) {
         recordTableItemPlay(next, "beard_back", user.id, undefined);
       }
+      if (inPvpPreRoundWindow) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
     if (inst.itemId === "hangover") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (!pending || (pending.type !== "combat" && !isPvpPreRound) || (pending.type === "combat" && pending.phase !== "reactions")) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 3;
-      log(next, `${user.name} spelar Baksmälla: −3 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 3;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Baksmälla: −3 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = action.targetPlayerId ?? combatPending.attackerId;
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 3;
+        log(next, `${user.name} spelar Baksmälla: −3 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "hangover", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "hangover", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -2157,19 +2381,37 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (inst.itemId === "monster_hype") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (!pending || (pending.type !== "combat" && !isPvpPreRound) || (pending.type === "combat" && pending.phase !== "reactions")) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const targetId = action.targetPlayerId ?? pending.attackerId;
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) - 2;
-      log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i striden.`);
-      pending.reacted ??= {};
-      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 2;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i BvB-ronden.`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = action.targetPlayerId ?? combatPending.attackerId;
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 2;
+        log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i striden.`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "monster_hype", user.id, targetId, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "monster_hype", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -2798,14 +3040,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const opp = next.players.find((p) => p.id === oppId);
       if (!opp) return { state, events: [], error: "Opponent not found" };
       log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
-      next.pending = {
-        type: "pvp",
-        attackerId: mover.id,
-        defenderId: opp.id,
-        pvpRound: 1,
-        phase: "awaitingRolls",
-        rolls: {},
-      };
+      next.pending = initPvpPending(mover.id, opp.id);
+      tryAdvancePvpPreRoundToRolls(next, next.pending);
       return { state: next, events: ["state"] };
     }
 
@@ -2833,14 +3069,56 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: `${opp.name} kan inte utmanas till BvB just nu` };
     }
     log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
-    next.pending = {
-      type: "pvp",
-      attackerId: mover.id,
-      defenderId: opp.id,
-      pvpRound: 1,
-      phase: "awaitingRolls",
-      rolls: {},
-    };
+    next.pending = initPvpPending(mover.id, opp.id);
+    tryAdvancePvpPreRoundToRolls(next, next.pending);
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "pvpRoundReady" && next.pending?.type === "pvp" && next.pending.phase === "preRoundItems") {
+    const pending = next.pending;
+    const isParticipant = action.playerId === pending.attackerId || action.playerId === pending.defenderId;
+    if (!isParticipant) return { state, events: [], error: "You are not part of this PvP" };
+    pending.roundItemReady ??= {};
+    pending.roundItemReady[action.playerId] = action.ready;
+    tryAdvancePvpPreRoundToRolls(next, pending);
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "pvpRoundRevealAck" && next.pending?.type === "pvp") {
+    if (next.pending.phase !== "roundReveal") {
+      return { state: next, events: ["state"] };
+    }
+    const pending = next.pending;
+    const isParticipant = action.playerId === pending.attackerId || action.playerId === pending.defenderId;
+    if (!isParticipant) return { state, events: [], error: "You are not part of this PvP" };
+    pending.roundRevealAcked ??= {};
+    pending.roundRevealAcked[action.playerId] = true;
+    const aAck = pending.roundRevealAcked[pending.attackerId] === true;
+    const dAck = pending.roundRevealAcked[pending.defenderId] === true;
+    if (!aAck || !dAck) return { state: next, events: ["state"] };
+
+    const lead = pending.roundRevealLead;
+    const savedNextRound = pending.nextRoundNumber;
+    pending.roundRevealAcked = undefined;
+    pending.roundRevealLead = undefined;
+    pending.nextRoundNumber = undefined;
+
+    if (lead === "chooseLoot") {
+      pending.phase = "chooseLoot";
+      pending.rolls = {};
+    } else if (lead === "nextRound") {
+      const nr = savedNextRound ?? (pvpRoundWithDefaults(pending) + 1);
+      pending.phase = "preRoundItems";
+      pending.roundNumber = nr;
+      pending.pvpRound = nr;
+      pending.rolls = {};
+      pending.roundItemReady = {};
+      pending.pvpAttackMods = {};
+      pending.winnerId = undefined;
+      pending.loserId = undefined;
+      pending.resolvedTotals = undefined;
+      tryAdvancePvpPreRoundToRolls(next, pending);
+    }
     return { state: next, events: ["state"] };
   }
 
@@ -2860,11 +3138,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
     const pvpWeaponExtra = p.equipment.weapon?.pvpDieBonus ?? 0;
-    const total = dieContribution + weaponPower(p) + pvpWeaponExtra;
+    const pvpMod = pending.pvpAttackMods?.[action.playerId] ?? 0;
+    const total = dieContribution + weaponPower(p) + pvpWeaponExtra + pvpMod;
     pending.rolls[action.playerId] = { die: rawDie, total };
     log(
       next,
-      `${p.name} rolls for PvP: ${rawDie}${attackDoubled ? ` (dubblat till ${dieContribution} i total)` : ""} (total ${total}).`,
+      `${p.name} rolls for PvP: ${rawDie}${attackDoubled ? ` (dubblat till ${dieContribution} i total)` : ""}${pvpMod !== 0 ? ` (PvP-mod ${pvpMod > 0 ? `+${pvpMod}` : pvpMod})` : ""} (total ${total}).`,
     );
 
     const a = pending.rolls[pending.attackerId];
@@ -2872,14 +3151,25 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (a && d) {
       const ar = a.total;
       const dr = d.total;
+      const currentRound = pvpRoundWithDefaults(pending);
+      pending.roundResults ??= [];
       if (ar === dr) {
-        const nextRound = (pending.pvpRound ?? 1) + 1;
-        pending.pvpRound = nextRound;
+        pending.roundResults.push({
+          round: currentRound,
+          attackerTotal: ar,
+          defenderTotal: dr,
+          tie: true,
+        });
+        pending.phase = "preRoundItems";
         pending.rolls = {};
+        pending.roundItemReady = {};
+        pending.pvpAttackMods = {};
+        pending.resolvedTotals = { attackerTotal: ar, defenderTotal: dr };
         log(
           next,
-          `PvP: Lika (${ar})! Slå om — rond ${nextRound}.`,
+          `PvP: Lika (${ar})! Spela kort och gör er redo för omslag (rond ${currentRound}).`,
         );
+        tryAdvancePvpPreRoundToRolls(next, pending);
         return { state: next, events: ["state"] };
       }
       const attacker = next.players.find((x) => x.id === pending.attackerId)!;
@@ -2889,11 +3179,38 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const loser = attackerWins ? defender : attacker;
       const pvpWeaponBonusGold = applyWeaponWinGoldBonus(winner);
       const pvpWeaponRandomDamage = applyWeaponWinRandomDamage({ state: next, winner, rng, log });
+      const wins = pvpWinsWithDefaults(pending);
+      if (attackerWins) wins.attacker += 1;
+      else wins.defender += 1;
+      pending.wins = wins;
+      pending.roundResults.push({
+        round: currentRound,
+        attackerTotal: ar,
+        defenderTotal: dr,
+        winnerId: winner.id,
+      });
       pending.winnerId = winner.id;
       pending.loserId = loser.id;
-      pending.phase = "chooseLoot";
       pending.resolvedTotals = { attackerTotal: ar, defenderTotal: dr };
-      log(next, `PvP: ${attacker.name} (${ar}) vs ${defender.name} (${dr}) — ${winner.name} vinner!`);
+      const winnerWins = winner.id === pending.attackerId ? wins.attacker : wins.defender;
+      const neededWins = Math.floor((pending.bestOf ?? PVP_BEST_OF) / 2) + 1;
+      log(
+        next,
+        `PvP: ${attacker.name} (${ar}) vs ${defender.name} (${dr}) — ${winner.name} vinner ronden (${wins.attacker}-${wins.defender}).`,
+      );
+      pending.roundRevealAcked = {};
+      if (winnerWins >= neededWins) {
+        pending.phase = "roundReveal";
+        pending.roundRevealLead = "chooseLoot";
+        pending.nextRoundNumber = undefined;
+        log(next, `${winner.name} vinner matchen i BvB (${wins.attacker}-${wins.defender})! Bekräfta resultatet på mobilen.`);
+      } else {
+        const nextRound = currentRound + 1;
+        pending.phase = "roundReveal";
+        pending.roundRevealLead = "nextRound";
+        pending.nextRoundNumber = nextRound;
+        log(next, `BvB: Bekräfta rondresultatet på mobilen innan rond ${nextRound}.`);
+      }
       if (pvpWeaponBonusGold > 0) {
         log(
           next,

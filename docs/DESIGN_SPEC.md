@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.23 |
+| Version | 0.25 |
 | Senast uppdaterad | 2026-04-20 |
 
 ---
@@ -211,7 +211,12 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Utlösare:** när en spelare **landar** på en ruta där **minst en annan spelare** redan står (samma nivå och tile-index), skapas ett **mötesval** (`encounterChoice`) innan rutan löses.
 - **Första valet (den som flyttade in):** **BvB** (båda slår tärning + vapen och jämför) **eller** **lös rutan** utan BvB (tile-effekter/kort/strid enligt ruttyp körs som vanligt).
 - **Flera motståndare på rutan:** efter att spelaren valt BvB ska den **välja vilken bryggare** som utmanas (lista med namn); därefter startar duellen mot vald motståndare.
-- **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst vinner; vid **lika total** **slår båda om** i nästa rond tills en vinnare finns (UI visar **Rond 2, Rond 3, …**).
+- **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst total vinner rundan.
+- **Rondformat (uppdaterat):** BvB spelas som **bäst av 3**. Första spelare till **2 rondvinster** vinner matchen och går vidare till byte.
+- **Föremålsfönster före varje rond:** innan båda slår tärning finns en förberedelsefas där båda duellanterna kan spela tillåtna PvP-föremål (buff på sig själv eller sabotage på motståndaren) och markerar **Klar**. När båda är klara startar slaget för rundan.
+- **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar (ingen extra knapp krävs).
+- **Lika i en rond:** vid lika total återgår duellen till nytt föremålsfönster och omslag i **samma rondnummer** (ingen rondvinst delas ut).
+- **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
 - **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
 - **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
 - **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
@@ -435,4 +440,6 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.21 | 2026-04-20 | §10.2 **Panta burkar**: fast hyllplats **Första hjälpen-lager** ersatt med **Helande brygd** (shop-copy synkad med implementation) |
 | 0.22 | 2026-04-20 | §2.1 bord-UI: turbanner med ikonstats + färgad “Nästa”-pill, förenklad header, mörkare kort-overlay, animerad item-solfjäder in bakom banner, mobil-lik spelarinformation i sidopanel under pågående spel; §10.2 förtydligat **Helande brygd +3 HP**; §16.1 fyndkort-text börjar med itemnamn + effekt |
 | 0.23 | 2026-04-20 | §9.1 utökad med **Begär hjälp** i PvE (välj hjälpare + kontrakt: gratis/pant/skatt/dela lika, krav på minst ett positivt hjälpkort); kontraktsbelöning för hjälpare endast vid vinst; hjälpkort i hjälpfas renderas/rensas som stridskort; §11 statuscopy förtydligad: **(Öl i ögat)** utan extra **(Zzz)** |
+| 0.24 | 2026-04-20 | §9.2 BvB uppdaterad till **bäst av 3** med föremålsfönster före varje rond (båda markerar **Klar**), matchställning per rond och omslag i samma rond vid lika |
+| 0.25 | 2026-04-20 | §9.2 BvB: auto-klar när spelare saknar PvP-föremål i förberedelsefasen, samt ny rondresultatfas där båda bekräftar innan nästa rond eller byte |
 

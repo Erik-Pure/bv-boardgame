@@ -12,8 +12,12 @@ export function TablePvpBoardPanel(props: { state: GameState }) {
   const ra = pending?.rolls?.[pending?.attackerId];
   const rd = pending?.rolls?.[pending?.defenderId];
   const rt = pending?.resolvedTotals;
-  const pvpRoundN = pending?.pvpRound ?? 1;
+  const pvpRoundN = pending?.roundNumber ?? pending?.pvpRound ?? 1;
   const awaiting = pending?.phase === "awaitingRolls";
+  const roundReveal = pending?.phase === "roundReveal";
+  const preRound = pending?.phase === "preRoundItems";
+  const bestOf = pending?.bestOf ?? 3;
+  const wins = pending?.wins ?? { attacker: 0, defender: 0 };
   const revealKey =
     pending && rt
       ? `${pending.attackerId}:${pending.defenderId}:${pvpRoundN}:${rt.attackerTotal}:${rt.defenderTotal}`
@@ -153,17 +157,43 @@ export function TablePvpBoardPanel(props: { state: GameState }) {
               fontFamily: PVP_MARKER,
               fontSize: "clamp(16px, 3.2vw, 22px)",
               color: "rgba(255,255,255,0.88)",
-              marginBottom: pvpRoundN > 1 ? 6 : 16,
+              marginBottom: 8,
             }}
           >
-            {sv.table.pvpRound(pvpRoundN)}
+            {sv.table.pvpRoundBestOf(pvpRoundN, bestOf)}
+          </div>
+        ) : roundReveal ? (
+          <div
+            style={{
+              fontFamily: PVP_MARKER,
+              fontSize: "clamp(16px, 3.2vw, 22px)",
+              color: "rgba(254, 240, 138, 0.95)",
+              marginBottom: 8,
+            }}
+          >
+            {sv.table.pvpRoundResultPhase}
+          </div>
+        ) : preRound ? (
+          <div
+            style={{
+              fontFamily: PVP_MARKER,
+              fontSize: "clamp(16px, 3.2vw, 22px)",
+              color: "rgba(255,255,255,0.88)",
+              marginBottom: 8,
+            }}
+          >
+            {sv.table.pvpPrepPhase}
           </div>
         ) : (
           <div style={{ height: 8 }} />
         )}
-        {awaiting && pvpRoundN > 1 ? (
-          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, opacity: 0.82 }}>{sv.table.pvpTieRerollHint}</div>
-        ) : awaiting ? null : (
+        {awaiting ? (
+          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, opacity: 0.82 }}>{sv.table.pvpRollPhaseHint}</div>
+        ) : roundReveal ? (
+          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, opacity: 0.82 }}>{sv.table.pvpRoundResultHint}</div>
+        ) : preRound ? (
+          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, opacity: 0.82 }}>{sv.table.pvpPrepPhaseHint}</div>
+        ) : (
           <div style={{ marginBottom: 8 }} />
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
@@ -223,9 +253,14 @@ export function TablePvpBoardPanel(props: { state: GameState }) {
             ) : null}
             {pending.phase === "chooseLoot" ? (
               <div style={{ marginTop: 8, fontSize: 12, opacity: 0.72 }}>{sv.table.winnerChoosesLoot}</div>
+            ) : pending.phase === "roundReveal" ? (
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.72 }}>{sv.table.pvpRoundResultHint}</div>
             ) : null}
           </div>
         ) : null}
+        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8 }}>
+          {sv.table.pvpScoreLine(wins.attacker, wins.defender)}
+        </div>
       </div>
     </div>
   );
