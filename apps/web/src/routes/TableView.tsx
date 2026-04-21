@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -10,7 +11,7 @@ import {
   type TileType,
 } from "@bv/game-core";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
-import { expandReactionPlaysToFanCards, expandTableRevealToFanCards } from "../lib/tableItemPlayFanCards";
+import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
@@ -24,7 +25,7 @@ import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
 import { activePlayer, clamp, ringPos } from "../lib/tableBoard";
-import { useTableCamera } from "../hooks/useTableCamera";
+import { TableBoardCameraViewport } from "../components/table/TableBoardCameraViewport";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import turnBannerStyles from "./turnBanner.module.css";
 import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossViewer, resolveCombatWinViewer } from "../lib/combatUi";
@@ -44,6 +45,8 @@ import {
   TABLE_BOSS_OVERLAY_PULSE,
 } from "../components/table/tableConstants";
 import { PLAYER_MARKER_TOKEN_H, PLAYER_MARKER_TOKEN_W, PLAYER_MARKER_VIEWBOX, playerMarkerStyleVars, playerMarkerSvgMarkupFor } from "../lib/playerMarkerSvg";
+import u from "../styles/uiPrimitives.module.css";
+import tableStyles from "./TableView.module.css";
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -121,7 +124,7 @@ function tablePlayerAfflictionLines(p: Player): string[] {
     lines.push(sv.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
   }
   if (p.skipTurnReasons?.includes("oil")) {
-    lines.push(sv.table.playerStatusOilInEye);
+    lines.push(`(${sv.table.playerStatusOilInEye})`);
   }
   return lines;
 }
@@ -138,56 +141,23 @@ type TableLobbyPlayer = GameState["players"][number];
 /** Enkel rad för pre-game lobby (som tidigare). */
 function TablePreGameLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   const afflictions = tablePlayerAfflictionLines(p);
+  const tintStyle = { "--player-color": p.color } as CSSProperties;
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: p.color,
-          borderRadius: 10,
-          padding: "8px 12px",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: 800,
-            color: "#fafafa",
-            textShadow: "0 1px 2px rgba(0,0,0,0.75)",
-          }}
-        >
+    <div className={u.flexRowGap10}>
+      <div className={tableStyles.preGameTintBox} style={tintStyle}>
+        <div className={tableStyles.preGameName}>
           <span>
             {p.name}
             {p.isHost ? " (värd)" : ""}
           </span>
           {afflictions.length > 0 ? (
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 11,
-                fontWeight: 700,
-                lineHeight: 1.35,
-                opacity: 0.92,
-                wordBreak: "break-word",
-              }}
-            >
-              {afflictions.join(" · ")}
-            </div>
+            <div className={tableStyles.preGameAfflictLine}>{afflictions.join(" · ")}</div>
           ) : null}
         </div>
       </div>
       <span
         title={p.ready ? sv.play.ready : sv.play.unready}
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: "50%",
-          flexShrink: 0,
-          background: p.ready ? "#22c55e" : "#ef4444",
-          border: "1px solid rgba(255,255,255,0.35)",
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
-        }}
+        className={`${tableStyles.readyIndicator} ${p.ready ? tableStyles.readyIndicatorOn : tableStyles.readyIndicatorOff}`}
         aria-label={p.ready ? sv.play.ready : sv.play.unready}
       />
     </div>
@@ -200,46 +170,12 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   const armorName = p.equipment.armor?.name ?? "—";
   const helmetName = p.equipment.helmet?.name ?? "—";
   const accessoryName = p.equipment.accessory?.name ?? "—";
+  const dotStyle = { "--player-color": p.color } as CSSProperties;
   return (
-    <div
-      style={{
-        minWidth: 0,
-        borderRadius: 12,
-        border: "1px solid rgba(148, 163, 184, 0.28)",
-        background: "linear-gradient(180deg, rgba(22, 33, 66, 0.96) 0%, rgba(17, 26, 57, 0.96) 100%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-        padding: "10px 12px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          minWidth: 0,
-        }}
-      >
-        <div
-          style={{
-            minWidth: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            fontWeight: 800,
-            color: "#f8fafc",
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              background: p.color,
-              flexShrink: 0,
-            }}
-          />
+    <div className={tableStyles.lobbyCard}>
+      <div className={u.flexSpaceBetweenGap10}>
+        <div className={tableStyles.lobbyNameCluster}>
+          <span aria-hidden className={tableStyles.playerColorDot12} style={dotStyle} />
           <span>
             {p.name}
             {p.isHost ? " (värd)" : ""}
@@ -248,70 +184,33 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
             {p.ready ? "✅" : "⛔"}
           </span>
         </div>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-            fontWeight: 800,
-            fontVariantNumeric: "tabular-nums",
-            color: "#e5e7eb",
-          }}
-          aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <div className={u.inlineFlexGap12WrapEnd} aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}>
+          <span className={u.inlineFlexGap4}>
             <StatIcon kind="hp" size={18} />
             {p.hp}/{p.maxHp}
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span className={u.inlineFlexGap4}>
             <StatIcon kind="pant" size={18} />
             {p.gold}
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span className={u.inlineFlexGap4}>
             <StatIcon kind="klunk" size={18} />
             {p.klunkar}
           </span>
         </div>
       </div>
-      {afflictions.length > 0 ? (
-        <div
-          style={{
-            marginTop: 6,
-            fontSize: 11,
-            fontWeight: 700,
-            lineHeight: 1.35,
-            opacity: 0.9,
-            color: "#cbd5e1",
-            wordBreak: "break-word",
-          }}
-        >
-          {afflictions.join(" · ")}
-        </div>
-      ) : null}
-      <div
-        style={{
-          marginTop: 10,
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-          gap: 8,
-          color: "#e2e8f0",
-          fontSize: 13,
-          lineHeight: 1.35,
-          fontWeight: 700,
-        }}
-      >
-        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
+      <div className={tableStyles.lobbyEquipGrid}>
+        <div className={u.ellipsis}>
           {sv.play.equipWeapon}: {weaponName}
         </div>
-        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div className={u.ellipsis}>
           {sv.play.equipArmor}: {armorName}
         </div>
-        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div className={u.ellipsis}>
           {sv.play.equipHelmet}: {helmetName}
         </div>
-        <div style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div className={u.ellipsis}>
           {sv.play.equipAccessory}: {accessoryName}
         </div>
       </div>
@@ -331,7 +230,6 @@ export function TableView() {
 
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [copyJoinState, setCopyJoinState] = useState<"idle" | "ok" | "err">("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
 
@@ -389,17 +287,29 @@ export function TableView() {
     stackCount === 0 ? 0 : levelIndex * (boardWidth + RING_STACK_GAP);
 
   const logRef = useRef<HTMLDivElement | null>(null);
-  const { cam, boardViewportRef, viewportHandlers } = useTableCamera({
-    state,
-    boardWidth,
-    boardHeight,
-    totalSvgWidth,
-    ringStackGap: RING_STACK_GAP,
-    gridSize,
-    tileSize,
-    boardPad,
-    targetRingOutset,
-  });
+  const tableCameraParams = useMemo(
+    () => ({
+      state,
+      boardWidth,
+      boardHeight,
+      totalSvgWidth,
+      ringStackGap: RING_STACK_GAP,
+      gridSize,
+      tileSize,
+      boardPad,
+      targetRingOutset,
+    }),
+    [
+      state,
+      boardWidth,
+      boardHeight,
+      totalSvgWidth,
+      gridSize,
+      tileSize,
+      boardPad,
+      targetRingOutset,
+    ],
+  );
 
   const tableConfig = useMemo(() => ({ gameMode: "bossKill" as const }), []);
 
@@ -513,8 +423,9 @@ export function TableView() {
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
       return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!);
     }
-    if (state.tableItemPlayReveal) {
-      return expandTableRevealToFanCards(state, state.tableItemPlayReveal);
+    const reveals = state.tableItemPlayReveals;
+    if (reveals && reveals.length > 0) {
+      return expandTableRevealsToFanCards(state, reveals);
     }
     return [];
   }, [state]);
@@ -524,136 +435,32 @@ export function TableView() {
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
       : TABLE_TURN_BANNER_RESERVE_PX;
 
+  const bannerReserveStyle = {
+    "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
+  } as CSSProperties;
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        height: "100dvh",
-        maxHeight: "100dvh",
-        width: "100%",
-        maxWidth: "100%",
-        minWidth: 0,
-        overflow: "hidden",
-        display: "grid",
-        gridTemplateRows: "auto minmax(0, 1fr)",
-        gridTemplateColumns: "minmax(0, 1fr)",
-        background: "#0b1020",
-        color: "#e5e7eb",
-        boxSizing: "border-box",
-        paddingTop: "env(safe-area-inset-top, 0px)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        paddingLeft: "env(safe-area-inset-left, 0px)",
-        paddingRight: "env(safe-area-inset-right, 0px)",
-        overflowX: "hidden",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: "1px solid #ffffff22",
-          minWidth: 0,
-          maxWidth: "100%",
-          width: "100%",
-          overflow: "hidden",
-        }}
-      >
-        <header
-          style={{
-            padding: "8px 10px",
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) auto",
-            gap: 8,
-            alignItems: "center",
-            columnGap: 10,
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              minWidth: 0,
-              display: "flex",
-              flexWrap: "nowrap",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <span
-              style={{
-                opacity: 0.96,
-                fontSize: "clamp(1rem, 2.1vmin, 1.28rem)",
-                fontWeight: 900,
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "100%",
-              }}
-              title={`${sv.table.lobby}: ${room}`}
-            >
+    <div className={tableStyles.tableRoot}>
+      <div className={tableStyles.headerBarWrap}>
+        <header className={tableStyles.tableHeader}>
+          <div className={tableStyles.headerLobbyRow}>
+            <span className={tableStyles.headerLobbyCode} title={`${sv.table.lobby}: ${room}`}>
               {sv.table.lobby}: {room}
             </span>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-            <span
-              style={{
-                opacity: 0.88,
-                fontSize: 13,
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
+          <div className={u.flexRowGap8Shrink0}>
+            <span className={tableStyles.headerStatusText}>
               {sv.table.status}: {wsStatusLabel(status)}
             </span>
           </div>
         </header>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          maxWidth: "100%",
-          height: "100%",
-          overflow: "hidden",
-          alignItems: "stretch",
-          paddingBottom: playingTurn
-            ? `calc(${turnBannerBottomReservePx}px + env(safe-area-inset-bottom, 0px))`
-            : undefined,
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          ref={boardViewportRef}
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            flex: "1 1 0%",
-            minWidth: 0,
-            minHeight: 0,
-            height: "100%",
-            contain: "layout",
-          }}
-          {...viewportHandlers}
-        >
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`,
-              transformOrigin: "0 0",
-            }}
-          >
-            <svg
-              width={totalSvgWidth}
-              height={totalSvgHeight}
-              style={{
-                border: "1px solid #ffffff22",
-                borderRadius: 12,
-                backgroundColor: "#0f172a",
-              }}
-            >
+      <div className={tableStyles.mainRow} style={bannerReserveStyle}>
+        <TableBoardCameraViewport
+          camera={tableCameraParams}
+          panChildren={
+            <svg width={totalSvgWidth} height={totalSvgHeight} className={tableStyles.tableSvg}>
               <style>
                 {`@keyframes bvTargetRingPulse {
   0%, 100% { transform: scale(1); }
@@ -882,149 +689,24 @@ export function TableView() {
                 );
               })}
             </svg>
-          </div>
-
+          }
+          viewportOverlayChildren={
+            <>
           {state?.phase === "lobby" ? (
-            <div
-              role="dialog"
-              aria-label={sv.table.lobby}
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "min(20px, 4vw)",
-                boxSizing: "border-box",
-                background: "rgba(7, 11, 24, 0.9)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div
-                style={{
-                  width: "min(440px, 100%)",
-                  maxHeight: "min(88dvh, 100%)",
-                  overflow: "auto",
-                  borderRadius: 16,
-                  border: "1px solid #ffffff2e",
-                  background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
-                  boxShadow: "0 20px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)",
-                  padding: "clamp(22px, 4.5vmin, 36px)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 10,
-                    width: "100%",
-                    marginBottom: 4,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "clamp(2.4rem, 10vmin, 4rem)",
-                      fontWeight: 900,
-                      letterSpacing: "0.14em",
-                      lineHeight: 1.05,
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-                      color: "#f8fafc",
-                      textShadow: "0 2px 16px rgba(0,0,0,0.55)",
-                      textAlign: "center",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {room}
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Kopiera join-länk"
-                    title={
-                      copyJoinState === "ok"
-                        ? "Kopierad"
-                        : copyJoinState === "err"
-                          ? "Kunde inte kopiera"
-                          : "Kopiera join-länk"
-                    }
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(joinQrUrl);
-                        setCopyJoinState("ok");
-                      } catch {
-                        setCopyJoinState("err");
-                      }
-                      window.setTimeout(() => setCopyJoinState("idle"), 1800);
-                    }}
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.34)",
-                      background: copyJoinState === "ok" ? "rgba(59,130,246,0.35)" : "rgba(2,6,23,0.5)",
-                      color: "#f8fafc",
-                      borderRadius: 10,
-                      width: 36,
-                      height: 36,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                    }}
-                  >
-                    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden>
-                      <path
-                        d="M9 4.75A2.75 2.75 0 0 1 11.75 2h4.5A2.75 2.75 0 0 1 19 4.75V6h.25A2.75 2.75 0 0 1 22 8.75v10.5A2.75 2.75 0 0 1 19.25 22H8.75A2.75 2.75 0 0 1 6 19.25V19h-.25A2.75 2.75 0 0 1 3 16.25V5.75A2.75 2.75 0 0 1 5.75 3H9v1.75H5.75a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1H6V8.75A2.75 2.75 0 0 1 8.75 6H9V4.75ZM8.75 7.75a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h10.5a1 1 0 0 0 1-1V8.75a1 1 0 0 0-1-1H8.75ZM11 4.75V6h6.25V4.75a1 1 0 0 0-1-1h-4.5a1 1 0 0 0-1 1Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
+            <div role="dialog" aria-label={sv.table.lobby} className={tableStyles.modalBackdropLobby}>
+              <div className={tableStyles.modalCardLobby}>
+                <div className={tableStyles.lobbyCodeRow}>
+                  <div className={tableStyles.lobbyCodeDisplay}>{room}</div>
                 </div>
-                <h2
-                  style={{
-                    margin: "12px 0 6px",
-                    fontSize: "clamp(1.2rem, 3.2vmin, 1.55rem)",
-                    fontWeight: 900,
-                    textAlign: "center",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {sv.table.lobby}
-                </h2>
-                <div
-                  style={{
-                    textAlign: "center",
-                    opacity: 0.88,
-                    fontSize: "clamp(0.9rem, 2.4vmin, 1rem)",
-                    fontWeight: 700,
-                    marginBottom: 18,
-                  }}
-                >
-                  {sv.table.readyAll(readyCount, state.players.length)}
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    justifyItems: "center",
-                    gap: 8,
-                    marginBottom: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#ffffff",
-                      borderRadius: 12,
-                      padding: 8,
-                      boxShadow: "0 10px 24px rgba(0,0,0,0.32)",
-                    }}
-                    title={joinQrUrl}
-                  >
+                <h2 className={tableStyles.lobbySheetTitle}>{sv.table.lobby}</h2>
+                <div className={tableStyles.lobbyReadyLine}>{sv.table.readyAll(readyCount, state.players.length)}</div>
+                <div className={u.gridCenter8Mb16}>
+                  <div className={tableStyles.qrFrame} title={joinQrUrl}>
                     <QRCodeSVG value={joinQrUrl} size={128} includeMargin />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.86, textAlign: "center" }}>
-                    Skanna för att gå med i lobbyn
-                  </div>
+                  <div className={u.caption12o86Center}>Skanna för att gå med i lobbyn</div>
                 </div>
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className={u.stack8}>
                   {state.players.map((p) => (
                     <TablePreGameLobbyPlayerRow key={p.id} p={p} />
                   ))}
@@ -1032,41 +714,13 @@ export function TableView() {
               </div>
             </div>
           ) : state?.phase === "ended" ? (
-            <div
-              role="dialog"
-              aria-label={sv.play.gameOver}
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "min(20px, 4vw)",
-                boxSizing: "border-box",
-                background: "rgba(7, 11, 24, 0.92)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div
-                style={{
-                  width: "min(480px, 100%)",
-                  maxHeight: "min(88dvh, 100%)",
-                  overflow: "auto",
-                  borderRadius: 16,
-                  border: "1px solid #ffffff2e",
-                  background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
-                  padding: "clamp(22px, 4.5vmin, 36px)",
-                  color: "#f8fafc",
-                }}
-              >
-                <h2 style={{ marginTop: 0, textAlign: "center" }}>{sv.play.gameOver}</h2>
-                <p style={{ textAlign: "center", marginBottom: 16 }}>
+            <div role="dialog" aria-label={sv.play.gameOver} className={tableStyles.modalBackdropEnded}>
+              <div className={tableStyles.modalCardEnded}>
+                <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
+                <p className={u.gameOverWinnerLine}>
                   {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
-                <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{sv.play.scoreboardTitle}</h3>
-                <p style={{ margin: "0 0 12px", opacity: 0.8, fontSize: 13 }}>{sv.play.scoreboardHint}</p>
-                <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 12, fontSize: 15 }}>
+                <ol className={u.listGrid12}>
                   {[...state.players]
                     .sort((a, b) => {
                       const w = state.winnerId;
@@ -1079,21 +733,12 @@ export function TableView() {
                       return a.name.localeCompare(b.name, "sv");
                     })
                     .map((p) => (
-                      <li
-                        key={p.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
+                      <li key={p.id} className={u.flexRowBetweenWrap12}>
                         <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
                       </li>
                     ))}
                 </ol>
-                <div style={{ marginTop: 20, width: "100%" }}>
+                <div className={u.mt20w100}>
                   <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
                     {sv.play.gameOverLeaveToHome}
                   </ArcadeButton>
@@ -1101,78 +746,31 @@ export function TableView() {
               </div>
             </div>
           ) : null}
-        </div>
+            </>
+          }
+        />
 
         <button
           type="button"
           aria-label={sidebarOpen ? sv.table.hidePanel : sv.table.showPanel}
           aria-expanded={sidebarOpen}
           onClick={() => setSidebarOpen((o) => !o)}
-          style={{
-            width: 36,
-            flexShrink: 0,
-            alignSelf: "stretch",
-            border: "none",
-            borderLeft: "1px solid #ffffff22",
-            background: "rgba(17, 24, 39, 0.9)",
-            color: "#e5e7eb",
-            cursor: "pointer",
-            fontSize: 20,
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-          }}
+          className={tableStyles.sidebarToggle}
         >
           {sidebarOpen ? "⟩" : "⟨"}
         </button>
 
         <aside
-          style={{
-            /**
-             * Bredd i % av *flex-raden* — inte 100vw (som räknar hela skärmen och ignorerar att
-             * brädet redan tar plats). Det var orsaken till overflow efter fler våningar + smal viewport.
-             */
-            flexGrow: 0,
-            flexShrink: 1,
-            flexBasis: sidebarOpen ? "min(380px, 42%)" : 0,
-            width: sidebarOpen ? "min(380px, 42%)" : 0,
-            minWidth: 0,
-            maxWidth: sidebarOpen ? "min(380px, 42%)" : 0,
-            borderLeft: sidebarOpen ? "1px solid #ffffff22" : "none",
-            padding: sidebarOpen ? "10px min(12px, 3vw)" : 0,
-            overflowX: "hidden",
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-            boxSizing: "border-box",
-            transition: "width 0.2s ease, max-width 0.2s ease, padding 0.2s ease, border-color 0.15s ease",
-            opacity: sidebarOpen ? 1 : 0,
-            pointerEvents: sidebarOpen ? "auto" : "none",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-          }}
+          className={tableStyles.tableSidebarAside}
+          data-open={sidebarOpen ? "true" : "false"}
         >
-          <h2 style={{ marginTop: 0 }}>{sv.table.game}</h2>
-          {!state && <div style={{ opacity: 0.8 }}>{sv.table.waitingState}</div>}
-          {err && <div style={{ color: "#fca5a5" }}>{err}</div>}
+          <h2 className={tableStyles.sidebarGameTitle}>{sv.table.game}</h2>
+          {!state && <div className={tableStyles.waitingLine}>{sv.table.waitingState}</div>}
+          {err && <div className={tableStyles.sidebarError}>{err}</div>}
 
           {state && (
             <>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 12,
-                  cursor: "pointer",
-                  userSelect: "none",
-                  fontSize: 14,
-                }}
-              >
+              <label className={tableStyles.tileTypeLabelRow}>
                 <input
                   type="checkbox"
                   checked={showTileTypeLabels}
@@ -1185,7 +783,7 @@ export function TableView() {
               {state.phase !== "lobby" ? (
                 <>
                   <h3>{sv.table.lobbyList}</h3>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div className={u.stack8}>
                     {state.players.map((p) => (
                       <TableLobbyPlayerRow key={p.id} p={p} />
                     ))}
@@ -1194,23 +792,9 @@ export function TableView() {
               ) : null}
 
               <h3>{sv.table.log}</h3>
-              <div
-                ref={logRef}
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflow: "auto",
-                  border: "1px solid #ffffff22",
-                  borderRadius: 12,
-                  padding: 10,
-                  background: "#0b1226",
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  fontSize: 12,
-                  whiteSpace: "pre-wrap",
-                }}
-              >
+              <div ref={logRef} className={tableStyles.sidebarLog}>
                 {state.log.slice(-30).map((l, i) => (
-                  <div key={i} style={{ opacity: 0.9 }}>
+                  <div key={i} className={tableStyles.sidebarLogLine}>
                     {l.message}
                   </div>
                 ))}
@@ -1561,21 +1145,8 @@ export function TableView() {
       )}
 
       {playingTurn ? (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 40000,
-            paddingBottom: "env(safe-area-inset-bottom, 0px)",
-            minWidth: 0,
-            boxSizing: "border-box",
-            pointerEvents: "none",
-          }}
-          aria-live="polite"
-        >
-          <div style={{ position: "relative", width: "100%", overflow: "visible" }}>
+        <div className={tableStyles.turnBannerDock} aria-live="polite">
+          <div className={tableStyles.turnBannerFanWrap}>
             {showItemPlayFan && state ? (
               <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
             ) : null}
@@ -1583,101 +1154,48 @@ export function TableView() {
               className={[
                 turnBannerStyles.colorBar,
                 turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
+                tableStyles.turnBannerColorBar,
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={{
-                position: "relative",
-                zIndex: 2,
-                background: cur!.color,
-                minHeight: currentTurnAfflictions.length > 0 ? 98 : 78,
-                padding: "10px 16px",
-                boxShadow: "0 -8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
-                minWidth: 0,
-              }}
+              style={
+                {
+                  background: cur!.color,
+                  "--turn-banner-min-h": currentTurnAfflictions.length > 0 ? "98px" : "78px",
+                } as CSSProperties
+              }
             >
             {turnBannerHandoff ? (
               <div className={turnBannerStyles.shineSweep} key={cur!.id} aria-hidden />
             ) : null}
-            <div
-              className={turnBannerStyles.bannerContent}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                minWidth: 0,
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  width: "100%",
-                  minWidth: 0,
-                  gap: 12,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    justifyContent: "center",
-                    gap: 4,
-                    minWidth: 0,
-                    flex: "1 1 auto",
-                  }}
-                >
+            <div className={[turnBannerStyles.bannerContent, tableStyles.turnBannerTopRow].join(" ")}>
+              <div className={tableStyles.turnBannerMidRow}>
+                <div className={tableStyles.turnBannerNameCol}>
                   <h1
-                    className={turnBannerHandoff ? turnBannerStyles.playerNameHandoff : undefined}
-                    style={{
-                      margin: 0,
-                      fontSize: "clamp(1rem, 3.8vmin, 1.7rem)",
-                      fontWeight: 900,
-                      lineHeight: 1.08,
-                      color: "#fafafa",
-                      textShadow: "0 2px 4px rgba(0,0,0,0.55), 0 0 1px rgba(0,0,0,0.85)",
-                      letterSpacing: "-0.02em",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      minWidth: 0,
-                    }}
+                    className={[
+                      turnBannerHandoff ? turnBannerStyles.playerNameHandoff : "",
+                      tableStyles.turnBannerPlayerTitle,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   >
                     {cur!.name}
                   </h1>
                   <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                      gap: "6px 10px",
-                      flexWrap: "wrap",
-                      fontSize: "clamp(0.72rem, 1.6vmin, 0.9rem)",
-                      fontWeight: 800,
-                      lineHeight: 1.2,
-                      color: "#f8fafc",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.65)",
-                      opacity: 0.96,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
+                    className={tableStyles.turnBannerStatsRow}
                     aria-label={sv.play.statsLine(cur!.hp, cur!.maxHp, cur!.gold, cur!.klunkar)}
                   >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span className={u.inlineFlexGap4}>
                       <StatIcon kind="hp" size={16} />
                       <span>
                         {cur!.hp}/{cur!.maxHp}
                       </span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span className={u.inlineFlexGap4}>
                       <StatIcon kind="pant" size={16} />
                       <span>{cur!.gold}</span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span className={u.inlineFlexGap4}>
                       <StatIcon kind="klunk" size={16} />
                       <span>{cur!.klunkar}</span>
                     </span>
@@ -1685,27 +1203,8 @@ export function TableView() {
                 </div>
                 {nextPlayer ? (
                   <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "3px 9px",
-                      borderRadius: 999,
-                      background: nextPlayer.color,
-                      color: "#fafafa",
-                      fontSize: "clamp(0.68rem, 1.6vmin, 0.84rem)",
-                      fontWeight: 800,
-                      lineHeight: 1.2,
-                      textShadow: "0 1px 2px rgba(0,0,0,0.6)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 10px rgba(0,0,0,0.25)",
-                      flex: "0 0 auto",
-                      alignSelf: "flex-start",
-                      marginTop: 1,
-                      maxWidth: "38%",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
+                    className={tableStyles.turnBannerNextPill}
+                    style={{ "--next-pill-bg": nextPlayer.color } as CSSProperties}
                     title={
                       [nextPlayer.name, ...tablePlayerAfflictionLines(nextPlayer)].filter(Boolean).join(" — ") ||
                       nextPlayer.name
@@ -1717,22 +1216,7 @@ export function TableView() {
               </div>
             </div>
             {currentTurnAfflictions.length > 0 ? (
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: "clamp(0.68rem, 1.6vmin, 0.84rem)",
-                  fontWeight: 800,
-                  lineHeight: 1.25,
-                  color: "#fafafa",
-                  textShadow: "0 1px 3px rgba(0,0,0,0.65)",
-                  textAlign: "center",
-                  maxWidth: "100%",
-                  opacity: 0.95,
-                  wordBreak: "break-word",
-                }}
-              >
-                {currentTurnAfflictions.join(" · ")}
-              </div>
+              <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
             ) : null}
           </div>
           </div>
@@ -1740,37 +1224,8 @@ export function TableView() {
       ) : null}
 
       {showReconnectOverlay ? (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 45000,
-            borderTop: "1px solid #ffffff22",
-            background: "rgba(11, 18, 38, 0.92)",
-            backdropFilter: "blur(8px)",
-            padding: "8px 16px",
-            paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            minWidth: 0,
-            fontSize: 12,
-            color: "#f8fafc",
-          }}
-        >
-          <div
-            style={{
-              minWidth: 0,
-              flex: "1 1 auto",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              opacity: 0.92,
-            }}
-          >
+        <div className={tableStyles.reconnectBar}>
+          <div className={tableStyles.reconnectBarText}>
             {sv.table.lobby}: {room} · {wsStatusLabel(status)}
           </div>
           <WsReconnectFooterHint

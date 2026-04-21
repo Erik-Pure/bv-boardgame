@@ -1,0 +1,38 @@
+@keyframes tableFanCardSlideInFromBelow {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--fan-tx, 0px))) translateY(32px) rotate(var(--fan-rot, 0deg));
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(calc(-50% + var(--fan-tx, 0px)))
+      translateY(calc(-1 * var(--fan-lift, 0px))) rotate(var(--fan-rot, 0deg));
+  }
+}
+
+.fanRoot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(64vh, 520px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.fanCard {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(280px, 40vw);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 -6px 18px rgba(0, 0, 0, 0.38));
+  opacity: 1;
+  animation: tableFanCardSlideInFromBelow 300ms cubic-bezier(0.2, 0.75, 0.18, 1) both;
+  will-change: transform, opacity;
+}
+
+.fanCardScaleWrap {
+  transform: scale(0.98);
+  transform-origin: 50% 100%;
+}

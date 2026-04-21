@@ -91,20 +91,21 @@ function log(state: GameState, message: string): void {
   if (state.log.length > 200) state.log.shift();
 }
 
-/** Bräd-tv: senaste spelade föremål + aktör/mål; rensas vid rörelse/stridsslag. */
-function recordTableItemPlay(
+/** Bräd-tv: lägg till spelat föremål (solfjäder tills rensning). */
+function appendTableItemPlayReveal(
   next: GameState,
   itemId: ItemId,
   actorId: string,
   targetPlayerId: string | undefined,
   side?: TableItemPlaySidePayload,
 ): void {
-  const seq = (next.tableItemPlayReveal?.seq ?? 0) + 1;
-  next.tableItemPlayReveal = { seq, itemId, actorId, targetPlayerId, ...side };
+  const list = next.tableItemPlayReveals ?? [];
+  const seq = (list[list.length - 1]?.seq ?? 0) + 1;
+  next.tableItemPlayReveals = [...list, { seq, itemId, actorId, targetPlayerId, ...side }];
 }
 
 function clearTableItemPlay(next: GameState): void {
-  next.tableItemPlayReveal = undefined;
+  next.tableItemPlayReveals = undefined;
 }
 
 /** Bräd-tv: lägg till föremål i solfjäder under strid (följer med pending tills striden är slut). */
@@ -136,7 +137,7 @@ function notifyItemPlayForTableAfterUse(
     appendCombatReactionItemPlay(next, itemId, actorId, targetPlayerId, side);
     return;
   }
-  recordTableItemPlay(next, itemId, actorId, targetPlayerId, side);
+  appendTableItemPlayReveal(next, itemId, actorId, targetPlayerId, side);
 }
 
 const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
@@ -177,6 +178,7 @@ function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending
   if (attackerReady && defenderReady) {
     pending.phase = "awaitingRolls";
     pending.rolls = {};
+    /** Låt `tableItemPlayReveals` vara kvar under `awaitingRolls` så bordets solfjäder visar alla spelade BvB-föremål tills båda slagit. Rensning sker i `pvpRoll` när båda tärningar finns. */
     log(state, "Båda PvP-spelare är redo — slagrundan startar.");
   }
 }
@@ -391,6 +393,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       bossDamageNegateBonus: item.bossDamageNegateBonus,
       negateAllOnce: item.negateAllOnce,
       pvpCannotBeChallenged: item.pvpCannotBeChallenged,
+      pvpDieBonus: item.pvpDieBonus,
       gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
       healHpPerTurn: item.healHpPerTurn,
     };
@@ -408,6 +411,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       klunkAttackBonus10: item.klunkAttackBonus10,
       klunkAttackBonus20: item.klunkAttackBonus20,
       klunkAttackBonusMax: item.klunkAttackBonusMax,
+      pvpDieBonus: item.pvpDieBonus,
     };
     p.maxHp = maxHpFor(p);
     const helmHp = item.bonusHp ?? 0;
@@ -424,6 +428,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       preventTheft: item.preventTheft,
       levelUpDiscountGold: item.levelUpDiscountGold,
       canSkipMonsterEncounter: item.canSkipMonsterEncounter,
+      pvpDieBonus: item.pvpDieBonus,
     };
   }
 }
@@ -445,6 +450,17 @@ function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): v
 
 function weaponPower(p: Player): number {
   return effectiveWeaponPower(p) + helmetAttackBonus(p) + (p.equipment.accessory?.combatBonus ?? 0);
+}
+
+/** BvB-tärning: endast utrustningsdelars `pvpDieBonus` (vapen, rustning, hjälm, tillbehör) — inga vanliga monster-attribut. */
+function pvpRollStrengthBonus(p: Player): number {
+  const e = p.equipment;
+  return (
+    (e.weapon?.pvpDieBonus ?? 0) +
+    (e.armor?.pvpDieBonus ?? 0) +
+    (e.helmet?.pvpDieBonus ?? 0) +
+    (e.accessory?.pvpDieBonus ?? 0)
+  );
 }
 
 function effectiveWeaponPower(p: Player): number {
@@ -607,6 +623,7 @@ function grantRandomCombatReward(
             name: eq.name,
             power: eq.power ?? 1,
             sipAttackBonus: eq.sipAttackBonus,
+            pvpDieBonus: eq.pvpDieBonus,
             gainGoldOnWin: eq.gainGoldOnWin,
             powerAtGold10: eq.powerAtGold10,
             powerAtGold20: eq.powerAtGold20,
@@ -622,6 +639,7 @@ function grantRandomCombatReward(
             bossDamageNegateBonus: eq.bossDamageNegateBonus,
             negateAllOnce: eq.negateAllOnce,
             pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
+            pvpDieBonus: eq.pvpDieBonus,
             gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
             healHpPerTurn: eq.healHpPerTurn,
           };
@@ -639,6 +657,7 @@ function grantRandomCombatReward(
             klunkAttackBonus10: eq.klunkAttackBonus10,
             klunkAttackBonus20: eq.klunkAttackBonus20,
             klunkAttackBonusMax: eq.klunkAttackBonusMax,
+            pvpDieBonus: eq.pvpDieBonus,
           };
           player.maxHp = maxHpFor(player);
           player.hp = Math.min(player.hp, player.maxHp);
@@ -653,6 +672,7 @@ function grantRandomCombatReward(
             preventTheft: eq.preventTheft,
             levelUpDiscountGold: eq.levelUpDiscountGold,
             canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
+            pvpDieBonus: eq.pvpDieBonus,
           };
         }
         log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
@@ -1325,7 +1345,7 @@ export function startGame(
   next.lastDiceRoll = null;
   next.lastDiceRollerId = null;
   next.sipNotices = [];
-  next.tableItemPlayReveal = undefined;
+  clearTableItemPlay(next);
   log(next, `— Bryggmästarens väg börjar! (seed ${seed}) —`);
   if (bossMonster) {
     log(
@@ -1444,8 +1464,8 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   // Legacy path (shouldn't be used after encounterChoice is introduced)
   const ad = rollDie(rng, 6);
   const bd = rollDie(rng, 6);
-  const ar = ad + weaponPower(a) + (a.equipment.weapon?.pvpDieBonus ?? 0);
-  const br = bd + weaponPower(b) + (b.equipment.weapon?.pvpDieBonus ?? 0);
+  const ar = ad + pvpRollStrengthBonus(a);
+  const br = bd + pvpRollStrengthBonus(b);
   const attackerWins = ar >= br;
   const winner = attackerWins ? a : b;
   const loser = attackerWins ? b : a;
@@ -2314,9 +2334,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       } else if (inPvpPreRoundWindow && next.pending?.type === "pvp") {
         next.pending.roundItemReady ??= {};
         next.pending.roundItemReady[user.id] = false;
-        recordTableItemPlay(next, "beard_back", user.id, undefined);
+        appendTableItemPlayReveal(next, "beard_back", user.id, undefined);
       } else if (inPvpRollWindow) {
-        recordTableItemPlay(next, "beard_back", user.id, undefined);
+        appendTableItemPlayReveal(next, "beard_back", user.id, undefined);
       }
       if (inPvpPreRoundWindow) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
       return { state: next, events: ["state"] };
@@ -3040,6 +3060,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const opp = next.players.find((p) => p.id === oppId);
       if (!opp) return { state, events: [], error: "Opponent not found" };
       log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
+      clearTableItemPlay(next);
       next.pending = initPvpPending(mover.id, opp.id);
       tryAdvancePvpPreRoundToRolls(next, next.pending);
       return { state: next, events: ["state"] };
@@ -3069,6 +3090,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: `${opp.name} kan inte utmanas till BvB just nu` };
     }
     log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
+    clearTableItemPlay(next);
     next.pending = initPvpPending(mover.id, opp.id);
     tryAdvancePvpPreRoundToRolls(next, next.pending);
     return { state: next, events: ["state"] };
@@ -3137,9 +3159,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       p.nextCombatAttackDiceDouble = false;
     }
     const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
-    const pvpWeaponExtra = p.equipment.weapon?.pvpDieBonus ?? 0;
     const pvpMod = pending.pvpAttackMods?.[action.playerId] ?? 0;
-    const total = dieContribution + weaponPower(p) + pvpWeaponExtra + pvpMod;
+    const total = dieContribution + pvpRollStrengthBonus(p) + pvpMod;
     pending.rolls[action.playerId] = { die: rawDie, total };
     log(
       next,
@@ -3149,6 +3170,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const a = pending.rolls[pending.attackerId];
     const d = pending.rolls[pending.defenderId];
     if (a && d) {
+      clearTableItemPlay(next);
       const ar = a.total;
       const dr = d.total;
       const currentRound = pvpRoundWithDefaults(pending);
@@ -3247,7 +3269,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
       equipShopLikeItemToPlayer(p, item);
     } else if (item.slot === "heal") {
-      p.hp = Math.min(p.maxHp, p.hp + (item.healAmount ?? 4));
+      p.inventory ??= [];
+      p.inventory.push(createItemInstance("healing_potion", newItemInstanceId(rng)));
     } else if (item.slot === "gold") {
       p.gold += item.goldAmount ?? 0;
     }
@@ -3337,9 +3360,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!winner || !loser) return { state, events: [], error: "Player not found" };
     const theftBlocked = loser.equipment.accessory?.preventTheft === true;
     if (action.choice === "gold") {
-      if (theftBlocked) {
-        log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
-      } else {
       const steal = Math.min(5, loser.gold);
       loser.gold -= steal;
       winner.gold += steal;
@@ -3352,7 +3372,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         `${winner.name} tog ${steal} pant från dig efter duellen.`,
         "duel_loss",
       );
-      }
     } else if (action.choice === "sip") {
       const gain = penaltySipTotalForPlayer(loser, 1);
       loser.klunkar += gain;
@@ -3376,16 +3395,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!validSlots.includes(slot as any)) {
         return { state, events: [], error: "Ogiltigt byte" };
       }
-      const piece = loser.equipment[slot];
       if (theftBlocked) {
-        log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
-        next.pending = null;
-        if (next.phase === "playing") {
-          queueFirstBrewerDownIfNeeded(next);
-          if (!next.pending) endTurnOrOfferLevelUp(next, winner.id);
-        }
-        return { state: next, events: ["state"] };
+        return { state, events: [], error: "Kan inte ta utrustning från denna bryggare (skydd mot byte)." };
       }
+      const piece = loser.equipment[slot];
       if (piece) {
         loser.equipment[slot] = undefined;
         if (slot === "armor" || slot === "helmet") {
@@ -3415,9 +3428,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           "duel_loss",
         );
       } else {
-        if (theftBlocked) {
-          log(next, `${winner.name} kan inte stjäla från ${loser.name}.`);
-        } else {
         const steal = Math.min(3, loser.gold);
         loser.gold -= steal;
         winner.gold += steal;
@@ -3430,7 +3440,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           `${winner.name} valde en tom plats och tog ${steal} pant från dig i stället.`,
           "duel_loss",
         );
-        }
       }
     }
     next.pending = null;

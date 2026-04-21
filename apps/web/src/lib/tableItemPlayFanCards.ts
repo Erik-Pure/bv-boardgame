@@ -77,17 +77,23 @@ export function expandReactionPlaysToFanCards(
   return out;
 }
 
-export function expandTableRevealToFanCards(
+export function expandTableRevealsToFanCards(
   state: GameState,
-  reveal: TableItemPlayReveal,
+  reveals: readonly TableItemPlayReveal[],
 ): TableFanCardModel[] {
-  return fanCardsForOnePlay(state, {
-    playSeq: reveal.seq,
-    itemId: reveal.itemId,
-    actorId: reveal.actorId,
-    targetPlayerId: reveal.targetPlayerId,
-    sideInventoryItemId: reveal.sideInventoryItemId,
-    sideEquipmentSlot: reveal.sideEquipmentSlot,
-    sideEquipmentName: reveal.sideEquipmentName,
-  });
+  const out: TableFanCardModel[] = [];
+  for (const reveal of reveals) {
+    out.push(
+      ...fanCardsForOnePlay(state, {
+        playSeq: reveal.seq,
+        itemId: reveal.itemId,
+        actorId: reveal.actorId,
+        targetPlayerId: reveal.targetPlayerId,
+        sideInventoryItemId: reveal.sideInventoryItemId,
+        sideEquipmentSlot: reveal.sideEquipmentSlot,
+        sideEquipmentName: reveal.sideEquipmentName,
+      }),
+    );
+  }
+  return out;
 }

@@ -498,7 +498,7 @@
   background: linear-gradient(90deg, #f59e0b 0%, #facc15 100%);
 }
 
-/* Över kortmodal (z 100) och team battle-intro (z 105), men under stupad bryggare / straffklunk (z 165) */
+/* Över kortmodal (z 100), team battle-intro (z 105) och straffklunk-backdrop (z 110); under stupad bryggare (z 165) */
 .bottomSheetAboveCard {
   z-index: 125 !important;
 }

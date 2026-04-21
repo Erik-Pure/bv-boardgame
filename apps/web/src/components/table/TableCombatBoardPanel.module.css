@@ -1,0 +1,316 @@
+/** Bords-overlay för combat — statiska ytor; dynamisk boss-bg/animation lämnas inline. */
+
+.overlayHost {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 42;
+  display: grid;
+  place-items: start center;
+  padding-top: 70px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.panelShell {
+  width: min(720px, 92vw);
+  text-align: left;
+  overflow: visible;
+}
+
+.panelInnerCard {
+  border-radius: 16px;
+  border: 1px solid #ffffff22;
+  background: rgba(11, 18, 38, 0.94);
+  padding: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  transform-origin: top center;
+}
+
+.panelInnerGhost {
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  box-shadow: none;
+}
+
+.innerBossIntro {
+  width: 100%;
+  overflow: visible;
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  text-align: left;
+}
+
+.caption12Muted {
+  opacity: 0.8;
+  font-size: var(--type-2xs);
+  margin-bottom: 6px;
+}
+
+.phaseLine12 {
+  font-size: var(--type-2xs);
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.fightLine14 {
+  font-size: var(--type-md);
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.teamWaitMuted {
+  opacity: 0.88;
+  margin-bottom: 8px;
+}
+
+.teammateChosenBanner {
+  text-align: center;
+  opacity: 0.98;
+  margin-bottom: 14px;
+  font-size: clamp(22px, 5.2vw, 40px);
+  font-weight: 800;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  color: #fef9c3;
+  letter-spacing: 0.03em;
+  line-height: 1.12;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.88),
+    0 0 24px rgba(250, 204, 21, 0.35);
+}
+
+.teammateChosenBannerLeft {
+  text-align: left;
+  opacity: 0.98;
+  margin-bottom: 10px;
+  font-size: clamp(22px, 5.2vw, 40px);
+  font-weight: 800;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  color: #fef9c3;
+  letter-spacing: 0.03em;
+  line-height: 1.12;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.88),
+    0 0 24px rgba(250, 204, 21, 0.35);
+}
+
+.fw900 {
+  font-weight: 900;
+}
+
+.finalBossRoundTitle {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 900;
+  font-size: clamp(30px, 6.6vw, 48px);
+  text-align: center;
+  color: #f8fafc;
+  letter-spacing: 0.07em;
+  line-height: 1.02;
+  margin-bottom: 14px;
+  text-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.8),
+    0 0 26px rgba(239, 68, 68, 0.42);
+}
+
+.monsterMeetTitle {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 900;
+  font-size: clamp(26px, 5.5vw, 36px);
+  text-align: center;
+  color: #f8fafc;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  margin-bottom: 28px;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+
+.teamBattlePickTeammate {
+  text-align: center;
+  opacity: 0.95;
+  margin-bottom: 10px;
+  font-size: var(--type-md);
+  color: #f1f5f9;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.85),
+    0 0 10px rgba(0, 0, 0, 0.45);
+}
+
+.monsterRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.diceColumn {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  transition:
+    width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.diceGlowCircle {
+  padding: 22px 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 42%, transparent 68%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.flexCenterGap10 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.modifierStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.modifierStackGap4 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.modifierStackGap2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.diceModifierBig {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(30px, 7vw, 44px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  text-align: center;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(0, 0, 0, 0.45);
+}
+
+.sipBonusBig {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(28px, 6.5vw, 40px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #e9d5ff;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.75),
+    0 0 18px rgba(139, 92, 246, 0.35);
+}
+
+.sipTakenCaption {
+  font-family: var(--sans), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: var(--type-sm);
+  letter-spacing: 0.04em;
+  color: rgba(248, 250, 252, 0.92);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+}
+
+.hitMitigationHint {
+  font-size: var(--type-sm);
+  text-align: center;
+  max-width: 248px;
+  line-height: var(--leading-snug);
+  color: #f1f5f9;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.85),
+    0 0 14px rgba(0, 0, 0, 0.55);
+}
+
+.monsterCardWrap {
+  width: 100%;
+  max-width: 400px;
+  flex: 0 1 auto;
+  transform-origin: center center;
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  box-sizing: border-box;
+}
+
+.mb8 {
+  margin-bottom: 8px;
+}
+
+.enemyTitle24 {
+  font-weight: 900;
+  font-size: var(--type-2xl);
+  line-height: 1.05;
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.strengthLine {
+  opacity: 0.88;
+  margin-bottom: 8px;
+}
+
+.hintLine13 {
+  margin-top: 8px;
+  font-size: var(--type-sm);
+  opacity: 0.95;
+  text-align: center;
+}
+
+.hintLine13TightTop {
+  margin-top: 2px;
+  font-size: var(--type-sm);
+  opacity: 0.95;
+  text-align: center;
+}
+
+.hintLine13OnCard {
+  margin-top: 2px;
+  font-size: var(--type-sm);
+  opacity: 0.95;
+  text-align: center;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.85),
+    0 0 12px rgba(0, 0, 0, 0.5);
+  color: #f1f5f9;
+}
+
+.helpContractSub {
+  margin-top: 4px;
+  opacity: 0.88;
+}
+
+.diceRowWrap {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.hitChoiceLine {
+  font-size: var(--type-md);
+  max-width: 280px;
+  line-height: var(--leading-snug);
+}

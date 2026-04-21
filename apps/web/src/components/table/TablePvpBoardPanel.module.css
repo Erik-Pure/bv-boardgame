@@ -1,0 +1,198 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 43;
+  display: grid;
+  place-items: start center;
+  padding-top: 22px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.panel {
+  --pvp-c-attacker: #c41e3a;
+  --pvp-c-defender: #2563eb;
+  width: min(760px, 96vw);
+  border-radius: 20px;
+  border: 2px solid rgba(251, 191, 36, 0.5);
+  /* Horisontell gradient mellan duellanternas färger; scrim håller läsbarhet */
+  background-image:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(2, 6, 23, 0.4) 100%),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--pvp-c-attacker) 92%, transparent) 0%,
+      rgba(48, 26, 62, 0.34) 50%,
+      color-mix(in srgb, var(--pvp-c-defender) 92%, transparent) 100%
+    );
+  background-color: #020617;
+  padding: 26px 24px;
+  text-align: center;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(251, 191, 36, 0.12);
+}
+
+.subtitle {
+  font-size: clamp(13px, 2.2vw, 15px);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: 6px;
+}
+
+.duelTitle {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(40px, 7.5vw, 58px);
+  line-height: 1.05;
+  margin-bottom: 8px;
+  color: #fef9c3;
+  text-shadow: 0 0 28px rgba(251, 191, 36, 0.35);
+}
+
+.phaseLineMuted {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(19px, 3.6vw, 26px);
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.phaseLineGold {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(19px, 3.6vw, 26px);
+  margin-bottom: 10px;
+  color: rgba(254, 240, 138, 0.96);
+}
+
+.spacer8 {
+  height: 8px;
+}
+
+.hint16 {
+  margin-bottom: 18px;
+  font-size: clamp(15px, 2.5vw, 19px);
+  font-weight: 600;
+  opacity: 0.88;
+  line-height: 1.4;
+}
+
+.spacerMb8 {
+  margin-bottom: 8px;
+}
+
+.fightersRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vsBadge {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(36px, 6.5vw, 50px);
+  line-height: 1;
+  color: #fff;
+  opacity: 0.92;
+  padding: 0 2px;
+  flex: 0 0 auto;
+}
+
+.fighterCol {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+}
+
+.roleLabel {
+  font-size: clamp(12px, 2vw, 14px);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.playerName {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(26px, 4.8vw, 38px);
+  line-height: 1.05;
+  text-align: center;
+  word-break: break-word;
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+}
+
+.rollMod {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(30px, 5.2vw, 44px);
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.rollModPos {
+  color: #86efac;
+}
+
+.rollModNeg {
+  color: #fca5a5;
+}
+
+.flexCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.flexCenterGap10 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.resultsBlock {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #ffffff22;
+  font-size: clamp(18px, 2.8vw, 22px);
+}
+
+.totalsLine {
+  margin-bottom: 12px;
+}
+
+.totalsPlayerName {
+  font-weight: 800;
+  color: #f1f5f9;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dashSep {
+  opacity: 0.4;
+  margin: 0 8px;
+}
+
+.winnerLine {
+  font-weight: 800;
+  font-size: clamp(17px, 2.6vw, 21px);
+  color: #fef08a;
+}
+
+.smallHint {
+  margin-top: 10px;
+  font-size: clamp(13px, 2vw, 15px);
+  opacity: 0.78;
+  line-height: 1.4;
+}
+
+.scoreLine {
+  margin-top: 12px;
+  font-size: clamp(15px, 2.3vw, 18px);
+  opacity: 0.85;
+}

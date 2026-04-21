@@ -43,10 +43,10 @@ function BlankFaces() {
   );
 }
 
-/** `oneAsMonsterIcon`: på etta visas monster-ikon (monsterstrid), inte siffran. */
 export type DiceCube3DProps =
   | { idleSpin: true; spinning?: boolean; size?: number }
-  | { idleSpin?: false; value?: number | null; size?: number; oneAsMonsterIcon?: boolean };
+  /** `oneAsSkullIcon`: etta som röd dödskalle (monsterstrid). Lämna bort/false vid rörelse m.m. */
+  | { idleSpin?: false; value?: number | null; size?: number; oneAsSkullIcon?: boolean };
 
 export function DiceCube3D(props: DiceCube3DProps) {
   const size = props.size ?? 72;
@@ -54,8 +54,8 @@ export function DiceCube3D(props: DiceCube3DProps) {
     const spinning = props.spinning !== false;
     return <DiceIdleSpin size={size} spinning={spinning} />;
   }
-  const { value, oneAsMonsterIcon } = props;
-  return <DiceRollResult value={value} size={size} oneAsMonsterIcon={!!oneAsMonsterIcon} />;
+  const { value, oneAsSkullIcon } = props;
+  return <DiceRollResult value={value} size={size} oneAsSkullIcon={!!oneAsSkullIcon} />;
 }
 
 function DiceIdleSpin({ size, spinning }: { size: number; spinning: boolean }) {
@@ -76,11 +76,11 @@ function DiceIdleSpin({ size, spinning }: { size: number; spinning: boolean }) {
 function DiceRollResult({
   value,
   size,
-  oneAsMonsterIcon,
+  oneAsSkullIcon,
 }: {
   value?: number | null;
   size: number;
-  oneAsMonsterIcon: boolean;
+  oneAsSkullIcon: boolean;
 }) {
   const face = useMemo(() => toFaceValue(value), [value]);
   const finalT = FINAL_TRANSFORM[face] ?? FINAL_TRANSFORM[1]!;
@@ -92,11 +92,11 @@ function DiceRollResult({
           <BlankFaces />
         </div>
         <div className={styles.rollValueOverlay} aria-hidden>
-          {face === 1 && oneAsMonsterIcon ? (
+          {face === 1 && oneAsSkullIcon ? (
             <img
-              src="/icons/monster-icon.svg"
+              src="/icons/skull-icon.svg"
               alt=""
-              className={styles.rollOverlayMonster}
+              className={styles.rollOverlaySkullOne}
               draggable={false}
             />
           ) : (

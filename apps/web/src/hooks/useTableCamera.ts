@@ -5,7 +5,7 @@ import { activePlayer, clamp, ringPos } from "../lib/tableBoard";
 
 export type Cam = { x: number; y: number; scale: number };
 
-export function useTableCamera(params: {
+export type UseTableCameraParams = {
   state: GameState | null;
   boardWidth: number;
   boardHeight: number;
@@ -15,7 +15,9 @@ export function useTableCamera(params: {
   tileSize: number;
   boardPad: number;
   targetRingOutset: number;
-}) {
+};
+
+export function useTableCamera(params: UseTableCameraParams) {
   const {
     state,
     boardWidth,

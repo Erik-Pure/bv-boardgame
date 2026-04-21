@@ -55,6 +55,7 @@ import { CombatEnemyIntroWaiting } from "../components/play/CombatEnemyIntroWait
 import { CombatRollPreviewSheet } from "../components/play/CombatRollPreviewSheet";
 import { CombatHitMitigationSheet } from "../components/play/CombatHitMitigationSheet";
 import styles from "./PlayView.module.css";
+import u from "../styles/uiPrimitives.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
@@ -243,6 +244,7 @@ export function PlayView() {
   const [itemUseTargetPhase, setItemUseTargetPhase] = useState(false);
   const [wantsIntervene, setWantsIntervene] = useState(false);
   const [beerBroPickInstance, setBeerBroPickInstance] = useState<string | null>(null);
+  const [lengraddadPickInstance, setLengraddadPickInstance] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [rollDiceSpinning, setRollDiceSpinning] = useState(true);
   const [combatDiceSpinning, setCombatDiceSpinning] = useState(true);
@@ -358,7 +360,7 @@ export function PlayView() {
     if (!me) return "";
     const parts: string[] = [];
     if ((me.skippedTurns ?? 0) > 0 && me.skipTurnReasons?.includes("normal")) parts.push("(Zzz)");
-    if (me.skipTurnReasons?.includes("oil")) parts.push(sv.table.playerStatusOilInEye);
+    if (me.skipTurnReasons?.includes("oil")) parts.push(`(${sv.table.playerStatusOilInEye})`);
     return parts.length ? parts.join(" ") : "";
   }, [me]);
   const brewerProgressUi = useMemo(() => {
@@ -444,7 +446,10 @@ export function PlayView() {
 
   const combatReactionsPhase = pending?.type === "combat" && pending.phase === "reactions";
   useEffect(() => {
-    if (!combatReactionsPhase) setBeerBroPickInstance(null);
+    if (!combatReactionsPhase) {
+      setBeerBroPickInstance(null);
+      setLengraddadPickInstance(null);
+    }
   }, [combatReactionsPhase]);
 
   const myPending = isMyPending(pending, me);
@@ -543,17 +548,12 @@ export function PlayView() {
     if (!state || !me) return null;
     if (state.phase === "lobby") {
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o9}`}>
             {sv.play.lobbySheet(readyCount, totalPlayers)}
           </div>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: me.isHost ? "1fr 1fr" : "1fr",
-              gap: 10,
-              justifyItems: "center",
-            }}
+            className={`${u.stack10} ${me.isHost ? u.gridCols2 : u.gridCols1} ${u.justifyItemsCenter}`}
           >
             <ArcadeButton
               variant={me.ready ? "gray" : "blue"}
@@ -575,7 +575,7 @@ export function PlayView() {
             ) : null}
           </div>
           {!canStart && (
-            <div style={{ textAlign: "center", opacity: 0.75, fontSize: 12 }}>
+            <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>
               {me.isHost ? sv.play.hostNeedPlayers : sv.play.waitHostStart}
             </div>
           )}
@@ -589,9 +589,9 @@ export function PlayView() {
     if (pending?.type === "encounterChoice" && pending.moverId === me.id) {
       if (pending.phase === "choosePvpOpponent") {
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpChooseOpponent}</div>
-            <div style={{ display: "grid", gap: 10 }}>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpChooseOpponent}</div>
+            <div className={u.stack10}>
               {pending.opponentIds.map((oid) => {
                 const pl = state.players.find((p) => p.id === oid);
                 if (!pl) return null;
@@ -611,9 +611,9 @@ export function PlayView() {
         );
       }
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.encounterChoose}</div>
-          <div style={{ display: "grid", gap: 10 }}>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.encounterChoose}</div>
+          <div className={u.stack10}>
             <ArcadeButton
               variant="pink"
               fullWidth
@@ -677,10 +677,10 @@ export function PlayView() {
         .filter((p): p is Player => !!p);
       if (isAttacker) {
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.92 }}>{sv.play.combatHelpChooseHelper}</div>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o92}`}>{sv.play.combatHelpChooseHelper}</div>
             {helperPlayers.length === 0 ? (
-              <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.combatHelpNoCandidates}</div>
+              <div className={`${u.textCenter} ${u.o82}`}>{sv.play.combatHelpNoCandidates}</div>
             ) : (
               helperPlayers.map((pl) => (
                 <ArcadeButton
@@ -698,7 +698,7 @@ export function PlayView() {
       }
       const attackerName = state.players.find((p) => p.id === pending.attackerId)?.name ?? sv.play.theAttacker;
       return (
-        <div style={{ textAlign: "center", opacity: 0.82 }}>
+        <div className={`${u.textCenter} ${u.o82}`}>
           {sv.play.combatHelpWaitAttackerChoose(attackerName)}
         </div>
       );
@@ -708,11 +708,11 @@ export function PlayView() {
       const helperId = pending.helpSelectedHelperId;
       const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
       const isHelper = helperId === me.id;
-      if (!helperId) return <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.waitingState}</div>;
+      if (!helperId) return <div className={`${u.textCenter} ${u.o82}`}>{sv.play.waitingState}</div>;
       if (isHelper) {
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.92 }}>{sv.play.combatHelpDecisionPrompt}</div>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o92}`}>{sv.play.combatHelpDecisionPrompt}</div>
             <ArcadeButton
               variant="gray"
               fullWidth
@@ -752,7 +752,7 @@ export function PlayView() {
         );
       }
       return (
-        <div style={{ textAlign: "center", opacity: 0.82 }}>
+        <div className={`${u.textCenter} ${u.o82}`}>
           {sv.play.combatHelpWaitDecision(helperName)}
         </div>
       );
@@ -767,12 +767,12 @@ export function PlayView() {
       );
       if (isHelper) {
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.92 }}>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o92}`}>
               {sv.play.combatHelpPlayPositiveCard}
             </div>
             {helperItems.length === 0 ? (
-              <div style={{ textAlign: "center", opacity: 0.82 }}>{sv.play.combatHelpNoPlayablePositiveCards}</div>
+              <div className={`${u.textCenter} ${u.o82}`}>{sv.play.combatHelpNoPlayablePositiveCards}</div>
             ) : (
               helperItems.map((it) => (
                 <ArcadeButton
@@ -796,7 +796,7 @@ export function PlayView() {
         );
       }
       return (
-        <div style={{ textAlign: "center", opacity: 0.82 }}>
+        <div className={`${u.textCenter} ${u.o82}`}>
           {sv.play.combatHelpWaitHelperCard(helperName)}
         </div>
       );
@@ -818,6 +818,7 @@ export function PlayView() {
           "monster_hype",
           "yeast_sabotage",
           "beer_bro",
+          "lengraddad",
         ].includes(String(it.itemId)),
       );
       const attacker = state.players.find((p) => p.id === pending.attackerId) ?? null;
@@ -851,52 +852,42 @@ export function PlayView() {
 
       if (isTeamFighter) {
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div
-              style={{
-                textAlign: "center",
-                opacity: 0.94,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
+          <div className={u.stack10}>
+            <div className={u.reactionTitleRow}>
               <span>{pending.enemyName}</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span className={u.inlineFlexGap5}>
                 <img
                   src="/icons/combat-icon.svg"
                   alt=""
                   aria-hidden
-                  style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
+                  className={u.combatIcon16}
                 />
                 <b>{pending.need + (pending.needMod ?? 0)}</b>
               </span>
             </div>
             {teammate ? (
-              <div style={{ textAlign: "center", opacity: 0.82, fontSize: 12 }}>
+              <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>
                 {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
                 {attacker?.name ?? "—"} {attackerRoll ? "har slagit" : "har inte slagit"} · {teammate.name}{" "}
                 {teammateRoll ? "har slagit" : "har inte slagit"}
               </div>
             ) : null}
             {mod !== 0 && (
-              <div style={{ textAlign: "center", opacity: 0.85, fontSize: 12 }}>
+              <div className={`${u.textCenter} ${u.o85} ${u.fs12}`}>
                 {sv.play.attackModifier(mod)}
               </div>
             )}
             <div className={styles.sheetDiceBlock}>
               {myTeamRoll ? (
                 <>
-                  <DiceCube3D value={myTeamRoll.die} size={76} oneAsMonsterIcon />
+                  <DiceCube3D value={myTeamRoll.die} size={76} oneAsSkullIcon />
                   <div className={styles.sheetDiceCaption}>
                     <span className={styles.sheetDiceCaptionText}>
                       {sv.play.yourD6TotalWeapon(myTeamRoll.die, myTeamRoll.total)}
                     </span>
                   </div>
                   {myTeamRoll.attackDiceDoubled ? (
-                    <div style={{ textAlign: "center", fontSize: 11, opacity: 0.82, marginTop: 4 }}>
+                    <div className={`${u.textCenter} ${u.fs11} ${u.o82} ${u.mt4}`}>
                       {sv.play.combatAttackDoubledHint}
                     </div>
                   ) : null}
@@ -909,12 +900,12 @@ export function PlayView() {
               )}
             </div>
             {(pending.reactors?.length ?? 0) > 0 && !everyoneDone && reactionOpen ? (
-              <div style={{ textAlign: "center", opacity: 0.85 }}>
+              <div className={`${u.textCenter} ${u.o85}`}>
                 {sv.play.waitIntervene}
                 {deadlineAt > 0 ? ` (${secondsLeft}s)` : ""}
               </div>
             ) : pending.assistId && !bothTeamRolled && myTeamRoll ? (
-              <div style={{ textAlign: "center", opacity: 0.82 }}>
+              <div className={`${u.textCenter} ${u.o82}`}>
                 {otherFighterName
                   ? sv.play.waitTeammateCombatRoll(otherFighterName)
                   : sv.play.waitTeamSecondRoll}
@@ -923,15 +914,8 @@ export function PlayView() {
               const sipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
               if (sipBonus > 0) {
                 return (
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <div
-                      style={{
-                        textAlign: "center",
-                        opacity: 0.92,
-                        fontSize: 14,
-                        lineHeight: 1.45,
-                      }}
-                    >
+                  <div className={u.stack10}>
+                    <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
                       {sv.play.combatSipWeaponPrompt(me.equipment.weapon?.name ?? "Vapnet", sipBonus)}
                     </div>
                     <ArcadeButton
@@ -960,7 +944,7 @@ export function PlayView() {
                 );
               }
               return (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={u.stack10}>
                   {isAttacker &&
                   !pending.teamBattleRequired &&
                   !pending.assistId &&
@@ -994,19 +978,19 @@ export function PlayView() {
 
       if (isEligibleReactor && !hasAnyReaction && attacker) {
         if (!reactionOpen) {
-          return <div style={{ textAlign: "center", opacity: 0.75 }}>Reaktionsfönstret har stängt.</div>;
+          return <div className={`${u.textCenter} ${u.o75}`}>Reaktionsfönstret har stängt.</div>;
         }
         if (hasPassed) {
           return (
-            <div style={{ textAlign: "center", opacity: 0.78 }}>
+            <div className={`${u.textCenter} ${u.o78}`}>
               Du har redan valt. Väntar på att striden fortsätter…
             </div>
           );
         }
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.inCombat(attacker.name)}</div>
-            <div style={{ textAlign: "center", opacity: 0.85, fontSize: 14, lineHeight: 1.45 }}>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o9}`}>{sv.play.inCombat(attacker.name)}</div>
+            <div className={`${u.textCenter} ${u.o85} ${u.fs14} ${u.lineHeight145}`}>
               {sv.play.noInterveneCards}
             </div>
             <ArcadeButton
@@ -1022,7 +1006,7 @@ export function PlayView() {
 
       if (isEligibleReactor && hasAnyReaction && attacker) {
         if (!reactionOpen) {
-          return <div style={{ textAlign: "center", opacity: 0.75 }}>Reaktionsfönstret har stängt.</div>;
+          return <div className={`${u.textCenter} ${u.o75}`}>Reaktionsfönstret har stängt.</div>;
         }
         if (wantsIntervene) {
           const interveneItems = (me.inventory ?? []).filter((it) =>
@@ -1037,12 +1021,13 @@ export function PlayView() {
               "monster_hype",
               "yeast_sabotage",
               "beer_bro",
+              "lengraddad",
             ].includes(String(it.itemId)),
           );
           if (interveneItems.length === 0) {
             return (
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.interveneNoCardsPlayable}</div>
+              <div className={u.stack10}>
+                <div className={`${u.textCenter} ${u.o9}`}>{sv.play.interveneNoCardsPlayable}</div>
                 <ArcadeButton
                   variant="gray"
                   fullWidth
@@ -1061,8 +1046,8 @@ export function PlayView() {
             const broCandidates = state.players.filter((p) => p.id !== pending.attackerId);
             if (!broInst) {
               return (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ textAlign: "center", opacity: 0.85 }}>{sv.play.itemNotFound}</div>
+                <div className={u.stack10}>
+                  <div className={`${u.textCenter} ${u.o85}`}>{sv.play.itemNotFound}</div>
                   <ArcadeButton variant="gray" fullWidth onClick={() => setBeerBroPickInstance(null)}>
                     {sv.play.back}
                   </ArcadeButton>
@@ -1070,9 +1055,9 @@ export function PlayView() {
               );
             }
             return (
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.chooseBeerBroPartner}</div>
-                <div style={{ display: "grid", gap: 8 }}>
+              <div className={u.stack10}>
+                <div className={`${u.textCenter} ${u.o9}`}>{sv.play.chooseBeerBroPartner}</div>
+                <div className={u.stack8}>
                   {broCandidates.map((p) => (
                     <ArcadeButton
                       key={p.id}
@@ -1099,10 +1084,53 @@ export function PlayView() {
               </div>
             );
           }
+          if (lengraddadPickInstance) {
+            const lgInst = interveneItems.find((x) => x.instanceId === lengraddadPickInstance);
+            const lengraddadCandidates = state.players.filter((p) => p.id !== me.id);
+            if (!lgInst) {
+              return (
+                <div className={u.stack10}>
+                  <div className={`${u.textCenter} ${u.o85}`}>{sv.play.itemNotFound}</div>
+                  <ArcadeButton variant="gray" fullWidth onClick={() => setLengraddadPickInstance(null)}>
+                    {sv.play.back}
+                  </ArcadeButton>
+                </div>
+              );
+            }
+            return (
+              <div className={u.stack10}>
+                <div className={`${u.textCenter} ${u.o9}`}>{sv.play.chooseTarget}</div>
+                <div className={u.stack8}>
+                  {lengraddadCandidates.map((p) => (
+                    <ArcadeButton
+                      key={p.id}
+                      variant="pink"
+                      fullWidth
+                      onClick={() => {
+                        send({
+                          type: "useItem",
+                          playerId: me.id,
+                          instanceId: lgInst.instanceId,
+                          targetPlayerId: p.id,
+                        });
+                        setLengraddadPickInstance(null);
+                        setWantsIntervene(false);
+                      }}
+                    >
+                      {p.name}
+                    </ArcadeButton>
+                  ))}
+                </div>
+                <ArcadeButton variant="gray" fullWidth onClick={() => setLengraddadPickInstance(null)}>
+                  {sv.play.back}
+                </ArcadeButton>
+              </div>
+            );
+          }
           return (
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.intervenePickCard}</div>
-              <div style={{ display: "grid", gap: 8 }}>
+            <div className={u.stack10}>
+              <div className={`${u.textCenter} ${u.o9}`}>{sv.play.intervenePickCard}</div>
+              <div className={u.stack8}>
                 {interveneItems.map((it) => (
                     <ArcadeButton
                       key={it.instanceId}
@@ -1112,6 +1140,10 @@ export function PlayView() {
                         const id = String(it.itemId);
                         if (id === "beer_bro") {
                           setBeerBroPickInstance(it.instanceId);
+                          return;
+                        }
+                        if (id === "lengraddad") {
+                          setLengraddadPickInstance(it.instanceId);
                           return;
                         }
                         const targetPlayerId =
@@ -1159,15 +1191,15 @@ export function PlayView() {
         }
         if (hasPassed) {
           return (
-            <div style={{ textAlign: "center", opacity: 0.78 }}>
+            <div className={`${u.textCenter} ${u.o78}`}>
               Du har redan valt. Väntar på att striden fortsätter…
             </div>
           );
         }
         return (
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.inCombat(attacker.name)}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o9}`}>{sv.play.inCombat(attacker.name)}</div>
+            <div className={u.grid2Equal10}>
               <ArcadeButton
                 variant="pink"
                 fullWidth
@@ -1196,11 +1228,11 @@ export function PlayView() {
       const hasBaseDie = typeof pending.baseDie === "number" && Number.isFinite(pending.baseDie);
       const diceFaceValue = hasBaseDie ? pending.baseDie : pending.die;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={u.stack10}>
           <div className={styles.sheetDiceBlock}>
             <DiceCube3D value={diceFaceValue} size={76} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className={u.grid2Equal10}>
             {pending.options.map((o) => (
               <ArcadeButton
                 key={o.dir}
@@ -1236,12 +1268,12 @@ export function PlayView() {
       const opponentEffectiveReady = opponentReadyExplicit || !opponentHasPvpItems;
       const scoreLine = `${sv.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.92 }}>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o92}`}>
             {sv.play.pvpRoundBestOf(pvpRound, bestOf)}
           </div>
-          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{scoreLine}</div>
-          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.88 }}>{sv.play.pvpPreRoundItemsHint}</div>
+          <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>{scoreLine}</div>
+          <div className={`${u.textCenter} ${u.fs13} ${u.o88}`}>{sv.play.pvpPreRoundItemsHint}</div>
           {meHasPvpItems ? (
             <ArcadeButton
               variant={myReadyExplicit ? "gray" : "pink"}
@@ -1251,9 +1283,9 @@ export function PlayView() {
               {myReadyExplicit ? sv.play.pvpReadyUndo : sv.play.pvpReady}
             </ArcadeButton>
           ) : (
-            <div style={{ textAlign: "center", fontSize: 13, opacity: 0.85 }}>{sv.play.pvpNoItemsAutoReady}</div>
+            <div className={`${u.textCenter} ${u.fs13} ${u.o85}`}>{sv.play.pvpNoItemsAutoReady}</div>
           )}
-          <div style={{ textAlign: "center", fontSize: 12, opacity: 0.75 }}>
+          <div className={`${u.textCenter} ${u.fs12} ${u.o75}`}>
             {myEffectiveReady
               ? opponentEffectiveReady
                 ? sv.play.pvpBothReady
@@ -1269,9 +1301,8 @@ export function PlayView() {
       if (!isParticipant) return null;
       const myRoll = pending.rolls?.[me.id];
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>{sv.play.pvpRollWindowHint}</div>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpRollDie}</div>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpRollDie}</div>
           <div className={styles.sheetDiceBlock}>
             {myRoll ? (
               <DiceCube3D value={myRoll.die} size={76} />
@@ -1312,23 +1343,23 @@ export function PlayView() {
       const rt = pending.resolvedTotals;
       const lead = pending.roundRevealLead;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.92, fontSize: 15, lineHeight: 1.35 }}>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>
             {lead === "chooseLoot"
               ? sv.play.pvpRoundRevealMatchEnd
               : sv.play.pvpRoundRevealNextRound(pvpRound, pending.nextRoundNumber ?? pvpRound + 1)}
           </div>
-          <div style={{ textAlign: "center", fontSize: 13, opacity: 0.82 }}>
+          <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>
             {sv.play.pvpScoreLabel}: {pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–
             {pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}
           </div>
           {rt ? (
-            <div style={{ textAlign: "center", fontSize: 14, opacity: 0.9 }}>
+            <div className={`${u.textCenter} ${u.fs14} ${u.o9}`}>
               {sv.play.pvpRoundRevealTotals(rt.attackerTotal, rt.defenderTotal)}
             </div>
           ) : null}
           {pending.winnerId ? (
-            <div style={{ textAlign: "center", fontSize: 15, fontWeight: 700, opacity: 0.95 }}>
+            <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>
               {sv.play.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
             </div>
           ) : null}
@@ -1354,7 +1385,7 @@ export function PlayView() {
           >
             {myAck ? sv.play.pvpRoundRevealDone : sv.play.pvpRoundRevealContinue}
           </ArcadeButton>
-          <div style={{ textAlign: "center", fontSize: 12, opacity: 0.75 }}>
+          <div className={`${u.textCenter} ${u.fs12} ${u.o75}`}>
             {myAck
               ? oppAck
                 ? sv.play.pvpRoundRevealBothAcked
@@ -1368,12 +1399,12 @@ export function PlayView() {
     if (pending?.type === "door" && myPending) {
       const monsterScaleNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
           {monsterScaleNote ? (
-            <div style={{ textAlign: "center", opacity: 0.88, fontSize: 13, lineHeight: 1.45 }}>{monsterScaleNote}</div>
+            <div className={`${u.textCenter} ${u.o88} ${u.fs13} ${u.lineHeight145}`}>{monsterScaleNote}</div>
           ) : null}
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={u.stack10}>
             <ArcadeButton
               variant="blue"
               fullWidth
@@ -1407,27 +1438,27 @@ export function PlayView() {
     if (pending?.type === "equipmentReplaceOffer" && myPending) {
       const slot = pending.slot;
       return (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ textAlign: "center", opacity: 0.95, fontSize: 16, lineHeight: 1.35 }}>
+        <div className={u.stack12}>
+          <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
             {sv.play.lootEquipmentReplaceTitle}
           </div>
-          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-            <div style={{ width: 96, height: 96, flexShrink: 0 }}>
+          <div className={u.flexCenterFullWidth}>
+            <div className={u.box96}>
               <PictureImg
                 sources={equipmentImageSources(pending.newName, slot)}
                 alt=""
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                className={u.fillContain}
               />
             </div>
           </div>
-          <div style={{ textAlign: "center", fontSize: 14, lineHeight: 1.45, color: "#e8e8f0" }}>
+          <div className={`${u.textCenter} ${u.fs14} ${u.lineHeight145} ${u.colorE8}`}>
             {sv.play.merchantReplaceBody(
               capitalizeWord(equipmentSlotSv(slot)),
               merchantEquippedName(me, slot),
               pending.newName,
             )}
           </div>
-          <div style={{ display: "grid", gap: 8 }}>
+          <div className={u.stack8}>
             <ArcadeButton
               variant="pink"
               fullWidth
@@ -1449,22 +1480,14 @@ export function PlayView() {
 
     if (pending?.type === "levelUpOffer" && myPending) {
       return (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div
-            style={{
-              textAlign: "center",
-              opacity: 0.98,
-              fontSize: 30,
-              lineHeight: 1.04,
-              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-            }}
-          >
+        <div className={u.stack12}>
+          <div className={u.levelUpTitle}>
             {sv.play.levelUpOfferTitle}
           </div>
-          <div style={{ textAlign: "center", fontSize: 14, opacity: 0.9, lineHeight: 1.5 }}>
+          <div className={`${u.textCenter} ${u.fs14} ${u.o9} ${u.lineHeight15}`}>
             {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
           </div>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={u.stack10}>
             <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "now" })}>
               {sv.play.levelUpNow}
             </ArcadeButton>
@@ -1489,7 +1512,7 @@ export function PlayView() {
         send({ type: "merchantBuy", playerId: me.id, itemId: it.id });
       };
       return (
-        <div style={{ display: "grid", gap: 10, position: "relative" }}>
+        <div className={u.stack10Relative}>
           {merchantReplaceItem && isShopItemEquipment(merchantReplaceItem) ? (
             <div
               style={{
@@ -1508,14 +1531,14 @@ export function PlayView() {
                 boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
               }}
             >
-              <div style={{ fontSize: 15, lineHeight: 1.45, textAlign: "center", color: "#ffffff" }}>
+              <div className={`${u.fs15} ${u.lineHeight145} ${u.textCenter} ${u.colorWhite}`}>
                 {sv.play.merchantReplaceBody(
                   capitalizeWord(equipmentSlotSv(merchantReplaceItem.slot)),
                   merchantEquippedName(me, merchantReplaceItem.slot),
                   merchantReplaceItem.name,
                 )}
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className={u.stack8}>
                 <ArcadeButton
                   variant="pink"
                   fullWidth
@@ -1569,7 +1592,7 @@ export function PlayView() {
               <StatIcon kind="pant" size={22} />
             </div>
           </div>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={u.stack10}>
             {pending.items.slice(0, 4).map((it) => {
               const effectSummary = formatShopItemEffectSummary(it);
               const cantAfford = me.gold < it.price;
@@ -1591,7 +1614,7 @@ export function PlayView() {
                   }}
                 >
                   <MerchantShopItemArt item={it} />
-                  <div style={{ display: "grid", gap: 6, justifyItems: "start", textAlign: "left", minWidth: 0 }}>
+                  <div className={u.gridStart6}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", lineHeight: 0 }}>
                         {it.slot === "gold" ? (
@@ -1659,10 +1682,12 @@ export function PlayView() {
       const loser = state.players.find((p) => p.id === pending.loserId);
       const items = loser?.equipment ?? {};
       const availableSlots = (["weapon", "armor", "helmet", "accessory"] as const).filter((slot) => !!items[slot]);
+      const theftProtected = loser?.equipment.accessory?.preventTheft === true;
+      const showEquipmentLoot = !theftProtected && availableSlots.length > 0;
       return (
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ textAlign: "center", opacity: 0.9 }}>{sv.play.pvpChooseLoot}</div>
-          <div style={{ display: "grid", gap: 10 }}>
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpChooseLoot}</div>
+          <div className={u.stack10}>
             <ArcadeButton
               variant="blue"
               fullWidth
@@ -1684,7 +1709,7 @@ export function PlayView() {
             >
               {sv.play.pvpDeal2Damage}
             </ArcadeButton>
-            {availableSlots.length > 0 ? (
+            {showEquipmentLoot ? (
               availableSlots.map((slot) => (
                 <ArcadeButton
                   key={slot}
@@ -1695,8 +1720,10 @@ export function PlayView() {
                   {sv.play.takeSlot(capitalizeWord(equipmentSlotSv(slot)))}
                 </ArcadeButton>
               ))
+            ) : theftProtected ? (
+              <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{sv.play.pvpLootTheftProtectedHint}</div>
             ) : (
-              <div style={{ textAlign: "center", opacity: 0.75, fontSize: 12 }}>{sv.play.noItemsToSteal}</div>
+              <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{sv.play.noItemsToSteal}</div>
             )}
           </div>
         </div>
@@ -1705,7 +1732,7 @@ export function PlayView() {
 
     if (isMyTurn && !pending) {
       return (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={u.stack10}>
           <div className={styles.sheetDiceBlock}>
             <DiceCube3D idleSpin spinning={rollDiceSpinning} size={76} />
             <div className={styles.sheetDiceCaption} aria-hidden />
@@ -1730,11 +1757,10 @@ export function PlayView() {
   const cardOrSipActions = (() => {
     if (!me) return null;
     if (state?.pending?.type === "brewerDown") return null;
-    /** Straffklunk: SKÅL ligger i SipNoticeCardModal (samma lager som overlay — undvik z-index-krock med nedersta arket). */
     if (hasBlockingSipNotice) return null;
     if (myEnemyIntroPending) {
       return (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={u.stack10}>
           {canSkipMonsterEncounter ? (
             <ArcadeButton
               variant="gray"
@@ -1753,7 +1779,7 @@ export function PlayView() {
     if (!myCardPending) return null;
     if (myCardPending.choices && myCardPending.choices.length > 0) {
       return (
-        <div style={{ display: "grid", gap: 8 }}>
+        <div className={u.stack8}>
           {myCardPending.choices.map((c) => (
             <ArcadeButton
               key={c.id}
@@ -1805,16 +1831,16 @@ export function PlayView() {
       (broPick && !combatAttackerId) ||
       (needsTarget && itemUseTargetPhase && !chosen);
     return (
-      <div style={{ display: "grid", gap: 10 }}>
+      <div className={u.stack10}>
         {passive ? (
-          <div style={{ opacity: 0.85, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>{sv.play.itemsPassiveHint}</div>
+          <div className={u.itemsHint13}>{sv.play.itemsPassiveHint}</div>
         ) : !canUse ? (
-          <div style={{ opacity: 0.85, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>{sv.play.itemsUseHint}</div>
+          <div className={u.itemsHint13}>{sv.play.itemsUseHint}</div>
         ) : null}
         {showTargetPicker ? (
-          <div style={{ display: "grid", gap: 8 }}>
-            <div style={{ opacity: 0.8, fontSize: 12, textAlign: "center" }}>{targetPrompt}</div>
-            <div style={{ display: "grid", gap: 8 }}>
+          <div className={u.stack8}>
+            <div className={u.itemsTarget12}>{targetPrompt}</div>
+            <div className={u.stack8}>
               {candidates.map((p) => (
                 <ArcadeButton
                   key={p.id}
@@ -1836,7 +1862,7 @@ export function PlayView() {
             {sv.play.modalClose}
           </ArcadeButton>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className={u.grid2Equal10}>
             <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
               {sv.play.modalClose}
             </ArcadeButton>
@@ -1874,8 +1900,21 @@ export function PlayView() {
       </ArcadeButton>
     ) : null;
 
+  const sipNoticeAckSheet =
+    hasBlockingSipNotice && me && mySipNotice ? (
+      <div className={u.stack10}>
+        <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "sipNoticeAck", playerId: me.id })}>
+          {mySipNotice.noticeKind === "duel_loss"
+            ? sv.sipNotice.duelAck
+            : mySipNotice.title?.trim() || mySipNotice.body?.trim()
+              ? sv.sipNotice.ack
+              : sv.sipNotice.cheers}
+        </ArcadeButton>
+      </div>
+    ) : null;
+
   const bottomSheetPrimary =
-    itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? (!hasBlockingSipNotice ? interaction : null);
+    itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
 
   useLayoutEffect(() => {
@@ -2340,13 +2379,11 @@ export function PlayView() {
 
       {state?.phase === "playing" && me && mySipNotice && hasBlockingSipNotice && (
         <SipNoticeCardModal
-          recipientName={me.name}
           fromPlayerName={mySipNotice.fromPlayerName}
           klunkCount={mySipNotice.klunkCount ?? 1}
           customTitle={mySipNotice.title}
           customBody={mySipNotice.body}
           noticeKind={mySipNotice.noticeKind ?? "custom"}
-          onAck={() => send({ type: "sipNoticeAck", playerId: me.id })}
         />
       )}
 
@@ -2403,7 +2440,7 @@ export function PlayView() {
                 />
                 <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
                 <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{sv.play.brewerDownLead}</p>
-                <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
+                <div className={u.stack10Mt4}>
                   <ArcadeButton
                     variant="pink"
                     fullWidth
@@ -2468,9 +2505,7 @@ export function PlayView() {
             <p style={{ textAlign: "center", marginBottom: 16 }}>
               {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
             </p>
-            <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{sv.play.scoreboardTitle}</h3>
-            <p style={{ margin: "0 0 12px", opacity: 0.8, fontSize: 13, lineHeight: 1.4 }}>{sv.play.scoreboardHint}</p>
-            <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 12, fontSize: 15 }}>
+            <ol className={u.listGrid12}>
               {[...state.players]
                 .sort((a, b) => {
                   const w = state.winnerId;
@@ -2587,26 +2622,8 @@ export function PlayView() {
                       </div>
                     </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        width: "100%",
-                        minWidth: 0,
-                        gridTemplateColumns: "minmax(0, 1fr)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          opacity: 0.8,
-                          fontSize: 12,
-                          fontWeight: 900,
-                          letterSpacing: 0.3,
-                          textAlign: "center",
-                        }}
-                      >
-                        {sv.play.itemsHeading}
-                      </div>
+                    <div className={u.stack8FullMin1}>
+                      <div className={u.itemsHeadingRow}>{sv.play.itemsHeading}</div>
                       <div className={styles.equipmentGridWrap}>
                         {groupedInventoryEntries.length === 0 ? (
                           <div className={styles.inventoryEmpty}>{sv.play.itemsEmpty}</div>
@@ -2631,98 +2648,120 @@ export function PlayView() {
                                   style={{
                                     width: "100%",
                                     aspectRatio: "1 / 1",
+                                    minHeight: 0,
+                                    boxSizing: "border-box",
                                     borderRadius: 14,
                                     border: tone.border,
                                     background: tone.background,
                                     boxShadow: tone.boxShadow,
                                     position: "relative",
                                     overflow: iflash ? "visible" : "hidden",
-                                    padding: 8,
+                                    padding: 0,
                                     cursor: "pointer",
+                                    display: "flex",
+                                    flexDirection: "column",
                                   }}
                                 >
-                                  <LootFlashShell flash={iflash} flashKey={iflashKey}>
-                                    {/*
-                                      iOS Safari: img + height 100% + object-fit cover kan “läcka” under
-                                      föräldern; overflow hidden på själva knappen klippte badge/siffror.
-                                      Bild i eget lager med overflow hidden; UI i grid-lager ovanpå.
-                                    */}
-                                    <div
-                                      style={{
-                                        position: "relative",
-                                        width: "100%",
-                                        height: "100%",
-                                        minHeight: 0,
-                                        display: "grid",
-                                        gridTemplateAreas: '"stack"',
-                                        gridTemplateRows: "1fr",
-                                        gridTemplateColumns: "1fr",
-                                      }}
-                                    >
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      minHeight: 0,
+                                      minWidth: 0,
+                                      width: "100%",
+                                      padding: 8,
+                                      boxSizing: "border-box",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                    }}
+                                  >
+                                    <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}>
+                                    <LootFlashShell flash={iflash} flashKey={iflashKey}>
+                                      {/*
+                                        WebKit/mobil: två grid-barn med samma area gav overlay-flex min-innehållshöjd
+                                        som tryckte ut bilden. Bild i absolute inset 0 + overlay absolute ovanpå.
+                                      */}
                                       <div
                                         style={{
-                                          gridArea: "stack",
-                                          minHeight: 0,
-                                          overflow: "hidden",
-                                          borderRadius: 8,
-                                        }}
-                                      >
-                                        <img
-                                          src={itemImageSrc(itemId)}
-                                          onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
-                                          }}
-                                          alt=""
-                                          aria-hidden
-                                          style={{
-                                            width: "100%",
-                                            height: "100%",
-                                            objectFit: "cover",
-                                            objectPosition: "center center",
-                                            display: "block",
-                                          }}
-                                        />
-                                      </div>
-                                      <div
-                                        style={{
-                                          gridArea: "stack",
-                                          zIndex: 2,
-                                          pointerEvents: "none",
-                                          display: "flex",
-                                          flexDirection: "column",
-                                          alignItems: "flex-end",
+                                          position: "relative",
                                           width: "100%",
                                           height: "100%",
-                                          boxSizing: "border-box",
-                                          padding: 4,
+                                          minHeight: 0,
                                         }}
                                       >
-                                        {info.count > 1 ? (
-                                          <span
+                                        <div
+                                          style={{
+                                            position: "absolute",
+                                            inset: 0,
+                                            overflow: "hidden",
+                                            borderRadius: 8,
+                                          }}
+                                        >
+                                          <img
+                                            src={itemImageSrc(itemId)}
+                                            onError={(e) => {
+                                              (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+                                            }}
+                                            alt=""
+                                            aria-hidden
                                             style={{
-                                              minWidth: 20,
-                                              minHeight: 20,
-                                              borderRadius: 999,
-                                              border: "1px solid #ffffff55",
-                                              background: "rgba(11,18,38,0.88)",
-                                              color: "#fff",
-                                              fontSize: 12,
-                                              fontWeight: 800,
-                                              display: "grid",
-                                              placeItems: "center",
-                                              padding: "0 4px",
-                                              lineHeight: 1,
+                                              position: "absolute",
+                                              inset: 0,
+                                              width: "100%",
+                                              height: "100%",
+                                              objectFit: "cover",
+                                              objectPosition: "center center",
+                                              display: "block",
+                                            }}
+                                          />
+                                        </div>
+                                        <div
+                                          style={{
+                                            position: "absolute",
+                                            inset: 0,
+                                            zIndex: 2,
+                                            pointerEvents: "none",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "flex-end",
+                                            boxSizing: "border-box",
+                                            padding: 4,
+                                          }}
+                                        >
+                                          {info.count > 1 ? (
+                                            <span
+                                              style={{
+                                                minWidth: 20,
+                                                minHeight: 20,
+                                                borderRadius: 999,
+                                                border: "1px solid #ffffff55",
+                                                background: "rgba(11,18,38,0.88)",
+                                                color: "#fff",
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                display: "grid",
+                                                placeItems: "center",
+                                                padding: "0 4px",
+                                                lineHeight: 1,
+                                              }}
+                                            >
+                                              {info.count}
+                                            </span>
+                                          ) : null}
+                                          <div
+                                            style={{
+                                              marginTop: "auto",
+                                              display: "flex",
+                                              flexDirection: "column",
+                                              alignItems: "flex-end",
                                             }}
                                           >
-                                            {info.count}
-                                          </span>
-                                        ) : null}
-                                        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                                          <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
+                                            <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
+                                          </div>
                                         </div>
                                       </div>
+                                    </LootFlashShell>
                                     </div>
-                                  </LootFlashShell>
+                                  </div>
                                 </button>
                               );
                             })}
@@ -2771,6 +2810,7 @@ export function PlayView() {
             itemDetailSheet ||
               equipDetailSheet ||
               cardOrSipActions ||
+              sipNoticeAckSheet ||
               bottomSheetOverTeamBattleIntro ||
               bottomSheetOverEncounterChoice
               ? styles.bottomSheetAboveCard
@@ -2876,7 +2916,7 @@ export function PlayView() {
 
       {showPlayers && state && (
         <Modal title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)}>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={u.stack10}>
             {state.players.map((p) => (
               <div
                 key={p.id}
@@ -2919,7 +2959,7 @@ export function PlayView() {
                     </span>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, opacity: 0.9 }}>
+                <div className={u.grid2Eq8Fs12}>
                   <div>
                     <b>{sv.play.equipWeapon}:</b> {p.equipment.weapon?.name ?? "—"}
                   </div>
@@ -2988,7 +3028,7 @@ export function PlayView() {
               ) : undefined
             }
           >
-            <div style={{ display: "grid", gap: 10 }}>
+            <div className={u.stack10}>
               <div
                 style={{
                   width: "100%",
@@ -3017,7 +3057,7 @@ export function PlayView() {
               ) : (
                 <>
                   {bodyLines.length > 0 ? (
-                    <div style={{ display: "grid", gap: 8, opacity: 0.92, fontSize: 15, lineHeight: 1.45 }}>
+                    <div className={u.stack8Fs15}>
                       {bodyLines.map((line, i) => (
                         <div key={i}>{line}</div>
                       ))}
@@ -3057,7 +3097,7 @@ export function PlayView() {
             {!inst ? (
               <div style={{ opacity: 0.9 }}>{sv.play.itemNotFound}</div>
             ) : (
-              <div style={{ display: "grid", gap: 10 }}>
+              <div className={u.stack10}>
                 <div className={styles.itemModalArtFrame}>
                   <img
                     src={itemImageSrc(inst.itemId)}
@@ -3990,13 +4030,14 @@ function MoveOptionLabel(props: {
       p.levelIndex === props.levelIndex &&
       p.tileIndex === props.tileIndex,
   );
-  const primary = hasOtherPlayer ? sv.play.moveChoiceBvbLabel : titleCaseTileType(props.tileType);
+  const tileLabel = titleCaseTileType(props.tileType);
+  const primary = hasOtherPlayer ? `${sv.play.moveChoiceBvbLabel} / ${tileLabel}` : tileLabel;
   const showDoorPant = props.tileType === "door" && !hasOtherPlayer;
   const doorGoldCost = showDoorPant
     ? doorTileAscendGoldCost(props.state, props.meId, props.levelIndex, props.tileIndex)
     : null;
   return (
-    <span style={{ display: "grid", gap: 2, textAlign: "center", width: "100%" }}>
+    <span className={u.spanStack2Center}>
       <span
         style={{
           fontWeight: 900,
@@ -4101,7 +4142,7 @@ function EnemyIntroModal(props: {
   })();
   const aboveScene =
     bossRoundLabel || props.teammateName ? (
-      <div style={{ display: "grid", gap: 6, marginBottom: 4 }}>
+      <div className={u.stack6Mb4}>
         {bossRoundLabel ? (
           <div
             style={{
@@ -4202,16 +4243,13 @@ function EnemyIntroModal(props: {
 const SIP_NOTICE_FROM_COLOR = "#fb923c";
 
 function SipNoticeCardModal(props: {
-  recipientName: string;
   fromPlayerName: string;
   klunkCount: number;
   customTitle?: string;
   customBody?: string;
   noticeKind?: SipNoticeKind;
-  onAck: () => void;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
-  const recipient = props.recipientName?.trim() || "—";
   const count = Math.max(1, Math.floor(props.klunkCount));
   const hasCustom = !!props.customTitle || !!props.customBody;
   const duelLoss = props.noticeKind === "duel_loss";
@@ -4310,20 +4348,6 @@ function SipNoticeCardModal(props: {
             }}
           />
         ) : null}
-        {!duelLoss ? (
-          <div
-            style={{
-              fontFamily: "var(--heading)",
-              fontWeight: 400,
-              fontSize: "clamp(1.45rem, 8.5cqw, 2.15rem)",
-              lineHeight: 1.02,
-              letterSpacing: "0.03em",
-              textTransform: "uppercase",
-            }}
-          >
-            {recipient}
-          </div>
-        ) : null}
         {body ? (
           <p
             style={{
@@ -4354,11 +4378,6 @@ function SipNoticeCardModal(props: {
             <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
           </p>
         )}
-        <div style={{ marginTop: 8, width: "100%", flexShrink: 0 }}>
-          <ArcadeButton variant="pink" fullWidth onClick={props.onAck}>
-            {duelLoss ? sv.sipNotice.duelAck : hasCustom ? sv.sipNotice.ack : sv.sipNotice.cheers}
-          </ArcadeButton>
-        </div>
       </div>
     </div>
   );

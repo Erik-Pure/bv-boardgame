@@ -117,6 +117,8 @@ export function artImageSrc(artKey?: string): string {
       return "/monsters/onda-bryggverket.webp";
     }
     if (mKey === "oldomaren") return "/monsters/beer-judge.webp";
+    /** Raster saknas ännu — generiska kortplatshållare tills etikettbilder lagts i public/monsters/. */
+    if (mKey === "enhorningsryttare" || mKey === "fargglada-gubbar") return "/card-placeholder.png";
     return `/monsters/${mKey}.webp`;
   }
   // Filer i apps/web/public/event/{namn}.png — t.ex. event/rest → public/event/rest.png

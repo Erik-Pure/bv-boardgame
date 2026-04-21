@@ -58,7 +58,6 @@ wss.on("connection", (ws) => {
   ws.on("message", (data) => {
     try {
       const msg = clientMessageSchema.parse(JSON.parse(String(data)));
-      log.debug("recv", msg.type);
 
       if (msg.type === "hello") {
         if (joined) return;
@@ -87,7 +86,7 @@ wss.on("connection", (ws) => {
         };
         ws.send(JSON.stringify(ack));
         broadcastState(res.room);
-        log.debug("helloAck + state", res.room.code, res.conn.playerId);
+        log.debug("helloAck + broadcastState", res.room.code, res.conn.playerId);
         return;
       }
 

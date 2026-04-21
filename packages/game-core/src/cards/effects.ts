@@ -30,6 +30,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       name: eq.name,
       power: eq.power ?? 1,
       sipAttackBonus: eq.sipAttackBonus,
+      pvpDieBonus: eq.pvpDieBonus,
       gainGoldOnWin: eq.gainGoldOnWin,
       powerAtGold10: eq.powerAtGold10,
       powerAtGold20: eq.powerAtGold20,
@@ -45,6 +46,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       bossDamageNegateBonus: eq.bossDamageNegateBonus,
       negateAllOnce: eq.negateAllOnce,
       pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
+      pvpDieBonus: eq.pvpDieBonus,
       gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
       healHpPerTurn: eq.healHpPerTurn,
     };
@@ -63,6 +65,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       klunkAttackBonus10: eq.klunkAttackBonus10,
       klunkAttackBonus20: eq.klunkAttackBonus20,
       klunkAttackBonusMax: eq.klunkAttackBonusMax,
+      pvpDieBonus: eq.pvpDieBonus,
     };
     player.maxHp =
       10 + (player.equipment.armor?.bonusHp ?? 0) + (player.equipment.helmet?.bonusHp ?? 0);
@@ -80,6 +83,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       preventTheft: eq.preventTheft,
       levelUpDiscountGold: eq.levelUpDiscountGold,
       canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
+      pvpDieBonus: eq.pvpDieBonus,
     };
   }
   return { kind: "equipped", name: eq.name, slot };

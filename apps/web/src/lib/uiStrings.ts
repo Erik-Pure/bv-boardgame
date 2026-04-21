@@ -153,16 +153,16 @@ export const sv = {
     intervene: "Ingrip",
     doNothing: "Gör inget",
     encounterChoose: "Möte — bryggare mot bryggare. Välj:",
-    /** Kort etikett när rörelseval leder till ruta med annan bryggare */
+    /** Prefix när rörelseval leder till ruta med annan bryggare; kombineras med ruttyp, t.ex. «BvB / Händelse». */
     moveChoiceBvbLabel: "BvB",
     pvpChooseOpponent: "BvB — välj motståndare:",
     pvpBothRoll: "BvB (båda slår)",
-    resolveTileNoPvp: (tileLabel: string) => `Lös rutan (${tileLabel})`,
+    /** Mötesval: knapptext för att inte ta BvB — bara ruttypen (t.ex. Skatt, Händelse). */
+    resolveTileNoPvp: (tileLabel: string) => tileLabel,
     pvpRollDie: "Slå din tärning",
     pvpRound: (n: number) => `Rond ${n}`,
     pvpRoundBestOf: (round: number, bestOf: number) => `Rond ${round} av ${bestOf}`,
     pvpTieRerollHint: "Lika — båda slår om.",
-    pvpRollWindowHint: "Spela klarrundan först, sedan slår båda.",
     /** Efter rondslag: matchen fortsätter efter att båda bekräftat. */
     pvpRoundRevealNextRound: (completedRound: number, nextRound: number) =>
       `Rond ${completedRound} klar. Bekräfta innan rond ${nextRound}.`,
@@ -184,7 +184,7 @@ export const sv = {
     pvpWaitingOpponentReady: (name: string) => `Väntar på att ${name} markerar klar…`,
     pvpPressReadyWhenDone: "Tryck Klar när du spelat färdigt dina kort.",
     /** Du har inget av de föremål som får spelas i BvB-förberedelsen — servern räknar dig som klar utan knapptryck. */
-    pvpNoItemsAutoReady: "Du har inga BvB-föremål att spela — du behöver inte trycka Klar.",
+    pvpNoItemsAutoReady: "Du har inga BvB-föremål att spela.",
     pvpWaitingOpponentItemsOrReady: (name: string) =>
       `Väntar på att ${name} spelar klart eller markerar klar…`,
     pvpScoreLabel: "Matchställning",
@@ -228,6 +228,9 @@ export const sv = {
     pvpDeal2Damage: "Ge förloraren 2 skada",
     takeSlot: (slot: string) => `Ta ${slot}`,
     noItemsToSteal: "Inga föremål att ta.",
+    /** Förloraren har t.ex. solbrillor (preventTheft): BvB-byte är bara pant, straffklunk eller skada. */
+    pvpLootTheftProtectedHint:
+      "Motståndaren är skyddad mot utrustningsbyte — välj pant, straffklunk eller skada.",
     rollDie: "Slå tärning",
     /** Under strid efter Skägget rakt bak — t6 visas som slaget men bidraget till total är 2×. */
     combatAttackDoubledHint: "Tärningen räknas dubbelt i attacktotalen (Skägget rakt bak).",
@@ -252,10 +255,7 @@ export const sv = {
     brewerDownGiveUp: "Ge upp",
     brewerDownWaitOther: (name: string) => `Väntar på att ${name} väljer …`,
     gameOver: "Spelet är slut",
-    scoreboardTitle: "Resultatlista",
     scoreboardBrewerLevelAria: (n: number) => `Bryggnivå ${n}`,
-    scoreboardHint:
-      "Vinnaren överst, därefter flest klunkar. Jämte: pant, sedan namn. Ikoner: bryggnivå, klunkar, pant, liv.",
     winner: "Vinnare",
     /** Knapp i modalen när spelet är slut — går till startsidan. */
     gameOverLeaveToHome: "Avsluta spelet",
@@ -308,7 +308,7 @@ export const sv = {
       `${recipient} får en straffklunk — slumpad annan spelare.`,
     combatSipWeaponPrompt: (weaponName: string, bonus: number) =>
       `${weaponName}: vill du ta en straffklunk för +${bonus} attack på detta slag?`,
-    combatSipWeaponRollWith: (bonus: number) => `Slå med straffklunk (+${bonus} attack)`,
+    combatSipWeaponRollWith: (bonus: number) => `Ta straffklunk (+${bonus} attack)`,
     combatSipWeaponRollWithout: "Slå utan straffklunk",
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",
@@ -478,9 +478,9 @@ export const sv = {
       return `${k} från `;
     },
     cheers: "Skål!",
-    ack: "Fattat",
+    ack: "Okej",
     /** Bekräftelse efter duell-förlust-notis (annat tonläge än övriga anpassade notices). */
-    duelAck: "Fattar",
+    duelAck: "Okej",
     fallbackFrom: "en annan spelare",
   },
   cardModal: {

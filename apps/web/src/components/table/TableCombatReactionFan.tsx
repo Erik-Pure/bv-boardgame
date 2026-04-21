@@ -1,5 +1,6 @@
 import type { TableFanCardModel } from "../../lib/tableItemPlayFanCards";
 import { TableItemPlayCard } from "./TableItemPlayCard";
+import styles from "./TableCombatReactionFan.module.css";
 
 type Props = {
   cards: TableFanCardModel[];
@@ -20,29 +21,7 @@ export function TableCombatReactionFan(props: Props) {
   const baseRot = n <= 1 ? -2.75 : -maxRot;
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: "min(64vh, 520px)",
-        pointerEvents: "none",
-        zIndex: 0,
-      }}
-    >
-      <style>
-        {`@keyframes tableFanCardSlideInFromBelow {
-  0% {
-    opacity: 0;
-    transform: translateX(calc(-50% + var(--fan-tx, 0px))) translateY(32px) rotate(var(--fan-rot, 0deg));
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(calc(-50% + var(--fan-tx, 0px))) translateY(calc(-1 * var(--fan-lift, 0px))) rotate(var(--fan-rot, 0deg));
-  }
-}`}
-      </style>
+    <div className={styles.fanRoot}>
       {cards.map((card, i) => {
         const rot = n === 1 ? -2.75 : baseRot + i * rotStep;
         const spread = 48;
@@ -51,25 +30,16 @@ export function TableCombatReactionFan(props: Props) {
         return (
           <div
             key={card.key}
+            className={styles.fanCard}
             style={{
-              position: "absolute",
-              left: "50%",
-              bottom: 0,
-              width: "min(280px, 40vw)",
-              transformOrigin: "50% 100%",
-              transform: `translateX(calc(-50% + ${tx}px)) translateY(-${liftPx}px) rotate(${rot}deg)`,
               zIndex: i + 1,
-              filter: "drop-shadow(0 -6px 18px rgba(0,0,0,0.38))",
-              opacity: 1,
-              animation: "tableFanCardSlideInFromBelow 300ms cubic-bezier(.2,.75,.18,1) both",
               animationDelay: `${Math.min(i * 38, 140)}ms`,
-              willChange: "transform, opacity",
               ["--fan-tx" as string]: `${tx}px`,
               ["--fan-rot" as string]: `${rot}deg`,
               ["--fan-lift" as string]: `${liftPx}px`,
             }}
           >
-            <div style={{ transform: "scale(0.98)", transformOrigin: "50% 100%" }}>
+            <div className={styles.fanCardScaleWrap}>
               <TableItemPlayCard
                 title={card.title}
                 actorName={card.actorName}

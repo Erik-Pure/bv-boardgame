@@ -18,6 +18,7 @@ import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/invento
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
 import { PictureImg } from "../components/PictureImg";
+import catalogStyles from "./CardsCatalog.module.css";
 
 const KIND_ORDER: CardKind[] = ["event", "item", "combat", "treasure", "rest", "empty"];
 
@@ -146,27 +147,17 @@ export function CardsCatalog() {
   }, []);
 
   return (
-    <div
-      style={{
-        maxWidth: 1200,
-        margin: "0 auto",
-        padding: "24px 16px 48px",
-        color: "#f8fafc",
-        minHeight: "100vh",
-        boxSizing: "border-box",
-        background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
-      }}
-    >
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(1.35rem, 4vw, 1.75rem)" }}>Kortkatalog</h1>
-        <Link to="/" style={{ color: "#93c5fd", fontSize: 15 }}>
+    <div className={catalogStyles.pageRoot}>
+      <div className={catalogStyles.catalogHeaderRow}>
+        <h1 className={catalogStyles.catalogTitle}>Kortkatalog</h1>
+        <Link to="/" className={catalogStyles.catalogHomeLink}>
           Till startsidan
         </Link>
       </div>
-      <p style={{ margin: "0 0 24px", opacity: 0.85, lineHeight: 1.5, maxWidth: 820 }}>
-        Översikt: kort från <code style={{ color: "#cbd5e1" }}>cards.json</code>, utrustning från{" "}
-        <code style={{ color: "#cbd5e1" }}>equipmentDefs.ts</code>, monster från{" "}
-        <code style={{ color: "#cbd5e1" }}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
+      <p className={catalogStyles.catalogIntro}>
+        Översikt: kort från <code className={catalogStyles.codeInline}>cards.json</code>, utrustning från{" "}
+        <code className={catalogStyles.codeInline}>equipmentDefs.ts</code>, monster från{" "}
+        <code className={catalogStyles.codeInline}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
         <strong>team battle</strong> och <strong>slutbossar</strong>.
       </p>
 
@@ -176,29 +167,17 @@ export function CardsCatalog() {
         if (kind === "item") {
           const { positive, negative } = splitItemCardsByPolarity(list);
           return (
-            <section key={kind} style={{ marginBottom: 36 }}>
-              <h2
-                style={{
-                  margin: "0 0 16px",
-                  fontSize: "1.15rem",
-                  borderBottom: "1px solid rgba(148,163,184,0.35)",
-                  paddingBottom: 8,
-                }}
-              >
-                {KIND_LABEL_SV[kind]} <span style={{ opacity: 0.55, fontWeight: 500 }}>({list.length})</span>
+            <section key={kind} className={catalogStyles.sectionMb36}>
+              <h2 className={catalogStyles.h2Section}>
+                {KIND_LABEL_SV[kind]}{" "}
+                <span className={catalogStyles.countMuted}>({list.length})</span>
               </h2>
               {positive.length > 0 ? (
-                <div style={{ marginBottom: 18 }}>
-                  <h3 style={{ margin: "0 0 12px", fontSize: "1rem", color: "#86efac" }}>
-                    Positiva <span style={{ opacity: 0.55, fontWeight: 500 }}>({positive.length})</span>
+                <div className={catalogStyles.itemPolarityBlock}>
+                  <h3 className={catalogStyles.h3Positive}>
+                    Positiva <span className={catalogStyles.countMuted}>({positive.length})</span>
                   </h3>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                      gap: 16,
-                    }}
-                  >
+                  <div className={catalogStyles.catalogCardGrid}>
                     {positive.map((card) => (
                       <CatalogCard key={card.id} card={card} />
                     ))}
@@ -207,16 +186,10 @@ export function CardsCatalog() {
               ) : null}
               {negative.length > 0 ? (
                 <div>
-                  <h3 style={{ margin: "0 0 12px", fontSize: "1rem", color: "#fca5a5" }}>
-                    Negativa <span style={{ opacity: 0.55, fontWeight: 500 }}>({negative.length})</span>
+                  <h3 className={catalogStyles.h3Negative}>
+                    Negativa <span className={catalogStyles.countMuted}>({negative.length})</span>
                   </h3>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                      gap: 16,
-                    }}
-                  >
+                  <div className={catalogStyles.catalogCardGrid}>
                     {negative.map((card) => (
                       <CatalogCard key={card.id} card={card} />
                     ))}
@@ -227,24 +200,11 @@ export function CardsCatalog() {
           );
         }
         return (
-          <section key={kind} style={{ marginBottom: 36 }}>
-            <h2
-              style={{
-                margin: "0 0 16px",
-                fontSize: "1.15rem",
-                borderBottom: "1px solid rgba(148,163,184,0.35)",
-                paddingBottom: 8,
-              }}
-            >
-              {KIND_LABEL_SV[kind]} <span style={{ opacity: 0.55, fontWeight: 500 }}>({list.length})</span>
+          <section key={kind} className={catalogStyles.sectionMb36}>
+            <h2 className={catalogStyles.h2Section}>
+              {KIND_LABEL_SV[kind]} <span className={catalogStyles.countMuted}>({list.length})</span>
             </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: 16,
-              }}
-            >
+            <div className={catalogStyles.catalogCardGrid}>
               {list.map((card) => (
                 <CatalogCard key={card.id} card={card} />
               ))}
@@ -253,40 +213,25 @@ export function CardsCatalog() {
         );
       })}
 
-      <section style={{ marginBottom: 36 }}>
-        <h2
-          style={{
-            margin: "0 0 8px",
-            fontSize: "1.15rem",
-            borderBottom: "1px solid rgba(148,163,184,0.35)",
-            paddingBottom: 8,
-          }}
-        >
+      <section className={catalogStyles.sectionMb36}>
+        <h2 className={catalogStyles.h2SectionTight}>
           Utrustning{" "}
-          <span style={{ opacity: 0.55, fontWeight: 500 }}>
+          <span className={catalogStyles.countMuted}>
             ({EQUIPMENT_CATALOG.length + EXTRA_OVERVIEW_EQUIPMENT.length})
           </span>
         </h2>
-        <p style={{ margin: "0 0 20px", opacity: 0.75, fontSize: 14, lineHeight: 1.45 }}>
-          Handelskatalog / loot-pool. Bild = unik art om den finns, annars slot-siluett.
-        </p>
+        <p className={catalogStyles.equipIntro}>Handelskatalog / loot-pool. Bild = unik art om den finns, annars slot-siluett.</p>
         {EQUIP_SLOT_ORDER.map((slot) => {
           const list = equipmentBySlot.get(slot) ?? [];
           if (list.length === 0) return null;
           const label = capitalizeWord(equipmentSlotSv(slot));
           return (
-            <div key={slot} style={{ marginBottom: 28 }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: "1.02rem", opacity: 0.95 }}>
+            <div key={slot} className={catalogStyles.equipSlotBlock}>
+              <h3 className={catalogStyles.h3EquipSlot}>
                 {label}{" "}
-                <span style={{ opacity: 0.5, fontWeight: 500 }}>({list.length})</span>
+                <span className={catalogStyles.countMutedSoft}>({list.length})</span>
               </h3>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                  gap: 16,
-                }}
-              >
+              <div className={catalogStyles.catalogCardGrid}>
                 {list.map((it) => (
                   <EquipmentCatalogCard key={it.id} item={it} />
                 ))}
@@ -327,43 +272,21 @@ function MonsterSection(props: {
 }) {
   if (props.monsters.length === 0) {
     return (
-      <section style={{ marginBottom: 24 }}>
-        <h2
-          style={{
-            margin: "0 0 8px",
-            fontSize: "1.15rem",
-            borderBottom: "1px solid rgba(148,163,184,0.35)",
-            paddingBottom: 8,
-          }}
-        >
-          {props.title}{" "}
-          <span style={{ opacity: 0.55, fontWeight: 500 }}>(0)</span>
+      <section className={catalogStyles.sectionMb24}>
+        <h2 className={catalogStyles.h2SectionTight}>
+          {props.title} <span className={catalogStyles.countMuted}>(0)</span>
         </h2>
-        <p style={{ margin: 0, opacity: 0.65, fontSize: 14 }}>Inga poster i denna kategori.</p>
+        <p className={catalogStyles.emptyHint}>Inga poster i denna kategori.</p>
       </section>
     );
   }
   return (
-    <section style={{ marginBottom: 36 }}>
-      <h2
-        style={{
-          margin: "0 0 8px",
-          fontSize: "1.15rem",
-          borderBottom: "1px solid rgba(148,163,184,0.35)",
-          paddingBottom: 8,
-        }}
-      >
-        {props.title}{" "}
-        <span style={{ opacity: 0.55, fontWeight: 500 }}>({props.monsters.length})</span>
+    <section className={catalogStyles.sectionMb36}>
+      <h2 className={catalogStyles.h2SectionTight}>
+        {props.title} <span className={catalogStyles.countMuted}>({props.monsters.length})</span>
       </h2>
-      <p style={{ margin: "0 0 16px", opacity: 0.75, fontSize: 14, lineHeight: 1.45 }}>{props.subtitle}</p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <p className={catalogStyles.monsterSubtitle}>{props.subtitle}</p>
+      <div className={catalogStyles.catalogCardGrid}>
         {props.monsters.map((m) => (
           <MonsterCatalogCard
             key={m.id}

@@ -1,0 +1,122 @@
+.pageRoot {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  color: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+}
+
+.catalogHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.catalogTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+}
+
+.catalogHomeLink {
+  color: #93c5fd;
+  font-size: 15px;
+}
+
+.catalogIntro {
+  margin: 0 0 24px;
+  opacity: 0.85;
+  line-height: 1.5;
+  max-width: 820px;
+}
+
+.sectionMb36 {
+  margin-bottom: 36px;
+}
+
+.sectionMb24 {
+  margin-bottom: 24px;
+}
+
+.h2Section {
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  padding-bottom: 8px;
+}
+
+.h2SectionTight {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  padding-bottom: 8px;
+}
+
+.catalogCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.itemPolarityBlock {
+  margin-bottom: 18px;
+}
+
+.h3Positive {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #86efac;
+}
+
+.h3Negative {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #fca5a5;
+}
+
+.equipSlotBlock {
+  margin-bottom: 28px;
+}
+
+.h3EquipSlot {
+  margin: 0 0 14px;
+  font-size: 1.02rem;
+  opacity: 0.95;
+}
+
+.countMuted {
+  opacity: 0.55;
+  font-weight: 500;
+}
+
+.countMutedSoft {
+  opacity: 0.5;
+  font-weight: 500;
+}
+
+.equipIntro {
+  margin: 0 0 20px;
+  opacity: 0.75;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.emptyHint {
+  margin: 0;
+  opacity: 0.65;
+  font-size: 14px;
+}
+
+.codeInline {
+  color: #cbd5e1;
+}
+
+.monsterSubtitle {
+  margin: 0 0 16px;
+  opacity: 0.75;
+  font-size: 14px;
+  line-height: 1.45;
+}

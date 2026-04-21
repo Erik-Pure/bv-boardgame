@@ -1,0 +1,410 @@
+/**
+ * Delade layout- och typografi-klasser (ersätter upprepade inline-objekt i vyer).
+ * Vanliga mönster: grid stack (gap 6/8/10/12), text center + opacity-steg, ellipsis,
+ * inline-flex med gap, två kolumner 1fr 1fr, flex centrerad rad.
+ */
+
+.stack6 {
+  display: grid;
+  gap: 6px;
+}
+
+.stack6Mb4 {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.stack8Fs15 {
+  display: grid;
+  gap: 8px;
+  opacity: 0.92;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.listGrid12 {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 12px;
+  font-size: 15px;
+}
+
+.stack8 {
+  display: grid;
+  gap: 8px;
+}
+
+.stack10 {
+  display: grid;
+  gap: 10px;
+}
+
+.stack12 {
+  display: grid;
+  gap: 12px;
+}
+
+.stack10Relative {
+  display: grid;
+  gap: 10px;
+  position: relative;
+}
+
+.flexRowGap10 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.flexRowGap8 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.flexRowGap8Shrink0 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.flexWrapGap8 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flexSpaceBetweenGap10 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.flexCenterFullWidth {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.gridStart6 {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  text-align: left;
+  min-width: 0;
+}
+
+.grid2Equal10 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.grid2Eq8Fs12 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.stack10Mt4 {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.spanStack2Center {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  width: 100%;
+}
+
+.levelUpTitle {
+  text-align: center;
+  opacity: 0.98;
+  font-size: 30px;
+  line-height: 1.04;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+}
+
+.itemsHint13 {
+  opacity: 0.85;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.itemsTarget12 {
+  opacity: 0.8;
+  font-size: 12px;
+  text-align: center;
+}
+
+.itemsHeadingRow {
+  opacity: 0.8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+
+.stack8FullMin1 {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gridCenter8Mb16 {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.caption12o86Center {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.86;
+  text-align: center;
+}
+
+.flexRowBetweenWrap12 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mt20w100 {
+  margin-top: 20px;
+  width: 100%;
+}
+
+.gameOverTitle {
+  margin-top: 0;
+  text-align: center;
+}
+
+.gameOverWinnerLine {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.gridCols1 {
+  grid-template-columns: 1fr;
+}
+
+.gridCols2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.justifyItemsCenter {
+  justify-items: center;
+}
+
+.inlineFlexGap4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inlineFlexGap5 {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.inlineFlexGap12WrapEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #e5e7eb;
+}
+
+.inlineFlexLine0 {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.reactionTitleRow {
+  text-align: center;
+  opacity: 0.94;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.combatIcon16 {
+  width: 16px;
+  height: 16px;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+.box96 {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+}
+
+.fillContain {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ellipsis {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textLeft {
+  text-align: left;
+}
+
+.o75 {
+  opacity: 0.75;
+}
+
+.o78 {
+  opacity: 0.78;
+}
+
+.o82 {
+  opacity: 0.82;
+}
+
+.o85 {
+  opacity: 0.85;
+}
+
+.o88 {
+  opacity: 0.88;
+}
+
+.o9 {
+  opacity: 0.9;
+}
+
+.o92 {
+  opacity: 0.92;
+}
+
+.o94 {
+  opacity: 0.94;
+}
+
+.o95 {
+  opacity: 0.95;
+}
+
+.o98 {
+  opacity: 0.98;
+}
+
+.fs11 {
+  font-size: 11px;
+}
+
+.fs12 {
+  font-size: 12px;
+}
+
+.fs13 {
+  font-size: 13px;
+}
+
+.fs14 {
+  font-size: 14px;
+}
+
+.fs15 {
+  font-size: 15px;
+}
+
+.fs16 {
+  font-size: 16px;
+}
+
+.fs18 {
+  font-size: 18px;
+}
+
+.fw700 {
+  font-weight: 700;
+}
+
+.fw800 {
+  font-weight: 800;
+}
+
+.fw900 {
+  font-weight: 900;
+}
+
+.mt4 {
+  margin-top: 4px;
+}
+
+.mt6 {
+  margin-top: 6px;
+}
+
+.mt10 {
+  margin-top: 10px;
+}
+
+.lineHeight135 {
+  line-height: 1.35;
+}
+
+.lineHeight145 {
+  line-height: 1.45;
+}
+
+.lineHeight15 {
+  line-height: 1.5;
+}
+
+.lineHeight14 {
+  line-height: 1.4;
+}
+
+.colorE8 {
+  color: #e8e8f0;
+}
+
+.colorWhite {
+  color: #ffffff;
+}
+
+.wordBreak {
+  word-break: break-word;
+}

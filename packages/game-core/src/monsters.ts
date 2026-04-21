@@ -18,7 +18,9 @@ export type MonsterId =
   | "store_narcissius"
   | "oldomaren"
   | "onda_bryggverket"
-  | "unicorn";
+  | "unicorn"
+  | "enhorningsryttare"
+  | "fargglada_gubbar";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -279,6 +281,27 @@ export const MONSTERS: MonsterDef[] = [
     rewardItems: 1,
     artKey: "monster/unicorn",
     winRandomOtherSips: 1,
+  },
+  {
+    id: "enhorningsryttare",
+    name: "Enhörningsryttare",
+    strength: 6,
+    baseDamage: 4,
+    rulesText: "",
+    lossSipsOnLose: 1,
+    rewardGold: 5,
+    rewardItems: 2,
+    artKey: "monster/enhorningsryttare",
+  },
+  {
+    id: "fargglada_gubbar",
+    name: "Färgglada gubbar",
+    strength: 4,
+    baseDamage: 2,
+    rulesText: "",
+    rewardGold: 3,
+    rewardItems: 1,
+    artKey: "monster/fargglada-gubbar",
   },
 ];
 

@@ -35,8 +35,8 @@ export function CombatHitMitigationSheet(props: {
             flexWrap: "wrap",
           }}
         >
-          <DiceCube3D value={die} size={76} oneAsMonsterIcon />
-          {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsMonsterIcon /> : null}
+          <DiceCube3D value={die} size={76} oneAsSkullIcon />
+          {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsSkullIcon /> : null}
         </div>
         <div className={sheetDiceCaptionClass}>
           <span className={sheetDiceCaptionTextClass}>{sv.play.youLostTotal(total, need)}</span>

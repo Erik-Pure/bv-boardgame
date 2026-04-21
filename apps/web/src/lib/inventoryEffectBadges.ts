@@ -115,7 +115,13 @@ export function equipmentInventoryEffectBadges(
     "pvpDieBonus" in piece && typeof (piece as Weapon).pvpDieBonus === "number"
       ? ((piece as Weapon).pvpDieBonus ?? 0)
       : 0;
-  if (pvpDieBonus > 0) badges.push({ icon: "bvb", label: `+${pvpDieBonus}` });
+  if (pvpDieBonus !== 0) {
+    badges.push({
+      icon: "bvb",
+      label: formatSigned(pvpDieBonus),
+      labelTone: pvpDieBonus < 0 ? "danger" : undefined,
+    });
+  }
   const damageNegateRaw =
     "damageNegate" in piece
       ? (piece.damageNegate ?? 0)
@@ -206,6 +212,7 @@ export function shopItemToEquipmentPreviewPiece(
       bossDamageNegateBonus: item.bossDamageNegateBonus,
       negateAllOnce: item.negateAllOnce,
       pvpCannotBeChallenged: item.pvpCannotBeChallenged,
+      pvpDieBonus: item.pvpDieBonus,
       gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
       healHpPerTurn: item.healHpPerTurn,
     };
@@ -222,6 +229,7 @@ export function shopItemToEquipmentPreviewPiece(
       klunkAttackBonus10: item.klunkAttackBonus10,
       klunkAttackBonus20: item.klunkAttackBonus20,
       klunkAttackBonusMax: item.klunkAttackBonusMax,
+      pvpDieBonus: item.pvpDieBonus,
     };
   }
   return {
@@ -234,6 +242,7 @@ export function shopItemToEquipmentPreviewPiece(
     preventTheft: item.preventTheft,
     levelUpDiscountGold: item.levelUpDiscountGold,
     canSkipMonsterEncounter: item.canSkipMonsterEncounter,
+    pvpDieBonus: item.pvpDieBonus,
   };
 }
 

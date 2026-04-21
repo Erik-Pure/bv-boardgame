@@ -1,24 +1,6 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import {
-  allCards,
-  FINAL_BOSS_IDS,
-  FINAL_BOSS_LIFE_TOTAL,
-  isFinalBossMonsterId,
-  MONSTERS,
-  type CardKind,
-  type MonsterDef,
-} from "@bv/game-core";
+import { FINAL_BOSS_LIFE_TOTAL } from "@bv/game-core";
 import { sv } from "../lib/uiStrings";
-
-const KIND_LABEL: Record<CardKind, string> = {
-  event: "Händelsekort",
-  item: "Föremål",
-  combat: "Strid / system",
-  treasure: "Skatter",
-  rest: "Vila",
-  empty: "Tomma rutor",
-};
 
 function sectionTitle(text: string) {
   return (
@@ -38,21 +20,6 @@ function sectionTitle(text: string) {
 }
 
 export function GameRules() {
-  const byKind = useMemo(() => {
-    const m = new Map<CardKind, number>();
-    for (const c of allCards()) {
-      m.set(c.kind, (m.get(c.kind) ?? 0) + 1);
-    }
-    return m;
-  }, []);
-
-  const bossMonsters = useMemo(
-    () => FINAL_BOSS_IDS.map((id) => MONSTERS.find((x) => x.id === id)).filter((m): m is MonsterDef => !!m),
-    [],
-  );
-
-  const regularMonsters = useMemo(() => MONSTERS.filter((m) => !isFinalBossMonsterId(m.id)), []);
-
   return (
     <div
       style={{
@@ -70,11 +37,11 @@ export function GameRules() {
         ← Till startsidan
       </Link>
       <h1 style={{ margin: "18px 0 10px", fontSize: "clamp(1.45rem, 4.5vw, 1.9rem)", fontWeight: 800, color: "#fff" }}>
-        Spelets regler
+        🍺 Bryggmästarens väg: Snabbguide
       </h1>
-      <p style={{ margin: "0 0 8px", opacity: 0.88, fontSize: 16 }}>
-        Kort översikt av hur <strong>Bryggmästarens väg</strong> är uppbyggt i nuvarande webb-MVP — spelet drivs av servern; detta är
-        orientering för spelare.
+      <p style={{ margin: "0 0 20px", opacity: 0.9, fontSize: 16 }}>
+        Målet är att bli den sista stående bryggaren eller den som först besegrar spelets Slutboss. Spelet styrs via mobilen
+        medan spelplanen visas på en gemensam storskärm.
       </p>
       <p style={{ margin: "0 0 20px", opacity: 0.72, fontSize: 14 }}>
         Vill du se alla kort med bild? Öppna{" "}
@@ -84,93 +51,52 @@ export function GameRules() {
         .
       </p>
 
-      {sectionTitle("Roller: bräde och mobil")}
+      {sectionTitle("🎲 Spelets gång & Nivåer")}
       <p>
-        <strong>Storskärm</strong> visar spelplanen, turer och gemensamma händelser. <strong>Mobil</strong> är din personliga
-        kontroll: bli redo, starta, slå tärning, välja rutor, handla, öppna kort och använda föremål — med en tydlig
-        interaktionspanel längst ned när det är relevant.
+        Spelet är turordnat. Du slår tärning för att flytta mellan rutor som kan innehålla skatter, butiker, händelser eller
+        monster.
       </p>
-
-      {sectionTitle("Lobby och start")}
+      <p style={{ marginTop: 14 }}>För att gå upp i nivå krävs antingen Pant eller Klunkar:</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
-        <li>Värden skapar en lobby och får en <strong>kod</strong> som delas med gruppen.</li>
-        <li>Spelare ansluter med kod och valfritt namn (minst två spelare för att starta).</li>
-        <li>Alla markerar <strong>redo</strong>; värden startar spelet när alla är redo.</li>
+        <li>
+          <strong>Nivå 2:</strong> Kostar 20 Pant eller 8 Klunkar.
+        </li>
+        <li>
+          <strong>Nivå 3:</strong> Kostar 30 Pant eller 16 Klunkar.
+        </li>
       </ul>
 
-      {sectionTitle("Turer och spelplan")}
+      {sectionTitle("⚔️ Monster & Strider")}
       <p>
-        Spelet är <strong>strikt turordnat</strong>. På din tur slår du tärning för förflyttning och väljer var du vill gå på
-        banan. Planen har flera <strong>våningar</strong> kopplade med <strong>dörrar</strong>; rutor kan vara tomma, ge
-        händelser, skatter, monster, vilorum, butiker med mera.
+        Du möter monster genom att jämföra din attack (tärning + utrustning) mot monstrets styrka.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Vinst:</strong> Ger pant och föremål. <strong>Förlust:</strong> Kostar HP och kan ge straffklunkar.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Monster-typer:</strong> Det finns vanliga monster, team battles (där två samarbetar) och bossar.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>BvB:</strong> Hamnar ni på samma ruta kan ni utmana varandra i strid.
       </p>
 
-      {sectionTitle("Pant, liv och klunkar")}
+      {sectionTitle("🃏 Kort & Interaktion")}
       <p>
-        <strong>Pant</strong> är spelets valuta. <strong>Liv (HP)</strong> och <strong>klunkar</strong> spårar hur mycket du
-        druckit i sagans värld — klunkar påverkar t.ex. bryggarnivå och vissa kort. Utrustning ger bonusar i strid och
-        annat.
+        Kortleken innehåller händelser, föremål och skatter. Under pågående strid kan medspelare lägga föremål för att antingen
+        hjälpa eller sabotera för den som slåss.
       </p>
 
-      {sectionTitle("Monsterstrider")}
-      <p>
-        När du möter ett monster jämförs din <strong>attack</strong> (tärning + vapen m.m.) mot monstrets{" "}
-        <strong>styrkekrav</strong>. Vinst ger pant och ofta skatter (föremål); förlust kostar HP och kan ge{" "}
-        <strong>straffklunkar</strong>. Vissa monster kräver <strong>team battle</strong> — då slår två spelare tillsammans.
-      </p>
-
-      {sectionTitle("Slutboss")}
-      <p>
-        Målet i standardläget är att nå sista nivån och besegra <strong>slutbossen</strong>. Bossen har{" "}
-        <strong>{FINAL_BOSS_LIFE_TOTAL} liv</strong> — varje vunten strid tar ett liv tills sista matchen avgör. En av följande
-        slumpas per parti:
-      </p>
+      {sectionTitle("🏆 Hur man vinner")}
+      <p>Spelet kan avslutas på två sätt:</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
-        {bossMonsters.map((m) => (
-          <li key={m.id}>
-            <strong>{m.name}</strong> — styrka {m.strength}, pant vid vinst {m.rewardGold}, skatter {m.rewardItems}
-          </li>
-        ))}
+        <li>
+          <strong>Seger:</strong> Den spelare som först besegrar slutbossen (som har {FINAL_BOSS_LIFE_TOTAL} liv) vinner.
+        </li>
+        <li>
+          <strong>Utslagning:</strong> Om alla spelare utom en har gett upp/förlorat sina liv står den sista bryggaren som
+          vinnare.
+        </li>
       </ul>
-
-      {sectionTitle("Övriga monster (urval)")}
-      <p style={{ opacity: 0.85, fontSize: 14 }}>
-        Alla monster finns i kortkatalogen med bild. Här är de som finns i datan just nu ({regularMonsters.length} st) med
-        styrka och grundbelöning:
-      </p>
-      <ul style={{ margin: "8px 0", paddingLeft: 22, fontSize: 14, columns: 2, gap: "0 24px" }}>
-        {regularMonsters.map((m) => (
-          <li key={m.id} style={{ breakInside: "avoid" }}>
-            {m.name} — krav {m.strength}, +{m.rewardGold} pant / +{m.rewardItems} skatt
-          </li>
-        ))}
-      </ul>
-
-      {sectionTitle("Händelser, föremål och skatter")}
-      <p>
-        Kortleken innehåller bland annat (antal ungefärligt från nuvarande data):
-      </p>
-      <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
-        {(["event", "item", "treasure", "rest", "combat", "empty"] as const).map((k) => {
-          const n = byKind.get(k) ?? 0;
-          if (n === 0) return null;
-          return (
-            <li key={k}>
-              {KIND_LABEL[k]}: <strong>{n}</strong> kort
-            </li>
-          );
-        })}
-      </ul>
-      <p>
-        Under <strong>stridsreaktioner</strong> kan andra spelare ibland lägga in föremål som påverkar tärningsslaget — både
-        hjälpsamma och busiga.
-      </p>
-
-      {sectionTitle("BvB och övrigt")}
-      <p>
-        På samma ruta kan <strong>bryggare möta bryggare</strong> (BvB) med egen tärnings- och byte-logik. Vissa händelser
-        och utrustningar har specialregler som beskrivs på respektive kort i spelet.
-      </p>
     </div>
   );
 }

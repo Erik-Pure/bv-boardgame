@@ -18,6 +18,21 @@
   --heading: "Permanent Marker", "Saira Semi Condensed", system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
+  /*
+   * Typografi-skala för spel-UI (/play, /table, paneler).
+   * Globala h1/h2 nedan gäller främst startsida; använd --type-* eller .type-* där.
+   */
+  --type-xs: 11px;
+  --type-2xs: 12px;
+  --type-sm: 13px;
+  --type-md: 14px;
+  --type-lg: 16px;
+  --type-xl: 20px;
+  --type-2xl: 24px;
+  --leading-tight: 1.25;
+  --leading-snug: 1.35;
+  --leading-normal: 1.45;
+
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: dark;
@@ -135,4 +150,27 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+/* Återanvändbara textstorlekar (spel-UI) — kombinera med befintliga färger där det behövs */
+.type-caption {
+  font-size: var(--type-xs);
+  line-height: var(--leading-snug);
+  font-weight: 700;
+}
+
+.type-body {
+  font-size: var(--type-md);
+  line-height: var(--leading-normal);
+}
+
+.type-body-sm {
+  font-size: var(--type-sm);
+  line-height: var(--leading-snug);
+}
+
+.type-panel-title {
+  font-size: var(--type-xl);
+  line-height: var(--leading-tight);
+  font-weight: 800;
 }

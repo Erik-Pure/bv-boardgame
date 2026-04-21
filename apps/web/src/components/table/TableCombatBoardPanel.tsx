@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
@@ -22,6 +22,7 @@ import {
   TABLE_BOSS_OVERLAY_PULSE,
   TABLE_MONSTER_COMBAT_DICE_PX,
 } from "./tableConstants";
+import combatStyles from "./TableCombatBoardPanel.module.css";
 
 type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
@@ -53,7 +54,7 @@ function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: G
   return fromCards + fromItems;
 }
 
-export function TableCombatBoardPanel(props: { state: GameState; playersById: Map<string, Player> }) {
+function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<string, Player> }) {
   const { state, playersById } = props;
   const pending = state.pending;
   const showMonsterForDiceAnim = pending?.type === "combat" && pending.monsterId !== "boss";
@@ -172,12 +173,7 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
       pending.phase === "rollPreview" ||
       pending.phase === "chooseHitMitigation");
 
-  const overlayStyle: CSSProperties = {
-    pointerEvents: "none",
-    placeItems: "start center",
-    paddingTop: 70,
-    paddingLeft: 12,
-    paddingRight: 12,
+  const overlayDynamics: CSSProperties = {
     background: bossCombatPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
     backgroundRepeat: bossCombatPulse ? "no-repeat" : undefined,
     backgroundSize: bossCombatPulse ? "100% 100%, 100% 100%" : undefined,
@@ -185,17 +181,6 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
     animation: bossCombatPulse
       ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
       : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
-  };
-
-  const innerPanelStyle: CSSProperties = {
-    width: "100%",
-    borderRadius: 16,
-    border: "1px solid #ffffff22",
-    background: "rgba(11, 18, 38, 0.94)",
-    padding: 16,
-    textAlign: "left",
-    boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
-    overflow: "visible",
   };
 
   const phaseLine =
@@ -215,36 +200,22 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
             ? sv.table.combatPhase3Choice
             : sv.table.combatPhase3Result;
 
-  /** Ölkompis / team battle när medspelare redan vald — ska synas tydligt på brädet. */
-  const teammateChosenBannerStyle: CSSProperties = {
-    textAlign: "center",
-    opacity: 0.98,
-    marginBottom: 14,
-    fontSize: "clamp(22px, 5.2vw, 40px)",
-    fontWeight: 800,
-    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-    color: "#fef9c3",
-    letterSpacing: "0.03em",
-    lineHeight: 1.12,
-    textShadow: "0 2px 10px rgba(0,0,0,0.88), 0 0 24px rgba(250,204,21,0.35)",
-  };
-
   /** Boss / icke-kort: behåll äldre batch- + fasrubriker. */
   const combatBoardBossHeaderLines = (
     <>
-      <div style={{ opacity: 0.8, fontSize: 12, marginBottom: 6 }}>{sv.table.combatOverlayTitle}</div>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{phaseLine}</div>
-      <div style={{ fontSize: 14, opacity: 0.9, marginBottom: 8 }}>
+      <div className={combatStyles.caption12Muted}>{sv.table.combatOverlayTitle}</div>
+      <div className={combatStyles.phaseLine12}>{phaseLine}</div>
+      <div className={combatStyles.fightLine14}>
         <b>{attacker?.name ?? "?"}</b> {sv.table.isFighting}
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
-        <div style={{ opacity: 0.88, marginBottom: 8 }}>
+        <div className={combatStyles.teamWaitMuted}>
           Team battle: <b>väntar på val av medkämpe</b>
         </div>
       ) : pending.assistId ? (
-        <div style={{ ...teammateChosenBannerStyle, marginBottom: 10, textAlign: "left" }}>
+        <div className={combatStyles.teammateChosenBannerLeft}>
           {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
-          <span style={{ fontWeight: 900 }}>
+          <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>
         </div>
@@ -252,55 +223,20 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
     </>
   );
 
-  const monsterMeetTitleStyle: CSSProperties = {
-    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-    fontWeight: 900,
-    fontSize: "clamp(26px, 5.5vw, 36px)",
-    textAlign: "center",
-    color: "#f8fafc",
-    letterSpacing: "0.04em",
-    lineHeight: 1.05,
-    marginBottom: 28,
-    textShadow: "0 2px 18px rgba(0,0,0,0.45)",
-  };
-
   const monsterMeetHeader = (
     <>
-      {finalBossRoundLabel ? (
-        <div
-          style={{
-            fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-            fontWeight: 900,
-            fontSize: "clamp(30px, 6.6vw, 48px)",
-            textAlign: "center",
-            color: "#f8fafc",
-            letterSpacing: "0.07em",
-            lineHeight: 1.02,
-            marginBottom: 14,
-            textShadow: "0 2px 14px rgba(0,0,0,0.8), 0 0 26px rgba(239,68,68,0.42)",
-          }}
-        >
-          {finalBossRoundLabel}
-        </div>
-      ) : null}
-      <div style={monsterMeetTitleStyle}>{(attacker?.name ?? "?").toLocaleUpperCase("sv-SE")} MÖTER</div>
+      {finalBossRoundLabel ? <div className={combatStyles.finalBossRoundTitle}>{finalBossRoundLabel}</div> : null}
+      <div className={combatStyles.monsterMeetTitle}>
+        {(attacker?.name ?? "?").toLocaleUpperCase("sv-SE")} MÖTER
+      </div>
       {pending.teamBattleRequired && !pending.assistId ? (
-        <div
-          style={{
-            textAlign: "center",
-            opacity: 0.95,
-            marginBottom: 10,
-            fontSize: 14,
-            color: "#f1f5f9",
-            textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
-          }}
-        >
+        <div className={combatStyles.teamBattlePickTeammate}>
           Team battle: <b>väntar på val av medkämpe</b>
         </div>
       ) : pending.assistId ? (
-        <div style={teammateChosenBannerStyle}>
+        <div className={combatStyles.teammateChosenBanner}>
           {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
-          <span style={{ fontWeight: 900 }}>
+          <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>
         </div>
@@ -378,116 +314,42 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
                 pointerEvents: showMonsterDiceColumn ? "auto" : "none",
               }}
             >
-              <div
-                style={{
-                  padding: "22px 30px",
-                  borderRadius: "50%",
-                  background:
-                    "radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.06) 42%, transparent 68%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: 140,
-                }}
-              >
+              <div className={combatStyles.diceGlowCircle}>
                 {pending.phase === "reactions" ? (
                   <DiceCube3D idleSpin size={TABLE_MONSTER_COMBAT_DICE_PX} />
                 ) : (
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center" }}>
-                    <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
+                  <div className={combatStyles.flexCenterGap10}>
+                    <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
                     {pending.previewBroDie != null ? (
-                      <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
+                      <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
                     ) : null}
                   </div>
                 )}
               </div>
               {showDiceModifierStack && (boardDiceModifierBaseStr || sipWeaponTakenBonus != null) ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: sipWeaponTakenBonus != null ? 4 : 0,
-                  }}
-                >
+                <div className={sipWeaponTakenBonus != null ? combatStyles.modifierStackGap4 : combatStyles.modifierStack}>
                   {boardDiceModifierBaseStr ? (
-                    <div
-                      style={{
-                        fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                        fontWeight: 400,
-                        fontSize: "clamp(30px, 7vw, 44px)",
-                        lineHeight: 1,
-                        letterSpacing: "0.02em",
-                        color: "#f8fafc",
-                        textAlign: "center",
-                        textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.45)",
-                      }}
-                    >
-                      {boardDiceModifierBaseStr}
-                    </div>
+                    <div className={combatStyles.diceModifierBig}>{boardDiceModifierBaseStr}</div>
                   ) : null}
                   {sipWeaponTakenBonus != null ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 2,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                          fontWeight: 400,
-                          fontSize: "clamp(28px, 6.5vw, 40px)",
-                          lineHeight: 1,
-                          letterSpacing: "0.02em",
-                          color: "#e9d5ff",
-                          textShadow: "0 2px 12px rgba(0,0,0,0.75), 0 0 18px rgba(139,92,246,0.35)",
-                        }}
-                      >
-                        +{sipWeaponTakenBonus}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "var(--sans), system-ui, sans-serif",
-                          fontWeight: 700,
-                          fontSize: 13,
-                          letterSpacing: "0.04em",
-                          color: "rgba(248,250,252,0.92)",
-                          textShadow: "0 1px 8px rgba(0,0,0,0.65)",
-                        }}
-                      >
-                        {sv.table.diceModifierSipTakenSub}
-                      </span>
+                    <div className={combatStyles.modifierStackGap2}>
+                      <span className={combatStyles.sipBonusBig}>+{sipWeaponTakenBonus}</span>
+                      <span className={combatStyles.sipTakenCaption}>{sv.table.diceModifierSipTakenSub}</span>
                     </div>
                   ) : null}
                 </div>
               ) : null}
               {pending.phase === "chooseHitMitigation" ? (
-                <div
-                  style={{
-                    fontSize: 13,
-                    textAlign: "center",
-                    maxWidth: 248,
-                    lineHeight: 1.35,
-                    color: "#f1f5f9",
-                    textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.55)",
-                  }}
-                >
+                <div className={combatStyles.hitMitigationHint}>
                   {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
                 </div>
               ) : null}
             </div>
             <div
+              className={combatStyles.monsterCardWrap}
               style={{
-                width: "100%",
-                maxWidth: 400,
-                flex: "0 1 auto",
                 transform: monsterCardWrapTransform,
-                transformOrigin: "center center",
                 transition: `transform 0.55s ${diceHeroMotionEase}`,
-                boxSizing: "border-box",
               }}
             >
               <CardFlipScene
@@ -501,14 +363,12 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
             </div>
           </div>
         ) : (
-          <div style={{ marginBottom: 8 }}>{monsterEncounterCardEl}</div>
+          <div className={combatStyles.mb8}>{monsterEncounterCardEl}</div>
         )
       ) : (
         <>
-          <div style={{ fontWeight: 900, fontSize: 24, lineHeight: 1.05, color: "#f8fafc", marginBottom: 8 }}>
-            {pending.enemyName}
-          </div>
-          <div style={{ opacity: 0.88, marginBottom: 8 }}>
+          <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
+          <div className={combatStyles.strengthLine}>
             {sv.table.strength}: {need}
           </div>
         </>
@@ -520,21 +380,16 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
     <>
       {pending.phase === "reactions" && reactorNames.length > 0 && (
         <div
-          style={{
-            marginTop: monsterDiceHeroLayout ? 2 : 12,
-            fontSize: 13,
-            opacity: 0.95,
-            textAlign: "center",
-            ...(showMonsterCard && monsterDiceHeroLayout
-              ? { textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 12px rgba(0,0,0,0.5)", color: "#f1f5f9" }
-              : {}),
-          }}
+          className={
+            showMonsterCard && monsterDiceHeroLayout ? combatStyles.hintLine13OnCard : combatStyles.hintLine13TightTop
+          }
+          style={{ marginTop: monsterDiceHeroLayout ? 2 : 12 }}
         >
           <b>{sv.table.canIntervene}</b> {reactorNames.join(", ")}
         </div>
       )}
       {pending.phase === "helpChooseHelper" ? (
-        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+        <div className={combatStyles.hintLine13}>
           <b>{sv.table.combatHelpAsking}</b>{" "}
           {(pending.helpCandidateIds ?? [])
             .map((id) => playersById.get(id)?.name ?? id)
@@ -542,15 +397,15 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
         </div>
       ) : null}
       {pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId ? (
-        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+        <div className={combatStyles.hintLine13}>
           {sv.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
         </div>
       ) : null}
       {pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId ? (
-        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.95, textAlign: "center" }}>
+        <div className={combatStyles.hintLine13}>
           {sv.table.combatHelpAwaitCard(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
           {pending.helpAccepted && pending.helpContract ? (
-            <div style={{ marginTop: 4, opacity: 0.88 }}>
+            <div className={combatStyles.helpContractSub}>
               {sv.table.combatHelpAcceptedContract(
                 playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren",
                 helpContractLabel(pending.helpContract),
@@ -560,13 +415,13 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
         </div>
       ) : null}
       {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && !monsterDiceHeroLayout && (
-        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-          <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
+        <div className={combatStyles.diceRowWrap}>
+          <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
           {pending.previewBroDie != null ? (
-            <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsMonsterIcon />
+            <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
           ) : null}
           {pending.phase === "chooseHitMitigation" ? (
-            <div style={{ fontSize: 14, maxWidth: 280, lineHeight: 1.35 }}>
+            <div className={combatStyles.hitChoiceLine}>
               {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
             </div>
           ) : null}
@@ -581,23 +436,12 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
         zIndex={44}
         maxWidth={400}
         blockPointerUntilFlipped={false}
-        style={overlayStyle}
+        style={overlayDynamics}
         aboveScene={combatBoardBossHeaderLines}
       >
-        <div
-          style={{
-            ...innerPanelStyle,
-            padding: "0 16px 16px",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: "100%",
-            textAlign: "left",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 24, lineHeight: 1.05, color: "#f8fafc", marginBottom: 8 }}>
-            {pending.enemyName}
-          </div>
-          <div style={{ opacity: 0.88, marginBottom: 8 }}>
+        <div className={combatStyles.innerBossIntro}>
+          <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
+          <div className={combatStyles.strengthLine}>
             {sv.table.strength}: {need}
           </div>
         </div>
@@ -606,49 +450,14 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        pointerEvents: "none",
-        zIndex: 42,
-        display: "grid",
-        placeItems: "start center",
-        paddingTop: 70,
-        paddingLeft: 12,
-        paddingRight: 12,
-        background: bossCombatPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
-        backgroundRepeat: bossCombatPulse ? "no-repeat" : undefined,
-        backgroundSize: bossCombatPulse ? "100% 100%, 100% 100%" : undefined,
-        backgroundPosition: bossCombatPulse ? "50% 16%, 50% 50%" : undefined,
-        animation: bossCombatPulse
-          ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
-          : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
-      }}
-    >
+    <div className={combatStyles.overlayHost} style={overlayDynamics}>
       <div
-        style={{
-          width: "min(720px, 92vw)",
-          textAlign: "left",
-          overflow: "visible",
-          ...(showMonsterCard
-            ? {
-                borderRadius: 0,
-                border: "none",
-                background: "transparent",
-                padding: "4px 8px",
-                boxShadow: "none",
-              }
-            : {
-                borderRadius: 16,
-                border: "1px solid #ffffff22",
-                background: "rgba(11, 18, 38, 0.94)",
-                padding: 16,
-                boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
-                animation: TABLE_BOARD_MODAL_CARD_ANIMATION,
-                transformOrigin: "top center",
-              }),
-        }}
+        className={`${combatStyles.panelShell} ${showMonsterCard ? combatStyles.panelInnerGhost : combatStyles.panelInnerCard}`}
+        style={
+          showMonsterCard
+            ? undefined
+            : { animation: TABLE_BOARD_MODAL_CARD_ANIMATION, transformOrigin: "top center" }
+        }
       >
         {headerAndMonster}
         {reactionsAndDice}
@@ -657,3 +466,4 @@ export function TableCombatBoardPanel(props: { state: GameState; playersById: Ma
   );
 }
 
+export const TableCombatBoardPanel = memo(TableCombatBoardPanelInner);

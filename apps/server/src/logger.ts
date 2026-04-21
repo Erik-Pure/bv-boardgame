@@ -10,7 +10,8 @@ const RANK: Record<Exclude<LogLevel, "silent">, number> = {
 function resolveLogLevel(): LogLevel {
   const fromEnv = (process.env.LOG_LEVEL ?? "").trim();
   if (fromEnv) return fromEnv as LogLevel;
-  return process.env.NODE_ENV === "production" ? "info" : "debug";
+  /** Lokal utveckling: `info` som standard så WebSocket-handshake inte spammar. Sätt LOG_LEVEL=debug för per-meddelande-trace. */
+  return "info";
 }
 
 export function createLogger(scope: string) {

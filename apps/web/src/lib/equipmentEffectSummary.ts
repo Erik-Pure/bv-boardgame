@@ -15,8 +15,10 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
 
   const parts: string[] = [];
   if (typeof it.power === "number") parts.push(`Kraft +${it.power}`);
-  if (typeof it.pvpDieBonus === "number" && it.pvpDieBonus > 0) {
-    parts.push(`BvB: +${it.pvpDieBonus} på slag`);
+  if (typeof it.pvpDieBonus === "number" && it.pvpDieBonus !== 0) {
+    parts.push(
+      it.pvpDieBonus > 0 ? `BvB: +${it.pvpDieBonus} på slag` : `BvB: ${it.pvpDieBonus} på slag`,
+    );
   }
   if (typeof it.gainGoldOnWin === "number" && it.gainGoldOnWin > 0) {
     parts.push(`Vid vinst: +${it.gainGoldOnWin} pant`);

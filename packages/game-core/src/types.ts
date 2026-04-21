@@ -48,7 +48,7 @@ export interface Weapon {
   power: number;
   /** Bonus om spelaren tar 1 klunk vid slag (auto-aktiveras i nuläget). */
   sipAttackBonus?: number;
-  /** Läggs bara till i BvB (påverkar inte monsterstrid). */
+  /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack (samma fält finns valfritt på rustning/hjälm/tillbehör). */
   pvpDieBonus?: number;
   /** Bonus gold granted on each win while equipped. */
   gainGoldOnWin?: number;
@@ -72,6 +72,8 @@ export interface ArmorPiece {
   negateAllOnce?: boolean;
   /** If true: other players cannot challenge this player to PvP. */
   pvpCannotBeChallenged?: boolean;
+  /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack. */
+  pvpDieBonus?: number;
   /** Gain this much gold whenever you actually take damage. */
   gainGoldOnDamageTaken?: number;
   /** HP som återställs vid turstart (drag), upp till max HP. */
@@ -95,6 +97,8 @@ export interface Helmet {
   klunkAttackBonus10?: number;
   klunkAttackBonus20?: number;
   klunkAttackBonusMax?: number;
+  /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack. */
+  pvpDieBonus?: number;
 }
 
 export interface Accessory {
@@ -114,6 +118,8 @@ export interface Accessory {
   canSkipMonsterEncounter?: boolean;
   /** Extra steps added to movement roll. */
   moveBonus?: number;
+  /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack. */
+  pvpDieBonus?: number;
 }
 
 export interface Equipment {
@@ -508,8 +514,11 @@ export interface GameState {
   lastDiceRollerId: string | null;
   /** Kö av sip-meddelanden per mottagare; bekräftas med sipNoticeAck (en i taget). */
   sipNotices: SipNoticeEntry[];
-  /** Visas på TableView tills rörelsetärning, rörelseval eller stridsslag efter reaktioner. */
-  tableItemPlayReveal?: TableItemPlayReveal;
+  /**
+   * Föremål spelade utanför stridsreaktioner (t.ex. under tur eller PvB-förberedelse).
+   * Appendas per spel; solfjäder på bräd-tv. Rensas vid rörelse m.m.
+   */
+  tableItemPlayReveals?: TableItemPlayReveal[];
 }
 
 export type ClientAction =
