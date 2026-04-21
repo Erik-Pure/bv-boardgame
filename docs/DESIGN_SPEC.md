@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.27 |
+| Version | 0.28 |
 | Senast uppdaterad | 2026-04-21 |
 
 ---
@@ -47,6 +47,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
 - **Manuell överstyring:** efter auto-fokus ska spelare vid bordet kunna **pana/zooma fritt** tills nästa auto-fokus.
 - **Kort över brädet (bord):** föremålskort i reaktionssolfjädern animerar in **nerifrån bakom turbannern**; mörk overlay bakom kort/strid är nu **betydligt mörkare** för bättre fokus på modalinnehållet (inkl. bossvariant).
+- **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
 - **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation** (stats + utrustningsrader). I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
@@ -182,6 +183,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Tärningsresultat + vapenstyrka** (± tillfälliga buffar/debuff) avgör utfall mot **fiendens värde** (eller fiendens eget slag om så designas).
 - Resultat: skada, loot, flykt, straffklunkar, etc. enligt tabell per mötestyp och tile.
 - **Fasta vinstvärden per monster:** varje monster har nu **fast pant** och **fast antal rewards** vid seger (inga intervall/chansrull i resultatet).
+- **Nya slumpmonster (solo, i leken):** **Enhörningsryttare** (styrka 6; förlust 4 HP och 2 straffklunkar totalt med global flat; vinst 5 pant + 2 skatter), **Färgglada gubbar** (styrka 4; förlust 2 HP och 1 straffklunk totalt; vinst 3 pant + 1 skatt). Etikettbilder kan saknas i första läget — klienten använder **placeholder** tills `public/monsters/`-filer lagts in.
 - **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Utrustning som droppar ska inte oavsiktligt skriva över redan fylld slot.
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus.
 
@@ -215,10 +217,12 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst total vinner rundan.
 - **Rondformat (uppdaterat):** BvB spelas som **bäst av 3**. Första spelare till **2 rondvinster** vinner matchen och går vidare till byte.
 - **Föremålsfönster före varje rond:** innan båda slår tärning finns en förberedelsefas där båda duellanterna kan spela tillåtna PvP-föremål (buff på sig själv eller sabotage på motståndaren) och markerar **Klar**. När båda är klara startar slaget för rundan.
-- **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar (ingen extra knapp krävs).
+- **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar; copy ska vara kortfattad (t.ex. bara att inga BvB-föremål finns — **ingen** extra mening om att man “inte behöver trycka Klar”).
 - **Lika i en rond:** vid lika total återgår duellen till nytt föremålsfönster och omslag i **samma rondnummer** (ingen rondvinst delas ut).
 - **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
+- **Tärningsrond (mobil):** ingen extra ledtext före “Slå din tärning” i väntan på BvB-slag (undvik redundant “klarrunda”-copy).
 - **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
+- **Skydd mot stöld (t.ex. Solbrillor):** har förloraren `preventTheft` på tillbehör ska vinnaren **inte** erbjudas val att ta utrustning — bara **pant**, **straffklunk** och **HP-skada** (implementation + mobil-UI); pantbyte ska fortfarande gälla.
 - **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
 - **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
 - Allt ska **avgöras på servern** och synas tydligt i spelloggen.
@@ -445,4 +449,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.25 | 2026-04-20 | §9.2 BvB: auto-klar när spelare saknar PvP-föremål i förberedelsefasen, samt ny rondresultatfas där båda bekräftar innan nästa rond eller byte |
 | 0.26 | 2026-04-20 | §4 lobby på bord: **QR + kopiera join-länk** till `/join?room=…`; §2.1 turbanner: **kompakt** layout med namn+ikoner under till vänster och **Nästa** högerställd |
 | 0.27 | 2026-04-21 | §4 bord (pre-game lobby): **kopiera join-länk** borttagen från UI; **QR** till `/join?room=…` kvarstår |
+| 0.28 | 2026-04-21 | §9.1 nya slumpmonster **Enhörningsryttare** och **Färgglada gubbar** (+ placeholder-art); §9.2 BvB-byte vid **Solbrillor** / `preventTheft`: bara pant, straffklunk, skada (ej utrustningsstöld); §9.2 auto-klar-copy och borttagen redundant tärnings-hint; §2.1 **BvB-panel** tydligare gradient |
 
