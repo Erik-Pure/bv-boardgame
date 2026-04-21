@@ -196,7 +196,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 10,
     combatBonus: 2,
     damageNegate: -2,
-    rulesText: "Tung guldring: mer attack, men du tar mer skada — värt det?",
+    rulesText: "Priset för makt mäts sällan i guld, utan i blod. Är du redo att betala?",
   },
   {
     id: "ex_black_belt",
