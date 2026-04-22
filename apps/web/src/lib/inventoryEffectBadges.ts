@@ -204,12 +204,14 @@ export function shopItemToEquipmentPreviewPiece(
       powerAtGold30: item.powerAtGold30,
       powerDynamicMax: item.powerDynamicMax,
       randomOtherDamageOnWin: item.randomOtherDamageOnWin,
+      breakOnWin: item.breakOnWin,
     };
   }
   if (item.slot === "armor") {
     return {
       name: item.name,
       bonusHp: item.bonusHp ?? 0,
+      combatBonus: item.combatBonus ?? 0,
       damageNegate: item.damageNegate,
       bossDamageNegateBonus: item.bossDamageNegateBonus,
       negateAllOnce: item.negateAllOnce,
@@ -245,6 +247,7 @@ export function shopItemToEquipmentPreviewPiece(
     levelUpDiscountGold: item.levelUpDiscountGold,
     canSkipMonsterEncounter: item.canSkipMonsterEncounter,
     pvpDieBonus: item.pvpDieBonus,
+    ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
   };
 }
 

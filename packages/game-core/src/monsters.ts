@@ -142,7 +142,7 @@ export const MONSTERS: MonsterDef[] = [
     baseDamage: 1,
     rulesText: "Ta en klunk så försvinner den — eller slåss som med vilket monster som helst.",
     rewardGold: 3,
-    rewardItems: 0,
+    rewardItems: 1,
     artKey: "monster/belgisk-munk",
   },
   {
@@ -185,7 +185,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 3,
-    rewardItems: 0,
+    rewardItems: 1,
     artKey: "monster/humlan",
   },
   {

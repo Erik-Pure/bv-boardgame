@@ -60,6 +60,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "",
   },
   {
+    id: "ew_empty_bottle",
+    slot: "weapon",
+    name: "Tom flaska",
+    price: 12,
+    power: 5,
+    breakOnWin: true,
+    rulesText: "Ger hög kraft men går sönder direkt efter att du vunnit en strid.",
+  },
+  {
     id: "ew_doublepipe",
     slot: "weapon",
     name: "Dubbelpipa",
@@ -100,6 +109,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 11,
     negateAllOnce: true,
     rulesText: "En gång per strud: första gången du skulle ta skada i monsterstrid blockeras allt.",
+  },
+  {
+    id: "eh_keykeg_helmet",
+    slot: "helmet",
+    name: "Keykeghjälm",
+    price: 12,
+    combatBonus: -1,
+    damageNegate: 2,
+    rulesText: "Stabil hjälm med starkt skydd, men den tynger dina slag.",
   },
   {
     id: "eh_foamvisor",
@@ -146,7 +164,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     klunkAttackBonus10: 1,
     klunkAttackBonus20: 2,
     klunkAttackBonusMax: 3,
-    rulesText: "Ju mer du burit desto hårdare slår du — upp till en maxbonus.",
+    rulesText: "Ju mer du druckit desto starkare blir du... konstigt nog.",
   },
   {
     id: "ex_buckler",
@@ -172,6 +190,14 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 9,
     canSkipMonsterEncounter: true,
     rulesText: "Skippa dålig batch. En dramatikens mästare. Ena sekunden är du där, nästa är du i kebabkön.",
+  },
+  {
+    id: "ex_four_clover",
+    slot: "accessory",
+    name: "Fyrklöver",
+    price: 11,
+    ignoreCombatCritFailOnOne: true,
+    rulesText: "Turtecken: etta på din stridstärning räknas inte som automatisk förlust.",
   },
   {
     id: "ex_sunglasses",
@@ -207,6 +233,26 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     gainKlunkPerCombat: 1,
     rulesText:
       "Svart bälte i karatefylle: när en monsterstrid börjar läggs +1 straffklunk på din klunkräknare (gäller inte BvB).",
+  },
+  {
+    id: "ea_linne",
+    slot: "armor",
+    name: "Linne",
+    price: 9,
+    bonusHp: 0,
+    combatBonus: 1,
+    damageNegate: -1,
+    rulesText: "Lätt och rörligt: du slår hårdare, men skyddet är sämre.",
+  },
+  {
+    id: "ea_dunjacka",
+    slot: "armor",
+    name: "Dunjacka",
+    price: 11,
+    bonusHp: 5,
+    combatBonus: -1,
+    damageNegate: 0,
+    rulesText: "Varm jacka som ger mycket extra HP, men gör dig lite mindre offensiv.",
   },
   {
     id: "ea_cap_bikini",

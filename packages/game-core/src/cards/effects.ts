@@ -37,11 +37,13 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       powerAtGold30: eq.powerAtGold30,
       powerDynamicMax: eq.powerDynamicMax,
       randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
+      breakOnWin: eq.breakOnWin,
     };
   } else if (slot === "armor") {
     player.equipment.armor = {
       name: eq.name,
       bonusHp: eq.bonusHp ?? 0,
+      combatBonus: eq.combatBonus ?? 0,
       damageNegate: eq.damageNegate,
       bossDamageNegateBonus: eq.bossDamageNegateBonus,
       negateAllOnce: eq.negateAllOnce,
@@ -84,6 +86,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       levelUpDiscountGold: eq.levelUpDiscountGold,
       canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
       pvpDieBonus: eq.pvpDieBonus,
+      ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
     };
   }
   return { kind: "equipped", name: eq.name, slot };

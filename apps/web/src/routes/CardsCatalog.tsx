@@ -307,8 +307,6 @@ function MonsterCatalogCard(props: {
 }) {
   const m = props.monster;
   const sources = artImageSources(m.artKey);
-  const src = sources.webp ?? sources.fallback;
-  const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(m.artKey);
   const tagline = props.showBossTagline ? finalBossCardTagline(m.id) : null;
   return (
@@ -376,7 +374,6 @@ function MonsterCatalogCard(props: {
             <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{m.rulesText}</div>
           </>
         ) : null}
-        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         {tagline ? (
           <div style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35 }}>{tagline}</div>
         ) : null}
@@ -389,7 +386,6 @@ function MonsterCatalogCard(props: {
 function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
   const sources = equipmentImageSources(item.name, item.slot);
   const src = sources.webp ?? sources.fallback;
-  const fileName = imageFileNameFromSrc(src);
   return (
     <article
       style={{
@@ -440,7 +436,6 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
             <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{item.rulesText}</div>
           </>
         ) : null}
-        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         <div style={{ fontSize: 11, opacity: 0.65 }}>
           {capitalizeWord(equipmentSlotSv(item.slot))} · {item.price} pant
         </div>
@@ -451,8 +446,6 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
 
 function CatalogCard({ card }: { card: CardDef }) {
   const sources = artImageSources(card.artKey);
-  const src = sources.webp ?? sources.fallback;
-  const fileName = imageFileNameFromSrc(src);
   const attr = artAttributionLabel(card.artKey);
   const overviewBadges = cardDefOverviewBadges(card);
   return (
@@ -500,7 +493,6 @@ function CatalogCard({ card }: { card: CardDef }) {
             <div style={CATALOG_BODY_TEXT}>{card.text}</div>
           </>
         ) : null}
-        <code style={{ fontSize: 11, opacity: 0.55, wordBreak: "break-all" }}>Bildfil: {fileName}</code>
         {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}
       </div>
     </article>

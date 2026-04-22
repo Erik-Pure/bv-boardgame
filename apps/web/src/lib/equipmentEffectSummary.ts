@@ -29,10 +29,15 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.randomOtherDamageOnWin === "number" && it.randomOtherDamageOnWin > 0) {
     parts.push(`Vid vinst: slumpad annan −${it.randomOtherDamageOnWin} HP`);
   }
+  if (it.breakOnWin) {
+    parts.push("Går sönder efter vinst");
+  }
   if (typeof it.powerAtGold10 === "number") parts.push(`Vid 10+ pant: Kraft +${it.powerAtGold10}`);
   if (typeof it.powerAtGold20 === "number") parts.push(`Vid 20+ pant: Kraft +${it.powerAtGold20}`);
   if (typeof it.powerAtGold30 === "number") parts.push(`Vid 30+ pant: Kraft +${it.powerAtGold30}`);
-  if (typeof it.combatBonus === "number" && it.combatBonus > 0) parts.push(`Attack +${it.combatBonus}`);
+  if (typeof it.combatBonus === "number" && it.combatBonus !== 0) {
+    parts.push(it.combatBonus > 0 ? `Attack +${it.combatBonus}` : `Attack ${it.combatBonus}`);
+  }
   if (typeof it.sipAttackBonus === "number") {
     parts.push(`Strid mot monster: valfri straffklunk före slag för +${it.sipAttackBonus} attack`);
   }
@@ -73,5 +78,8 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (it.negateAllOnce) parts.push("Blockar all skada en gång");
   if (it.pvpCannotBeChallenged) parts.push("Kan inte utmanas i BvB");
   if (typeof it.moveBonus === "number") parts.push(`Rörelse +${it.moveBonus}`);
+  if (it.ignoreCombatCritFailOnOne) {
+    parts.push("Etta på stridstärning ger inte automatisk förlust");
+  }
   return parts.length ? parts.join(" · ") : "—";
 }

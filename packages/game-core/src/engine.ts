@@ -147,6 +147,7 @@ const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "double_hops",
   "beer_bomb",
   "manopositiv",
+  "get_lucky",
 ]);
 
 const PVP_BEST_OF = 3;
@@ -387,11 +388,13 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       powerAtGold30: item.powerAtGold30,
       powerDynamicMax: item.powerDynamicMax,
       randomOtherDamageOnWin: item.randomOtherDamageOnWin,
+      breakOnWin: item.breakOnWin,
     };
   } else if (item.slot === "armor") {
     p.equipment.armor = {
       name: item.name,
       bonusHp: item.bonusHp ?? 0,
+      combatBonus: item.combatBonus ?? 0,
       damageNegate: item.damageNegate,
       bossDamageNegateBonus: item.bossDamageNegateBonus,
       negateAllOnce: item.negateAllOnce,
@@ -432,6 +435,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       levelUpDiscountGold: item.levelUpDiscountGold,
       canSkipMonsterEncounter: item.canSkipMonsterEncounter,
       pvpDieBonus: item.pvpDieBonus,
+      ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
     };
   }
 }
@@ -452,7 +456,12 @@ function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): v
 }
 
 function weaponPower(p: Player): number {
-  return effectiveWeaponPower(p) + helmetAttackBonus(p) + (p.equipment.accessory?.combatBonus ?? 0);
+  return (
+    effectiveWeaponPower(p) +
+    (p.equipment.armor?.combatBonus ?? 0) +
+    helmetAttackBonus(p) +
+    (p.equipment.accessory?.combatBonus ?? 0)
+  );
 }
 
 /** BvB-tärning: endast utrustningsdelars `pvpDieBonus` (vapen, rustning, hjälm, tillbehör) — inga vanliga monster-attribut. */
@@ -475,6 +484,14 @@ function applyWeaponWinGoldBonus(winner: Player): number {
   if (bonus <= 0) return 0;
   winner.gold += bonus;
   return bonus;
+}
+
+function breakWeaponAfterWin(winner: Player): string | null {
+  const w = winner.equipment.weapon;
+  if (!w?.breakOnWin) return null;
+  const name = w.name;
+  winner.equipment.weapon = undefined;
+  return name;
 }
 
 function applyPerCombatAccessoryRewards(state: GameState, participantId: string) {
@@ -633,11 +650,13 @@ function grantRandomCombatReward(
             powerAtGold30: eq.powerAtGold30,
             powerDynamicMax: eq.powerDynamicMax,
             randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
+            breakOnWin: eq.breakOnWin,
           };
         } else if (slot === "armor") {
           player.equipment.armor = {
             name: eq.name,
             bonusHp: eq.bonusHp ?? 0,
+            combatBonus: eq.combatBonus ?? 0,
             damageNegate: eq.damageNegate,
             bossDamageNegateBonus: eq.bossDamageNegateBonus,
             negateAllOnce: eq.negateAllOnce,
@@ -676,6 +695,7 @@ function grantRandomCombatReward(
             levelUpDiscountGold: eq.levelUpDiscountGold,
             canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
             pvpDieBonus: eq.pvpDieBonus,
+            ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
           };
         }
         log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
@@ -828,8 +848,14 @@ function combatCritFailFromDice(
   assistId: string | undefined,
   attackerDie: number,
   broDie: number | null | undefined,
+  attackerIgnoresCritFailOnOne = false,
+  broIgnoresCritFailOnOne = false,
 ): boolean {
-  if (assistId) return attackerDie === 1 && broDie === 1;
+  if (assistId) {
+    if (attackerIgnoresCritFailOnOne || broIgnoresCritFailOnOne) return false;
+    return attackerDie === 1 && broDie === 1;
+  }
+  if (attackerIgnoresCritFailOnOne) return false;
   return attackerDie === 1;
 }
 
@@ -1000,10 +1026,17 @@ function finalizeCombatAfterRollPreview(
   const rewardGold = pending.rewardGold ?? 4;
   const rewardItems = pending.rewardItems ?? 1;
   const previewWon = pending.previewWon ?? false;
+  const attackerIgnoresCritFailOnOne = p?.equipment.accessory?.ignoreCombatCritFailOnOne === true;
+  const broIgnoresCritFailOnOne =
+    assistId != null
+      ? (next.players.find((x) => x.id === assistId)?.equipment.accessory?.ignoreCombatCritFailOnOne ?? false)
+      : false;
   const critFailOnOne = combatCritFailFromDice(
     assistId,
     pending.previewDie ?? 1,
     pending.previewBroDie,
+    attackerIgnoresCritFailOnOne,
+    broIgnoresCritFailOnOne,
   );
 
   if (!p) {
@@ -1023,6 +1056,10 @@ function finalizeCombatAfterRollPreview(
       const newLives = prevLives - 1;
       next.finalBossLivesRemaining = newLives;
       if (newLives > 0) {
+        const brokenWeaponName = breakWeaponAfterWin(p);
+        if (brokenWeaponName) {
+          log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
+        }
         next.pending = null;
         const bd = MONSTERS.find((m) => m.id === next.finalBossMonsterId);
         log(
@@ -1076,6 +1113,10 @@ function finalizeCombatAfterRollPreview(
         next,
         `${p.name}s ${p.equipment.weapon?.name ?? "vapen"} träffar slumpmässigt: ${attackerWeaponRandomDamage.targetName} tar ${attackerWeaponRandomDamage.damage} skada.`,
       );
+    }
+    const brokenWeaponName = breakWeaponAfterWin(p);
+    if (brokenWeaponName) {
+      log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
     }
     p.xp += tile.type === "boss" ? 8 : 2;
     p.maxHp = maxHpFor(p);
@@ -1419,6 +1460,7 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     preventTheft: eq.preventTheft,
     levelUpDiscountGold: eq.levelUpDiscountGold,
     canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
+    ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
     power: eq.power,
     sipAttackBonus: eq.sipAttackBonus,
     pvpDieBonus: eq.pvpDieBonus,
@@ -1428,25 +1470,16 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     powerAtGold30: eq.powerAtGold30,
     powerDynamicMax: eq.powerDynamicMax,
     randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
+    breakOnWin: eq.breakOnWin,
     healHpPerTurn: eq.healHpPerTurn,
   };
 }
 
-/** Exakt fyra varor visas: pool = mäskpaddel + burkrustning + Helande brygd + två slumpade från katalogen (utan redan fasta ew_padel/ea_can_armor). Köp per besök tills spelaren lämnar. */
+/** Exakt fyra varor visas: Helande brygd + tre slumpade från hela utrustningskatalogen. Köp per besök tills spelaren lämnar. */
 const MERCHANT_SHELF_SLOTS = 4;
 
-/** Redan garanterade hyllplatser — får inte förekomma bland de två slumpade katalograderna. */
-const MERCHANT_FIXED_CATALOG_IDS = new Set(["ew_padel", "ea_can_armor"]);
-
 function rollMerchantItems(rng: () => number): ShopItem[] {
-  const padel = EQUIPMENT_CATALOG.find((e) => e.id === "ew_padel");
-  const burkrustning = EQUIPMENT_CATALOG.find((e) => e.id === "ea_can_armor");
-  if (!padel || !burkrustning) {
-    throw new Error("EQUIPMENT_CATALOG saknar ew_padel eller ea_can_armor (Panta burkar)");
-  }
   const items: ShopItem[] = [
-    catalogEquipmentToMerchantShopItem(padel, "w"),
-    catalogEquipmentToMerchantShopItem(burkrustning, "a"),
     {
       id: "h",
       slot: "heal",
@@ -1455,9 +1488,9 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
       healAmount: 3,
     },
   ];
-  const catalog = EQUIPMENT_CATALOG.filter((e) => !MERCHANT_FIXED_CATALOG_IDS.has(e.id));
+  const catalog = [...EQUIPMENT_CATALOG];
   shuffleArrayInPlace(catalog, rng);
-  for (const it of catalog.slice(0, 2)) {
+  for (const it of catalog.slice(0, 3)) {
     items.push(catalogEquipmentToMerchantShopItem(it, it.id));
   }
   shuffleArrayInPlace(items, rng);
@@ -2720,22 +2753,30 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (inst.itemId === "get_lucky") {
       const pending = next.pending;
-      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      if (user.id !== pending.attackerId && user.id !== pending.assistId) {
+      const canUseAsHelper =
+        isHelpCardPhase && pending.helpAccepted === true && pending.helpSelectedHelperId === user.id;
+      if (!canUseAsHelper && user.id !== pending.attackerId && user.id !== pending.assistId) {
         return { state, events: [], error: "Endast den som slåss kan använda Get Lucky" };
       }
+      const targetId = isHelpCardPhase ? pending.attackerId : user.id;
       pending.attackMods ??= {};
-      pending.attackMods[user.id] = (pending.attackMods[user.id] ?? 0) + 4;
-      pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), user.id]));
+      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 4;
+      pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), targetId]));
       log(next, `${user.name} spelar Get Lucky: +4 attack i striden men dubbel HP-skada vid förlust.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "get_lucky", user.id, user.id, inCombatTableFan);
+      if (isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "get_lucky", user.id, targetId, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2825,7 +2866,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const previewBroDie = assistRollObj?.die ?? null;
     const pr = prBase + (assistRoll ?? 0);
     const need = pending.need + (pending.needMod ?? 0);
-    const critFailOnOne = combatCritFailFromDice(assistId, attackerRoll.die, previewBroDie);
+    const attackerIgnoresCritFailOnOne = roller.equipment.accessory?.ignoreCombatCritFailOnOne === true;
+    const broIgnoresCritFailOnOne =
+      assistId != null
+        ? (next.players.find((x) => x.id === assistId)?.equipment.accessory?.ignoreCombatCritFailOnOne ?? false)
+        : false;
+    const critFailOnOne = combatCritFailFromDice(
+      assistId,
+      attackerRoll.die,
+      previewBroDie,
+      attackerIgnoresCritFailOnOne,
+      broIgnoresCritFailOnOne,
+    );
 
     // Per-strid bonus (accessoarer): tillämpas exakt en gång när striden låser till preview.
     applyPerCombatAccessoryRewards(next, pending.attackerId);
@@ -2913,10 +2965,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         : `${p.name} takes the full force of ${pending.enemyName}'s attack (no sip).`,
     );
     next.pending = null;
+    const attackerIgnoresCritFailOnOneMit = p.equipment.accessory?.ignoreCombatCritFailOnOne === true;
+    const broIgnoresCritFailOnOneMit =
+      pending.assistId != null
+        ? (next.players.find((x) => x.id === pending.assistId)?.equipment.accessory?.ignoreCombatCritFailOnOne ??
+          false)
+        : false;
     const critFailOnOneMit = combatCritFailFromDice(
       pending.assistId,
       pending.previewDie ?? 1,
       pending.previewBroDie,
+      attackerIgnoresCritFailOnOneMit,
+      broIgnoresCritFailOnOneMit,
     );
     applyCombatLoss(
       next,
@@ -3340,6 +3400,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           next,
           `${winner.name}s ${winner.equipment.weapon?.name ?? "vapen"} träffar slumpmässigt: ${pvpWeaponRandomDamage.targetName} tar ${pvpWeaponRandomDamage.damage} skada.`,
         );
+      }
+      const brokenWeaponName = breakWeaponAfterWin(winner);
+      if (brokenWeaponName) {
+        log(next, `${winner.name}s ${brokenWeaponName} går sönder efter vinsten.`);
       }
     }
 

@@ -100,7 +100,14 @@ function isMyPending(pending: Pending | null, me: Player | null) {
   return false;
 }
 
-const POSITIVE_HELP_ITEM_IDS = ["light_beer", "folk_beer", "double_hops", "beer_bomb"] as const;
+const POSITIVE_HELP_ITEM_IDS = [
+  "light_beer",
+  "folk_beer",
+  "double_hops",
+  "beer_bomb",
+  "manopositiv",
+  "get_lucky",
+] as const;
 
 type MerchantEquipmentSlot = "weapon" | "armor" | "helmet" | "accessory";
 

@@ -61,11 +61,15 @@ export interface Weapon {
   powerDynamicMax?: number;
   /** On win: deal this much damage to a random other living player. */
   randomOtherDamageOnWin?: number;
+  /** If true: weapon breaks and is removed after a win. */
+  breakOnWin?: boolean;
 }
 
 export interface ArmorPiece {
   name: string;
   bonusHp: number;
+  /** +attack i strid (monster). */
+  combatBonus?: number;
   /** Damage reduced per hit. */
   damageNegate?: number;
   /** Extra damage reduced per hit when source is a boss combat. */
@@ -122,6 +126,8 @@ export interface Accessory {
   moveBonus?: number;
   /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack. */
   pvpDieBonus?: number;
+  /** Om true: spelarens egna etta på tärning i strid räknas inte som automatisk förlust. */
+  ignoreCombatCritFailOnOne?: boolean;
 }
 
 export interface Equipment {
@@ -162,6 +168,7 @@ export interface ShopItem {
   powerAtGold30?: number;
   powerDynamicMax?: number;
   randomOtherDamageOnWin?: number;
+  breakOnWin?: boolean;
   /** rustning */
   bonusHp?: number;
   healHpPerTurn?: number;
@@ -181,6 +188,7 @@ export interface ShopItem {
   preventTheft?: boolean;
   levelUpDiscountGold?: number;
   canSkipMonsterEncounter?: boolean;
+  ignoreCombatCritFailOnOne?: boolean;
   healAmount?: number;
   goldAmount?: number;
   /** Kort smaktext / särregler för UI (affär, inventarie). */
