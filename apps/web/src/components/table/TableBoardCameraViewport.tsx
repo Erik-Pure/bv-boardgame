@@ -14,8 +14,15 @@ type Props = {
  */
 export function TableBoardCameraViewport({ camera, panChildren, viewportOverlayChildren }: Props) {
   const { cam, boardViewportRef, viewportHandlers } = useTableCamera(camera);
+  /** Annars fångar `setPointerCapture` på viewport alla klick — t.ex. “Avsluta spelet” i game over når aldrig knappen. */
+  const blockBoardPan =
+    camera.state?.phase === "lobby" || camera.state?.phase === "ended";
   return (
-    <div ref={boardViewportRef} className={tableStyles.boardViewport} {...viewportHandlers}>
+    <div
+      ref={boardViewportRef}
+      className={tableStyles.boardViewport}
+      {...(blockBoardPan ? {} : viewportHandlers)}
+    >
       <div
         className={tableStyles.boardPanLayer}
         style={{
