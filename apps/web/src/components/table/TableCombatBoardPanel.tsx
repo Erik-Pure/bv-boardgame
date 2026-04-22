@@ -23,6 +23,7 @@ import {
   TABLE_MONSTER_COMBAT_DICE_PX,
 } from "./tableConstants";
 import combatStyles from "./TableCombatBoardPanel.module.css";
+import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 
 type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
@@ -56,6 +57,7 @@ function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: G
 
 function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<string, Player> }) {
   const { state, playersById } = props;
+  const overlayScale = useTableOverlayContentScale();
   const pending = state.pending;
   const showMonsterForDiceAnim = pending?.type === "combat" && pending.monsterId !== "boss";
 
@@ -438,6 +440,7 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
         blockPointerUntilFlipped={false}
         style={overlayDynamics}
         aboveScene={combatBoardBossHeaderLines}
+        contentScale={overlayScale}
       >
         <div className={combatStyles.innerBossIntro}>
           <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
@@ -449,19 +452,37 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
     );
   }
 
+  const panelBody = (
+    <div
+      className={`${combatStyles.panelShell} ${showMonsterCard ? combatStyles.panelInnerGhost : combatStyles.panelInnerCard}`}
+      style={
+        showMonsterCard
+          ? undefined
+          : { animation: TABLE_BOARD_MODAL_CARD_ANIMATION, transformOrigin: "top center" }
+      }
+    >
+      {headerAndMonster}
+      {reactionsAndDice}
+    </div>
+  );
+
   return (
     <div className={combatStyles.overlayHost} style={overlayDynamics}>
-      <div
-        className={`${combatStyles.panelShell} ${showMonsterCard ? combatStyles.panelInnerGhost : combatStyles.panelInnerCard}`}
-        style={
-          showMonsterCard
-            ? undefined
-            : { animation: TABLE_BOARD_MODAL_CARD_ANIMATION, transformOrigin: "top center" }
-        }
-      >
-        {headerAndMonster}
-        {reactionsAndDice}
-      </div>
+      {overlayScale !== 1 ? (
+        <div
+          style={{
+            transform: `scale(${overlayScale})`,
+            transformOrigin: "top center",
+            width: "100%",
+            display: "grid",
+            justifyItems: "center",
+          }}
+        >
+          {panelBody}
+        </div>
+      ) : (
+        panelBody
+      )}
     </div>
   );
 }

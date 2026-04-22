@@ -31,6 +31,7 @@ import turnBannerStyles from "./turnBanner.module.css";
 import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossViewer, resolveCombatWinViewer } from "../lib/combatUi";
 import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
+import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
@@ -211,7 +212,16 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
 }
 
 export function TableView() {
+  return (
+    <TablePresentationScaleProvider>
+      <TableViewBody />
+    </TablePresentationScaleProvider>
+  );
+}
+
+function TableViewBody() {
   const navigate = useNavigate();
+  const overlayContentScale = useTableOverlayContentScale();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const joinQrUrl =
@@ -889,11 +899,15 @@ export function TableView() {
           maxWidth={520}
           instantFront
           blockPointerUntilFlipped={false}
+          contentScale={overlayContentScale}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             pointerEvents: "none",
             placeItems: "start center",
-            paddingTop: 70,
+            paddingTop:
+              overlayContentScale > 1
+                ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
+                : 70,
             background: TABLE_BOARD_OVERLAY_BG,
             animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
@@ -959,6 +973,7 @@ export function TableView() {
           zIndex={44}
           maxWidth={720}
           blockPointerUntilFlipped={false}
+          contentScale={overlayContentScale}
           faceInnerClassName={
             isEventStoryCardPending(state.pending)
               ? cardFlipShellStyles.faceInnerNoVerticalOverflow
@@ -967,7 +982,10 @@ export function TableView() {
           style={{
             pointerEvents: "none",
             placeItems: "start center",
-            paddingTop: 70,
+            paddingTop:
+              overlayContentScale > 1
+                ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
+                : 70,
             background: state.pending.cardId === "boss_round_win" ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
             backgroundRepeat: state.pending.cardId === "boss_round_win" ? "no-repeat" : undefined,
             backgroundSize: state.pending.cardId === "boss_round_win" ? "100% 100%, 100% 100%" : undefined,

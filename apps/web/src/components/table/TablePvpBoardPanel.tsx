@@ -3,6 +3,7 @@ import type { GameState, Player } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { sv } from "../../lib/uiStrings";
 import { PVP_TABLE_REVEAL_DELAY_MS } from "./tableConstants";
+import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 import styles from "./TablePvpBoardPanel.module.css";
 
 /** Samma som serverns BvB-tärnings-tillägg från utrustning (`pvpDieBonus` per del). */
@@ -27,6 +28,7 @@ function pvpTablePreviewAttackMod(state: GameState, playerId: string): number {
 
 function TablePvpBoardPanelInner(props: { state: GameState }) {
   const { state } = props;
+  const overlayScale = useTableOverlayContentScale();
   const pending = state.pending?.type === "pvp" ? state.pending : null;
   const attacker = pending ? state.players.find((p) => p.id === pending.attackerId) : undefined;
   const defender = pending ? state.players.find((p) => p.id === pending.defenderId) : undefined;
@@ -128,17 +130,16 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
   const attackerPreviewMod = pvpTablePreviewAttackMod(state, attacker.id);
   const defenderPreviewMod = pvpTablePreviewAttackMod(state, defender.id);
 
-  return (
-    <div className={styles.overlay}>
-      <div
-        className={styles.panel}
-        style={
-          {
-            ["--pvp-c-attacker" as string]: attacker.color,
-            ["--pvp-c-defender" as string]: defender.color,
-          } as CSSProperties
-        }
-      >
+  const panelInner = (
+    <div
+      className={styles.panel}
+      style={
+        {
+          ["--pvp-c-attacker" as string]: attacker.color,
+          ["--pvp-c-defender" as string]: defender.color,
+        } as CSSProperties
+      }
+    >
         <div className={styles.subtitle}>{sv.table.pvpSubtitle}</div>
         <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
         {awaiting ? (
@@ -204,7 +205,26 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
           </div>
         ) : null}
         <div className={styles.scoreLine}>{sv.table.pvpScoreLine(wins.attacker, wins.defender)}</div>
-      </div>
+    </div>
+  );
+
+  return (
+    <div className={styles.overlay}>
+      {overlayScale !== 1 ? (
+        <div
+          style={{
+            transform: `scale(${overlayScale})`,
+            transformOrigin: "top center",
+            width: "100%",
+            display: "grid",
+            justifyItems: "center",
+          }}
+        >
+          {panelInner}
+        </div>
+      ) : (
+        panelInner
+      )}
     </div>
   );
 }

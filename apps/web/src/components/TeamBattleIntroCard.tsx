@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { CardFlipModalShell } from "./CardFlipModalShell";
 import cardFlipShellStyles from "./CardFlipModalShell.module.css";
+import { useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { sv } from "../lib/uiStrings";
 
 const CARD_INNER: CSSProperties = {
@@ -47,6 +48,8 @@ export function TeamBattleIntroCard(props: {
   tableOverlayAnimation?: string;
   tableCardEntranceAnimation?: string;
 }) {
+  const overlayScale = useTableOverlayContentScale();
+  const tableScale = props.variant === "table" ? overlayScale : 1;
   const body = (
     <>
       <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>
@@ -99,6 +102,9 @@ export function TeamBattleIntroCard(props: {
             ...CARD_BOX,
             animation: props.tableCardEntranceAnimation,
             transformOrigin: "center center",
+            ...(tableScale !== 1
+              ? { transform: `scale(${tableScale})`, transformOrigin: "center center" as const }
+              : {}),
           }}
         >
           <div style={CARD_INNER}>{body}</div>

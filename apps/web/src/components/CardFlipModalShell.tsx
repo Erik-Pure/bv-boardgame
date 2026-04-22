@@ -108,29 +108,41 @@ export function CardFlipModalShell(props: {
   bossPulsingBackdrop?: boolean;
   /** Enkel modal-animation utan kort-baksida/flip (fade + slide-up). */
   simpleEntrance?: boolean;
+  /** Bord/TV: skala innehåll (inte hela dimningen) för läsbarhet på avstånd. */
+  contentScale?: number;
 }) {
   const stackAbove = props.aboveScene != null;
+  const cs = props.contentScale;
+  const useScaleWrapper = cs != null && cs !== 1;
 
-  return (
-    <div
-      className={[styles.overlay, props.bossPulsingBackdrop ? styles.overlayBoss : "", props.className]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        zIndex: props.zIndex,
-        ...props.style,
-        ...(stackAbove
-          ? {
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              rowGap: 14,
-            }
-          : {}),
-      }}
-      onMouseDown={props.onBackdropMouseDown}
-    >
+  const flexStackStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    rowGap: 14,
+  };
+
+  /** Måste ge fast bredd-kontext: annars `width:100%` på CardFlipScene + shrink-wrap → 0px bred cell (modal “försvinner”). */
+  const scaledBlockStyle: CSSProperties = useScaleWrapper
+    ? {
+        transform: `scale(${cs})`,
+        /** `center` här skulle skala hälften uppåt → toppen klipps mot viewport när overlay ligger högt. */
+        transformOrigin: "top center",
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-start",
+        rowGap: stackAbove ? 14 : 0,
+        minHeight: 0,
+      }
+    : {};
+
+  const inner = (
+    <>
       {stackAbove ? (
         <div
           style={{
@@ -167,6 +179,22 @@ export function CardFlipModalShell(props: {
           {props.children}
         </CardFlipScene>
       )}
+    </>
+  );
+
+  return (
+    <div
+      className={[styles.overlay, props.bossPulsingBackdrop ? styles.overlayBoss : "", props.className]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        zIndex: props.zIndex,
+        ...props.style,
+        ...(stackAbove && !useScaleWrapper ? flexStackStyle : {}),
+      }}
+      onMouseDown={props.onBackdropMouseDown}
+    >
+      {useScaleWrapper ? <div style={scaledBlockStyle}>{inner}</div> : inner}
     </div>
   );
 }
