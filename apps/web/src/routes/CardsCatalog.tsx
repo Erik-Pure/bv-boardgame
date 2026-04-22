@@ -66,12 +66,6 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_spill_intentional",
 ]);
 
-function imageFileNameFromSrc(src: string): string {
-  const clean = src.split("?")[0]?.split("#")[0] ?? src;
-  const parts = clean.split("/");
-  return parts[parts.length - 1] || clean;
-}
-
 function monsterOverviewBadges(m: MonsterDef): EffectBadgeData[] {
   const badges: EffectBadgeData[] = [{ icon: "monster", label: String(m.strength) }];
   const teamGold = m.teamBattleBonusGold ?? 0;
