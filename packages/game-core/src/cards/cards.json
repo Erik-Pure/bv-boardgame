@@ -45,7 +45,7 @@
       "id": "event_astronomisk_fylla",
       "kind": "event",
       "title": "Astronomisk fylla",
-      "text": "Händelsen slår till. Du måste dricka 2 straffklunkar (+2 klunkar).",
+      "text": "En utomjordisk fylla, drick 2 straffklunkar.",
       "artKey": "event/astronomisk-fylla",
       "effects": [
         {
@@ -58,7 +58,7 @@
       "id": "event_ljuset_i_tunneln",
       "kind": "event",
       "title": "Ljuset i tunneln",
-      "text": "Du ser ljuset längst bort. Andas ut, återfå 2 HP och plocka upp 2 pant på vägen ut.",
+      "text": "Du ser ljuset i tunneln. Andas ut, återfå 2 HP och plocka upp 2 pant på vägen ut.",
       "artKey": "event/ljuset-i-tunneln",
       "effects": [
         {
@@ -320,7 +320,7 @@
       "id": "item_weak_beer",
       "kind": "item",
       "title": "Druckit för mycket",
-      "text": "Stridsreaktion: −2 på vald spelares attack (annars angripare). Påverkar spelare, inte monstret.",
+      "text": "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte monstret.",
       "artKey": "item/weak",
       "effects": []
     },
@@ -328,7 +328,7 @@
       "id": "item_light_beer",
       "kind": "item",
       "title": "Energidryck",
-      "text": "Stridsreaktion: +1 på vald spelares attack (annars angripare).",
+      "text": "Stridsreaktion: +1 på vald spelares attack.",
       "artKey": "item/light-beer",
       "effects": []
     },
@@ -336,7 +336,7 @@
       "id": "item_folk_beer",
       "kind": "item",
       "title": "8-bit beer",
-      "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare).",
+      "text": "Stridsreaktion: +2 på vald spelares attack.",
       "artKey": "item/8-bit-beer",
       "effects": []
     },
@@ -344,7 +344,7 @@
       "id": "item_tripwire",
       "kind": "item",
       "title": "Halt golv",
-      "text": "Stridsreaktion: −1 på vald spelares attack (annars angripare).",
+      "text": "Stridsreaktion: −1 på vald spelares attack.",
       "artKey": "item/tripwire",
       "effects": []
     },
@@ -378,7 +378,7 @@
       "id": "item_double_hops",
       "kind": "item",
       "title": "En hjälpande hand",
-      "text": "Stridsreaktion: +2 på vald spelares attack (annars angripare). Påverkar spelare, inte monstret.",
+      "text": "Stridsreaktion: +2 på vald spelares attack. Påverkar spelare, inte monstret.",
       "artKey": "item/hops",
       "effects": []
     },
@@ -386,7 +386,7 @@
       "id": "item_beer_bomb",
       "kind": "item",
       "title": "Ölbomb",
-      "text": "Stridsreaktion: +3 på vald spelares attack (annars angripare).",
+      "text": "Stridsreaktion: +3 på vald spelares attack.",
       "artKey": "item/beer-bomb",
       "effects": []
     },
@@ -402,7 +402,7 @@
       "id": "item_hangover",
       "kind": "item",
       "title": "Baksmälla",
-      "text": "Stridsreaktion: −3 på vald spelares attack (annars angripare).",
+      "text": "Stridsreaktion: −3 på vald spelares attack.",
       "artKey": "item/hangover",
       "effects": []
     },
@@ -492,7 +492,7 @@
       "id": "item_spill_intentional",
       "kind": "item",
       "title": "Spilla med flit",
-      "text": "Använd på en annan spelare: förstör slumpmässigt ett item eller utrustning.",
+      "text": "Använd på en annan spelare: förstör slumpmässigt ett föremål eller utrustning.",
       "artKey": "item/spill-intentional",
       "effects": []
     },

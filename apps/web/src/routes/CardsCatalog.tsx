@@ -66,6 +66,9 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_spill_intentional",
 ]);
 
+/** Kort-id:n som inte ska visas (mall / boss-mellanrunda). Skatt döljs med `kind` — samma kort visas vid skattrutor i spelet. */
+const HIDDEN_CATALOG_CARD_IDS = new Set<string>(["combat_monster", "boss_round_win"]);
+
 function monsterOverviewBadges(m: MonsterDef): EffectBadgeData[] {
   const badges: EffectBadgeData[] = [{ icon: "monster", label: String(m.strength) }];
   const teamGold = m.teamBattleBonusGold ?? 0;
@@ -117,7 +120,13 @@ function splitItemCardsByPolarity(cards: CardDef[]): {
 }
 
 export function CardsCatalog() {
-  const byKind = useMemo(() => groupCardsByKind(allCards()), []);
+  const byKind = useMemo(
+    () =>
+      groupCardsByKind(
+        allCards().filter((c) => !HIDDEN_CATALOG_CARD_IDS.has(c.id) && c.kind !== "treasure"),
+      ),
+    [],
+  );
   const equipmentBySlot = useMemo(
     () => groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT]),
     [],

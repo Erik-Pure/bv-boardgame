@@ -108,7 +108,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Glashjälm",
     price: 11,
     negateAllOnce: true,
-    rulesText: "En gång per strud: första gången du skulle ta skada i monsterstrid blockeras allt.",
+    rulesText: "Blockerar all skada en gång, går sedan sönder.",
   },
   {
     id: "eh_keykeg_helmet",
@@ -145,7 +145,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 12,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet: +1 / +2 / +3 attack i strid beroende på hur många burk-delar du har utrustat (rustning, hjälm, sköld).",
+      "Burkset bonus: +1 / +2 / +3 attack i strid.",
   },
   {
     id: "eh_beer_cap_helm_2",
@@ -173,7 +173,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 8,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet: +1 / +2 / +3 sköld (skadereduktion) beroende på hur många burk-delar du har utrustat.",
+      "Burkset bonus: +1 / +2 / +3 sköld.",
   },
   {
     id: "ex_gold_chain",
@@ -300,7 +300,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 2,
     healHpPerTurn: 1,
-    rulesText: "Stadig sköld och lite läckande öl: +1 HP vid varje turstart (upp till max HP).",
+    rulesText: "+1 HP varje tur",
   },
   {
     id: "ea_can_armor",
@@ -310,7 +310,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 0,
     rulesText:
-      "Del av burk-setet: +2 / +4 / +10 max HP beroende på hur många burk-delar du har utrustat.",
+      "Burkset bonus: +2 / +4 / +10 max HP",
   },
 ];
 

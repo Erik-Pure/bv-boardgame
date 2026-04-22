@@ -140,7 +140,7 @@ export const MONSTERS: MonsterDef[] = [
     name: "Belgisk munk",
     strength: 2,
     baseDamage: 1,
-    rulesText: "Ta en klunk så försvinner den — eller slåss som med vilket monster som helst.",
+    rulesText: "Ta en klunk i dess ära så försvinner den",
     rewardGold: 3,
     rewardItems: 1,
     artKey: "monster/belgisk-munk",
