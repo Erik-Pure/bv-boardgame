@@ -69,6 +69,32 @@
   white-space: nowrap;
 }
 
+.headerRightControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.wakeToggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--type-sm);
+  font-weight: 700;
+  opacity: 0.94;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.wakeToggleLabel input {
+  accent-color: #22c55e;
+}
+
+.wakeToggleLabel input:disabled + span {
+  opacity: 0.55;
+}
+
 .mainRow {
   display: flex;
   flex: 1;

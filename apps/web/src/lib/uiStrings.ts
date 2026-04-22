@@ -398,6 +398,8 @@ export const sv = {
     floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
+    wakeLockToggle: "Inaktivera sömnläge",
+    wakeLockUnsupported: "Stöds inte i denna webbläsare",
     lastState: "senaste tillstånd",
     game: "Spel",
     waitingState: "Väntar på tillstånd…",

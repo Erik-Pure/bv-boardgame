@@ -224,6 +224,9 @@ export function TableView() {
   const [err, setErr] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
+  const [preventSleep, setPreventSleep] = useState(false);
+  const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
+  const wakeLockRef = useRef<{ release: () => Promise<void>; released: boolean } | null>(null);
 
   const stackLevels = state?.levels?.length ? state.levels : [];
 
@@ -323,6 +326,68 @@ export function TableView() {
   useEffect(() => {
     if (status === "connected" || status === "connecting") setErr(null);
   }, [status]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    setWakeLockAvailable(typeof (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } }).wakeLock?.request === "function");
+  }, []);
+
+  useEffect(() => {
+    if (!preventSleep) {
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
+      if (sentinel && !sentinel.released) {
+        void sentinel.release().catch(() => undefined);
+      }
+      return;
+    }
+    if (typeof document === "undefined") return;
+    const nav = navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } };
+    if (!nav.wakeLock?.request) return;
+
+    let cancelled = false;
+    const requestWakeLock = async () => {
+      if (cancelled || document.visibilityState !== "visible") return;
+      try {
+        const lock = (await nav.wakeLock!.request("screen")) as {
+          released: boolean;
+          release: () => Promise<void>;
+          addEventListener?: (type: "release", listener: () => void) => void;
+        };
+        if (cancelled) {
+          if (!lock.released) await lock.release();
+          return;
+        }
+        wakeLockRef.current = lock;
+        lock.addEventListener?.("release", () => {
+          if (wakeLockRef.current === lock) {
+            wakeLockRef.current = null;
+          }
+        });
+      } catch {
+        // Ignore; togglen kan vara på även om browsern tillfälligt nekar låset.
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (!preventSleep) return;
+      if (document.visibilityState === "visible" && !wakeLockRef.current) {
+        void requestWakeLock();
+      }
+    };
+
+    void requestWakeLock();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
+      if (sentinel && !sentinel.released) {
+        void sentinel.release().catch(() => undefined);
+      }
+    };
+  }, [preventSleep]);
 
   // Håll loggen i botten när nya rader kommer.
   useEffect(() => {
@@ -439,7 +504,17 @@ export function TableView() {
               {sv.table.lobby}: {room}
             </span>
           </div>
-          <div className={u.flexRowGap8Shrink0}>
+          <div className={tableStyles.headerRightControls}>
+            <label className={tableStyles.wakeToggleLabel}>
+              <input
+                type="checkbox"
+                checked={preventSleep}
+                onChange={(e) => setPreventSleep(e.target.checked)}
+                disabled={!wakeLockAvailable}
+                aria-label={sv.table.wakeLockToggle}
+              />
+              <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
+            </label>
             <span className={tableStyles.headerStatusText}>
               {sv.table.status}: {wsStatusLabel(status)}
             </span>
