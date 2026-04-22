@@ -9,6 +9,7 @@ import { combatReactorsFor } from "../combatReactors.js";
 import {
   finalBossCardTagline,
   isFinalBossMonsterId,
+  isStandardMonsterId,
   monsterNeedBonusForBoardLevel,
   MONSTERS,
   type MonsterDef,
@@ -79,7 +80,7 @@ export function createMonsterCombatPending(
     enemyName: monster.name,
     need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex),
     needMod: 0,
-    baseDamage: monster.baseDamage + monsterNeedBonusForBoardLevel(attacker.levelIndex),
+    baseDamage: monster.baseDamage + (isStandardMonsterId(monster.id) ? monsterNeedBonusForBoardLevel(attacker.levelIndex) : 0),
     lossSipsOnLose: monster.lossSipsOnLose,
     phase: teamBattleRequired ? "chooseTeammate" : "enemyIntro",
     attackMods: {},

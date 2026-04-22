@@ -8,6 +8,7 @@ import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
   isFinalBossMonsterId,
+  isStandardMonsterId,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterNeedBonusForBoardLevel,
@@ -692,7 +693,8 @@ function computeMonsterDamage(
   /** Kapten Interrobang / Sura bär: true = take sip for reduced damage, false = full base damage */
   sipMitigation?: boolean,
 ): { damage: number; redirected: boolean } {
-  const levelDmg = monsterNeedBonusForBoardLevel(p.levelIndex);
+  const levelDmg = isStandardMonsterId(monsterId) ? monsterNeedBonusForBoardLevel(p.levelIndex) : 0;
+  const def = MONSTERS.find((m) => m.id === monsterId);
   let raw: number;
   let redirected = false;
   if (monsterId === "skum_banan") {
@@ -700,16 +702,15 @@ function computeMonsterDamage(
   } else if (monsterId === "folke_bengtsson") {
     raw = p.klunkar > 5 ? 3 : 1;
   } else if (monsterId === "kapten_interrobang") {
-    const base = MONSTERS.find((m) => m.id === "kapten_interrobang")!.baseDamage;
+    const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 3) : base;
   } else if (monsterId === "sura_bar") {
-    const base = MONSTERS.find((m) => m.id === "sura_bar")!.baseDamage;
+    const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 2) : base;
   } else if (monsterId === "rabarbapappa" && die === 1) {
     raw = 3;
     redirected = true;
   } else {
-    const def = MONSTERS.find((m) => m.id === monsterId);
     raw = def?.baseDamage ?? 3;
   }
   return { damage: raw + levelDmg, redirected };

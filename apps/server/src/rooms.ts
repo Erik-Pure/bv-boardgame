@@ -126,7 +126,46 @@ export function joinRoom(params: {
 }
 
 export function handleAction(room: Room, playerId: string, raw: unknown): string | null {
-  const action = raw as ClientAction;
+  const action = raw as ClientAction | { type?: string };
+
+  if (action?.type === "leaveGame") {
+    const state = room.state;
+    const leaving = state.players.find((p) => p.id === playerId);
+    if (!leaving) return null;
+    state.players = state.players.filter((p) => p.id !== playerId);
+    state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
+    state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
+    state.tableItemPlayReveals = (state.tableItemPlayReveals ?? []).filter(
+      (r) => r.actorId !== playerId && r.targetPlayerId !== playerId,
+    );
+
+    if (state.turnOrder.length === 0) {
+      state.currentTurnIndex = 0;
+    } else {
+      state.currentTurnIndex = Math.max(0, Math.min(state.currentTurnIndex, state.turnOrder.length - 1));
+    }
+
+    if (state.phase === "lobby") {
+      for (const p of state.players) p.isHost = false;
+      if (state.players[0]) state.players[0].isHost = true;
+    }
+
+    if (state.pending) {
+      const pendingJson = JSON.stringify(state.pending);
+      if (pendingJson.includes(playerId)) state.pending = null;
+    }
+
+    state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
+
+    if (state.phase === "playing" && state.players.length <= 1) {
+      const winner = state.players[0] ?? null;
+      state.phase = "ended";
+      state.pending = null;
+      state.winnerId = winner?.id ?? null;
+      state.winnerName = winner?.name ?? null;
+    }
+    return null;
+  }
 
   if (room.state.phase === "lobby" && action?.type === "startGame") {
     const seed = Math.floor(Math.random() * 1_000_000_000);
@@ -136,7 +175,7 @@ export function handleAction(room: Room, playerId: string, raw: unknown): string
     return null;
   }
 
-  const res = applyAction(room.state, action);
+  const res = applyAction(room.state, action as ClientAction);
   if (res.error) return res.error;
   room.state = res.state;
   return null;

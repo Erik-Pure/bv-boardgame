@@ -365,6 +365,13 @@ export function isFinalBossMonsterId(id: MonsterId): boolean {
   return (FINAL_BOSS_IDS as readonly string[]).includes(id);
 }
 
+/** Standardmonster = varken slutboss eller team battle. */
+export function isStandardMonsterId(id: MonsterId): boolean {
+  const m = MONSTERS.find((x) => x.id === id);
+  if (!m) return false;
+  return !isFinalBossMonsterId(id) && !m.teamBattleRequired;
+}
+
 /** Kortfooter under slutboss: bara partistraf, ikoner visar HP/klunk/pant. */
 export function finalBossCardTagline(id: MonsterId): string | null {
   switch (id) {

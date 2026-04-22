@@ -13,6 +13,14 @@ function storageKey(roomCode: string): string {
   return `bv:playerId:${roomCode.toUpperCase()}`;
 }
 
+export function clearRememberedPlayerId(roomCode: string): void {
+  try {
+    window.sessionStorage.removeItem(storageKey(roomCode));
+  } catch {
+    // ignore
+  }
+}
+
 function getRememberedPlayerId(roomCode: string): string | null {
   // sessionStorage är per-flik → låter dig testa flera spelare i samma browser.
   try {

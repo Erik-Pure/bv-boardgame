@@ -103,14 +103,6 @@ function playerClusterOffsets(n: number, baseR: number): { dx: number; dy: numbe
   return out;
 }
 
-/** Nästa spelare i `turnOrder` (visning på brädet; samma ordning som servern). */
-function nextTurnPlayer(state: GameState | null): Player | null {
-  if (!state || state.phase !== "playing" || state.turnOrder.length < 2) return null;
-  const nextIdx = (state.currentTurnIndex + 1) % state.turnOrder.length;
-  const id = state.turnOrder[nextIdx];
-  return state.players.find((p) => p.id === id) ?? null;
-}
-
 /** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
 const TABLE_TURN_BANNER_RESERVE_PX = 92;
 /** Extra utrymme när statusrad (t.ex. sömn) visas under namnet */
@@ -399,7 +391,6 @@ export function TableView() {
   }, [state?.phase, state?.pending, cur]);
 
   const playingTurn = state?.phase === "playing" && cur;
-  const nextPlayer = playingTurn ? nextTurnPlayer(state) : null;
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
@@ -1165,7 +1156,7 @@ export function TableView() {
                 .join(" ")}
               style={
                 {
-                  background: cur!.color,
+                  background: "#000000",
                   "--turn-banner-min-h": currentTurnAfflictions.length > 0 ? "98px" : "78px",
                 } as CSSProperties
               }
@@ -1173,56 +1164,79 @@ export function TableView() {
             {turnBannerHandoff ? (
               <div className={turnBannerStyles.shineSweep} key={cur!.id} aria-hidden />
             ) : null}
-            <div className={[turnBannerStyles.bannerContent, tableStyles.turnBannerTopRow].join(" ")}>
-              <div className={tableStyles.turnBannerMidRow}>
-                <div className={tableStyles.turnBannerNameCol}>
-                  <h1
-                    className={[
-                      turnBannerHandoff ? turnBannerStyles.playerNameHandoff : "",
-                      tableStyles.turnBannerPlayerTitle,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {cur!.name}
-                  </h1>
-                  <div
-                    className={tableStyles.turnBannerStatsRow}
-                    aria-label={sv.play.statsLine(cur!.hp, cur!.maxHp, cur!.gold, cur!.klunkar)}
-                  >
-                    <span className={u.inlineFlexGap4}>
-                      <StatIcon kind="hp" size={16} />
-                      <span>
-                        {cur!.hp}/{cur!.maxHp}
-                      </span>
-                    </span>
-                    <span className={u.inlineFlexGap4}>
-                      <StatIcon kind="pant" size={16} />
-                      <span>{cur!.gold}</span>
-                    </span>
-                    <span className={u.inlineFlexGap4}>
-                      <StatIcon kind="klunk" size={16} />
-                      <span>{cur!.klunkar}</span>
-                    </span>
-                  </div>
-                </div>
-                {nextPlayer ? (
-                  <div
-                    className={tableStyles.turnBannerNextPill}
-                    style={{ "--next-pill-bg": nextPlayer.color } as CSSProperties}
-                    title={
-                      [nextPlayer.name, ...tablePlayerAfflictionLines(nextPlayer)].filter(Boolean).join(" — ") ||
-                      nextPlayer.name
-                    }
-                  >
-                    {sv.table.turnBannerNext(nextPlayer.name)}
-                  </div>
-                ) : null}
-              </div>
-            </div>
             {currentTurnAfflictions.length > 0 ? (
               <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
             ) : null}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                padding: "0",
+                justifyContent: "center",
+                overflowX: "auto",
+              }}
+            >
+              {state!.players.map((p) => {
+                const active = cur?.id === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      minWidth: 150,
+                      borderRadius: active ? 0 : 12,
+                      padding: "6px 8px",
+                      border: "none",
+                      background: active ? p.color : "rgba(255,255,255,0.04)",
+                      boxShadow: "none",
+                      flexShrink: 0,
+                    }}
+                    title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
+                  >
+                    <div
+                      style={{
+                        fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                        fontSize: 14,
+                        fontWeight: 900,
+                        lineHeight: 1.1,
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        marginBottom: 6,
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textAlign: "center",
+                      }}
+                    >
+                      <span className={u.inlineFlexGap4}>
+                        <StatIcon kind="hp" size={14} />
+                        <span>
+                          {p.hp}/{p.maxHp}
+                        </span>
+                      </span>
+                      <span className={u.inlineFlexGap4}>
+                        <StatIcon kind="pant" size={14} />
+                        <span>{p.gold}</span>
+                      </span>
+                      <span className={u.inlineFlexGap4}>
+                        <StatIcon kind="klunk" size={14} />
+                        <span>{p.klunkar}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           </div>
         </div>

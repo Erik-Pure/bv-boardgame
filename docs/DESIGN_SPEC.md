@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.29 |
+| Version | 0.30 |
 | Senast uppdaterad | 2026-04-22 |
 
 ---
@@ -34,14 +34,14 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Kortlivade felmeddelanden (mobil, `/play`):** server- eller klientmeddelanden som **inte** ska blockera spel (t.ex. WebSocket **`error`** med text som *«En Ölkompis hjälper redan»*, eller *inte ansluten*) visas som en **toast** nära **nedre kanten** (över interaktionspanelen, med **safe area**), mörk bakgrund, **kort fade/slide-in**, och försvinner **automatiskt efter några sekunder** — i stället för lång röd felrad ovanför innehållet. (`role="status"`, `aria-live="polite"`.)
 
-**Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) ska UI ge en tydlig signal via **interaktionspanelen längst ned** (där tärning/knappar visas): en **regnbågsfärgad gradient** som **roterar** bakom panelinnehållet. Effekten ligger **inte** över hela `/play`-bakgrunden och används inte på storskärmsbrädet (`/table`), så TV-vyn förblir neutral.
+**Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) kan UI visa regnbågssignal i interaktionspanelen längst ned. Effekten är **av/på i inställningar** i mobilvyn.
 
 ### 2.1 Storskärmsvy: pan, zoom och fokus
 
 - På **spelplansvyn** (stor skärm) ska kameran kunna **panorera** och **zooma** (t.ex. mushjul + dra, pinch på pekskärm, eller enkla +/--knappar).
 - **Automatiskt fokus:** när turen byter spelare (och vid t.ex. val av rörelse) ska vyn **centrera och zooma** så att **den aktiva pjäsen och relevanta målrutor** ryms i **den faktiska spelytan** (rektangulär viewport — inte bara kvadratisk brädes-SVG). Pan ska vara **konsekvent med zoom** (centrering skalar med aktuell `scale`).
-- **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **aktiv spelares färg som bakgrund** (kompakt höjd).
-- **Turindikator (detaljer):** till vänster visas **aktiv spelares namn** med **HP / pant / klunkar** med ikoner **under namnet**; **“Nästa: <spelare>”** visas **högerställd** i en pill med **nästa spelares färg** som bakgrund. Eventuella statusrader (t.ex. sömn/öl i ögat) kan visas under huvudraden.
+- **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **svart bakgrund** (kompakt höjd).
+- **Turindikator (detaljer):** i remsan visas en **spelarrad med alla spelare** (namn + HP/pant/klunk). Aktiv spelare markeras med **spelarens färg**. Raden är centrerad när den får plats och kan annars scrolla horisontellt.
 - **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna.
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
@@ -144,7 +144,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
   - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
   - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
 - **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår). **Nivåvals-modal (mobil):** kort rubrik i *Permanent Marker* (“Gå upp till nästa nivå?”) och kort brödtext om utmaning; inga långa duplicerade förklaringar om monster-+ per våning i samma modal (den informationen finns i regler/UI annorstädes).
-- **Monster på våningen:** extra **styrkekrav** (`need`) och **HP-skada vid monsterförlust** är **+1 per brädesnivå** på **just det planet** (våning 1 → +0, våning 2 → +1, våning 3 → +2) — **inte** global skalning efter “högsta spelaren”. (Pant/klunkar i sig påverkas inte av denna bonus; skadan läggs ovanpå monstrets bas-skada per mottagare vid team battle / omriktade träffar.)
+- **Monster på våningen:** extra **styrkekrav** (`need`) är **+1 per brädesnivå** på planet (våning 1 → +0, våning 2 → +1, våning 3 → +2). Extra **HP-skada vid monsterförlust** skalar på samma sätt men **endast för standardmonster** (inte team battle och inte slutboss). Skalningen är lokal per plan, inte global efter “högsta spelaren”.
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
 ### 7.4 Rutyper (tiles)
@@ -415,7 +415,8 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 
 - **Startpant vid spelstart:** 5 per spelare (inte vid respawn).
 - **Team-monsterfrekvens per nivå:** ~8% / 18% / 28%.
-- **Monster `need` och förlust-skada:** +`levelIndex` på styrkekrav respektive HP-skada vid förlust på den våningen (lokalt per plan).
+- **Monster `need`:** +`levelIndex` på styrkekrav på den våningen (lokalt per plan).
+- **Monster förlust-skada (HP):** +`levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
 - **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool).
 - **Reaktionsfönster i PvE:** spelare kan spela **flera reaktionskort** innan de slutmarkerar med “gör inget”.
@@ -455,4 +456,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.27 | 2026-04-21 | §4 bord (pre-game lobby): **kopiera join-länk** borttagen från UI; **QR** till `/join?room=…` kvarstår |
 | 0.28 | 2026-04-21 | §9.1 nya slumpmonster **Enhörningsryttare** och **Färgglada gubbar** (+ placeholder-art); §9.2 BvB-byte vid **Solbrillor** / `preventTheft`: bara pant, straffklunk, skada (ej utrustningsstöld); §9.2 auto-klar-copy och borttagen redundant tärnings-hint; §2.1 **BvB-panel** tydligare gradient |
 | 0.29 | 2026-04-22 | §9.1 monsterlista utökad med **Transporter** (solo) och **Cowboys** (team battle, +5 HP vid seger); §10.1 nya item **Get Lucky** ( +4 attack, dubbel HP-skada vid förlust) och **Manopositiv** (+4 attack, kostar 4 pant vid spel); §9.2 rondresultat-copy på mobil förenklad till **Rond N** + **Du vann/förlorade ronden** |
+| 0.30 | 2026-04-22 | Mobil `/play`: ny **Inställningar**-meny (regnbågseffekt av/på, lobby/turstatus, lämna spel med bekräftelse) och borttagen footerstatus; server: explicit `leaveGame` som tar bort spelaren ur state; `/table`: turbanner omgjord till svart spelarrad med alla spelare (namn + HP/pant/klunk), aktiv spelare highlightas i spelarens färg; nivåbonus på HP-skada gäller nu endast **standardmonster** |
 

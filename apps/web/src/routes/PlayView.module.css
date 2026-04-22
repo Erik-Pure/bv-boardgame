@@ -72,7 +72,7 @@
   z-index: 5;
   background: #000000;
   border-radius: 0;
-  padding: 12px max(16px, env(safe-area-inset-left)) calc(56px + env(safe-area-inset-bottom))
+  padding: 12px max(16px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
@@ -536,8 +536,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  /* Lite högre från kanten: luft mot statusfot + mindre risk att feltappa överliggande modal */
-  bottom: 56px; /* above debug footer */
+  bottom: 0;
   z-index: 70;
   /* Glas: låt regnbåge/innehåll synas igenom, sudda det som ligger bakom */
   background: rgba(11, 18, 38, 0.55);

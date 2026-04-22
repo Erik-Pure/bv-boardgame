@@ -37,7 +37,7 @@ import {
 import { isGameState } from "../lib/gameTypes";
 import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
-import { type ServerMessage } from "../lib/ws";
+import { clearRememberedPlayerId, type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
@@ -49,7 +49,6 @@ import { DiceCube3D } from "../components/DiceCube3D";
 import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
-import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
 import { CombatEnemyIntroWaiting } from "../components/play/CombatEnemyIntroWaiting";
 import { CombatRollPreviewSheet } from "../components/play/CombatRollPreviewSheet";
@@ -166,6 +165,7 @@ const MERCHANT_TYPE_ICON_FILTER =
 
 /** Matchar `.page` max-width — smal skärm får vertikal gradient (spelarfärg → svart). */
 const PLAY_ROOT_MOBILE_GRADIENT_MQ = "(max-width: 740px)";
+const RAINBOW_EFFECTS_STORAGE_KEY = "bv.play.rainbowEffectsEnabled";
 
 function clearPlayRootBackground(): void {
   const root = document.getElementById("root");
@@ -235,6 +235,12 @@ export function PlayView() {
   }, []);
   const [myId, setMyId] = useState<string | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [rainbowEffectsEnabled, setRainbowEffectsEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(RAINBOW_EFFECTS_STORAGE_KEY) !== "0";
+  });
   const [equipDetail, setEquipDetail] = useState<{
     slot: "weapon" | "armor" | "helmet" | "accessory";
   } | null>(null);
@@ -260,20 +266,19 @@ export function PlayView() {
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
 
-  const { status, reconnectAttemptN, overlayPhase, clientRef, requestReconnect, showReconnectOverlay } =
-    useWsGameClient({
-      roomCode: room,
-      playerName: name,
-      as: "controller",
-      connectTimeoutMs: 10_000,
-      onMessage: (m: ServerMessage) => {
-        if (m.type === "helloAck") setMyId(m.playerId);
-        if (m.type === "error") showToast(m.message);
-        if (m.type === "state" && isGameState(m.state)) {
-          setState(m.state);
-        }
-      },
-    });
+  const { status, clientRef } = useWsGameClient({
+    roomCode: room,
+    playerName: name,
+    as: "controller",
+    connectTimeoutMs: 10_000,
+    onMessage: (m: ServerMessage) => {
+      if (m.type === "helloAck") setMyId(m.playerId);
+      if (m.type === "error") showToast(m.message);
+      if (m.type === "state" && isGameState(m.state)) {
+        setState(m.state);
+      }
+    },
+  });
 
   const me = findMe(state, myId);
 
@@ -371,8 +376,13 @@ export function PlayView() {
   }, [state, me]);
   /* Namnrad: 12+46+12=70 (knapp 46px). Stats: 9+9 + strip ~46 (ring 42 + cellpadding) = 64. Summa 134 — måste matcha fixed header så utrustningspanelen inte lämnar glipa (spelarfärg syns). */
   const headerTopPad = showHeaderStatsBar ? 134 : 70;
-  /** Fixed utrustningspanel har egen botten-padding; minska sidans så blå inte syns vid scroll. */
-  const pageBottomPad = me && state && state.phase === "playing" ? 12 : 78;
+  /** Fixed utrustningspanel har egen botten-padding; håll sidans bottenmarginal låg. */
+  const pageBottomPad = 12;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(RAINBOW_EFFECTS_STORAGE_KEY, rainbowEffectsEnabled ? "1" : "0");
+  }, [rainbowEffectsEnabled]);
+
   const pending = state?.pending ?? null;
   const onRollDieScreen = !!isMyTurn && !pending;
   useEffect(() => {
@@ -458,6 +468,7 @@ export function PlayView() {
   const canStart =
     !!me?.isHost && state?.phase === "lobby" && totalPlayers >= 2 && readyCount === totalPlayers;
   const highlightPulse = !!isMyTurn || state?.phase === "lobby" || !!canStart;
+  const showRainbowPulse = highlightPulse && rainbowEffectsEnabled;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
   const inPvpAwaitingRolls = pvpParticipant && pvpPending?.phase === "awaitingRolls";
@@ -542,6 +553,15 @@ export function PlayView() {
     }
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
+  };
+
+  const leaveCurrentGame = () => {
+    clientRef.current?.send({ type: "action", action: { type: "leaveGame" } });
+    window.setTimeout(() => {
+      clientRef.current?.close();
+      clearRememberedPlayerId(room);
+      navigate("/", { replace: true });
+    }, 90);
   };
 
   const interaction = (() => {
@@ -2247,10 +2267,19 @@ export function PlayView() {
               margin: "0 auto",
               padding: "12px 16px",
               display: "flex",
-              gap: 12,
+              gap: 10,
               alignItems: "center",
             }}
           >
+            <button
+              type="button"
+              aria-label={sv.play.settings}
+              title={sv.play.settings}
+              onClick={() => setShowSettings(true)}
+              className={styles.headerPlayersBtn}
+            >
+              <SettingsIcon size={22} />
+            </button>
             <div
               style={{
                 fontFamily: "var(--heading)",
@@ -2265,6 +2294,7 @@ export function PlayView() {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                textAlign: "center",
               }}
             >
               {me?.name ?? name}
@@ -2668,7 +2698,7 @@ export function PlayView() {
                                       minHeight: 0,
                                       minWidth: 0,
                                       width: "100%",
-                                      padding: 8,
+                                      padding: 4,
                                       boxSizing: "border-box",
                                       display: "flex",
                                       flexDirection: "column",
@@ -2693,7 +2723,7 @@ export function PlayView() {
                                             position: "absolute",
                                             inset: 0,
                                             overflow: "hidden",
-                                            borderRadius: 8,
+                                            borderRadius: 10,
                                           }}
                                         >
                                           <img
@@ -2720,16 +2750,14 @@ export function PlayView() {
                                             inset: 0,
                                             zIndex: 2,
                                             pointerEvents: "none",
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            alignItems: "flex-end",
-                                            boxSizing: "border-box",
-                                            padding: 4,
                                           }}
                                         >
                                           {info.count > 1 ? (
                                             <span
                                               style={{
+                                                position: "absolute",
+                                                top: 2,
+                                                right: 2,
                                                 minWidth: 20,
                                                 minHeight: 20,
                                                 borderRadius: 999,
@@ -2749,10 +2777,9 @@ export function PlayView() {
                                           ) : null}
                                           <div
                                             style={{
-                                              marginTop: "auto",
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              alignItems: "flex-end",
+                                              position: "absolute",
+                                              right: 2,
+                                              bottom: 2,
                                             }}
                                           >
                                             <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
@@ -2803,10 +2830,10 @@ export function PlayView() {
               ? styles.bottomSheetTurnSwapIn
               : sheetTurnAnim === "out"
                 ? styles.bottomSheetTurnSwapOut
-                : highlightPulse
+                : showRainbowPulse
                   ? ""
                   : styles.bottomSheetEnter,
-            highlightPulse ? styles.bottomSheetActiveTurn : "",
+            showRainbowPulse ? styles.bottomSheetActiveTurn : "",
             itemDetailSheet ||
               equipDetailSheet ||
               cardOrSipActions ||
@@ -2819,7 +2846,7 @@ export function PlayView() {
             .filter(Boolean)
             .join(" ")}
         >
-          {highlightPulse ? <div className={styles.bottomSheetActiveTurnBg} aria-hidden /> : null}
+          {showRainbowPulse ? <div className={styles.bottomSheetActiveTurnBg} aria-hidden /> : null}
           <div
             className={[
               styles.bottomSheetHeightAnim,
@@ -2841,78 +2868,83 @@ export function PlayView() {
         </div>
       )}
 
-      <div
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: showReconnectOverlay ? 90 : 40,
-          borderTop: "1px solid #ffffff22",
-          background: "#0b1226",
-          paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 740,
-            margin: "0 auto",
-            padding: "10px 16px",
-            fontSize: 12,
-            color: "#ffffff",
-            opacity: 0.92,
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              minWidth: 0,
-            }}
-          >
-            <div
+      {showSettings && (
+        <Modal title={sv.play.settingsTitle} onClose={() => setShowSettings(false)}>
+          <div className={u.stack12}>
+            <label
               style={{
-                minWidth: 0,
-                flex: "1 1 auto",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.04)",
               }}
             >
-              {sv.play.lobbyHeader(room, wsStatusLabel(status))}
-            </div>
-            {showReconnectOverlay ? (
-              <WsReconnectFooterHint
-                phase={overlayPhase}
-                attempt={reconnectAttemptN}
-                connectingShort={sv.play.wsReconnectFooterConnecting}
-                waitingShort={sv.play.wsReconnectFooterWaiting}
-                retryLabel={sv.play.wsRetry}
-                onRetry={requestReconnect}
+              <span style={{ fontWeight: 700 }}>{sv.play.settingsRainbowEffects}</span>
+              <input
+                type="checkbox"
+                checked={rainbowEffectsEnabled}
+                onChange={(e) => setRainbowEffectsEnabled(e.currentTarget.checked)}
               />
-            ) : footerTurnCaption ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  maxWidth: "48%",
-                  fontSize: 12,
-                  fontWeight: 400,
-                  lineHeight: 1.25,
-                  textAlign: "right",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {footerTurnCaption}
-              </div>
-            ) : null}
+            </label>
+
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.04)",
+                fontSize: 13,
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ opacity: 0.72, marginBottom: 4 }}>{sv.play.settingsLobbyStatus}</div>
+              <div style={{ fontWeight: 700, wordBreak: "break-word" }}>{sv.play.lobbyHeader(room, wsStatusLabel(status))}</div>
+              {footerTurnCaption ? (
+                <>
+                  <div style={{ opacity: 0.72, marginTop: 10, marginBottom: 4 }}>{sv.play.settingsTurnStatus}</div>
+                  <div style={{ fontWeight: 700 }}>{footerTurnCaption}</div>
+                </>
+              ) : null}
+            </div>
+
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => {
+                setShowLeaveConfirm(true);
+              }}
+            >
+              {sv.play.settingsLeaveGame}
+            </ArcadeButton>
           </div>
-        </div>
-      </div>
+        </Modal>
+      )}
+
+      {showLeaveConfirm && (
+        <Modal title={sv.play.settingsLeaveGame} onClose={() => setShowLeaveConfirm(false)}>
+          <div className={u.stack12}>
+            <div className={`${u.o9} ${u.fs14}`}>Är du säker på att du vill lämna spelet?</div>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => {
+                setShowLeaveConfirm(false);
+                setShowSettings(false);
+                leaveCurrentGame();
+              }}
+            >
+              {sv.play.settingsLeaveGame}
+            </ArcadeButton>
+            <ArcadeButton variant="gray" fullWidth onClick={() => setShowLeaveConfirm(false)}>
+              Avbryt
+            </ArcadeButton>
+          </div>
+        </Modal>
+      )}
 
       {showPlayers && state && (
         <Modal title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)}>
@@ -3929,6 +3961,25 @@ function itemMeta(itemId: any): { title: string; text: string; target: ItemUseTa
 
 function itemTitle(itemId: any): string {
   return itemMeta(itemId).title;
+}
+
+function SettingsIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2.8l2.2 1 .5 2.4 2.2.9 2-1.3 1.8 1.8-1.2 2 .9 2.2 2.3.5v2.6l-2.3.5-.9 2.2 1.2 2-1.8 1.8-2-1.3-2.2.9-.5 2.4-2.2 1-2.2-1-.5-2.4-2.2-.9-2 1.3-1.8-1.8 1.2-2-.9-2.2-2.3-.5v-2.6l2.3-.5.9-2.2-1.2-2L5.1 4.8l2 1.3 2.2-.9.5-2.4z" />
+      <circle cx="12" cy="12" r="3.4" />
+    </svg>
+  );
 }
 
 function Modal(props: {
