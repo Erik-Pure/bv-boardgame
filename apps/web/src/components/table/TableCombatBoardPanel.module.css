@@ -12,6 +12,19 @@
   padding-right: 12px;
 }
 
+/* Tablet / liggande: mindre toppmarginal så monsterkort + tärning får plats högre upp. */
+@media (max-height: 820px) {
+  .overlayHost {
+    padding-top: 44px;
+  }
+}
+
+@media (max-height: 700px) {
+  .overlayHost {
+    padding-top: 32px;
+  }
+}
+
 .panelShell {
   width: min(720px, 92vw);
   text-align: left;
@@ -142,7 +155,7 @@
 .monsterRow {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   flex-wrap: wrap;
   margin-top: 2px;

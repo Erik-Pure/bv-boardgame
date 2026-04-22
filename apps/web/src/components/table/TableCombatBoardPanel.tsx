@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
@@ -26,6 +26,29 @@ import combatStyles from "./TableCombatBoardPanel.module.css";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 
 type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
+
+/** Ungefärlig höjd före transform-scale (rubriker + kort + hint) — begränsar uppskalning så tablet inte klipper. */
+const COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX = 780;
+
+function useVisualViewportHeight(): number {
+  const [h, setH] = useState(() =>
+    typeof window !== "undefined" ? window.visualViewport?.height ?? window.innerHeight : 900,
+  );
+  useEffect(() => {
+    const tick = () => setH(window.visualViewport?.height ?? window.innerHeight);
+    tick();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", tick);
+    vv?.addEventListener("scroll", tick);
+    window.addEventListener("resize", tick);
+    return () => {
+      vv?.removeEventListener("resize", tick);
+      vv?.removeEventListener("scroll", tick);
+      window.removeEventListener("resize", tick);
+    };
+  }, []);
+  return h;
+}
 
 function formatSignedDiceModifier(sum: number): string | null {
   if (sum === 0) return null;
@@ -58,6 +81,14 @@ function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: G
 function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<string, Player> }) {
   const { state, playersById } = props;
   const overlayScale = useTableOverlayContentScale();
+  const vvHeight = useVisualViewportHeight();
+  /** På tablet kan presentationScale > 1 trycka ner/klippa monsterkortet — håll inom ~90% av viewport-höjd. */
+  const combatBlockScale = useMemo(() => {
+    if (overlayScale <= 1) return overlayScale;
+    const room = Math.max(340, vvHeight * 0.9);
+    const capByHeight = room / COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX;
+    return Math.min(overlayScale, Math.max(1, capByHeight));
+  }, [overlayScale, vvHeight]);
   const pending = state.pending;
   const showMonsterForDiceAnim = pending?.type === "combat" && pending.monsterId !== "boss";
 
@@ -293,7 +324,8 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
             style={{
               display: "flex",
               flexDirection: "row",
-              alignItems: "center",
+              /* center skjuter ner kortet när tärningskolumnen är högre än kortet (tablet). */
+              alignItems: "flex-start",
               justifyContent: "center",
               flexWrap: "wrap",
               marginTop: 2,
@@ -440,7 +472,7 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
         blockPointerUntilFlipped={false}
         style={overlayDynamics}
         aboveScene={combatBoardBossHeaderLines}
-        contentScale={overlayScale}
+        contentScale={combatBlockScale}
       >
         <div className={combatStyles.innerBossIntro}>
           <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
@@ -468,10 +500,10 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
 
   return (
     <div className={combatStyles.overlayHost} style={overlayDynamics}>
-      {overlayScale !== 1 ? (
+      {combatBlockScale !== 1 ? (
         <div
           style={{
-            transform: `scale(${overlayScale})`,
+            transform: `scale(${combatBlockScale})`,
             transformOrigin: "top center",
             width: "100%",
             display: "grid",

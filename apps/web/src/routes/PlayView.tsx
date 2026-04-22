@@ -258,7 +258,8 @@ export function PlayView() {
   const [itemUseTargetPhase, setItemUseTargetPhase] = useState(false);
   const [wantsIntervene, setWantsIntervene] = useState(false);
   const [beerBroPickInstance, setBeerBroPickInstance] = useState<string | null>(null);
-  const [lengraddadPickInstance, setLengraddadPickInstance] = useState<string | null>(null);
+  /** Lengräddad, En enkel stöld, Spilla med flit — kräver målspelare vid ingripande. */
+  const [interveneOtherTargetPickInstance, setInterveneOtherTargetPickInstance] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [rollDiceSpinning, setRollDiceSpinning] = useState(true);
   const [combatDiceSpinning, setCombatDiceSpinning] = useState(true);
@@ -466,7 +467,7 @@ export function PlayView() {
   useEffect(() => {
     if (!combatReactionsPhase) {
       setBeerBroPickInstance(null);
-      setLengraddadPickInstance(null);
+      setInterveneOtherTargetPickInstance(null);
     }
   }, [combatReactionsPhase]);
 
@@ -835,20 +836,7 @@ export function PlayView() {
       const isAssistPartner = pending.assistId === me.id;
       const isTeamFighter = isAttacker || isAssistPartner;
       const hasAnyReaction = (me.inventory ?? []).some((it) =>
-        [
-          "weak_beer",
-          "light_beer",
-          "folk_beer",
-          "tripwire",
-          "double_hops",
-          "beer_bomb",
-          "manopositiv",
-          "hangover",
-          "monster_hype",
-          "yeast_sabotage",
-          "beer_bro",
-          "lengraddad",
-        ].includes(String(it.itemId)),
+        COMBAT_INTERVENE_PLAYABLE_ITEM_IDS.has(String(it.itemId)),
       );
       const attacker = state.players.find((p) => p.id === pending.attackerId) ?? null;
       const teammate = pending.assistId ? state.players.find((p) => p.id === pending.assistId) ?? null : null;
@@ -1039,20 +1027,7 @@ export function PlayView() {
         }
         if (wantsIntervene) {
           const interveneItems = (me.inventory ?? []).filter((it) =>
-            [
-              "weak_beer",
-              "light_beer",
-              "folk_beer",
-              "tripwire",
-              "double_hops",
-              "beer_bomb",
-              "manopositiv",
-              "hangover",
-              "monster_hype",
-              "yeast_sabotage",
-              "beer_bro",
-              "lengraddad",
-            ].includes(String(it.itemId)),
+            COMBAT_INTERVENE_PLAYABLE_ITEM_IDS.has(String(it.itemId)),
           );
           if (interveneItems.length === 0) {
             return (
@@ -1114,14 +1089,14 @@ export function PlayView() {
               </div>
             );
           }
-          if (lengraddadPickInstance) {
-            const lgInst = interveneItems.find((x) => x.instanceId === lengraddadPickInstance);
-            const lengraddadCandidates = state.players.filter((p) => p.id !== me.id);
-            if (!lgInst) {
+          if (interveneOtherTargetPickInstance) {
+            const otInst = interveneItems.find((x) => x.instanceId === interveneOtherTargetPickInstance);
+            const otherTargetCandidates = state.players.filter((p) => p.id !== me.id);
+            if (!otInst) {
               return (
                 <div className={u.stack10}>
                   <div className={`${u.textCenter} ${u.o85}`}>{sv.play.itemNotFound}</div>
-                  <ArcadeButton variant="gray" fullWidth onClick={() => setLengraddadPickInstance(null)}>
+                  <ArcadeButton variant="gray" fullWidth onClick={() => setInterveneOtherTargetPickInstance(null)}>
                     {sv.play.back}
                   </ArcadeButton>
                 </div>
@@ -1131,7 +1106,7 @@ export function PlayView() {
               <div className={u.stack10}>
                 <div className={`${u.textCenter} ${u.o9}`}>{sv.play.chooseTarget}</div>
                 <div className={u.stack8}>
-                  {lengraddadCandidates.map((p) => (
+                  {otherTargetCandidates.map((p) => (
                     <ArcadeButton
                       key={p.id}
                       variant="pink"
@@ -1140,10 +1115,10 @@ export function PlayView() {
                         send({
                           type: "useItem",
                           playerId: me.id,
-                          instanceId: lgInst.instanceId,
+                          instanceId: otInst.instanceId,
                           targetPlayerId: p.id,
                         });
-                        setLengraddadPickInstance(null);
+                        setInterveneOtherTargetPickInstance(null);
                         setWantsIntervene(false);
                       }}
                     >
@@ -1151,7 +1126,7 @@ export function PlayView() {
                     </ArcadeButton>
                   ))}
                 </div>
-                <ArcadeButton variant="gray" fullWidth onClick={() => setLengraddadPickInstance(null)}>
+                <ArcadeButton variant="gray" fullWidth onClick={() => setInterveneOtherTargetPickInstance(null)}>
                   {sv.play.back}
                 </ArcadeButton>
               </div>
@@ -1172,8 +1147,12 @@ export function PlayView() {
                           setBeerBroPickInstance(it.instanceId);
                           return;
                         }
-                        if (id === "lengraddad") {
-                          setLengraddadPickInstance(it.instanceId);
+                        if (
+                          id === "lengraddad" ||
+                          id === "not_my_round" ||
+                          id === "spill_intentional"
+                        ) {
+                          setInterveneOtherTargetPickInstance(it.instanceId);
                           return;
                         }
                         const targetPlayerId =
@@ -3610,12 +3589,32 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   get_lucky: "combat",
 };
 
+/** Föremål som kan spelas vid ingripande i andras PvE-strid (reaktionsfasen). */
+const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([
+  "weak_beer",
+  "light_beer",
+  "folk_beer",
+  "tripwire",
+  "double_hops",
+  "beer_bomb",
+  "manopositiv",
+  "hangover",
+  "monster_hype",
+  "yeast_sabotage",
+  "beer_bro",
+  "lengraddad",
+  "not_my_round",
+  "spill_intentional",
+]);
+
 /** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */
 const COMBAT_INTERVENE_EVIL_ITEM_IDS = new Set<string>([
   "weak_beer",
   "tripwire",
   "hangover",
   "monster_hype",
+  "not_my_round",
+  "spill_intentional",
 ]);
 const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "light_beer",

@@ -2690,6 +2690,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       notifyItemPlayForTableAfterUse(next, "not_my_round", user.id, target.id, inCombatTableFan, stealSide);
       return { state: next, events: ["state"] };
     }
@@ -2732,6 +2733,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       inv.splice(idx, 1);
       user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
       notifyItemPlayForTableAfterUse(next, "spill_intentional", user.id, target.id, inCombatTableFan, spillSide);
       return { state: next, events: ["state"] };
     }

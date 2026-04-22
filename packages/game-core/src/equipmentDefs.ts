@@ -213,7 +213,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Taproom nyckel",
     price: 7,
     levelUpDiscountGold: 10,
-    rulesText: "VIP till nästa våning: billigare nivå upp i pant.",
+    rulesText: "VIP till nästa våning: det kostar mindre att gå upp en nivå.",
   },
   {
     id: "ex_ring",

@@ -161,8 +161,6 @@ export function CardFlipModalShell(props: {
         <div
           className={styles.simpleEntrance}
           style={{
-            width: "100%",
-            maxWidth: "min(var(--card-ref-w, 400px), 100%)",
             ["--card-ref-w" as string]: `${Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W)}px`,
           }}
         >
