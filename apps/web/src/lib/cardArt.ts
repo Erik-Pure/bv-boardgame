@@ -50,10 +50,10 @@ export function artAttributionLabel(artKey?: string): string | undefined {
 export type ArtImageSources = { avif?: string; webp?: string; fallback: string };
 
 function sourcesFromPath(webpPath: string): ArtImageSources {
-  // vi genererar .avif + .webp med samma basnamn; png ligger kvar som säker fallback.
+  // Vi genererar .avif + .webp med samma basnamn; fallback är .webp.
   if (webpPath.endsWith(".webp")) {
     const base = webpPath.slice(0, -".webp".length);
-    return { avif: `${base}.avif`, webp: webpPath, fallback: `${base}.png` };
+    return { avif: `${base}.avif`, webp: webpPath, fallback: webpPath };
   }
   return { fallback: webpPath };
 }

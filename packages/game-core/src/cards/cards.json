@@ -516,7 +516,7 @@
       "id": "item_manopositiv",
       "kind": "item",
       "title": "Manopositiv",
-      "text": "Stridsreaktion: +4 på vald spelares attack (annars dig i BvB, angripare i PvE). Du förlorar 4 pant när kortet spelas.",
+      "text": "Stridsreaktion: +4 på vald spelares attack. Du förlorar 4 pant när kortet spelas.",
       "artKey": "item/manopositiv",
       "effects": []
     }

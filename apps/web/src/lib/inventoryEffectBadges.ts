@@ -173,6 +173,8 @@ export function itemInventoryEffectBadge(
     hangover: { icon: "attack", label: "−3", labelTone: "danger" },
     monster_hype: { icon: "attack", label: "−2", labelTone: "danger" },
     yeast_sabotage: { icon: "attack", label: "−1", labelTone: "danger" },
+    get_lucky: { icon: "attack", label: "+4" },
+    manopositiv: { icon: "attack", label: "+4" },
     sip_card: { icon: "klunk", label: "+1" },
     split_the_g: { icon: "pant", label: "½" },
     lengraddad: { icon: "attack", label: "−2", labelTone: "danger" },
