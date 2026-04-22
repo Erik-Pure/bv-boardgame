@@ -702,7 +702,12 @@ export function TableView() {
                 <div className={tableStyles.lobbyReadyLine}>{sv.table.readyAll(readyCount, state.players.length)}</div>
                 <div className={u.gridCenter8Mb16}>
                   <div className={tableStyles.qrFrame} title={joinQrUrl}>
-                    <QRCodeSVG value={joinQrUrl} size={128} includeMargin />
+                    <QRCodeSVG
+                      value={joinQrUrl}
+                      size={176}
+                      includeMargin
+                      style={{ width: "clamp(160px, 32vw, 220px)", height: "auto", display: "block" }}
+                    />
                   </div>
                   <div className={u.caption12o86Center}>Skanna för att gå med i lobbyn</div>
                 </div>
