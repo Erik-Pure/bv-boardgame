@@ -1937,7 +1937,6 @@ export function PlayView() {
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
-  const bottomSheetExpanded = bottomSheetVisible && !interactionPanelCollapsed;
 
   useEffect(() => {
     if (!bottomSheetVisible) setInteractionPanelCollapsed(false);
@@ -1945,7 +1944,7 @@ export function PlayView() {
 
   useLayoutEffect(() => {
     const curr = !!isMyTurn;
-    if (state?.phase !== "playing" || !bottomSheetExpanded) {
+    if (state?.phase !== "playing" || !bottomSheetVisible) {
       prevIsMyTurnRef.current = curr;
       setSheetTurnAnim(null);
     } else {
@@ -1966,10 +1965,10 @@ export function PlayView() {
         turnSwapTimerRef.current = null;
       }
     };
-  }, [isMyTurn, state?.phase, bottomSheetExpanded]);
+  }, [isMyTurn, state?.phase, bottomSheetVisible]);
 
   useLayoutEffect(() => {
-    if (!bottomSheetExpanded) {
+    if (!bottomSheetVisible) {
       setBottomSheetAnimatedHeight(null);
       setBottomSheetHeightInstant(false);
       return;
@@ -2008,7 +2007,7 @@ export function PlayView() {
       ro?.disconnect();
       window.removeEventListener("resize", syncHeight);
     };
-  }, [bottomSheetExpanded]);
+  }, [bottomSheetVisible]);
 
   /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
   const bottomSheetOverTeamBattleIntro =
@@ -2858,7 +2857,7 @@ export function PlayView() {
         </button>
       ) : null}
 
-      {bottomSheetExpanded && (
+      {bottomSheetVisible && (
         <div
           className={[
             styles.bottomSheet,
@@ -2894,7 +2893,11 @@ export function PlayView() {
           >
             <div
               ref={bottomSheetMeasureRef}
-              className={[styles.bottomSheetInner, sheetFlash && styles.bottomSheetInnerFlash]
+              className={[
+                styles.bottomSheetInner,
+                sheetFlash && styles.bottomSheetInnerFlash,
+                interactionPanelCollapsed && styles.bottomSheetButtonsOnly,
+              ]
                 .filter(Boolean)
                 .join(" ")}
             >

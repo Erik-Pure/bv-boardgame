@@ -769,6 +769,19 @@
   animation: sheetRollFlashOverlay 0.92s linear forwards;
 }
 
+/* Kompaktläge: behåll knappar, dölj övrig informationscopy i nedersta panelen. */
+.bottomSheetButtonsOnly :is(div, span):not(button):not(button *):not(:has(button)) {
+  display: none !important;
+}
+
+.bottomSheetButtonsOnly :is(p, h1, h2, h3, h4, h5, h6, small, strong, b, em, label, ul, ol, li):not(button *) {
+  display: none !important;
+}
+
+.bottomSheetButtonsOnly :is(img, svg):not(button *) {
+  display: none !important;
+}
+
 @keyframes sheetRollFlashOverlay {
   0% {
     opacity: 0;

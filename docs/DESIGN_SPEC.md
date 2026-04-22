@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.31 |
+| Version | 0.32 |
 | Senast uppdaterad | 2026-04-22 |
 
 ---
@@ -36,7 +36,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) kan UI visa regnbågssignal i interaktionspanelen längst ned. Effekten är **av/på i inställningar** i mobilvyn.
 
-**Interaktionspanel (mobil, små skärmar):** panelen kan **minimeras/maximeras** via en liten toggle-knapp precis ovanför panelen för att frigöra yta när spelaren behöver läsa/trycka i inventory eller valrutor under strider och BvB. Knappen ska vara nåbar även när panelen är minimerad.
+**Interaktionspanel (mobil, små skärmar):** panelen kan växla till **kompaktläge** via en liten toggle-knapp precis ovanför panelen. I kompaktläge döljs informationscopy i panelen, medan **interaktionsknapparna fortfarande visas och är klickbara**.
 
 **Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
 
@@ -244,7 +244,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Affärer** nås via **affärsrutor** (§7.4) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
 - Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
-- **Handlare (nuvarande flöde):** spelaren kan köpa **flera saker i samma besök** och lämnar handlaren explicit när den är klar.
+- **Handlare (nuvarande flöde):** spelaren kan köpa **flera saker i samma besök** och lämnar handlaren explicit när den är klar. **Samma hyllpost kan inte köpas två gånger i samma besök**; köpt post tas bort direkt ur handlarens utbud.
 
 ### 10.2 Panta burkar (affär på brädet)
 
@@ -462,4 +462,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.29 | 2026-04-22 | §9.1 monsterlista utökad med **Transporter** (solo) och **Cowboys** (team battle, +5 HP vid seger); §10.1 nya item **Get Lucky** ( +4 attack, dubbel HP-skada vid förlust) och **Manopositiv** (+4 attack, kostar 4 pant vid spel); §9.2 rondresultat-copy på mobil förenklad till **Rond N** + **Du vann/förlorade ronden** |
 | 0.30 | 2026-04-22 | Mobil `/play`: ny **Inställningar**-meny (regnbågseffekt av/på, lobby/turstatus, lämna spel med bekräftelse) och borttagen footerstatus; server: explicit `leaveGame` som tar bort spelaren ur state; `/table`: turbanner omgjord till svart spelarrad med alla spelare (namn + HP/pant/klunk), aktiv spelare highlightas i spelarens färg; nivåbonus på HP-skada gäller nu endast **standardmonster** |
 | 0.31 | 2026-04-22 | Mobil `/play`: interaktionspanelen kan minimeras/maximeras via toggle-knapp ovanför panelen (för små skärmar); Spelare/Inställningar öppnas utan kortanimation; bottenglapp efter footer-flytt borttaget genom uppdaterad panel-/sheet-positionering |
+| 0.32 | 2026-04-22 | Mobil `/play`: paneltoggle justerad till **kompaktläge** (dölj text, behåll knappar synliga); §10.2 handlare förtydligad så köpt hyllpost inte kan köpas igen under samma besök |
 

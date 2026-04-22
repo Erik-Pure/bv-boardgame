@@ -3358,8 +3358,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       endTurnOrOfferLevelUp(next, p.id);
       return { state: next, events: ["state"] };
     }
-    const item = next.pending.items.find((i) => i.id === action.itemId);
-    if (!item) return { state, events: [], error: "Ogiltigt föremål" };
+    const itemIdx = next.pending.items.findIndex((i) => i.id === action.itemId);
+    if (itemIdx < 0) return { state, events: [], error: "Ogiltigt föremål" };
+    const item = next.pending.items[itemIdx]!;
     if (p.gold < item.price) return { state, events: [], error: "För lite pant" };
     p.gold -= item.price;
     if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
@@ -3371,6 +3372,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       p.gold += item.goldAmount ?? 0;
     }
     log(next, `${p.name} buys ${item.name} (${item.price}g).`);
+    // One purchase per shelf row during the current merchant visit.
+    next.pending.items = next.pending.items.filter((_, idx) => idx !== itemIdx);
     // Keep merchant open so player can buy multiple things before leaving explicitly.
     return { state: next, events: ["state"] };
   }
