@@ -107,8 +107,8 @@ function playerClusterOffsets(n: number, baseR: number): { dx: number; dy: numbe
 const TABLE_TURN_BANNER_RESERVE_PX = 92;
 /** Extra utrymme när statusrad (t.ex. sömn) visas under namnet */
 const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 116;
-/** Vertikalt lyft (enkel + solfjäder); över bannerhöjd så spelarrad syns bakom banner */
-const TABLE_ITEM_PLAY_LIFT_PX = 50;
+/** Vertikalt lyft (enkel + solfjäder); något lägre så den inte tar för mycket fokus. */
+const TABLE_ITEM_PLAY_LIFT_PX = 34;
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
 function tablePlayerAfflictionLines(p: Player): string[] {
   const lines: string[] = [];
@@ -1195,7 +1195,7 @@ export function TableView() {
                     <div
                       style={{
                         fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                        fontSize: 14,
+                        fontSize: 20,
                         fontWeight: 900,
                         lineHeight: 1.1,
                         textAlign: "center",
@@ -1212,24 +1212,24 @@ export function TableView() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: 8,
-                        fontSize: 11,
+                        gap: 12,
+                        fontSize: 17,
                         fontWeight: 800,
                         textAlign: "center",
                       }}
                     >
                       <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="hp" size={14} />
+                        <StatIcon kind="hp" size={22} />
                         <span>
                           {p.hp}/{p.maxHp}
                         </span>
                       </span>
                       <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="pant" size={14} />
+                        <StatIcon kind="pant" size={22} />
                         <span>{p.gold}</span>
                       </span>
                       <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="klunk" size={14} />
+                        <StatIcon kind="klunk" size={22} />
                         <span>{p.klunkar}</span>
                       </span>
                     </div>
