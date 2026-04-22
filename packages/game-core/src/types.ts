@@ -34,7 +34,9 @@ export type ItemId =
   | "canman"
   | "not_my_round"
   | "spill_intentional"
-  | "early_night";
+  | "early_night"
+  | "get_lucky"
+  | "manopositiv";
 
 export interface ItemInstance {
   instanceId: string;
@@ -359,6 +361,8 @@ export type Pending =
       reactionItemPlays?: CombatReactionItemPlay[];
       /** Skakad öl: spelare som fick −1 attack; vid förlust mot monster → hoppar tur + "Öl i ögat". */
       yeastSabotageVictimId?: string;
+      /** Get Lucky: spelare med +4 attack i denna strid men som tar dubbel HP-skada om laget förlorar. */
+      getLuckyRiskPlayerIds?: string[];
       /** Team battle: attacker must pick one teammate before combat starts. */
       teamBattleRequired?: boolean;
       /** Team battle: bonus gold each on win. */

@@ -20,7 +20,6 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/skum-banan": "Skum banan, Bryggverket",
   "monster/rabarbapappa": "Rabarbapappa, Bryggverket",
   "monster/brottningsmatch": "Lengräddad, Bryggverket & Tempel brygghus",
-  "item/lengraddad": "Lengräddad, Bryggverket & Tempel brygghus",
   "monster/keg-lifter": "O-beast, Bryggverket & Stockholm Brewing",
   "monster/kapten-interrobang": "Kapten Interrobang, Bryggverket",
   "monster/sura-bar": "Surinamnam, Bryggverket & Poppels bryggeri",
@@ -28,9 +27,15 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/belgisk-munk": "Sean Claude Maltdamm, Bryggverket & Beer Studio",
   "monster/folke-bengtsson": "Folke B, Bryggverket",
   "monster/unicorn": "Enkelpipa, Bryggverket",
+  "monster/enhorningsryttare": "Hagelbössa, Bryggverket",
+  "monster/fargglada_gubbar": "Rabarbapappa, Bryggverket",
+  "monster/transporter": "Transporter Återuppstanden, Bryggverket",
+  "monster/cowboys": "Get Lucky, Bryggverket",
   "monster/store-narcissius": "Den store Narcissus, Bryggverket",
+  "item/manopositiv": "Etting, Tusing, Thomas Husing, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
+  "item/getlucky": "Get Lucky, Bryggverket",
   "item/hops": "Kaakao kaakao, Bryggverket & Mabrouk Chocolate",
   "item/8-bit-beer": "41337, Bryggverket",
   "monster/taproom-titan": "The Bru-Team, Bryggverket",
@@ -117,8 +122,6 @@ export function artImageSrc(artKey?: string): string {
       return "/monsters/onda-bryggverket.webp";
     }
     if (mKey === "oldomaren") return "/monsters/beer-judge.webp";
-    /** Raster saknas ännu — generiska kortplatshållare tills etikettbilder lagts i public/monsters/. */
-    if (mKey === "enhorningsryttare" || mKey === "fargglada-gubbar") return "/card-placeholder.png";
     return `/monsters/${mKey}.webp`;
   }
   // Filer i apps/web/public/event/{namn}.png — t.ex. event/rest → public/event/rest.png
@@ -148,6 +151,8 @@ export function artImageSrc(artKey?: string): string {
       "split-the-g": "split-the-g",
       /** Raster: `public/items/item_early_night.png` (inte `early_night.*`). */
       "early-night": "item_early_night",
+      getlucky: "getlucky",
+      manopositiv: "manopositiv",
     };
     const key = key0;
     const mapped = itemArtMap[key];

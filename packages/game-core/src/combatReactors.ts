@@ -7,6 +7,7 @@ const INTERVENE_ITEM_IDS = new Set<string>([
   "tripwire",
   "double_hops",
   "beer_bomb",
+  "manopositiv",
   "hangover",
   "beer_bro",
   "monster_hype",

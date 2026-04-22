@@ -145,6 +145,7 @@ const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "folk_beer",
   "double_hops",
   "beer_bomb",
+  "manopositiv",
 ]);
 
 const PVP_BEST_OF = 3;
@@ -155,6 +156,7 @@ const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "tripwire",
   "double_hops",
   "beer_bomb",
+  "manopositiv",
   "hangover",
   "monster_hype",
   "beard_back",
@@ -867,6 +869,8 @@ function applyCombatLoss(
     critFailOnOne?: boolean;
     /** Pip-vapen: valfri straffklunk togs före tärningsslaget. */
     weaponSipBeforeRoll?: boolean;
+    /** Get Lucky: spelare med dubbel HP-skada vid förlust i denna strid. */
+    getLuckyRiskPlayerIds?: string[];
   },
   log: (s: GameState, m: string) => void,
   rng: () => number,
@@ -889,14 +893,24 @@ function applyCombatLoss(
     applyDamage({ state: next, player: target, amount: dmgTarget.damage, log });
     log(next, `${p.name} slog 1 — Rabarbapappan missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
   } else {
-    applyDamage({ state: next, player: p, amount: dmgOut.damage, isBossHit, log });
+    const attackerDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(p.id) ?? false;
+    const attackerDamage = attackerDamageDoubled ? dmgOut.damage * 2 : dmgOut.damage;
+    applyDamage({ state: next, player: p, amount: attackerDamage, isBossHit, log });
+    if (attackerDamageDoubled) {
+      log(next, `${p.name} pressade med Get Lucky och tar dubbel HP-skada (${attackerDamage}).`);
+    }
   }
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
       const dmgBro = computeMonsterDamage(monsterId, bro, die, sipForMonster);
       const bb = bro.hp;
-      applyDamage({ state: next, player: bro, amount: dmgBro.damage, isBossHit, log });
+      const assistDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(bro.id) ?? false;
+      const assistDamage = assistDamageDoubled ? dmgBro.damage * 2 : dmgBro.damage;
+      applyDamage({ state: next, player: bro, amount: assistDamage, isBossHit, log });
+      if (assistDamageDoubled) {
+        log(next, `${bro.name} pressade med Get Lucky och tar dubbel HP-skada (${assistDamage}).`);
+      }
       log(next, `${bro.name} takes the hit too (HP ${bb} → ${bro.hp}).`);
     }
   }
@@ -1039,6 +1053,16 @@ function finalizeCombatAfterRollPreview(
     const assistName = assistMate?.name ?? null;
     if (teamBattleRequired && assistMate) {
       assistMate.gold += rewardGold;
+    }
+    if (pending.monsterId === "cowboys") {
+      const beforeHp = p.hp;
+      p.hp = Math.min(p.maxHp, p.hp + 5);
+      log(next, `${p.name} får +${p.hp - beforeHp} HP från Cowboys-segern.`);
+      if (assistMate) {
+        const beforeAssistHp = assistMate.hp;
+        assistMate.hp = Math.min(assistMate.maxHp, assistMate.hp + 5);
+        log(next, `${assistMate.name} får +${assistMate.hp - beforeAssistHp} HP från Cowboys-segern.`);
+      }
     }
     if (attackerWeaponBonusGold > 0) {
       log(
@@ -1190,6 +1214,7 @@ function finalizeCombatAfterRollPreview(
         sipMitigation: false,
         critFailOnOne,
         weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
+        getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
       },
       log,
       rng,
@@ -2308,6 +2333,54 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
 
+    if (inst.itemId === "manopositiv") {
+      const pending = next.pending;
+      const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
+      const isPvpPreRound = pending?.type === "pvp" && pending.phase === "preRoundItems";
+      if (
+        !pending ||
+        (!isPvpPreRound && (pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)))
+      ) {
+        return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
+      }
+      if (user.gold < 4) {
+        return { state, events: [], error: "Du behöver 4 pant för att spela Manopositiv" };
+      }
+      let targetId: string;
+      if (isPvpPreRound && pending.type === "pvp") {
+        targetId = action.targetPlayerId ?? user.id;
+        if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
+          return { state, events: [], error: "Ogiltigt PvP-mål" };
+        }
+        pending.pvpAttackMods ??= {};
+        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 4;
+        pending.roundItemReady ??= {};
+        pending.roundItemReady[user.id] = false;
+        log(next, `${user.name} spelar Manopositiv: +4 attack i BvB-ronden (−4 pant).`);
+      } else {
+        const combatPending = pending as Extract<Pending, { type: "combat" }>;
+        targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
+        combatPending.attackMods ??= {};
+        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 4;
+        log(next, `${user.name} spelar Manopositiv: +4 attack i striden (−4 pant).`);
+        combatPending.reacted ??= {};
+        if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
+          combatPending.reacted[user.id] = "intervened";
+        }
+      }
+      user.gold -= 4;
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
+      if (!isPvpPreRound && isHelpCardPhase) {
+        pending.helpUsedPositiveItem = true;
+        pending.phase = "reactions";
+      }
+      notifyItemPlayForTableAfterUse(next, "manopositiv", user.id, targetId, inCombatTableFan || isPvpPreRound);
+      if (isPvpPreRound) maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
+      return { state: next, events: ["state"] };
+    }
+
     if (inst.itemId === "beard_back") {
       const inCombatReaction =
         next.pending?.type === "combat" &&
@@ -2644,6 +2717,27 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
 
+    if (inst.itemId === "get_lucky") {
+      const pending = next.pending;
+      if (!pending || pending.type !== "combat" || pending.phase !== "reactions") {
+        return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
+      }
+      if (user.id !== pending.attackerId && user.id !== pending.assistId) {
+        return { state, events: [], error: "Endast den som slåss kan använda Get Lucky" };
+      }
+      pending.attackMods ??= {};
+      pending.attackMods[user.id] = (pending.attackMods[user.id] ?? 0) + 4;
+      pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), user.id]));
+      log(next, `${user.name} spelar Get Lucky: +4 attack i striden men dubbel HP-skada vid förlust.`);
+      pending.reacted ??= {};
+      if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
+      notifyItemPlayForTableAfterUse(next, "get_lucky", user.id, user.id, inCombatTableFan);
+      return { state: next, events: ["state"] };
+    }
+
     return { state, events: [], error: "Okänt föremål" };
   }
 
@@ -2839,6 +2933,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         sipMitigation,
         critFailOnOne: critFailOnOneMit,
         weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
+        getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
       },
       log,
       rng,

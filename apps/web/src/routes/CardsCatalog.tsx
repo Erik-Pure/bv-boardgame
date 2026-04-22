@@ -351,6 +351,7 @@ function MonsterCatalogCard(props: {
           display: "grid",
           placeItems: "center",
           position: "relative",
+          overflow: "hidden",
         }}
       >
         <PictureImg
@@ -359,7 +360,7 @@ function MonsterCatalogCard(props: {
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
           }}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
         <CatalogImageBadgeStrip badges={monsterOverviewBadges(m)} />
       </div>
@@ -409,6 +410,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
           padding: 12,
           boxSizing: "border-box",
           position: "relative",
+          overflow: "hidden",
         }}
       >
         <PictureImg
@@ -423,6 +425,7 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
             width: "auto",
             height: "auto",
             objectFit: "contain",
+            display: "block",
             filter: src.endsWith(".svg") ? "brightness(0) invert(0.92)" : undefined,
           }}
         />
@@ -470,6 +473,7 @@ function CatalogCard({ card }: { card: CardDef }) {
           display: "grid",
           placeItems: "center",
           position: "relative",
+          overflow: "hidden",
         }}
       >
         <PictureImg
@@ -478,7 +482,7 @@ function CatalogCard({ card }: { card: CardDef }) {
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
           }}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
         <CatalogImageBadgeStrip badges={overviewBadges} />
       </div>

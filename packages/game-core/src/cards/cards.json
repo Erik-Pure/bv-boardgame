@@ -252,7 +252,7 @@
     {
       "id": "event_round_on_me",
       "kind": "event",
-      "title": "Rundan är på mig!",
+      "title": "Jag bjuder på rundan!",
       "text": "Du känner dig generös. Alla (inklusive du) läker 1 HP.",
       "artKey": "event/round",
       "effects": []
@@ -503,6 +503,22 @@
       "text": "Använd i strid som angripare: skippa monstret och avsluta mötet.",
       "artKey": "item/early-night",
       "effects": []
+    },
+    {
+      "id": "item_get_lucky",
+      "kind": "item",
+      "title": "Get Lucky",
+      "text": "Stridsreaktion (duellanternas sida): +4 på din attack i denna strid. Vid förlust tar du dubbel HP-skada.",
+      "artKey": "item/getlucky",
+      "effects": []
+    },
+    {
+      "id": "item_manopositiv",
+      "kind": "item",
+      "title": "Manopositiv",
+      "text": "Stridsreaktion: +4 på vald spelares attack (annars dig i BvB, angripare i PvE). Du förlorar 4 pant när kortet spelas.",
+      "artKey": "item/manopositiv",
+      "effects": []
     }
   ],
   "decks": {
@@ -566,7 +582,9 @@
       "item_canman",
       "item_not_my_round",
       "item_spill_intentional",
-      "item_early_night"
+      "item_early_night",
+      "item_get_lucky",
+      "item_manopositiv"
     ]
   }
 }

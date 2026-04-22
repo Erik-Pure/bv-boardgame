@@ -20,7 +20,9 @@ export type MonsterId =
   | "onda_bryggverket"
   | "unicorn"
   | "enhorningsryttare"
-  | "fargglada_gubbar";
+  | "fargglada_gubbar"
+  | "transporter"
+  | "cowboys";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -301,7 +303,28 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "",
     rewardGold: 3,
     rewardItems: 1,
-    artKey: "monster/fargglada-gubbar",
+    artKey: "monster/fargglada_gubbar",
+  },
+  {
+    id: "transporter",
+    name: "Transporter",
+    strength: 4,
+    baseDamage: 3,
+    rulesText: "",
+    rewardGold: 4,
+    rewardItems: 1,
+    artKey: "monster/transporter",
+  },
+  {
+    id: "cowboys",
+    name: "Cowboys",
+    strength: 7,
+    baseDamage: 3,
+    rulesText: "Vid vinst: båda stridande får +5 HP.",
+    teamBattleRequired: true,
+    rewardGold: 5,
+    rewardItems: 1,
+    artKey: "monster/cowboys",
   },
 ];
 

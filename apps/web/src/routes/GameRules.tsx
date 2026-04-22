@@ -31,6 +31,7 @@ export function GameRules() {
         color: "#e2e8f0",
         background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
         lineHeight: 1.55,
+        textAlign: "left",
       }}
     >
       <Link to="/" style={{ color: "#93c5fd", fontSize: 15, textDecoration: "none" }}>

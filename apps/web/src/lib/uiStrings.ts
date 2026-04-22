@@ -144,6 +144,7 @@ export const sv = {
     itemSuffixTripwire: " (−1 spelarattack)",
     itemSuffixDoubleHops: " (+2 spelarattack)",
     itemSuffixBeerBomb: " (+3 spelarattack)",
+    itemSuffixManopositiv: " (+4 spelarattack, −4 pant)",
     itemSuffixHangover: " (−3 spelarattack)",
     itemSuffixMonsterHype: " (−2 attack)",
     itemSuffixYeast: " (−1 attack)",
@@ -161,6 +162,8 @@ export const sv = {
     resolveTileNoPvp: (tileLabel: string) => tileLabel,
     pvpRollDie: "Slå din tärning",
     pvpRound: (n: number) => `Rond ${n}`,
+    pvpRoundYouWon: "Du vann ronden",
+    pvpRoundYouLost: "Du förlorade ronden",
     pvpRoundBestOf: (round: number, bestOf: number) => `Rond ${round} av ${bestOf}`,
     pvpTieRerollHint: "Lika — båda slår om.",
     /** Efter rondslag: matchen fortsätter efter att båda bekräftat. */
@@ -464,6 +467,14 @@ export const sv = {
     canman: {
       title: "Canman",
       text: "+1 pant varje tur i 10 omgångar",
+    },
+    get_lucky: {
+      title: "Get Lucky",
+      text: "+4 attack i strid. Vid förlust tar du dubbel HP-skada.",
+    },
+    manopositiv: {
+      title: "Manopositiv",
+      text: "+4 attack i strid, men du förlorar 4 pant när kortet spelas.",
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
     spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt föremål eller utrustning för en spelare." },

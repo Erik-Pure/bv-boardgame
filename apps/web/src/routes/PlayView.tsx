@@ -814,6 +814,7 @@ export function PlayView() {
           "tripwire",
           "double_hops",
           "beer_bomb",
+          "manopositiv",
           "hangover",
           "monster_hype",
           "yeast_sabotage",
@@ -1017,6 +1018,7 @@ export function PlayView() {
               "tripwire",
               "double_hops",
               "beer_bomb",
+              "manopositiv",
               "hangover",
               "monster_hype",
               "yeast_sabotage",
@@ -1154,6 +1156,7 @@ export function PlayView() {
                             "tripwire",
                             "double_hops",
                             "beer_bomb",
+                            "manopositiv",
                             "hangover",
                           ].includes(id)
                             ? attacker.id
@@ -1169,6 +1172,7 @@ export function PlayView() {
                       {String(it.itemId) === "tripwire" ? sv.play.itemSuffixTripwire : ""}
                       {String(it.itemId) === "double_hops" ? sv.play.itemSuffixDoubleHops : ""}
                       {String(it.itemId) === "beer_bomb" ? sv.play.itemSuffixBeerBomb : ""}
+                      {String(it.itemId) === "manopositiv" ? sv.play.itemSuffixManopositiv : ""}
                       {String(it.itemId) === "hangover" ? sv.play.itemSuffixHangover : ""}
                       {String(it.itemId) === "monster_hype" ? sv.play.itemSuffixMonsterHype : ""}
                       {String(it.itemId) === "yeast_sabotage" ? sv.play.itemSuffixYeast : ""}
@@ -1341,26 +1345,22 @@ export function PlayView() {
       const oppAck = opponentId ? pending.roundRevealAcked?.[opponentId] === true : false;
       const myRoll = pending.rolls?.[me.id];
       const rt = pending.resolvedTotals;
-      const lead = pending.roundRevealLead;
+      const myTotal = rt
+        ? me.id === pending.attackerId
+          ? rt.attackerTotal
+          : rt.defenderTotal
+        : null;
+      const oppTotal = rt
+        ? me.id === pending.attackerId
+          ? rt.defenderTotal
+          : rt.attackerTotal
+        : null;
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>
-            {lead === "chooseLoot"
-              ? sv.play.pvpRoundRevealMatchEnd
-              : sv.play.pvpRoundRevealNextRound(pvpRound, pending.nextRoundNumber ?? pvpRound + 1)}
-          </div>
-          <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>
-            {sv.play.pvpScoreLabel}: {pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–
-            {pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}
-          </div>
-          {rt ? (
-            <div className={`${u.textCenter} ${u.fs14} ${u.o9}`}>
-              {sv.play.pvpRoundRevealTotals(rt.attackerTotal, rt.defenderTotal)}
-            </div>
-          ) : null}
-          {pending.winnerId ? (
+          <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>{sv.play.pvpRound(pvpRound)}</div>
+          {myTotal !== null && oppTotal !== null && myTotal !== oppTotal ? (
             <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>
-              {sv.play.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
+              {myTotal > oppTotal ? sv.play.pvpRoundYouWon : sv.play.pvpRoundYouLost}
             </div>
           ) : null}
           <div className={styles.sheetDiceBlock}>
@@ -3515,6 +3515,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   tripwire: "combat",
   double_hops: "combat",
   beer_bomb: "combat",
+  manopositiv: "combat",
   beard_back: "self",
   hangover: "combat",
   pretzel_snack: "self",
@@ -3528,6 +3529,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   not_my_round: "other",
   spill_intentional: "other",
   early_night: "combat",
+  get_lucky: "combat",
 };
 
 /** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */
