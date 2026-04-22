@@ -237,6 +237,7 @@ export function PlayView() {
   const [showPlayers, setShowPlayers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [interactionPanelCollapsed, setInteractionPanelCollapsed] = useState(false);
   const [rainbowEffectsEnabled, setRainbowEffectsEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem(RAINBOW_EFFECTS_STORAGE_KEY) !== "0";
@@ -1936,10 +1937,15 @@ export function PlayView() {
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
+  const bottomSheetExpanded = bottomSheetVisible && !interactionPanelCollapsed;
+
+  useEffect(() => {
+    if (!bottomSheetVisible) setInteractionPanelCollapsed(false);
+  }, [bottomSheetVisible]);
 
   useLayoutEffect(() => {
     const curr = !!isMyTurn;
-    if (state?.phase !== "playing" || !bottomSheetVisible) {
+    if (state?.phase !== "playing" || !bottomSheetExpanded) {
       prevIsMyTurnRef.current = curr;
       setSheetTurnAnim(null);
     } else {
@@ -1960,10 +1966,10 @@ export function PlayView() {
         turnSwapTimerRef.current = null;
       }
     };
-  }, [isMyTurn, state?.phase, bottomSheetVisible]);
+  }, [isMyTurn, state?.phase, bottomSheetExpanded]);
 
   useLayoutEffect(() => {
-    if (!bottomSheetVisible) {
+    if (!bottomSheetExpanded) {
       setBottomSheetAnimatedHeight(null);
       setBottomSheetHeightInstant(false);
       return;
@@ -2002,7 +2008,7 @@ export function PlayView() {
       ro?.disconnect();
       window.removeEventListener("resize", syncHeight);
     };
-  }, [bottomSheetVisible]);
+  }, [bottomSheetExpanded]);
 
   /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
   const bottomSheetOverTeamBattleIntro =
@@ -2822,7 +2828,37 @@ export function PlayView() {
         )}
       </div>
 
-      {bottomSheetVisible && (
+      {bottomSheetVisible ? (
+        <button
+          type="button"
+          aria-label={interactionPanelCollapsed ? sv.play.panelMaximize : sv.play.panelMinimize}
+          title={interactionPanelCollapsed ? sv.play.panelMaximize : sv.play.panelMinimize}
+          onClick={() => setInteractionPanelCollapsed((v) => !v)}
+          style={{
+            position: "fixed",
+            right: "max(10px, env(safe-area-inset-right))",
+            bottom: interactionPanelCollapsed
+              ? "max(10px, env(safe-area-inset-bottom))"
+              : Math.max(10, (bottomSheetAnimatedHeight ?? 110) + 10),
+            zIndex: 92,
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.35)",
+            background: "rgba(11,18,38,0.86)",
+            color: "#fff",
+            display: "grid",
+            placeItems: "center",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <PanelToggleIcon collapsed={interactionPanelCollapsed} />
+        </button>
+      ) : null}
+
+      {bottomSheetExpanded && (
         <div
           className={[
             styles.bottomSheet,
@@ -2869,7 +2905,7 @@ export function PlayView() {
       )}
 
       {showSettings && (
-        <Modal title={sv.play.settingsTitle} onClose={() => setShowSettings(false)}>
+        <Modal title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
           <div className={u.stack12}>
             <label
               style={{
@@ -2925,7 +2961,7 @@ export function PlayView() {
       )}
 
       {showLeaveConfirm && (
-        <Modal title={sv.play.settingsLeaveGame} onClose={() => setShowLeaveConfirm(false)}>
+        <Modal title={sv.play.settingsLeaveGame} onClose={() => setShowLeaveConfirm(false)} instantFront>
           <div className={u.stack12}>
             <div className={`${u.o9} ${u.fs14}`}>Är du säker på att du vill lämna spelet?</div>
             <ArcadeButton
@@ -2947,7 +2983,7 @@ export function PlayView() {
       )}
 
       {showPlayers && state && (
-        <Modal title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)}>
+        <Modal title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)} instantFront>
           <div className={u.stack10}>
             {state.players.map((p) => (
               <div
@@ -3978,6 +4014,14 @@ function SettingsIcon({ size = 22 }: { size?: number }) {
     >
       <path d="M12 2.8l2.2 1 .5 2.4 2.2.9 2-1.3 1.8 1.8-1.2 2 .9 2.2 2.3.5v2.6l-2.3.5-.9 2.2 1.2 2-1.8 1.8-2-1.3-2.2.9-.5 2.4-2.2 1-2.2-1-.5-2.4-2.2-.9-2 1.3-1.8-1.8 1.2-2-.9-2.2-2.3-.5v-2.6l2.3-.5.9-2.2-1.2-2L5.1 4.8l2 1.3 2.2-.9.5-2.4z" />
       <circle cx="12" cy="12" r="3.4" />
+    </svg>
+  );
+}
+
+function PanelToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="2.1">
+      {collapsed ? <path d="M6 14l6-6 6 6" /> : <path d="M6 10l6 6 6-6" />}
     </svg>
   );
 }

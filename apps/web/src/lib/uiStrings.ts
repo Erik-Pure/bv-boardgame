@@ -248,6 +248,8 @@ export const sv = {
     settingsLobbyStatus: "Anslutning",
     settingsTurnStatus: "Turstatus",
     settingsLeaveGame: "Lämna spelet",
+    panelMinimize: "Minimera panel",
+    panelMaximize: "Visa panel",
     waitingState: "Väntar på tillstånd…",
     lookingForPlayer: "Letar efter din spelare…",
     pant: "Pant",
