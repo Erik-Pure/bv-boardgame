@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.28 |
-| Senast uppdaterad | 2026-04-21 |
+| Version | 0.29 |
+| Senast uppdaterad | 2026-04-22 |
 
 ---
 
@@ -183,7 +183,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Tärningsresultat + vapenstyrka** (± tillfälliga buffar/debuff) avgör utfall mot **fiendens värde** (eller fiendens eget slag om så designas).
 - Resultat: skada, loot, flykt, straffklunkar, etc. enligt tabell per mötestyp och tile.
 - **Fasta vinstvärden per monster:** varje monster har nu **fast pant** och **fast antal rewards** vid seger (inga intervall/chansrull i resultatet).
-- **Nya slumpmonster (solo, i leken):** **Enhörningsryttare** (styrka 6; förlust 4 HP och 2 straffklunkar totalt med global flat; vinst 5 pant + 2 skatter), **Färgglada gubbar** (styrka 4; förlust 2 HP och 1 straffklunk totalt; vinst 3 pant + 1 skatt). Etikettbilder kan saknas i första läget — klienten använder **placeholder** tills `public/monsters/`-filer lagts in.
+- **Nya slumpmonster (solo, i leken):** **Enhörningsryttare** (styrka 6; förlust 4 HP och 2 straffklunkar totalt med global flat; vinst 5 pant + 2 skatter), **Färgglada gubbar** (styrka 4; förlust 2 HP och 1 straffklunk totalt; vinst 3 pant + 1 skatt), **Transporter** (styrka 4; förlust 3 HP och 1 straffklunk totalt; vinst 4 pant + 1 skatt).
+- **Nytt team battle-monster:** **Cowboys** (styrka 7; förlust 3 HP och 1 straffklunk totalt; vinst 5 pant + 1 skatt). **Special:** vid seger får båda stridande **+5 HP** (cap vid max HP).
 - **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Utrustning som droppar ska inte oavsiktligt skriva över redan fylld slot.
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus.
 
@@ -221,6 +222,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Lika i en rond:** vid lika total återgår duellen till nytt föremålsfönster och omslag i **samma rondnummer** (ingen rondvinst delas ut).
 - **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
 - **Tärningsrond (mobil):** ingen extra ledtext före “Slå din tärning” i väntan på BvB-slag (undvik redundant “klarrunda”-copy).
+- **Rondresultat (mobil, copy):** visa kort och spelarcentrerad info: **“Rond N”** samt **“Du vann ronden” / “Du förlorade ronden”**; visa inte separat rad för totaler, matchställning eller global “Vinnare: …” i just detta steg.
 - **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
 - **Skydd mot stöld (t.ex. Solbrillor):** har förloraren `preventTheft` på tillbehör ska vinnaren **inte** erbjudas val att ta utrustning — bara **pant**, **straffklunk** och **HP-skada** (implementation + mobil-UI); pantbyte ska fortfarande gälla.
 - **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
@@ -259,6 +261,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Lengräddad** (föremål, inte händelsekort): spelas på **annan spelare**; nästa strid för målet **−2 attack**; ska kunna spelas även när man **ingriper** under stridsreaktioner (samma fönster som övriga reaktionsföremål).
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
+- **Get Lucky** (`get_lucky`): stridsreaktion för spelare som faktiskt slåss (angripare/medkämpe), **+4 attack** i striden; om den spelaren sedan förlorar tar den **dubbel HP-skada**.
+- **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/PvP-fönster); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
 - **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
@@ -450,4 +454,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.26 | 2026-04-20 | §4 lobby på bord: **QR + kopiera join-länk** till `/join?room=…`; §2.1 turbanner: **kompakt** layout med namn+ikoner under till vänster och **Nästa** högerställd |
 | 0.27 | 2026-04-21 | §4 bord (pre-game lobby): **kopiera join-länk** borttagen från UI; **QR** till `/join?room=…` kvarstår |
 | 0.28 | 2026-04-21 | §9.1 nya slumpmonster **Enhörningsryttare** och **Färgglada gubbar** (+ placeholder-art); §9.2 BvB-byte vid **Solbrillor** / `preventTheft`: bara pant, straffklunk, skada (ej utrustningsstöld); §9.2 auto-klar-copy och borttagen redundant tärnings-hint; §2.1 **BvB-panel** tydligare gradient |
+| 0.29 | 2026-04-22 | §9.1 monsterlista utökad med **Transporter** (solo) och **Cowboys** (team battle, +5 HP vid seger); §10.1 nya item **Get Lucky** ( +4 attack, dubbel HP-skada vid förlust) och **Manopositiv** (+4 attack, kostar 4 pant vid spel); §9.2 rondresultat-copy på mobil förenklad till **Rond N** + **Du vann/förlorade ronden** |
 
