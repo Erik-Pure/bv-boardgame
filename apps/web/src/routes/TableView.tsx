@@ -111,7 +111,7 @@ const TABLE_TURN_BANNER_RESERVE_PX = 92;
 const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 116;
 /** Vertikalt lyft (enkel + solfjäder); något lägre så den inte tar för mycket fokus. */
 const TABLE_ITEM_PLAY_LIFT_PX = 34;
-const TABLE_TOAST_TTL_MS = 6000;
+const TABLE_TOAST_TTL_MS = 8000;
 const TABLE_TOAST_EXIT_MS = 320;
 const TABLE_TOAST_MAX_VISIBLE = 5;
 
@@ -1436,8 +1436,8 @@ function TableViewBody() {
                     key={p.id}
                     style={{
                       minWidth: 150,
-                      borderRadius: active ? 0 : 12,
-                      padding: "6px 8px",
+                      borderRadius: 0,
+                      padding: "6px 16px",
                       border: "none",
                       background: active ? p.color : "rgba(255,255,255,0.04)",
                       boxShadow: "none",
