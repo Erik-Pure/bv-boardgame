@@ -37,6 +37,7 @@ import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
 import { StatIcon } from "../components/StatIcon";
+import { DiceCube3D } from "../components/DiceCube3D";
 import {
   TABLE_CARD_MODAL_DELAY_MS,
   TABLE_BOARD_MODAL_KEYFRAMES_CSS,
@@ -110,6 +111,36 @@ const TABLE_TURN_BANNER_RESERVE_PX = 92;
 const TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX = 116;
 /** Vertikalt lyft (enkel + solfjäder); något lägre så den inte tar för mycket fokus. */
 const TABLE_ITEM_PLAY_LIFT_PX = 34;
+const TABLE_TOAST_TTL_MS = 6000;
+const TABLE_TOAST_EXIT_MS = 320;
+const TABLE_TOAST_MAX_VISIBLE = 5;
+
+type TableToastCategory = "sip" | "pvp";
+type TableToast = {
+  id: string;
+  text: string;
+  category: TableToastCategory;
+  createdAt: number;
+  expiresAt: number;
+  leaving?: boolean;
+};
+
+function classifyTableToastMessage(message: string): TableToastCategory | null {
+  const m = message.toLowerCase();
+  const isSip =
+    m.includes("straffklunk") ||
+    (m.includes(" klunk") && (m.includes("ger ") || m.includes("dricker") || m.includes("får ")));
+  if (isSip) return "sip";
+  const isPvpLoot =
+    m.includes("efter duellen") ||
+    m.includes(" i pvp") ||
+    m.includes(" tar ") ||
+    m.includes(" takes ") ||
+    m.includes(" tog ") ||
+    m.includes("pant från");
+  if (isPvpLoot) return "pvp";
+  return null;
+}
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
 function tablePlayerAfflictionLines(p: Player): string[] {
   const lines: string[] = [];
@@ -236,7 +267,10 @@ function TableViewBody() {
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
   const [preventSleep, setPreventSleep] = useState(false);
   const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
+  const [tableToasts, setTableToasts] = useState<TableToast[]>([]);
   const wakeLockRef = useRef<{ release: () => Promise<void>; released: boolean } | null>(null);
+  const toastLogSeqRef = useRef<number | null>(null);
+  const toastInitRef = useRef(false);
 
   const stackLevels = state?.levels?.length ? state.levels : [];
 
@@ -466,24 +500,53 @@ function TableViewBody() {
   }, [state?.phase, state?.pending, cur]);
 
   const playingTurn = state?.phase === "playing" && cur;
+  const pendingMoveChoice = state?.pending?.type === "moveChoice" ? state.pending : null;
+  const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
+  const moveTurnCornerLabel =
+    cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
+  const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
+  const prevShowMoveTurnHudRef = useRef(false);
+  const lastShownMoveHudRef = useRef<{ id: string; label: string } | null>(null);
+  useEffect(() => {
+    if (cur && showMoveTurnCornerHud) {
+      lastShownMoveHudRef.current = {
+        id: cur.id,
+        label: `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur`,
+      };
+    }
+    const prevVisible = prevShowMoveTurnHudRef.current;
+    if (prevVisible && !showMoveTurnCornerHud) {
+      const last = lastShownMoveHudRef.current;
+      if (last) {
+        setMoveTurnHudExit(last);
+        window.setTimeout(() => {
+          setMoveTurnHudExit((v) => (v?.id === last.id ? null : v));
+        }, 380);
+      }
+    }
+    prevShowMoveTurnHudRef.current = showMoveTurnCornerHud;
+  }, [cur, showMoveTurnCornerHud]);
   useEffect(() => {
     if (!cur?.id) {
       prevTurnPlayerIdRef.current = null;
       setTurnBannerHandoff(false);
+      setMoveTurnHudExit(null);
       return;
     }
     const prev = prevTurnPlayerIdRef.current;
     if (prev !== null && prev !== cur.id) {
       setTurnBannerHandoff(true);
       const t = window.setTimeout(() => setTurnBannerHandoff(false), 720);
+      // Vid turbyte: visa endast ny HUD-in-animation (ingen överlappande gammal etikett).
+      setMoveTurnHudExit(null);
       prevTurnPlayerIdRef.current = cur.id;
       return () => window.clearTimeout(t);
     }
     prevTurnPlayerIdRef.current = cur.id;
-  }, [cur?.id]);
+  }, [cur?.id, playersById]);
   const itemPlayFanCards = useMemo(() => {
     if (!state) return [];
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
@@ -504,6 +567,70 @@ function TableViewBody() {
   const bannerReserveStyle = {
     "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
   } as CSSProperties;
+  useEffect(() => {
+    if (!state) {
+      toastInitRef.current = false;
+      toastLogSeqRef.current = null;
+      setTableToasts([]);
+      return;
+    }
+    const logs = state.log ?? [];
+    const seq = state.logSeq ?? logs.length;
+    const prevSeq = toastLogSeqRef.current;
+    if (!toastInitRef.current || prevSeq == null) {
+      toastInitRef.current = true;
+      toastLogSeqRef.current = seq;
+      return;
+    }
+    if (seq < prevSeq) {
+      // Ny match/reset: baseline utan att flooda historisk logg.
+      toastLogSeqRef.current = seq;
+      return;
+    }
+    const delta = seq - prevSeq;
+    if (delta <= 0) return;
+    const start = Math.max(0, logs.length - delta);
+    const now = Date.now();
+    const incoming: TableToast[] = [];
+    for (let i = start; i < logs.length; i++) {
+      const entry = logs[i];
+      if (!entry?.message) continue;
+      const category = classifyTableToastMessage(entry.message);
+      if (!category) continue;
+      incoming.push({
+        id: `${seq}-${i}-${entry.at}`,
+        text: entry.message,
+        category,
+        createdAt: now,
+        expiresAt: now + TABLE_TOAST_TTL_MS,
+      });
+    }
+    if (incoming.length > 0) {
+      setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
+    }
+    toastLogSeqRef.current = seq;
+  }, [state]);
+
+  useEffect(() => {
+    if (tableToasts.length === 0) return;
+    const t = window.setInterval(() => {
+      const now = Date.now();
+      setTableToasts((prev) => {
+        let changed = false;
+        const flagged = prev.map((toast) => {
+          if (!toast.leaving && now >= toast.expiresAt) {
+            changed = true;
+            return { ...toast, leaving: true };
+          }
+          return toast;
+        });
+        const kept = flagged.filter((toast) => !(toast.leaving && now >= toast.expiresAt + TABLE_TOAST_EXIT_MS));
+        if (kept.length !== flagged.length) changed = true;
+        return changed ? kept : prev;
+      });
+    }, 120);
+    return () => window.clearInterval(t);
+  }, [tableToasts]);
 
   return (
     <div className={tableStyles.tableRoot}>
@@ -825,6 +952,39 @@ function TableViewBody() {
                   </ArcadeButton>
                 </div>
               </div>
+            </div>
+          ) : null}
+          {moveTurnHudExit ? (
+            <div
+              key={`turn-hud-exit-${moveTurnHudExit.id}`}
+              className={[tableStyles.moveTurnCornerHud, tableStyles.moveTurnCornerHudExit].join(" ")}
+              aria-hidden
+            >
+              <div className={tableStyles.moveTurnCornerDie}>
+                <DiceCube3D idleSpin size={88} />
+              </div>
+              <div className={tableStyles.moveTurnCornerLabel}>{moveTurnHudExit.label}</div>
+            </div>
+          ) : null}
+          {cur && showMoveTurnCornerHud ? (
+            <div
+              key={`turn-hud-${cur.id}`}
+              className={[
+                tableStyles.moveTurnCornerHud,
+                tableStyles.moveTurnCornerHudTurnIn,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-live="polite"
+            >
+              <div className={tableStyles.moveTurnCornerDie}>
+                {pendingMoveChoice?.playerId === cur.id ? (
+                  <DiceCube3D value={pendingMoveChoice.baseDie} size={88} />
+                ) : (
+                  <DiceCube3D idleSpin size={88} />
+                )}
+              </div>
+              <div className={tableStyles.moveTurnCornerLabel}>{moveTurnCornerLabel}</div>
             </div>
           ) : null}
             </>
@@ -1348,6 +1508,31 @@ function TableViewBody() {
             retryLabel={sv.table.wsRetry}
             onRetry={requestReconnect}
           />
+        </div>
+      ) : null}
+      {tableToasts.length > 0 ? (
+        <div
+          className={tableStyles.tableToastDock}
+          style={
+            {
+              "--table-toast-bottom": `calc(${playingTurn ? turnBannerBottomReservePx : 0}px + env(safe-area-inset-bottom, 0px) + 12px)`,
+            } as CSSProperties
+          }
+        >
+          {tableToasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={[
+                tableStyles.tableToastItem,
+                toast.category === "sip" ? tableStyles.tableToastSip : tableStyles.tableToastPvp,
+                toast.leaving ? tableStyles.tableToastLeaving : tableStyles.tableToastEntering,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {toast.text}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

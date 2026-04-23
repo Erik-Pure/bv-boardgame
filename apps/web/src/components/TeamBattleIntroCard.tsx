@@ -69,17 +69,6 @@ const CARD_INNER_WITH_MONSTER: CSSProperties = {
   WebkitOverflowScrolling: "touch",
 };
 
-const OPPONENT_LEAD: CSSProperties = {
-  margin: 0,
-  width: "100%",
-  maxWidth: 400,
-  fontSize: "clamp(0.8rem, 2.6vw, 0.95rem)",
-  fontWeight: 800,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "rgba(254, 249, 195, 0.88)",
-};
-
 /** Stor kort-yta innan monster visas: team battle + instruktion (bord eller mobil). */
 export function TeamBattleIntroCard(props: {
   attackerName: string;
@@ -92,7 +81,29 @@ export function TeamBattleIntroCard(props: {
 }) {
   const overlayScale = useTableOverlayContentScale();
   const tableScale = props.variant === "table" ? overlayScale : 1;
+  const isPlayVariant = props.variant === "play";
   const hasMonster = !!props.monster;
+  const teamBattleTitle = <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>;
+  const centeredMonsterColumnStyle: CSSProperties = {
+    width: isPlayVariant ? "min(400px, 100%)" : "auto",
+    display: "grid",
+    justifyItems: "center",
+    gap: 12,
+    marginInline: "auto",
+    boxSizing: "border-box",
+  };
+  const monsterCardOnly = hasMonster ? (
+    <div
+      style={{
+        width: isPlayVariant ? "100%" : "min(400px, 92vw)",
+        maxWidth: isPlayVariant ? "100%" : "calc(100vw - 32px)",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      <MonsterEncounterCard {...props.monster!} />
+    </div>
+  ) : null;
 
   const textBlock = (
     <>
@@ -126,22 +137,8 @@ export function TeamBattleIntroCard(props: {
 
   const body = (
     <>
-      <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>
-      {hasMonster ? (
-        <>
-          <p style={OPPONENT_LEAD}>{sv.table.teamBattleNextOpponent}</p>
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "min(400px, 100%)",
-              margin: "0 auto",
-              boxSizing: "border-box",
-            }}
-          >
-            <MonsterEncounterCard {...props.monster!} />
-          </div>
-        </>
-      ) : null}
+      {teamBattleTitle}
+      {monsterCardOnly}
       {textBlock}
     </>
   );
@@ -150,6 +147,40 @@ export function TeamBattleIntroCard(props: {
   const innerStyle = hasMonster ? CARD_INNER_WITH_MONSTER : CARD_INNER_TEXT_ONLY;
 
   if (props.variant === "table") {
+    if (hasMonster) {
+      return (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            pointerEvents: "none",
+            zIndex: 42,
+            display: "grid",
+            placeItems: "center",
+            padding: "max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom))",
+            background: "rgba(2, 6, 23, 0.4)",
+            animation: props.tableOverlayAnimation,
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            style={{
+              animation: props.tableCardEntranceAnimation,
+              transformOrigin: "center center",
+              display: "grid",
+              justifyItems: "center",
+              gap: 12,
+              ...(tableScale !== 1
+                ? { transform: `scale(${tableScale})`, transformOrigin: "center center" as const }
+                : {}),
+            }}
+          >
+            {teamBattleTitle}
+            {monsterCardOnly}
+          </div>
+        </div>
+      );
+    }
     return (
       <div
         style={{
@@ -184,11 +215,18 @@ export function TeamBattleIntroCard(props: {
   return (
     <CardFlipModalShell
       zIndex={105}
-      maxWidth={440}
+      maxWidth={hasMonster ? 520 : 440}
       instantFront
+      simpleEntrance={hasMonster}
       blockPointerUntilFlipped={false}
-      faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
+      faceInnerClassName={hasMonster ? undefined : cardFlipShellStyles.faceInnerNoVerticalOverflow}
     >
+      {hasMonster ? (
+        <div style={centeredMonsterColumnStyle}>
+          {teamBattleTitle}
+          {monsterCardOnly}
+        </div>
+      ) : (
       <div
         style={{
           ...boxStyle,
@@ -199,6 +237,7 @@ export function TeamBattleIntroCard(props: {
       >
         <div style={innerStyle}>{body}</div>
       </div>
+      )}
     </CardFlipModalShell>
   );
 }
