@@ -155,7 +155,7 @@
 .monsterRow {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   margin-top: 2px;
@@ -262,6 +262,8 @@
   width: 100%;
   max-width: 400px;
   flex: 0 1 auto;
+  /* Rad med align-items: center; håll kortet upptill när tärningskolumnen är högre. */
+  align-self: flex-start;
   transform-origin: center center;
   transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
   box-sizing: border-box;

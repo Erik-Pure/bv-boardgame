@@ -12,7 +12,7 @@ import { TeamBattleIntroCard } from "../TeamBattleIntroCard";
 import { MonsterEncounterCard } from "../MonsterEncounterCard";
 import { CardFlipModalShell, CardFlipScene } from "../CardFlipModalShell";
 import cardFlipShellStyles from "../CardFlipModalShell.module.css";
-import { combatLossKlunksForDisplay } from "../../lib/combatUi";
+import { combatLossKlunksForDisplay, monsterEncounterCardPropsFromCombatPending } from "../../lib/combatUi";
 import { sv } from "../../lib/uiStrings";
 import {
   TABLE_BOARD_MODAL_CARD_ANIMATION,
@@ -166,6 +166,9 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
         attackerName={att?.name ?? "?"}
         tableOverlayAnimation={TABLE_BOARD_MODAL_OVERLAY_ANIMATION}
         tableCardEntranceAnimation={TABLE_BOARD_MODAL_CARD_ANIMATION}
+        monster={monsterEncounterCardPropsFromCombatPending(pending, {
+          finalBossLivesRemaining: state.finalBossLivesRemaining,
+        })}
       />
     );
   }
@@ -324,8 +327,8 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
             style={{
               display: "flex",
               flexDirection: "row",
-              /* center skjuter ner kortet när tärningskolumnen är högre än kortet (tablet). */
-              alignItems: "flex-start",
+              /* center: tärningskolumnen centreras mot kortets höjd (tärningen längre ner). Kortet align-self flex-start så det inte skjuts ner när tärningsstacken är högre. */
+              alignItems: "center",
               justifyContent: "center",
               flexWrap: "wrap",
               marginTop: 2,

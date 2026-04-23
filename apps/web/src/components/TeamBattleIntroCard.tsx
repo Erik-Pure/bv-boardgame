@@ -3,19 +3,8 @@ import { CardFlipModalShell } from "./CardFlipModalShell";
 import cardFlipShellStyles from "./CardFlipModalShell.module.css";
 import { useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { sv } from "../lib/uiStrings";
-
-const CARD_INNER: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "clamp(22px, 5vw, 36px)",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  gap: 20,
-  minHeight: 280,
-};
+import type { MonsterEncounterCardProps } from "./MonsterEncounterCard";
+import { MonsterEncounterCard } from "./MonsterEncounterCard";
 
 const TITLE_STYLE: CSSProperties = {
   margin: 0,
@@ -28,16 +17,67 @@ const TITLE_STYLE: CSSProperties = {
   textShadow: "0 0 32px rgba(251, 191, 36, 0.35)",
 };
 
-const CARD_BOX: CSSProperties = {
+const CARD_BOX_BASE: CSSProperties = {
   width: "min(520px, 92vw)",
   maxWidth: "100%",
-  aspectRatio: "5 / 7",
-  maxHeight: "min(88vh, 640px)",
   borderRadius: 20,
   border: "2px solid rgba(251, 191, 36, 0.45)",
   background: "linear-gradient(165deg, rgba(36, 20, 52, 0.97), rgba(11, 18, 38, 0.98))",
   boxShadow: "0 24px 64px rgba(0,0,0,0.55), 0 0 48px rgba(251, 191, 36, 0.14)",
   boxSizing: "border-box",
+};
+
+/** Utan monster: samma proportioner som tidigare. */
+const CARD_BOX_TEXT_ONLY: CSSProperties = {
+  ...CARD_BOX_BASE,
+  aspectRatio: "5 / 7",
+  maxHeight: "min(88vh, 640px)",
+};
+
+/** Med monster: scrollbar yta, ingen fast 5∶7 (annars klipps kort + text). */
+const CARD_BOX_WITH_MONSTER: CSSProperties = {
+  ...CARD_BOX_BASE,
+  maxHeight: "min(92dvh, 900px)",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+};
+
+const CARD_INNER_BASE: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "clamp(22px, 5vw, 36px)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  textAlign: "center",
+  gap: 16,
+};
+
+const CARD_INNER_TEXT_ONLY: CSSProperties = {
+  ...CARD_INNER_BASE,
+  justifyContent: "center",
+  minHeight: 280,
+};
+
+const CARD_INNER_WITH_MONSTER: CSSProperties = {
+  ...CARD_INNER_BASE,
+  justifyContent: "flex-start",
+  flex: "1 1 auto",
+  minHeight: 0,
+  overflowY: "auto",
+  WebkitOverflowScrolling: "touch",
+};
+
+const OPPONENT_LEAD: CSSProperties = {
+  margin: 0,
+  width: "100%",
+  maxWidth: 400,
+  fontSize: "clamp(0.8rem, 2.6vw, 0.95rem)",
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "rgba(254, 249, 195, 0.88)",
 };
 
 /** Stor kort-yta innan monster visas: team battle + instruktion (bord eller mobil). */
@@ -47,12 +87,15 @@ export function TeamBattleIntroCard(props: {
   /** Bord: samma overlay-anim som övriga stridsmodaler */
   tableOverlayAnimation?: string;
   tableCardEntranceAnimation?: string;
+  /** Visas under rubriken — samma data som i monsterintro efter medkämpeval. */
+  monster?: MonsterEncounterCardProps;
 }) {
   const overlayScale = useTableOverlayContentScale();
   const tableScale = props.variant === "table" ? overlayScale : 1;
-  const body = (
+  const hasMonster = !!props.monster;
+
+  const textBlock = (
     <>
-      <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>
       <p
         style={{
           margin: 0,
@@ -81,6 +124,31 @@ export function TeamBattleIntroCard(props: {
     </>
   );
 
+  const body = (
+    <>
+      <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>
+      {hasMonster ? (
+        <>
+          <p style={OPPONENT_LEAD}>{sv.table.teamBattleNextOpponent}</p>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "min(400px, 100%)",
+              margin: "0 auto",
+              boxSizing: "border-box",
+            }}
+          >
+            <MonsterEncounterCard {...props.monster!} />
+          </div>
+        </>
+      ) : null}
+      {textBlock}
+    </>
+  );
+
+  const boxStyle = hasMonster ? CARD_BOX_WITH_MONSTER : CARD_BOX_TEXT_ONLY;
+  const innerStyle = hasMonster ? CARD_INNER_WITH_MONSTER : CARD_INNER_TEXT_ONLY;
+
   if (props.variant === "table") {
     return (
       <div
@@ -99,7 +167,7 @@ export function TeamBattleIntroCard(props: {
       >
         <div
           style={{
-            ...CARD_BOX,
+            ...boxStyle,
             animation: props.tableCardEntranceAnimation,
             transformOrigin: "center center",
             ...(tableScale !== 1
@@ -107,7 +175,7 @@ export function TeamBattleIntroCard(props: {
               : {}),
           }}
         >
-          <div style={CARD_INNER}>{body}</div>
+          <div style={innerStyle}>{body}</div>
         </div>
       </div>
     );
@@ -121,8 +189,15 @@ export function TeamBattleIntroCard(props: {
       blockPointerUntilFlipped={false}
       faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
     >
-      <div style={{ ...CARD_BOX, maxHeight: "none", aspectRatio: "auto", minHeight: 320 }}>
-        <div style={CARD_INNER}>{body}</div>
+      <div
+        style={{
+          ...boxStyle,
+          ...(hasMonster
+            ? { width: "min(520px, 92vw)" }
+            : { maxHeight: "none", aspectRatio: "auto", minHeight: 320 }),
+        }}
+      >
+        <div style={innerStyle}>{body}</div>
       </div>
     </CardFlipModalShell>
   );

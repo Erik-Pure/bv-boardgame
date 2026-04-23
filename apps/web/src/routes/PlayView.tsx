@@ -66,6 +66,7 @@ import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.cs
 import { PictureImg } from "../components/PictureImg";
 import {
   combatLossKlunksForDisplay,
+  monsterEncounterCardPropsFromCombatPending,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
   resolveCombatLossViewer,
@@ -2368,6 +2369,9 @@ export function PlayView() {
             attackerName={
               state.players.find((p) => p.id === pending.attackerId)?.name ?? capitalizeWord(sv.play.theAttacker)
             }
+            monster={monsterEncounterCardPropsFromCombatPending(pending, {
+              finalBossLivesRemaining: state.finalBossLivesRemaining,
+            })}
           />
         )}
 

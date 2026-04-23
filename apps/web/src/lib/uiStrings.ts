@@ -180,7 +180,7 @@ export const sv = {
     yourD6TotalWeapon: (die: number, total: number) => `Din t6: ${die} · totalt ${total} med vapen.`,
     youRolled: "Du har slagit",
     rollPvpDie: "Slå BvB-tärning",
-    pvpPreRoundItemsHint: "Spela föremål för att buffa dig eller sabotera motståndaren före slaget.",
+    pvpPreRoundItemsHint: "Spela föremål för att påverka striden.",
     pvpReady: "Klar",
     pvpReadyUndo: "Inte klar än",
     pvpBothReady: "Båda är redo — slagrundan startar nu.",
@@ -341,6 +341,7 @@ export const sv = {
     combatPhase1: "1 — Möte",
     combatPhaseTeam: "0 — Välj medkämpe",
     teamBattleIntroTitle: "Team battle",
+    teamBattleNextOpponent: "Motståndare",
     teamBattleIntroBody: (attacker: string) =>
       `${attacker} väljer medkämpe på sin mobil innan striden börjar.`,
     teamBattleIntroHint:

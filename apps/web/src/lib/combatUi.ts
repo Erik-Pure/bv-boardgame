@@ -1,11 +1,14 @@
 import {
+  isFinalBossMonsterId,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterLossKlunkTotal,
   type CombatLoseSummary,
   type CombatWinSummary,
+  type MonsterId,
   type Pending,
 } from "@bv/game-core";
+import type { MonsterEncounterCardProps } from "../components/MonsterEncounterCard";
 
 /** Ersätter kvarleva "Du" i payload (gamla sparningar) med kortägarens namn. */
 export function resolveCombatWinViewer(
@@ -82,4 +85,32 @@ export function combatLossKlunksForDisplay(p: Extract<Pending, { type: "combat" 
     }
   }
   return (p.lossSipsOnLose ?? 0) + extraTeam + MONSTER_LOSS_SIP_FLAT;
+}
+
+/** Props till `MonsterEncounterCard` från pågående strid (t.ex. team battle före medkämpeval). */
+export function monsterEncounterCardPropsFromCombatPending(
+  p: Extract<Pending, { type: "combat" }>,
+  opts?: { finalBossLivesRemaining?: number | null },
+): MonsterEncounterCardProps {
+  const need = p.need + (p.needMod ?? 0);
+  const id = p.monsterId as MonsterId;
+  const isBoss = isFinalBossMonsterId(id);
+  const bossLives =
+    opts?.finalBossLivesRemaining != null && Number.isFinite(opts.finalBossLivesRemaining)
+      ? opts.finalBossLivesRemaining
+      : 3;
+  return {
+    title: p.enemyName,
+    artKey: p.enemyArtKey,
+    combatStrength: need,
+    winGold: p.rewardGold ?? 0,
+    winItems: p.rewardItems ?? 0,
+    lossDamage: p.baseDamage,
+    lossKlunks: combatLossKlunksForDisplay(p),
+    specialRules: p.enemyIntroText?.trim() || undefined,
+    bossLivesRemaining: isBoss ? bossLives : undefined,
+    bossWinLootAsDash: isBoss,
+    framed: true,
+    fillAvailableHeight: false,
+  };
 }
