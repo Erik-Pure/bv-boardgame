@@ -26,8 +26,8 @@ function pvpTablePreviewAttackMod(state: GameState, playerId: string): number {
   return item + equipmentPvpDieBonusTotal(p);
 }
 
-function TablePvpBoardPanelInner(props: { state: GameState }) {
-  const { state } = props;
+function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabled?: boolean }) {
+  const { state, boardAnimationsEnabled = true } = props;
   const overlayScale = useTableOverlayContentScale();
   const pending = state.pending?.type === "pvp" ? state.pending : null;
   const attacker = pending ? state.players.find((p) => p.id === pending.attackerId) : undefined;
@@ -73,6 +73,7 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
     revealSpinKey?: string;
     /** Live +X / −X bredvid tärning före kast (föremål + utrustning BvB). */
     previewAttackMod: number;
+    diceSpinning: boolean;
   }) {
     const rollMod = props2.roll ? props2.roll.total - props2.roll.die : 0;
     const previewMod = props2.previewAttackMod;
@@ -94,7 +95,12 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
         </div>
         {props2.showRolling ? (
           <div className={styles.flexCenter}>
-            <DiceCube3D key={props2.revealSpinKey ?? "pvp-reveal-spin"} idleSpin size={52} />
+            <DiceCube3D
+              key={props2.revealSpinKey ?? "pvp-reveal-spin"}
+              idleSpin
+              spinning={props2.diceSpinning}
+              size={52}
+            />
           </div>
         ) : props2.roll ? (
           <div className={styles.flexCenterGap10}>
@@ -119,7 +125,7 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
               </div>
             ) : null}
             <div className={styles.flexCenter}>
-              <DiceCube3D key={props2.awaitDiceKey} idleSpin size={52} />
+              <DiceCube3D key={props2.awaitDiceKey} idleSpin spinning={props2.diceSpinning} size={52} />
             </div>
           </div>
         )}
@@ -166,10 +172,11 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
             player={attacker}
             roll={ra}
             nameRotateDeg={-11}
-            showRolling={showRollingReveal}
+            showRolling={showRollingReveal && !ra}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${attacker.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${attacker.id}` : undefined}
             previewAttackMod={attackerPreviewMod}
+            diceSpinning={boardAnimationsEnabled}
           />
           <div className={styles.vsBadge}>VS</div>
           <PvpFighterColumn
@@ -177,10 +184,11 @@ function TablePvpBoardPanelInner(props: { state: GameState }) {
             player={defender}
             roll={rd}
             nameRotateDeg={11}
-            showRolling={showRollingReveal}
+            showRolling={showRollingReveal && !rd}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${defender.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${defender.id}` : undefined}
             previewAttackMod={defenderPreviewMod}
+            diceSpinning={boardAnimationsEnabled}
           />
         </div>
         {rt && pvpRevealReady ? (

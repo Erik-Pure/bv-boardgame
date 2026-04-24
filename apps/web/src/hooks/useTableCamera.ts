@@ -15,6 +15,13 @@ export type UseTableCameraParams = {
   tileSize: number;
   boardPad: number;
   targetRingOutset: number;
+  /** false: ingen mjuk kamera-lerp mot auto-mål (snap). */
+  boardAnimationsEnabled?: boolean;
+  /**
+   * false: ingen manuell panorering (styrs i viewport) och ingen auto-inzoom mot rutor —
+   * hela den våning aktiv spelare står på ska synas (samma som vid turskifte).
+   */
+  boardPanEnabled?: boolean;
 };
 
 export function useTableCamera(params: UseTableCameraParams) {
@@ -28,6 +35,8 @@ export function useTableCamera(params: UseTableCameraParams) {
     tileSize,
     boardPad,
     targetRingOutset,
+    boardAnimationsEnabled = true,
+    boardPanEnabled = true,
   } = params;
 
   // Smidig kamera: renderad cam lerpar mot targetCam.
@@ -54,7 +63,10 @@ export function useTableCamera(params: UseTableCameraParams) {
       x: -(totalSvgWidth / 2),
       y: -(boardHeight / 2),
     };
-  }, [boardHeight, totalSvgWidth, state?.phase]);
+    if (!boardAnimationsEnabled) {
+      setCam({ ...targetCam.current });
+    }
+  }, [boardHeight, totalSvgWidth, state?.phase, boardAnimationsEnabled]);
 
   useEffect(() => {
     // Två lägen:
@@ -67,6 +79,9 @@ export function useTableCamera(params: UseTableCameraParams) {
     const tick = () => {
       setCam((c) => {
         const t = targetCam.current;
+        if (!boardAnimationsEnabled) {
+          return t;
+        }
         const panStiffness = isDraggingRef.current ? dragPanStiffness : autoPanStiffness;
         const zoomStiffness = isDraggingRef.current ? dragZoomStiffness : autoZoomStiffness;
         const nx = c.x + (t.x - c.x) * panStiffness;
@@ -85,7 +100,7 @@ export function useTableCamera(params: UseTableCameraParams) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, []);
+  }, [boardAnimationsEnabled]);
 
   // Faktisk spelyta (flex-viewport) — behövs för zoom som täcker rutor i bildfönstret.
   useEffect(() => {
@@ -132,6 +147,29 @@ export function useTableCamera(params: UseTableCameraParams) {
     const pend = state.pending;
 
     const xForLevel = (levelIndex: number) => levelIndex * (boardWidth + ringStackGap);
+
+    /** Hel våning (ring) för angiven nivå — samma center/zoom som vid ny tur. */
+    const applyFullFloorCam = (levelIndex: number) => {
+      const xOff = levelIndex * (boardWidth + ringStackGap);
+      const centerX = xOff + boardWidth / 2;
+      const centerY = boardHeight / 2;
+      const fitMargin = 0.92;
+      const desiredScale = clamp(Math.min((viewW * fitMargin) / boardWidth, (viewH * fitMargin) / boardHeight), 0.45, 2);
+      targetCam.current = {
+        ...targetCam.current,
+        x: -desiredScale * centerX,
+        y: -desiredScale * centerY,
+        scale: desiredScale,
+      };
+    };
+
+    if (!boardPanEnabled) {
+      applyFullFloorCam(p.levelIndex);
+      prevTurnIndexForCamRef.current = state.currentTurnIndex;
+      turnStartTileKeyForCamRef.current = `${p.levelIndex}-${p.tileIndex}`;
+      return;
+    }
+
     const ringMargin = targetRingOutset + 6;
 
     const applyTightCam = (mode: "player" | "moveChoice" | "card") => {
@@ -199,17 +237,7 @@ export function useTableCamera(params: UseTableCameraParams) {
     if (turnChanged) {
       prevTurnIndexForCamRef.current = state.currentTurnIndex;
       turnStartTileKeyForCamRef.current = `${p.levelIndex}-${p.tileIndex}`;
-      const xOff = p.levelIndex * (boardWidth + ringStackGap);
-      const centerX = xOff + boardWidth / 2;
-      const centerY = boardHeight / 2;
-      const fitMargin = 0.92;
-      const desiredScale = clamp(Math.min((viewW * fitMargin) / boardWidth, (viewH * fitMargin) / boardHeight), 0.45, 2);
-      targetCam.current = {
-        ...targetCam.current,
-        x: -desiredScale * centerX,
-        y: -desiredScale * centerY,
-        scale: desiredScale,
-      };
+      applyFullFloorCam(p.levelIndex);
       return;
     }
 
@@ -232,6 +260,8 @@ export function useTableCamera(params: UseTableCameraParams) {
     tileSize,
     boardPad,
     targetRingOutset,
+    boardAnimationsEnabled,
+    boardPanEnabled,
   ]);
 
   const zoomIn = () => {

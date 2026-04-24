@@ -15,6 +15,12 @@ import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
+import {
+  readBoardPerformancePrefs,
+  subscribeBoardPerformancePrefs,
+  writeBoardAnimationsEnabled,
+  writeBoardPanEnabled,
+} from "../lib/boardPerformancePrefs";
 import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
@@ -36,8 +42,9 @@ import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
-import { StatIcon } from "../components/StatIcon";
+import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { DiceCube3D } from "../components/DiceCube3D";
+import { UserMenuIcon } from "../components/UserMenuIcon";
 import {
   TABLE_CARD_MODAL_DELAY_MS,
   TABLE_BOARD_MODAL_KEYFRAMES_CSS,
@@ -115,18 +122,65 @@ const TABLE_TOAST_TTL_MS = 8000;
 const TABLE_TOAST_EXIT_MS = 320;
 const TABLE_TOAST_MAX_VISIBLE = 5;
 
-type TableToastCategory = "sip" | "pvp";
+type TableToastCategory = "sip" | "pvp" | "vaska";
 type TableToast = {
   id: string;
   text: string;
   category: TableToastCategory;
+  iconKinds: StatIconKind[];
   createdAt: number;
   expiresAt: number;
   leaving?: boolean;
 };
 
+/** Ikoner i ordning: klunk → pant → hp (en rad per toast). */
+function tableToastIconKinds(message: string, category: TableToastCategory): StatIconKind[] {
+  const m = message.toLowerCase();
+  if (category === "vaska") {
+    return ["attack"];
+  }
+  let klunk = false;
+  let pant = false;
+  let hp = false;
+  if (category === "sip") {
+    klunk = true;
+  } else {
+    if (
+      m.includes("straffklunk") ||
+      m.includes("+1 klunk") ||
+      (m.includes("klunk") && (m.includes("ger ") || m.includes("får ")))
+    ) {
+      klunk = true;
+    }
+    if (
+      m.includes(" pant") ||
+      m.includes("pant från") ||
+      m.includes("pant i") ||
+      m.includes("pant.") ||
+      /\d+\s+pant\b/.test(m)
+    ) {
+      pant = true;
+    }
+    if (m.includes("skada")) {
+      hp = true;
+    }
+    if (!klunk && !pant && !hp) {
+      pant = true;
+    }
+  }
+  const out: StatIconKind[] = [];
+  if (klunk) out.push("klunk");
+  if (pant) out.push("pant");
+  if (hp) out.push("hp");
+  return out;
+}
+
 function classifyTableToastMessage(message: string): TableToastCategory | null {
   const m = message.toLowerCase();
+  /** Vaska (early_night): motorn loggar t.ex. "… spelar Vaska och skippar monstret." */
+  if (m.includes("vaska") && (m.includes("skippar monstr") || m.includes("skippar monstret"))) {
+    return "vaska";
+  }
   const isSip =
     m.includes("straffklunk") ||
     (m.includes(" klunk") && (m.includes("ger ") || m.includes("dricker") || m.includes("får ")));
@@ -264,7 +318,11 @@ function TableViewBody() {
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
+  /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
+  const [showSidebarLog, setShowSidebarLog] = useState(false);
   const [preventSleep, setPreventSleep] = useState(false);
   const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
   const [tableToasts, setTableToasts] = useState<TableToast[]>([]);
@@ -337,6 +395,8 @@ function TableViewBody() {
       tileSize,
       boardPad,
       targetRingOutset,
+      boardAnimationsEnabled: boardPerf.boardAnimationsEnabled,
+      boardPanEnabled: boardPerf.boardPanEnabled,
     }),
     [
       state,
@@ -347,6 +407,8 @@ function TableViewBody() {
       tileSize,
       boardPad,
       targetRingOutset,
+      boardPerf.boardAnimationsEnabled,
+      boardPerf.boardPanEnabled,
     ],
   );
 
@@ -375,6 +437,17 @@ function TableViewBody() {
     if (typeof navigator === "undefined") return;
     setWakeLockAvailable(typeof (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } }).wakeLock?.request === "function");
   }, []);
+
+  useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
+
+  useEffect(() => {
+    if (!tableSettingsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTableSettingsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tableSettingsOpen]);
 
   useEffect(() => {
     if (!preventSleep) {
@@ -433,12 +506,12 @@ function TableViewBody() {
     };
   }, [preventSleep]);
 
-  // Håll loggen i botten när nya rader kommer.
+  // Håll loggen i botten när nya rader kommer eller när loggen visas i sidopanelen.
   useEffect(() => {
     const el = logRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [state?.log?.length]);
+  }, [state?.log?.length, showSidebarLog]);
 
   const cur = activePlayer(state);
   const readyCount = state?.players?.filter((p) => p.ready).length ?? 0;
@@ -601,6 +674,7 @@ function TableViewBody() {
         id: `${seq}-${i}-${entry.at}`,
         text: entry.message,
         category,
+        iconKinds: tableToastIconKinds(entry.message, category),
         createdAt: now,
         expiresAt: now + TABLE_TOAST_TTL_MS,
       });
@@ -642,19 +716,43 @@ function TableViewBody() {
             </span>
           </div>
           <div className={tableStyles.headerRightControls}>
-            <label className={tableStyles.wakeToggleLabel}>
-              <input
-                type="checkbox"
-                checked={preventSleep}
-                onChange={(e) => setPreventSleep(e.target.checked)}
-                disabled={!wakeLockAvailable}
-                aria-label={sv.table.wakeLockToggle}
-              />
-              <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
-            </label>
             <span className={tableStyles.headerStatusText}>
               {sv.table.status}: {wsStatusLabel(status)}
             </span>
+            <div className={tableStyles.headerToolbar}>
+              <button
+                type="button"
+                className={tableStyles.tableHeaderIconBtn}
+                aria-label={sv.table.openSettings}
+                aria-expanded={tableSettingsOpen}
+                onClick={() => setTableSettingsOpen(true)}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={tableStyles.tableHeaderIconBtn}
+                data-active={sidebarOpen ? "true" : "false"}
+                aria-label={sv.play.players}
+                title={sv.play.players}
+                aria-expanded={sidebarOpen}
+                onClick={() => setSidebarOpen((o) => !o)}
+              >
+                <UserMenuIcon size={26} />
+              </button>
+            </div>
           </div>
         </header>
       </div>
@@ -662,6 +760,7 @@ function TableViewBody() {
       <div className={tableStyles.mainRow} style={bannerReserveStyle}>
         <TableBoardCameraViewport
           camera={tableCameraParams}
+          boardPanEnabled={boardPerf.boardPanEnabled}
           panChildren={
             <svg width={totalSvgWidth} height={totalSvgHeight} className={tableStyles.tableSvg}>
               <style>
@@ -954,6 +1053,40 @@ function TableViewBody() {
               </div>
             </div>
           ) : null}
+          {state?.phase === "playing" && state.pending?.type === "merchant" ? (() => {
+            const shopPlayer = playersById.get(state.pending.playerId);
+            if (!shopPlayer) return null;
+            const animDots = boardPerf.boardAnimationsEnabled;
+            return (
+              <div
+                className={tableStyles.merchantShoppingOverlay}
+                aria-live="polite"
+                aria-label={sv.table.merchantShoppingAria(shopPlayer.name)}
+              >
+                <div
+                  className={tableStyles.merchantShoppingInner}
+                  data-anim-off={animDots ? undefined : "true"}
+                >
+                  <span>{sv.table.merchantShopping(shopPlayer.name)}</span>
+                  {animDots ? (
+                    <>
+                      <span className={tableStyles.merchantDot} aria-hidden>
+                        .
+                      </span>
+                      <span className={[tableStyles.merchantDot, tableStyles.merchantDot2].join(" ")} aria-hidden>
+                        .
+                      </span>
+                      <span className={[tableStyles.merchantDot, tableStyles.merchantDot3].join(" ")} aria-hidden>
+                        .
+                      </span>
+                    </>
+                  ) : (
+                    <span aria-hidden>…</span>
+                  )}
+                </div>
+              </div>
+            );
+          })() : null}
           {moveTurnHudExit ? (
             <div
               key={`turn-hud-exit-${moveTurnHudExit.id}`}
@@ -961,7 +1094,7 @@ function TableViewBody() {
               aria-hidden
             >
               <div className={tableStyles.moveTurnCornerDie}>
-                <DiceCube3D idleSpin size={88} />
+                <DiceCube3D idleSpin spinning={boardPerf.boardAnimationsEnabled} size={88} />
               </div>
               <div className={tableStyles.moveTurnCornerLabel}>{moveTurnHudExit.label}</div>
             </div>
@@ -981,7 +1114,7 @@ function TableViewBody() {
                 {pendingMoveChoice?.playerId === cur.id ? (
                   <DiceCube3D value={pendingMoveChoice.baseDie} size={88} />
                 ) : (
-                  <DiceCube3D idleSpin size={88} />
+                  <DiceCube3D idleSpin spinning={boardPerf.boardAnimationsEnabled} size={88} />
                 )}
               </div>
               <div className={tableStyles.moveTurnCornerLabel}>{moveTurnCornerLabel}</div>
@@ -990,16 +1123,6 @@ function TableViewBody() {
             </>
           }
         />
-
-        <button
-          type="button"
-          aria-label={sidebarOpen ? sv.table.hidePanel : sv.table.showPanel}
-          aria-expanded={sidebarOpen}
-          onClick={() => setSidebarOpen((o) => !o)}
-          className={tableStyles.sidebarToggle}
-        >
-          {sidebarOpen ? "⟩" : "⟨"}
-        </button>
 
         <aside
           className={tableStyles.tableSidebarAside}
@@ -1011,16 +1134,6 @@ function TableViewBody() {
 
           {state && (
             <>
-              <label className={tableStyles.tileTypeLabelRow}>
-                <input
-                  type="checkbox"
-                  checked={showTileTypeLabels}
-                  onChange={(e) => setShowTileTypeLabels(e.target.checked)}
-                  aria-label={sv.table.tileTypeLabels}
-                />
-                <span>{sv.table.tileTypeLabels}</span>
-              </label>
-
               {state.phase !== "lobby" ? (
                 <>
                   <h3>{sv.table.lobbyList}</h3>
@@ -1032,25 +1145,45 @@ function TableViewBody() {
                 </>
               ) : null}
 
-              <h3>{sv.table.log}</h3>
-              <div ref={logRef} className={tableStyles.sidebarLog}>
-                {state.log.slice(-30).map((l, i) => (
-                  <div key={i} className={tableStyles.sidebarLogLine}>
-                    {l.message}
+              <label className={tableStyles.sidebarPanelToggleRow}>
+                <input
+                  type="checkbox"
+                  checked={showSidebarLog}
+                  onChange={(e) => setShowSidebarLog(e.target.checked)}
+                  aria-label={sv.table.sidebarShowLog}
+                />
+                <span>{sv.table.sidebarShowLog}</span>
+              </label>
+
+              {showSidebarLog ? (
+                <>
+                  <h3>{sv.table.log}</h3>
+                  <div ref={logRef} className={tableStyles.sidebarLog}>
+                    {state.log.slice(-30).map((l, i) => (
+                      <div key={i} className={tableStyles.sidebarLogLine}>
+                        {l.message}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              ) : null}
             </>
           )}
         </aside>
       </div>
 
-      {state?.pending?.type === "pvp" && <TablePvpBoardPanel state={state} />}
+      {state?.pending?.type === "pvp" && (
+        <TablePvpBoardPanel state={state} boardAnimationsEnabled={boardPerf.boardAnimationsEnabled} />
+      )}
 
       <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
 
       {state?.pending?.type === "combat" && tableCombatModalReady && (
-        <TableCombatBoardPanel state={state} playersById={playersById} />
+        <TableCombatBoardPanel
+          state={state}
+          playersById={playersById}
+          boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
+        />
       )}
 
       {state?.pending?.type === "brewerDown" && (
@@ -1495,6 +1628,70 @@ function TableViewBody() {
         </div>
       ) : null}
 
+      {tableSettingsOpen ? (
+        <div
+          className={tableStyles.tableSettingsBackdrop}
+          role="presentation"
+          onClick={() => setTableSettingsOpen(false)}
+        >
+          <div
+            className={tableStyles.tableSettingsCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="table-settings-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="table-settings-title" className={tableStyles.tableSettingsTitle}>
+              {sv.table.settingsTitle}
+            </h2>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={boardPerf.boardPanEnabled}
+                onChange={(e) => {
+                  writeBoardPanEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{sv.table.settingsBoardPan}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={boardPerf.boardAnimationsEnabled}
+                onChange={(e) => {
+                  writeBoardAnimationsEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{sv.table.settingsBoardAnimations}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={preventSleep}
+                onChange={(e) => setPreventSleep(e.target.checked)}
+                disabled={!wakeLockAvailable}
+                aria-label={sv.table.wakeLockToggle}
+              />
+              <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={showTileTypeLabels}
+                onChange={(e) => setShowTileTypeLabels(e.target.checked)}
+                aria-label={sv.table.tileTypeLabels}
+              />
+              <span>{sv.table.tileTypeLabels}</span>
+            </label>
+            <ArcadeButton variant="gray" fullWidth onClick={() => setTableSettingsOpen(false)}>
+              {sv.table.settingsClose}
+            </ArcadeButton>
+          </div>
+        </div>
+      ) : null}
+
       {showReconnectOverlay ? (
         <div className={tableStyles.reconnectBar}>
           <div className={tableStyles.reconnectBarText}>
@@ -1524,13 +1721,26 @@ function TableViewBody() {
               key={toast.id}
               className={[
                 tableStyles.tableToastItem,
-                toast.category === "sip" ? tableStyles.tableToastSip : tableStyles.tableToastPvp,
+                toast.category === "sip"
+                  ? tableStyles.tableToastSip
+                  : toast.category === "vaska"
+                    ? tableStyles.tableToastVaska
+                    : tableStyles.tableToastPvp,
                 toast.leaving ? tableStyles.tableToastLeaving : tableStyles.tableToastEntering,
               ]
                 .filter(Boolean)
                 .join(" ")}
             >
-              {toast.text}
+              <div className={tableStyles.tableToastRow}>
+                {toast.iconKinds.length > 0 ? (
+                  <div className={tableStyles.tableToastIcons} aria-hidden>
+                    {toast.iconKinds.map((kind) => (
+                      <StatIcon key={kind} kind={kind} size={28} popScale={1.08} />
+                    ))}
+                  </div>
+                ) : null}
+                <div className={tableStyles.tableToastText}>{toast.text}</div>
+              </div>
             </div>
           ))}
         </div>

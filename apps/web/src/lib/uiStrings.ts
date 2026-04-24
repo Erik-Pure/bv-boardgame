@@ -411,6 +411,8 @@ export const sv = {
     pending: "Väntande",
     lobbyList: "Lobby",
     log: "Logg",
+    /** Sidopanel: visa spelhändelseloggen (av som standard). */
+    sidebarShowLog: "Visa logg",
     hiddenItemFoundTitle: "Hittade ett föremål!",
     hiddenItemFoundBody: "Spelaren hittar ett föremål och hanterar det på sin mobil.",
     cardArtAlt: "Kortbild",
@@ -419,6 +421,15 @@ export const sv = {
     hidePanel: "Dölj sidopanel",
     showPanel: "Visa sidopanel",
     tileTypeLabels: "Typetiketter på rutor",
+    openSettings: "Inställningar för brädet",
+    togglePlayersPanel: "Visa eller dölj spelare och logg",
+    settingsTitle: "Inställningar (bräde)",
+    settingsBoardPan: "Panorering på brädet (drag och mushjul)",
+    settingsBoardAnimations: "Animationer på brädet (mjuk kamera, tärningssnurr m.m.)",
+    settingsClose: "Stäng",
+    /** Bräde: spelaren är i köp/affär-läge (mobil). */
+    merchantShopping: (playerName: string) => `${playerName} handlar`,
+    merchantShoppingAria: (playerName: string) => `${playerName} är i affären`,
   },
   items: {
     healing_potion: { title: "Helande brygd", text: "Återställ 3 HP." },

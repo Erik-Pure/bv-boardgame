@@ -72,27 +72,112 @@
 .headerRightControls {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.wakeToggleLabel {
+.headerToolbar {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--type-sm);
+  flex-shrink: 0;
+}
+
+.tableHeaderIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(15, 23, 42, 0.75);
+  color: #e2e8f0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.tableHeaderIconBtn:hover {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #f8fafc;
+}
+
+.tableHeaderIconBtn[data-active="true"] {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(12, 74, 110, 0.45);
+  color: #e0f2fe;
+}
+
+.tableSettingsBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 44000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) min(20px, 4vw) max(20px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(7, 11, 24, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.tableSettingsCard {
+  width: min(400px, 100%);
+  max-height: min(85dvh, 100%);
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 20px 20px 18px;
+  color: #f1f5f9;
+}
+
+.tableSettingsTitle {
+  margin: 0 0 16px;
+  font-size: clamp(1.1rem, 2.8vmin, 1.35rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.tableSettingsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: var(--type-md);
   font-weight: 700;
-  opacity: 0.94;
-  white-space: nowrap;
+  line-height: 1.35;
+  cursor: pointer;
   user-select: none;
 }
 
-.wakeToggleLabel input {
-  accent-color: #22c55e;
+.tableSettingsRow input {
+  margin-top: 3px;
+  accent-color: #38bdf8;
+  flex-shrink: 0;
 }
 
-.wakeToggleLabel input:disabled + span {
+.tableSettingsRow input:disabled + span {
   opacity: 0.55;
+}
+
+.tableSettingsHint {
+  margin: 0 0 18px;
+  font-size: var(--type-sm);
+  font-weight: 600;
+  opacity: 0.78;
+  line-height: 1.4;
 }
 
 .mainRow {
@@ -116,6 +201,77 @@
   min-height: 0;
   height: 100%;
   contain: layout;
+}
+
+.merchantShoppingOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: min(22%, 120px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 7;
+  padding: 0 max(12px, env(safe-area-inset-left, 0px)) 0 max(12px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+
+.merchantShoppingInner {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.08em;
+  max-width: 100%;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.1rem, 7.2vmin, 4rem);
+  line-height: 1.08;
+  color: #fefce8;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 0 22px rgba(251, 191, 36, 0.4),
+    0 4px 20px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(0, 0, 0, 0.95);
+}
+
+.merchantDot {
+  display: inline-block;
+  animation: merchantDotPulse 1.15s ease-in-out infinite;
+  opacity: 0.35;
+}
+
+.merchantDot2 {
+  animation-delay: 0.2s;
+}
+
+.merchantDot3 {
+  animation-delay: 0.4s;
+}
+
+@keyframes merchantDotPulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .merchantDot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+.merchantShoppingInner[data-anim-off="true"] .merchantDot {
+  animation: none;
+  opacity: 1;
 }
 
 .boardPanLayer {
@@ -225,23 +381,6 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
 }
 
-.sidebarToggle {
-  width: 36px;
-  flex-shrink: 0;
-  align-self: stretch;
-  border: none;
-  border-left: 1px solid #ffffff22;
-  background: rgba(17, 24, 39, 0.9);
-  color: #e5e7eb;
-  cursor: pointer;
-  font-size: var(--type-xl);
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
 .tableSidebarAside {
   flex-grow: 0;
   flex-shrink: 1;
@@ -295,7 +434,7 @@
   color: #fca5a5;
 }
 
-.tileTypeLabelRow {
+.sidebarPanelToggleRow {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -303,6 +442,11 @@
   cursor: pointer;
   user-select: none;
   font-size: var(--type-md);
+  font-weight: 700;
+}
+
+.sidebarPanelToggleRow input {
+  accent-color: #38bdf8;
 }
 
 .sidebarLog {
@@ -367,7 +511,7 @@
 .tableToastItem {
   width: fit-content;
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(2, 6, 23, 0.86);
   box-shadow:
@@ -376,12 +520,32 @@
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
   color: #f8fafc;
-  font-size: var(--type-xl);
-  line-height: 1.35;
   font-weight: 800;
-  padding: 9px 12px;
+  padding: 12px 16px;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+.tableToastRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tableToastIcons {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.tableToastText {
+  min-width: 0;
+  font-size: clamp(1.05rem, 2.8vmin, 1.42rem);
+  line-height: 1.38;
 }
 
 .tableToastSip {
@@ -392,6 +556,11 @@
 .tableToastPvp {
   border-color: rgba(248, 113, 113, 0.5);
   background: linear-gradient(180deg, rgba(127, 29, 29, 0.52) 0%, rgba(2, 6, 23, 0.88) 100%);
+}
+
+.tableToastVaska {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.42) 0%, rgba(2, 6, 23, 0.9) 100%);
 }
 
 .tableToastEntering {

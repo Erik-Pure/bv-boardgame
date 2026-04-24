@@ -78,8 +78,13 @@ function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: G
   return fromCards + fromItems;
 }
 
-function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<string, Player> }) {
-  const { state, playersById } = props;
+function TableCombatBoardPanelInner(props: {
+  state: GameState;
+  playersById: Map<string, Player>;
+  /** false: hoppa över monster-/tärningsanimationer på brädet. */
+  boardAnimationsEnabled?: boolean;
+}) {
+  const { state, playersById, boardAnimationsEnabled = true } = props;
   const overlayScale = useTableOverlayContentScale();
   const vvHeight = useVisualViewportHeight();
   /** På tablet kan presentationScale > 1 trycka ner/klippa monsterkortet — håll inom ~90% av viewport-höjd. */
@@ -126,8 +131,9 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
 
     const reducedMotion =
       typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const skipMotion = reducedMotion || !boardAnimationsEnabled;
 
-    if (reducedMotion) {
+    if (skipMotion) {
       prevCombatPhaseRef.current = p.phase;
       setMonsterTableAnim("diceIn");
       return;
@@ -154,7 +160,7 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
 
     prevCombatPhaseRef.current = p.phase;
     setMonsterTableAnim("diceIn");
-  }, [showMonsterForDiceAnim, combatDiceAnimKey, state.pending]);
+  }, [showMonsterForDiceAnim, combatDiceAnimKey, state.pending, boardAnimationsEnabled]);
 
   if (!pending || pending.type !== "combat") return null;
 
@@ -317,6 +323,9 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
       : monsterTableAnim === "shiftRight"
         ? "translateX(36px) rotate(0deg)"
         : "translateX(8px) rotate(5deg)";
+  const monsterMotionTransition = boardAnimationsEnabled
+    ? `transform 0.55s ${diceHeroMotionEase}`
+    : "none";
 
   const headerAndMonster = (
     <>
@@ -347,13 +356,15 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
                 alignItems: "center",
                 gap: 10,
                 flexShrink: 0,
-                transition: `width 0.5s ${diceHeroMotionEase}, opacity 0.45s ${diceHeroMotionEase}`,
+                transition: boardAnimationsEnabled
+                  ? `width 0.5s ${diceHeroMotionEase}, opacity 0.45s ${diceHeroMotionEase}`
+                  : "none",
                 pointerEvents: showMonsterDiceColumn ? "auto" : "none",
               }}
             >
               <div className={combatStyles.diceGlowCircle}>
                 {pending.phase === "reactions" ? (
-                  <DiceCube3D idleSpin size={TABLE_MONSTER_COMBAT_DICE_PX} />
+                  <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
                 ) : (
                   <div className={combatStyles.flexCenterGap10}>
                     <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
@@ -386,7 +397,7 @@ function TableCombatBoardPanelInner(props: { state: GameState; playersById: Map<
               className={combatStyles.monsterCardWrap}
               style={{
                 transform: monsterCardWrapTransform,
-                transition: `transform 0.55s ${diceHeroMotionEase}`,
+                transition: monsterMotionTransition,
               }}
             >
               <CardFlipScene
