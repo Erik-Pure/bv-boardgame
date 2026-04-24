@@ -177,7 +177,7 @@
       "id": "event_sotsug",
       "kind": "event",
       "title": "Sötsug",
-      "text": "Du får sötsug. Drick 2 klunkar och återfå 2 HP.",
+      "text": "Du får sötsug. Drick 2 klunkar och återfå 4 HP.",
       "artKey": "event/munchies",
       "effects": [
         {
@@ -186,7 +186,7 @@
         },
         {
           "type": "heal",
-          "amount": 2
+          "amount": 4
         }
       ]
     },

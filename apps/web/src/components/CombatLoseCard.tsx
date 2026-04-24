@@ -92,7 +92,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
         {sv.play.combatWinRoll(data.rollTotal, data.need)}
       </p>
 
-      <div style={{ width: "100%", maxWidth: 340, marginTop: 10 }}>
+      <div style={{ width: "100%", maxWidth: 340, marginTop: 10, textAlign: "center" }}>
         <div
           style={{
             fontFamily: "var(--sans)",
@@ -100,6 +100,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
             fontSize: 15,
             letterSpacing: "0.06em",
             marginBottom: 10,
+            textAlign: "center",
           }}
         >
           {sv.play.combatLosePenalties}
@@ -152,7 +153,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
           style={{
             width: "100%",
             maxWidth: 360,
-            textAlign: "left",
+            textAlign: "center",
             fontFamily: "var(--sans)",
             fontSize: 14,
             lineHeight: 1.45,
@@ -179,7 +180,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
 export function CombatLoseCard(props: { data: CombatLoseSummary; onContinue: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0, width: "100%" }}>
-      <CombatSheetFrame>
+      <CombatSheetFrame showSheetTitle={false}>
         <CombatLoseCardContent data={props.data} />
       </CombatSheetFrame>
       <ArcadeButton variant="pink" fullWidth onClick={props.onContinue}>

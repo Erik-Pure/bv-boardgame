@@ -301,7 +301,7 @@ export const MONSTERS: MonsterDef[] = [
     strength: 4,
     baseDamage: 2,
     rulesText: "",
-    rewardGold: 3,
+    rewardGold: 6,
     rewardItems: 1,
     artKey: "monster/fargglada_gubbar",
   },

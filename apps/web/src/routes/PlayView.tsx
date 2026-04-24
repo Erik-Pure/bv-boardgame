@@ -4586,11 +4586,11 @@ function CardModal(props: {
         }}
       >
         {showCombatWin && effectiveWin ? (
-          <CombatSheetFrame>
+          <CombatSheetFrame showSheetTitle={false}>
             <CombatWinCardContent data={effectiveWin} />
           </CombatSheetFrame>
         ) : showCombatLose && effectiveLoss ? (
-          <CombatSheetFrame>
+          <CombatSheetFrame showSheetTitle={false}>
             <CombatLoseCardContent data={effectiveLoss} />
           </CombatSheetFrame>
         ) : showDoorLocked ? (

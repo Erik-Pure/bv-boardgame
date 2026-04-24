@@ -31,12 +31,32 @@ export function CardFlipScene(props: {
   faceInnerClassName?: string;
   sceneClassName?: string;
   sceneStyle?: CSSProperties;
+  /** Innehåll på kortbaksidan (annars `card-bg.svg`). */
+  backFace?: ReactNode;
+  /** Efter att spelfronten syns (180°): rotera till baksida med `backFace` / resultat. */
+  flipToResultBack?: boolean;
+  /** ms innan andra vändningen startar (t.ex. tärnfade). */
+  resultFlipDelayMs?: number;
+  /** När andra vändningen (rotateY 360°) är klar. */
+  onResultFlipComplete?: () => void;
 }) {
   const refW = Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W);
   const blockPointer = props.blockPointerUntilFlipped !== false;
   const instant = props.instantFront === true;
   const [flipped, setFlipped] = useState(instant);
   const [interactOk, setInteractOk] = useState(instant);
+  /** Efter första paint med `instantFront` — tar bort `cardInstant` så andra vändningen kan animeras. */
+  const [postInstantLayout, setPostInstantLayout] = useState(() => !instant);
+  const [revealSecondBack, setRevealSecondBack] = useState(false);
+
+  useEffect(() => {
+    if (!instant) {
+      setPostInstantLayout(true);
+      return;
+    }
+    const id = requestAnimationFrame(() => setPostInstantLayout(true));
+    return () => cancelAnimationFrame(id);
+  }, [instant]);
 
   useEffect(() => {
     if (instant) return;
@@ -49,7 +69,29 @@ export function CardFlipScene(props: {
     };
   }, [instant]);
 
-  const cardClass = [styles.card, flipped && styles.cardFlipped, instant && styles.cardInstant]
+  useEffect(() => {
+    if (!props.flipToResultBack) {
+      setRevealSecondBack(false);
+      return;
+    }
+    const delay = Math.max(0, props.resultFlipDelayMs ?? 0);
+    const t = window.setTimeout(() => setRevealSecondBack(true), delay);
+    return () => clearTimeout(t);
+  }, [props.flipToResultBack, props.resultFlipDelayMs]);
+
+  useEffect(() => {
+    if (!revealSecondBack || !props.onResultFlipComplete) return;
+    const t = window.setTimeout(props.onResultFlipComplete, FLIP_MS + 40);
+    return () => clearTimeout(t);
+  }, [revealSecondBack, props.onResultFlipComplete]);
+
+  const cardInstant = instant && !postInstantLayout;
+  const cardClass = [
+    styles.card,
+    flipped && styles.cardFlipped,
+    revealSecondBack && flipped && styles.cardRevealSecond,
+    cardInstant && styles.cardInstant,
+  ]
     .filter(Boolean)
     .join(" ");
   const cardPointerEvents = blockPointer && !interactOk ? "none" : "auto";
@@ -75,8 +117,13 @@ export function CardFlipScene(props: {
       >
         <div className={[styles.lift, instant && styles.liftStatic].filter(Boolean).join(" ")}>
           <div className={cardClass} style={{ pointerEvents: cardPointerEvents }}>
-            <div className={styles.faceBack} aria-hidden>
-              <img src={CARD_BACK_SRC} alt="" className={styles.backImg} draggable={false} />
+            <div
+              className={[styles.faceBack, props.backFace != null && styles.faceBackRich].filter(Boolean).join(" ")}
+              aria-hidden
+            >
+              {props.backFace ?? (
+                <img src={CARD_BACK_SRC} alt="" className={styles.backImg} draggable={false} />
+              )}
             </div>
             <div className={styles.faceFront}>
               <div className={[styles.faceInner, props.faceInnerClassName].filter(Boolean).join(" ")}>{props.children}</div>

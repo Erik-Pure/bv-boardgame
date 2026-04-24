@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
@@ -12,7 +12,17 @@ import { TeamBattleIntroCard } from "../TeamBattleIntroCard";
 import { MonsterEncounterCard } from "../MonsterEncounterCard";
 import { CardFlipModalShell, CardFlipScene } from "../CardFlipModalShell";
 import cardFlipShellStyles from "../CardFlipModalShell.module.css";
-import { combatLossKlunksForDisplay, monsterEncounterCardPropsFromCombatPending } from "../../lib/combatUi";
+import { CombatLoseCardContent } from "../CombatLoseCard";
+import { CombatSheetFrame } from "../CombatResultSheet";
+import { CombatWinCardContent } from "../CombatWinCard";
+import {
+  combatLossKlunksForDisplay,
+  monsterEncounterCardPropsFromCombatPending,
+  parseLegacyCombatLoseText,
+  parseLegacyCombatWinText,
+  resolveCombatLossViewer,
+  resolveCombatWinViewer,
+} from "../../lib/combatUi";
 import { sv } from "../../lib/uiStrings";
 import {
   TABLE_BOARD_MODAL_CARD_ANIMATION,
@@ -26,6 +36,21 @@ import combatStyles from "./TableCombatBoardPanel.module.css";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 
 type TableCombatPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
+type MonsterCombatResultHoldover = {
+  preAck: GameState;
+  outcomeCard: Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
+};
+
+const OUTCOME_FLIP_MS = 700;
+/** Lutning + translateX(8px) → 0 när resultat läget slår till (lite lugnare än ett enda frame). */
+const HOLD_CARD_RESET_MS = 700;
+
+/** Matchar mobil `PlayView` `CardModal` innehållsyta (combat win/lose); ramen kommer från `.faceBack`. */
+const PLAY_COMBAT_OUTCOME_SURFACE: CSSProperties = {
+  background: "#0b1226",
+  borderRadius: 16,
+  color: "#ffffff",
+};
 
 /** Ungefärlig höjd före transform-scale (rubriker + kort + hint) — begränsar uppskalning så tablet inte klipper. */
 const COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX = 780;
@@ -83,8 +108,13 @@ function TableCombatBoardPanelInner(props: {
   playersById: Map<string, Player>;
   /** false: hoppa över monster-/tärningsanimationer på brädet. */
   boardAnimationsEnabled?: boolean;
+  /**
+   * När stridens `pending` redan är kort (combat_win/lose) på servern: samma monsterkort + CardFlipScene,
+   * fryst rollPreview i `preAck`, resultat på baksidan (ingen andra overlay).
+   */
+  monsterResultHoldover?: MonsterCombatResultHoldover | null;
 }) {
-  const { state, playersById, boardAnimationsEnabled = true } = props;
+  const { state, playersById, boardAnimationsEnabled = true, monsterResultHoldover: hold } = props;
   const overlayScale = useTableOverlayContentScale();
   const vvHeight = useVisualViewportHeight();
   /** På tablet kan presentationScale > 1 trycka ner/klippa monsterkortet — håll inom ~90% av viewport-höjd. */
@@ -94,7 +124,15 @@ function TableCombatBoardPanelInner(props: {
     const capByHeight = room / COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX;
     return Math.min(overlayScale, Math.max(1, capByHeight));
   }, [overlayScale, vvHeight]);
-  const pending = state.pending;
+
+  const pending: TableCombatPending | null = hold
+    ? (hold.preAck.pending as TableCombatPending)
+    : state.pending?.type === "combat"
+      ? state.pending
+      : null;
+
+  const modifierState = hold ? hold.preAck : state;
+
   const showMonsterForDiceAnim = pending?.type === "combat" && pending.monsterId !== "boss";
 
   const combatDiceAnimKey =
@@ -104,9 +142,34 @@ function TableCombatBoardPanelInner(props: {
   /** Bordsmonster: intro → skjut kort höger → visa tärning vänster (samma DOM som intro = ingen blink). */
   const [monsterTableAnim, setMonsterTableAnim] = useState<"intro" | "shiftRight" | "diceIn">("intro");
 
+  const holdOutcomeKey = hold ? `${hold.outcomeCard.cardId}:${hold.outcomeCard.playerId}` : null;
+  const [outcomePhase, setOutcomePhase] = useState<"idle" | "reveal" | "settled">("idle");
+
+  /** Direkt vid “Fortsätt”: vänd kort till resultat samma frame (ingen tärnfade-delay). */
+  useLayoutEffect(() => {
+    if (!holdOutcomeKey) {
+      setOutcomePhase("idle");
+      return;
+    }
+    setOutcomePhase("reveal");
+  }, [holdOutcomeKey]);
+
   useEffect(() => {
-    const p = state.pending;
+    if (!holdOutcomeKey || outcomePhase !== "reveal") return;
+    const flipMs = boardAnimationsEnabled ? OUTCOME_FLIP_MS : 0;
+    const t = window.setTimeout(() => setOutcomePhase("settled"), flipMs);
+    return () => window.clearTimeout(t);
+  }, [holdOutcomeKey, outcomePhase, boardAnimationsEnabled]);
+
+  useEffect(() => {
+    const p = hold ? hold.preAck.pending : state.pending;
     if (!p || p.type !== "combat") return;
+
+    if (hold) {
+      prevCombatPhaseRef.current = p.phase;
+      setMonsterTableAnim("diceIn");
+      return;
+    }
 
     const prev = prevCombatPhaseRef.current;
 
@@ -160,7 +223,7 @@ function TableCombatBoardPanelInner(props: {
 
     prevCombatPhaseRef.current = p.phase;
     setMonsterTableAnim("diceIn");
-  }, [showMonsterForDiceAnim, combatDiceAnimKey, state.pending, boardAnimationsEnabled]);
+  }, [hold, showMonsterForDiceAnim, combatDiceAnimKey, state.pending, boardAnimationsEnabled]);
 
   if (!pending || pending.type !== "combat") return null;
 
@@ -303,9 +366,98 @@ function TableCombatBoardPanelInner(props: {
     <MonsterEncounterCard {...boardMonsterCardProps} fillAvailableHeight={false} />
   ) : null;
 
+  const outcomeViewerName = hold
+    ? state.players.find((pl) => pl.id === hold.outcomeCard.playerId)?.name
+    : undefined;
+
+  const outcomeWinData = useMemo(() => {
+    if (!hold) return null;
+    const c = hold.outcomeCard;
+    if (c.cardId !== "combat_win") return null;
+    return resolveCombatWinViewer(
+      c.combatWin ?? parseLegacyCombatWinText(c.text, outcomeViewerName),
+      outcomeViewerName,
+    );
+  }, [hold, outcomeViewerName]);
+
+  const outcomeLoseData = useMemo(() => {
+    if (!hold) return null;
+    const c = hold.outcomeCard;
+    if (c.cardId !== "combat_lose") return null;
+    return resolveCombatLossViewer(
+      c.combatLoss ?? parseLegacyCombatLoseText(c.text, outcomeViewerName),
+      outcomeViewerName,
+    );
+  }, [hold, outcomeViewerName]);
+
+  const combatWinLoseBackFace = hold ? (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        padding: 16,
+        overflow: "auto",
+        WebkitOverflowScrolling: "touch",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        ...PLAY_COMBAT_OUTCOME_SURFACE,
+      }}
+    >
+      {outcomeWinData ? (
+        <div style={{ textAlign: "center", color: "#ffffff", width: "100%" }}>
+          <CombatSheetFrame showSheetTitle={false}>
+            <CombatWinCardContent data={outcomeWinData} />
+          </CombatSheetFrame>
+        </div>
+      ) : outcomeLoseData ? (
+        <div style={{ textAlign: "center", color: "#ffffff", width: "100%" }}>
+          <CombatSheetFrame showSheetTitle={false}>
+            <CombatLoseCardContent data={outcomeLoseData} />
+          </CombatSheetFrame>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const mitigationBackFace =
+    pending.phase === "chooseHitMitigation" ? (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          boxSizing: "border-box",
+          padding: 12,
+          overflow: "auto",
+          WebkitOverflowScrolling: "touch",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#030508",
+        }}
+      >
+        <div style={{ textAlign: "center", color: "#e5e7eb", width: "100%" }}>
+          <CombatSheetFrame
+            sheetTitle={sv.table.combatPhase3Choice}
+            titleStyle={{ textAlign: "center", fontSize: 16, marginBottom: 8 }}
+          >
+            {typeof pending.previewTotal === "number" && typeof pending.previewNeed === "number" ? (
+              <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 12 }}>
+                Slag: {pending.previewTotal} (krävde {pending.previewNeed})
+              </div>
+            ) : null}
+            <div style={{ fontSize: 14, lineHeight: 1.45, opacity: 0.92 }}>
+              {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
+            </div>
+          </CombatSheetFrame>
+        </div>
+      </div>
+    ) : undefined;
+
   const diceHeroMotionEase = "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
-  const diceBaseModifier = boardAttackerOutgoingRollModifier(pending, state);
+  const diceBaseModifier = boardAttackerOutgoingRollModifier(pending, modifierState);
   const boardDiceModifierBaseStr = formatSignedDiceModifier(diceBaseModifier);
   const showDiceModifierStack =
     pending.phase === "reactions" ||
@@ -317,15 +469,18 @@ function TableCombatBoardPanelInner(props: {
     typeof pending.previewSipWeaponBonusValue === "number"
       ? pending.previewSipWeaponBonusValue
       : null;
-  const monsterCardWrapTransform =
-    monsterTableAnim === "intro"
+  const monsterCardWrapTransform = hold
+    ? "translateX(0) rotate(0deg)"
+    : monsterTableAnim === "intro"
       ? "translateX(0) rotate(0deg)"
       : monsterTableAnim === "shiftRight"
         ? "translateX(36px) rotate(0deg)"
         : "translateX(8px) rotate(5deg)";
-  const monsterMotionTransition = boardAnimationsEnabled
-    ? `transform 0.55s ${diceHeroMotionEase}`
-    : "none";
+  const monsterMotionTransition = !boardAnimationsEnabled
+    ? "none"
+    : hold
+      ? `transform ${HOLD_CARD_RESET_MS}ms ${diceHeroMotionEase}`
+      : `transform 0.55s ${diceHeroMotionEase}`;
 
   const headerAndMonster = (
     <>
@@ -343,23 +498,30 @@ function TableCombatBoardPanelInner(props: {
               marginTop: 2,
               marginBottom: 8,
               width: "100%",
-              gap: showMonsterDiceColumn ? 20 : 0,
+              gap: hold ? 0 : showMonsterDiceColumn ? 20 : 0,
+              transition: hold || !boardAnimationsEnabled ? "none" : `gap 0.35s ${diceHeroMotionEase}`,
             }}
           >
             <div
               style={{
-                width: showMonsterDiceColumn ? 200 : 0,
-                opacity: showMonsterDiceColumn ? 1 : 0,
+                width: hold ? 0 : showMonsterDiceColumn ? 200 : 0,
+                minWidth: 0,
+                opacity: (() => {
+                  if (!showMonsterDiceColumn) return 0;
+                  if (hold) return 0;
+                  return pending.phase === "chooseHitMitigation" ? 0 : 1;
+                })(),
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 10,
                 flexShrink: 0,
-                transition: boardAnimationsEnabled
-                  ? `width 0.5s ${diceHeroMotionEase}, opacity 0.45s ${diceHeroMotionEase}`
-                  : "none",
-                pointerEvents: showMonsterDiceColumn ? "auto" : "none",
+                transition:
+                  hold || !boardAnimationsEnabled
+                    ? "none"
+                    : `width 0.35s ${diceHeroMotionEase}, opacity 0.4s ${diceHeroMotionEase}`,
+                pointerEvents: showMonsterDiceColumn && !hold ? "auto" : "none",
               }}
             >
               <div className={combatStyles.diceGlowCircle}>
@@ -405,6 +567,13 @@ function TableCombatBoardPanelInner(props: {
                 maxWidth={400}
                 faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
                 blockPointerUntilFlipped={false}
+                backFace={combatWinLoseBackFace ?? mitigationBackFace}
+                flipToResultBack={
+                  hold
+                    ? outcomePhase === "reveal" || outcomePhase === "settled"
+                    : pending.phase === "chooseHitMitigation"
+                }
+                resultFlipDelayMs={hold ? 0 : boardAnimationsEnabled ? 280 : 0}
               >
                 <MonsterEncounterCard {...boardMonsterCardProps} fillAvailableHeight />
               </CardFlipScene>
@@ -424,7 +593,7 @@ function TableCombatBoardPanelInner(props: {
     </>
   );
 
-  const reactionsAndDice = (
+  const reactionsAndDice = hold ? null : (
     <>
       {pending.phase === "reactions" && reactorNames.length > 0 && (
         <div

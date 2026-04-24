@@ -128,6 +128,14 @@
   transform: rotateY(180deg);
 }
 
+/**
+ * Andra vändningen (monster framsida → resultat på baksida).
+ * Måste komma efter `.cardFlipped` så 360° vinner specificitet.
+ */
+.cardFlipped.cardRevealSecond {
+  transform: rotateY(360deg);
+}
+
 /** Ingen transition vid direkt framsida (t.ex. inventory-item). */
 .cardInstant {
   transition: none;
@@ -151,6 +159,15 @@
   border: 1px solid #ffffff22;
   display: grid;
   place-items: center;
+}
+
+/** Egen React-baksida (resultat) — scroll i stället för låst clip. */
+.faceBackRich {
+  display: block;
+  place-items: unset;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .backImg {

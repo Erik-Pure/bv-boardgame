@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -337,6 +337,30 @@ function TableViewBody() {
     return new Map(ps.map((p) => [p.id, p]));
   }, [state?.players]);
 
+  /** Senaste monster-rollPreview (klon) — används när `pending` blivit combat_win/lose så samma kort/DOM kan fortsätta. */
+  const lastMonsterRollPreviewSnapshotRef = useRef<GameState | null>(null);
+
+  useLayoutEffect(() => {
+    if (!state) return;
+    const p = state.pending;
+    if (p?.type === "combat" && p.phase === "rollPreview" && p.monsterId !== "boss") {
+      lastMonsterRollPreviewSnapshotRef.current = JSON.parse(JSON.stringify(state)) as GameState;
+    }
+  }, [state]);
+
+  const tableCombatOutcomeCardPending = (() => {
+    const p = state?.pending;
+    if (p?.type !== "card") return null;
+    if (p.cardId !== "combat_win" && p.cardId !== "combat_lose") return null;
+    return p;
+  })();
+
+  useEffect(() => {
+    if (!tableCombatOutcomeCardPending) {
+      lastMonsterRollPreviewSnapshotRef.current = null;
+    }
+  }, [tableCombatOutcomeCardPending]);
+
   const playersByTileKey = useMemo(() => {
     const ps = state?.players ?? [];
     const levels = state?.levels ?? [];
@@ -558,6 +582,20 @@ function TableViewBody() {
     const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [tableCombatSessionKey, state?.pending]);
+
+  const monsterResultHoldover =
+    tableCombatOutcomeCardPending && lastMonsterRollPreviewSnapshotRef.current
+      ? {
+          preAck: lastMonsterRollPreviewSnapshotRef.current,
+          outcomeCard: tableCombatOutcomeCardPending,
+        }
+      : null;
+
+  const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
+
+  const showTableCombatBoardPanel =
+    (state?.pending?.type === "combat" && tableCombatModalReady) || showMonsterCombatOutcomeOnCard;
+
   const moveTargets = useMemo(() => {
     if (state?.pending?.type !== "moveChoice") return null;
     return new Set(state.pending.options.map((o) => `${o.target.levelIndex}-${o.target.tileIndex}`));
@@ -1178,13 +1216,14 @@ function TableViewBody() {
 
       <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
 
-      {state?.pending?.type === "combat" && tableCombatModalReady && (
+      {showTableCombatBoardPanel && state ? (
         <TableCombatBoardPanel
           state={state}
           playersById={playersById}
           boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
+          monsterResultHoldover={monsterResultHoldover}
         />
-      )}
+      ) : null}
 
       {state?.pending?.type === "brewerDown" && (
         <CardFlipModalShell
@@ -1261,7 +1300,7 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {state?.pending?.type === "card" && tableCardModalReady && (
+      {state?.pending?.type === "card" && tableCardModalReady && !showMonsterCombatOutcomeOnCard && (
         <CardFlipModalShell
           zIndex={44}
           maxWidth={720}
@@ -1332,7 +1371,7 @@ function TableViewBody() {
               if (winData) {
                 return (
                   <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame>
+                    <CombatSheetFrame showSheetTitle={false}>
                       <CombatWinCardContent data={winData} />
                     </CombatSheetFrame>
                   </div>
@@ -1341,7 +1380,7 @@ function TableViewBody() {
               if (loseData) {
                 return (
                   <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame>
+                    <CombatSheetFrame showSheetTitle={false}>
                       <CombatLoseCardContent data={loseData} />
                     </CombatSheetFrame>
                   </div>
