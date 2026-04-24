@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.34 |
-| Senast uppdaterad | 2026-04-22 |
+| Version | 0.35 |
+| Senast uppdaterad | 2026-04-24 |
 
 ---
 
@@ -38,6 +38,10 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Interaktionspanel (mobil, små skärmar):** panelen kan växla till **kompaktläge** via en liten toggle-knapp precis ovanför panelen. I kompaktläge döljs informationscopy i panelen, medan **interaktionsknapparna fortfarande visas och är klickbara**.
 
+**Interaktionspanelens stabilitet:** korta överlagrade lägen som **straffklunk / Skål!** ska inte trigga om panelens slide-up-animation eller höjd-tween från föregående innehåll. När panelens primära innehållstyp byter (t.ex. strid/handling → straffklunk-ack) ska första layouten efter bytet vara **instant** så panelen inte “hackar”.
+
+**Föremålsmodal (mobil):** när ett föremål kräver målval (t.ex. **Sömnmedel**) används samma modal med den vanliga **Stäng**-knappen. Målvalssteget ska **inte** lägga till en extra **Tillbaka**-knapp; avbryt sker via Stäng.
+
 **Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
 
 ### 2.1 Storskärmsvy: pan, zoom och fokus
@@ -51,9 +55,11 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
 - **Manuell överstyring:** efter auto-fokus ska spelare vid bordet kunna **pana/zooma fritt** tills nästa auto-fokus.
 - **Kort över brädet (bord):** föremålskort i reaktionssolfjädern animerar in **nerifrån bakom turbannern**; mörk overlay bakom kort/strid är nu **betydligt mörkare** för bättre fokus på modalinnehållet (inkl. bossvariant).
+- **Monsterstridens resultat på bordet:** när spelaren trycker **Fortsätt** efter ett monster-slag ska bordet behålla **samma monsterkort/modal**. Tärningarna fadear bort, kortet rätas upp/flyttas direkt till resultatläge och kortets baksida flippar till vinst-/förlustresultatet. Använd inte en separat resultatmodal som kan blinka eller byta storlek. Resultatytan ska matcha mobilens mörka bakgrund, sakna extra hörntitel (t.ex. “Dålig batch”) och centrera texten.
 - **Presentationsskala på bordet (`/table`, TV/projektor):** modalinnehåll (kort som väntar på mobilbekräftelse, brewer-down, strids- och PvB-paneler) kan **skalas upp** utifrån **visualViewport** / fönster så text och kort läses på avstånd. **Kortaste kant** ca **720 px → skala 1**, linjärt upp mot **max ca 1,48** vid ca **1120 px** (justeras i kod: `S_MAX`, ramp `SHORT_START`/`SHORT_END`). Ett **höjd-tak** sänker skalan om kort-ytan annars skulle spänna över nästan hela höjden (`HEIGHT_FRAC` × höjd / ungefärlig korthöjd). **Dimningen** (fullskärms-overlay) skalas **inte**; endast innehållet får `transform: scale(…)` med **`transform-origin: top center`** så förstoringen inte klipper titeln upptill. **Placering:** `place-items: start center` (överkant); vid skala > 1 används **extra `padding-top`** med `max(84px, safe-area + 56px)` mot skärmkant/notch.
 - **Lobby och spelet slut på bordet:** pan/zoom på brädesviewport är **avstängda** i faserna `lobby` och `ended`, så att **`setPointerCapture`** på viewport inte stjäl pekaren — knappen **Avsluta spelet** i resultatmodalen ska få **klick** och navigera till startsidan.
 - **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
+- **BvB-tärningar på bordet:** under `awaitingRolls` ska båda sidor fortsätta visa **rullande tärning** även om en spelare redan slagit på mobilen. När båda slagit och resultatet är löst visas rullande tärningar under reveal-delay, därefter byter båda sidor samtidigt till fasta tärningsresultat. Undvik blink mellan idle-spin och resultat per spelare.
 - **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation** (stats + utrustningsrader). I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
@@ -202,6 +208,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Begär hjälp i monsterstrid (efter reaktioner, före slag):** angriparen kan välja **Be om hjälp** om det finns andra aktiva spelare med **positiva hjälpkort** för attack. Angriparen väljer hjälpare, hjälparen väljer kontrakt (**gratis**, **pant**, **skatt**, **dela lika**) eller nekar. Om hjälparen accepterar måste den spela **minst ett positivt kort** innan striden får gå vidare till slag.
 - **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid förlust sker ingen utbetalning.
 - **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
+- **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
+- **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska också kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort.
 
 ### 9.1.1 Team battle-monster
 
@@ -211,6 +219,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - Vid **vinst** får båda pant och rewards enligt monsterets **fasta vinstvärden**.
 - Reward i team battle följer samma mix som övrig PvE-loot: **itemkort och/eller utrustning**.
 - Vid **förlust** tar båda **samma inkommande skada** (med sina egna rustnings-/reduceringsregler tillämpade individuellt) och båda får klunk-straff enligt monsterregeln.
+- Spellogg/toast ska vara **på svenska** och redovisa skadan för **båda** spelarna vid team-förlust (angripare och medkämpe), inklusive särskild Get Lucky-copy när dubbel HP-skada gäller.
 
 ### 9.2 Bryggare mot bryggare (BvB)
 
@@ -225,6 +234,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Rondformat (uppdaterat):** BvB spelas som **bäst av 3**. Första spelare till **2 rondvinster** vinner matchen och går vidare till byte.
 - **Föremålsfönster före varje rond:** innan båda slår tärning finns en förberedelsefas där båda duellanterna kan spela tillåtna PvP-föremål (buff på sig själv eller sabotage på motståndaren) och markerar **Klar**. När båda är klara startar slaget för rundan.
 - **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar; copy ska vara kortfattad (t.ex. bara att inga BvB-föremål finns — **ingen** extra mening om att man “inte behöver trycka Klar”).
+- **Tillåtna BvB-föremål:** klient och server ska hålla samma lista för förberedelsefasen. **Manopositiv** är tillåtet i BvB och måste därför både visas som spelbart och göra att **Klar**-knappen finns när spelaren har kortet (förutsatt 4 pant).
 - **Lika i en rond:** vid lika total återgår duellen till nytt föremålsfönster och omslag i **samma rondnummer** (ingen rondvinst delas ut).
 - **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
 - **Tärningsrond (mobil):** ingen extra ledtext före “Slå din tärning” i väntan på BvB-slag (undvik redundant “klarrunda”-copy).
@@ -267,8 +277,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Lengräddad** (föremål, inte händelsekort): spelas på **annan spelare**; nästa strid för målet **−2 attack**; ska kunna spelas även när man **ingriper** under stridsreaktioner (samma fönster som övriga reaktionsföremål).
 - **Pantpåse** (item, internt `coin_purse`): engångsbruk ger **+4 pant** (visningsnamn tidigare “Penningpung”).
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
-- **Get Lucky** (`get_lucky`): stridsreaktion för spelare som faktiskt slåss (angripare/medkämpe), **+4 attack** i striden; om den spelaren sedan förlorar tar den **dubbel HP-skada**.
-- **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/PvP-fönster); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
+- **Get Lucky** (`get_lucky`): stridsreaktion som kan spelas på **den som slåss** (angripare eller medkämpe), även av en annan spelare som ingriper. Målet får **+4 attack** i striden; om målet sedan förlorar tar just den spelaren **dubbel HP-skada**.
+- **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/BvB-fönster och ingripande); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
 - **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
@@ -469,4 +479,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.32 | 2026-04-22 | Mobil `/play`: paneltoggle justerad till **kompaktläge** (dölj text, behåll knappar synliga); §10.2 handlare förtydligad så köpt hyllpost inte kan köpas igen under samma besök |
 | 0.33 | 2026-04-22 | `/table`: desktop-toggle **Inaktivera sömnläge** i header; §10.2 handlare uppdaterad till **Helande brygd + tre slumpade** utrustningar (Mäskpaddel/Burkrustning inte längre fasta); §11 uppdaterad med ny utrustning (**Linne**, **Dunjacka**, **Keykeghjälm**, **Fyrklöver**, **Tom flaska**) och särregler (krit-miss-skydd / går sönder vid vinst) |
 | 0.34 | 2026-04-22 | §2.1: **presentationsskala** på bord (viewport-baserad, max ca **1.48**, höjd-tak, dim oskalad, `transform-origin: top center`, överkant + safe-area-padding); **lobby/ended** stänger av pan på viewport så **Avsluta spelet** fungerar; §16.2 kortkatalog: **dolda** poster (`combat_monster`, `boss_round_win`, alla `treasure`) |
+| 0.35 | 2026-04-24 | §2/§2.1/§9/§10.1: monsterresultat på samma bordskort, stabil mobil interaktionspanel, BvB-tärningar utan blink, svenska skade-toastar i team battle, uppdaterade ingripanderegler för **Get Lucky**/**Manopositiv**, auto-pass när inga spelbara reaktionskort finns samt borttagen extra **Tillbaka** i målval |
 

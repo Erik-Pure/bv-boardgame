@@ -60,6 +60,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     return () => window.clearTimeout(t);
   }, [revealKey]);
   const showRollingReveal = !!rt && !pvpRevealReady;
+  const showRollingDice = awaiting || showRollingReveal;
   if (!pending || !attacker || !defender) return null;
 
   function PvpFighterColumn(props2: {
@@ -170,9 +171,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <PvpFighterColumn
             role={sv.table.roleAttacker}
             player={attacker}
-            roll={ra}
+            roll={rt && pvpRevealReady ? ra : undefined}
             nameRotateDeg={-11}
-            showRolling={showRollingReveal && !ra}
+            showRolling={showRollingDice}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${attacker.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${attacker.id}` : undefined}
             previewAttackMod={attackerPreviewMod}
@@ -182,9 +183,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <PvpFighterColumn
             role={sv.table.roleDefender}
             player={defender}
-            roll={rd}
+            roll={rt && pvpRevealReady ? rd : undefined}
             nameRotateDeg={11}
-            showRolling={showRollingReveal && !rd}
+            showRolling={showRollingDice}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${defender.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${defender.id}` : undefined}
             previewAttackMod={defenderPreviewMod}

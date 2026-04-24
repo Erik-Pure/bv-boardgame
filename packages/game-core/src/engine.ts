@@ -52,6 +52,23 @@ const INITIAL_PLAYER_PANT = 5;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
 const COMBAT_REACTION_TIMEOUT_MS = 20_000;
+const COMBAT_REACTION_PLAYABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
+  "weak_beer",
+  "light_beer",
+  "folk_beer",
+  "tripwire",
+  "double_hops",
+  "beer_bomb",
+  "manopositiv",
+  "hangover",
+  "monster_hype",
+  "yeast_sabotage",
+  "beer_bro",
+  "lengraddad",
+  "not_my_round",
+  "spill_intentional",
+  "get_lucky",
+]);
 const PLAYER_COLORS = [
   "#c41e3a",
   "#2563eb",
@@ -925,6 +942,8 @@ function applyCombatLoss(
     applyDamage({ state: next, player: p, amount: attackerDamage, isBossHit, log });
     if (attackerDamageDoubled) {
       log(next, `${p.name} pressade med Get Lucky och tar dubbel HP-skada (${attackerDamage}).`);
+    } else if (assistId && before !== p.hp) {
+      log(next, `${p.name} tar skada (HP ${before} → ${p.hp}).`);
     }
   }
   if (assistId) {
@@ -937,8 +956,9 @@ function applyCombatLoss(
       applyDamage({ state: next, player: bro, amount: assistDamage, isBossHit, log });
       if (assistDamageDoubled) {
         log(next, `${bro.name} pressade med Get Lucky och tar dubbel HP-skada (${assistDamage}).`);
+      } else if (bb !== bro.hp) {
+        log(next, `${bro.name} tar också skada (HP ${bb} → ${bro.hp}).`);
       }
-      log(next, `${bro.name} takes the hit too (HP ${bb} → ${bro.hp}).`);
     }
   }
 
@@ -1543,14 +1563,32 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   };
 }
 
-/** Reaktor som använder *vilket* föremål som helst under reaktionsfasen måste markeras så angriparen får slå. */
+function playerHasCombatReactionPlayableItem(
+  player: Player,
+  pending: Extract<Pending, { type: "combat" }>,
+): boolean {
+  return (player.inventory ?? []).some((it) => {
+    if (!COMBAT_REACTION_PLAYABLE_ITEM_IDS.has(it.itemId)) return false;
+    if (it.itemId === "manopositiv" && player.gold < 4) return false;
+    if (it.itemId === "beer_bro" && pending.assistId) return false;
+    return true;
+  });
+}
+
+/** Reaktor som har spelat sitt sista ingripandekort blir automatiskt klar/pass. */
 function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string): void {
   const pending = state.pending;
   if (!pending || pending.type !== "combat" || pending.phase !== "reactions") return;
   if (!pending.reactors?.includes(reactorId)) return;
+  const reactor = state.players.find((p) => p.id === reactorId);
+  if (!reactor) return;
   pending.reacted ??= {};
-  if (pending.reacted[reactorId] === "pass" || pending.reacted[reactorId] === "intervened") return;
-  pending.reacted[reactorId] = "intervened";
+  if (pending.reacted[reactorId] === "pass") return;
+  if (playerHasCombatReactionPlayableItem(reactor, pending)) {
+    delete pending.reacted[reactorId];
+    return;
+  }
+  pending.reacted[reactorId] = "pass";
 }
 
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
@@ -2761,14 +2799,23 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       const canUseAsHelper =
         isHelpCardPhase && pending.helpAccepted === true && pending.helpSelectedHelperId === user.id;
-      if (!canUseAsHelper && user.id !== pending.attackerId && user.id !== pending.assistId) {
-        return { state, events: [], error: "Endast den som slåss kan använda Get Lucky" };
+      if (isHelpCardPhase && !canUseAsHelper) {
+        return { state, events: [], error: "Endast vald hjälpare kan spela kort nu" };
       }
-      const targetId = isHelpCardPhase ? pending.attackerId : user.id;
+      const fallbackTargetId =
+        isHelpCardPhase || (user.id !== pending.attackerId && user.id !== pending.assistId)
+          ? pending.attackerId
+          : user.id;
+      const targetId = action.targetPlayerId ?? fallbackTargetId;
+      const validTargets = new Set([pending.attackerId, pending.assistId].filter((id): id is string => !!id));
+      if (!validTargets.has(targetId)) {
+        return { state, events: [], error: "Get Lucky måste spelas på den som slåss" };
+      }
       pending.attackMods ??= {};
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 4;
       pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), targetId]));
-      log(next, `${user.name} spelar Get Lucky: +4 attack i striden men dubbel HP-skada vid förlust.`);
+      const target = next.players.find((p) => p.id === targetId);
+      log(next, `${user.name} spelar Get Lucky på ${target?.name ?? "spelaren"}: +4 attack men dubbel HP-skada vid förlust.`);
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
@@ -2963,8 +3010,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     log(
       next,
       sipMitigation
-        ? `${p.name} drinks to soften ${pending.enemyName}'s hit.`
-        : `${p.name} takes the full force of ${pending.enemyName}'s attack (no sip).`,
+        ? `${p.name} dricker en klunk för att mildra träffen från ${pending.enemyName}.`
+        : `${p.name} tar hela skadan från ${pending.enemyName} (ingen klunk).`,
     );
     next.pending = null;
     const attackerIgnoresCritFailOnOneMit = p.equipment.accessory?.ignoreCombatCritFailOnOne === true;
@@ -3583,7 +3630,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         } else {
           winner.equipment.accessory = { ...piece } as typeof winner.equipment.accessory;
         }
-        log(next, `${winner.name} takes ${slot} from ${loser.name}.`);
+        log(next, `${winner.name} tar ${piece.name ?? slot} från ${loser.name}.`);
         pushPlayerNotice(
           next,
           loser.id,

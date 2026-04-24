@@ -12,6 +12,7 @@ const INTERVENE_ITEM_IDS = new Set<string>([
   "beer_bro",
   "monster_hype",
   "yeast_sabotage",
+  "get_lucky",
 ]);
 
 /** Levande bryggare får ingripa i andras strider (inte stupad / 0 HP). */

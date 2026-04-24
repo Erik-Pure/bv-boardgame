@@ -273,6 +273,7 @@ export function PlayView() {
   const prevIsMyTurnRef = useRef(false);
   const [bottomSheetAnimatedHeight, setBottomSheetAnimatedHeight] = useState<number | null>(null);
   const [bottomSheetHeightInstant, setBottomSheetHeightInstant] = useState(false);
+  const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
 
@@ -481,6 +482,11 @@ export function PlayView() {
   const showRainbowPulse = highlightPulse && rainbowEffectsEnabled;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
+  const isCombatFighterNow =
+    !!me &&
+    inCombatReactions &&
+    pending?.type === "combat" &&
+    (pending.attackerId === me.id || pending.assistId === me.id);
   const inPvpAwaitingRolls = pvpParticipant && pvpPending?.phase === "awaitingRolls";
   const inPvpPreRoundItems = pvpParticipant && pvpPending?.phase === "preRoundItems";
   const isThirdPartyCombatIntervention =
@@ -494,7 +500,9 @@ export function PlayView() {
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
     if (itemId === "lengraddad" && inCombatReactions) return true;
-    if (itemId === "beard_back" && (inCombatReactions || inPvpAwaitingRolls)) return true;
+    if (itemId === "get_lucky" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
+    if (itemId === "beard_back" && inCombatReactions) return isCombatFighterNow;
+    if (itemId === "beard_back" && inPvpAwaitingRolls) return true;
     if (inPvpPreRoundItems) return PVP_PRE_ROUND_ITEM_IDS.has(itemId);
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
@@ -836,9 +844,13 @@ export function PlayView() {
       const isAttacker = pending.attackerId === me.id;
       const isAssistPartner = pending.assistId === me.id;
       const isTeamFighter = isAttacker || isAssistPartner;
-      const hasAnyReaction = (me.inventory ?? []).some((it) =>
-        COMBAT_INTERVENE_PLAYABLE_ITEM_IDS.has(String(it.itemId)),
-      );
+      const canPlayInterveneItem = (itemId: string) => {
+        if (!COMBAT_INTERVENE_PLAYABLE_ITEM_IDS.has(itemId)) return false;
+        if (itemId === "manopositiv" && me.gold < 4) return false;
+        if (itemId === "beer_bro" && pending.assistId) return false;
+        return true;
+      };
+      const hasAnyReaction = (me.inventory ?? []).some((it) => canPlayInterveneItem(String(it.itemId)));
       const attacker = state.players.find((p) => p.id === pending.attackerId) ?? null;
       const teammate = pending.assistId ? state.players.find((p) => p.id === pending.assistId) ?? null : null;
       const mod = pending.attackMods?.[pending.attackerId] ?? 0;
@@ -867,6 +879,10 @@ export function PlayView() {
         me.id === pending.attackerId
           ? (teammate?.name ?? "")
           : (attacker?.name ?? sv.play.theAttacker);
+      const fighterReactionItems =
+        isTeamFighter && !myTeamRoll && reactionOpen
+          ? (me.inventory ?? []).filter((it) => COMBAT_FIGHTER_REACTION_ITEM_IDS.has(String(it.itemId)))
+          : [];
 
       if (isTeamFighter) {
         return (
@@ -917,6 +933,42 @@ export function PlayView() {
                 </>
               )}
             </div>
+            {fighterReactionItems.length > 0 ? (
+              <div className={u.stack8}>
+                <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>Spela kort innan slaget</div>
+                {fighterReactionItems.map((it) => {
+                  const id = String(it.itemId);
+                  const targetPlayerId =
+                    id === "beard_back" || id === "get_lucky" ? undefined : me.id;
+                  const disabled = id === "manopositiv" && me.gold < 4;
+                  return (
+                    <ArcadeButton
+                      key={it.instanceId}
+                      variant="blue"
+                      fullWidth
+                      disabled={disabled}
+                      onClick={() =>
+                        send({
+                          type: "useItem",
+                          playerId: me.id,
+                          instanceId: it.instanceId,
+                          targetPlayerId,
+                        })
+                      }
+                    >
+                      {itemTitle(it.itemId)}
+                      {id === "light_beer" ? sv.play.itemSuffixLightBeer : ""}
+                      {id === "folk_beer" ? sv.play.itemSuffixFolkBeer : ""}
+                      {id === "double_hops" ? sv.play.itemSuffixDoubleHops : ""}
+                      {id === "beer_bomb" ? sv.play.itemSuffixBeerBomb : ""}
+                      {id === "manopositiv" ? sv.play.itemSuffixManopositiv : ""}
+                      {id === "beard_back" ? " (+tärning)" : ""}
+                      {id === "get_lucky" ? " (+4, risk)" : ""}
+                    </ArcadeButton>
+                  );
+                })}
+              </div>
+            ) : null}
             {(pending.reactors?.length ?? 0) > 0 && !everyoneDone && reactionOpen ? (
               <div className={`${u.textCenter} ${u.o85}`}>
                 {sv.play.waitIntervene}
@@ -1027,9 +1079,7 @@ export function PlayView() {
           return <div className={`${u.textCenter} ${u.o75}`}>Reaktionsfönstret har stängt.</div>;
         }
         if (wantsIntervene) {
-          const interveneItems = (me.inventory ?? []).filter((it) =>
-            COMBAT_INTERVENE_PLAYABLE_ITEM_IDS.has(String(it.itemId)),
-          );
+          const interveneItems = (me.inventory ?? []).filter((it) => canPlayInterveneItem(String(it.itemId)));
           if (interveneItems.length === 0) {
             return (
               <div className={u.stack10}>
@@ -1165,6 +1215,7 @@ export function PlayView() {
                             "double_hops",
                             "beer_bomb",
                             "manopositiv",
+                            "get_lucky",
                             "hangover",
                           ].includes(id)
                             ? attacker.id
@@ -1181,6 +1232,7 @@ export function PlayView() {
                       {String(it.itemId) === "double_hops" ? sv.play.itemSuffixDoubleHops : ""}
                       {String(it.itemId) === "beer_bomb" ? sv.play.itemSuffixBeerBomb : ""}
                       {String(it.itemId) === "manopositiv" ? sv.play.itemSuffixManopositiv : ""}
+                      {String(it.itemId) === "get_lucky" ? " (+4, risk)" : ""}
                       {String(it.itemId) === "hangover" ? sv.play.itemSuffixHangover : ""}
                       {String(it.itemId) === "monster_hype" ? sv.play.itemSuffixMonsterHype : ""}
                       {String(it.itemId) === "yeast_sabotage" ? sv.play.itemSuffixYeast : ""}
@@ -1860,9 +1912,6 @@ export function PlayView() {
                 </ArcadeButton>
               ))}
             </div>
-            <ArcadeButton variant="gray" fullWidth onClick={() => setItemUseTargetPhase(false)}>
-              {sv.play.back}
-            </ArcadeButton>
           </div>
         ) : null}
         {passive ? (
@@ -1924,9 +1973,26 @@ export function PlayView() {
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
+  const bottomSheetPrimaryKind = itemDetailSheet
+    ? "item"
+    : equipDetailSheet
+      ? "equip"
+      : cardOrSipActions
+        ? "card"
+        : sipNoticeAckSheet
+          ? "sip"
+          : interaction
+            ? "interaction"
+            : "none";
 
   useEffect(() => {
-    if (!bottomSheetVisible) setInteractionPanelCollapsed(false);
+    if (!bottomSheetVisible) {
+      setInteractionPanelCollapsed(false);
+      setBottomSheetEnterDone(false);
+      return;
+    }
+    const t = window.setTimeout(() => setBottomSheetEnterDone(true), 380);
+    return () => window.clearTimeout(t);
   }, [bottomSheetVisible]);
 
   useLayoutEffect(() => {
@@ -1994,7 +2060,7 @@ export function PlayView() {
       ro?.disconnect();
       window.removeEventListener("resize", syncHeight);
     };
-  }, [bottomSheetVisible]);
+  }, [bottomSheetVisible, bottomSheetPrimaryKind]);
 
   /** Medkämpe-val ligger i `interaction`, inte i `cardOrSipActions` — sheet måste ändå ligga över TeamBattleIntroCard (z 105). */
   const bottomSheetOverTeamBattleIntro =
@@ -2855,7 +2921,7 @@ export function PlayView() {
               ? styles.bottomSheetTurnSwapIn
               : sheetTurnAnim === "out"
                 ? styles.bottomSheetTurnSwapOut
-                : showRainbowPulse
+                : showRainbowPulse || bottomSheetEnterDone
                   ? ""
                   : styles.bottomSheetEnter,
             showRainbowPulse ? styles.bottomSheetActiveTurn : "",
@@ -3606,9 +3672,21 @@ const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([
   "monster_hype",
   "yeast_sabotage",
   "beer_bro",
+  "get_lucky",
   "lengraddad",
   "not_my_round",
   "spill_intentional",
+]);
+
+/** Kort som den/de som faktiskt slåss får spela under reaktionsfasen innan de slår. */
+const COMBAT_FIGHTER_REACTION_ITEM_IDS = new Set<string>([
+  "light_beer",
+  "folk_beer",
+  "double_hops",
+  "beer_bomb",
+  "manopositiv",
+  "beard_back",
+  "get_lucky",
 ]);
 
 /** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */
@@ -3625,6 +3703,8 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "folk_beer",
   "double_hops",
   "beer_bomb",
+  "manopositiv",
+  "get_lucky",
   "yeast_sabotage",
   "beer_bro",
 ]);
@@ -3635,6 +3715,7 @@ const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
   "tripwire",
   "double_hops",
   "beer_bomb",
+  "manopositiv",
   "hangover",
   "monster_hype",
   "beard_back",
