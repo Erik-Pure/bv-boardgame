@@ -151,7 +151,7 @@ export const MONSTERS: MonsterDef[] = [
     strength: 4,
     baseDamage: 5,
     rulesText:
-      "Vid skada: du får ta en klunk för att minska skadan med 3 — eller ta full skada utan att dricka.",
+      "Vid förlust: ta en klunk för att minska skada med 3",
     rewardGold: 5,
     rewardItems: 1,
     artKey: "monster/kapten-interrobang",
@@ -311,8 +311,8 @@ export const MONSTERS: MonsterDef[] = [
     strength: 4,
     baseDamage: 3,
     rulesText: "",
-    rewardGold: 4,
-    rewardItems: 1,
+    rewardGold: 5,
+    rewardItems: 2,
     artKey: "monster/transporter",
   },
   {

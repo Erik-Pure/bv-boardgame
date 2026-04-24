@@ -508,7 +508,7 @@
       "id": "item_get_lucky",
       "kind": "item",
       "title": "Get Lucky",
-      "text": "Stridsreaktion (duellanternas sida): +4 på din attack i denna strid. Vid förlust tar du dubbel HP-skada.",
+      "text": "+4 på vald spelares attack. Vid förlust tar du dubbel HP-skada.",
       "artKey": "item/getlucky",
       "effects": []
     },
