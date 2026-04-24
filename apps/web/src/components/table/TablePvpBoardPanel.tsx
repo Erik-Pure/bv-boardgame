@@ -148,7 +148,11 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
       }
     >
         <div className={styles.subtitle}>{sv.table.pvpSubtitle}</div>
-        <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+        <div className={styles.duelTitleRow} aria-label={sv.table.pvpScoreLine(wins.attacker, wins.defender)}>
+          <div className={`${styles.scoreNumber} ${styles.scoreNumberAttacker}`}>{wins.attacker}</div>
+          <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+          <div className={`${styles.scoreNumber} ${styles.scoreNumberDefender}`}>{wins.defender}</div>
+        </div>
         {awaiting ? (
           <div className={styles.phaseLineMuted}>{sv.table.pvpRoundBestOf(pvpRoundN, bestOf)}</div>
         ) : roundReveal ? (
@@ -161,7 +165,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
         {awaiting ? (
           <div className={styles.hint16}>{sv.table.pvpRollPhaseHint}</div>
         ) : roundReveal ? (
-          <div className={styles.hint16}>{sv.table.pvpRoundResultHint}</div>
+          <div className={styles.spacerMb8} />
         ) : preRound ? (
           <div className={styles.hint16}>{sv.table.pvpPrepPhaseHint}</div>
         ) : (
@@ -194,13 +198,6 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
         </div>
         {rt && pvpRevealReady ? (
           <div className={styles.resultsBlock}>
-            <div className={styles.totalsLine}>
-              <span className={styles.totalsPlayerName}>{attacker.name}</span>{" "}
-              <b>{rt.attackerTotal}</b>
-              <span className={styles.dashSep}>—</span>
-              <span className={styles.totalsPlayerName}>{defender.name}</span>{" "}
-              <b>{rt.defenderTotal}</b>
-            </div>
             {pending.winnerId ? (
               <div className={styles.winnerLine}>
                 {sv.table.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
@@ -208,12 +205,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             ) : null}
             {pending.phase === "chooseLoot" ? (
               <div className={styles.smallHint}>{sv.table.winnerChoosesLoot}</div>
-            ) : pending.phase === "roundReveal" ? (
-              <div className={styles.smallHint}>{sv.table.pvpRoundResultHint}</div>
             ) : null}
           </div>
         ) : null}
-        <div className={styles.scoreLine}>{sv.table.pvpScoreLine(wins.attacker, wins.defender)}</div>
     </div>
   );
 

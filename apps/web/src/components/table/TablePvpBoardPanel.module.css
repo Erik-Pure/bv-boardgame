@@ -45,9 +45,34 @@
   font-family: "Permanent Marker", var(--heading), sans-serif;
   font-size: clamp(40px, 7.5vw, 58px);
   line-height: 1.05;
-  margin-bottom: 8px;
   color: #fef9c3;
   text-shadow: 0 0 28px rgba(251, 191, 36, 0.35);
+}
+
+.duelTitleRow {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) auto minmax(70px, 1fr);
+  align-items: center;
+  gap: clamp(16px, 4vw, 42px);
+  margin-bottom: 8px;
+}
+
+.scoreNumber {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(56px, 10vw, 94px);
+  line-height: 0.9;
+  color: #fef9c3;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(251, 191, 36, 0.32);
+}
+
+.scoreNumberAttacker {
+  justify-self: end;
+}
+
+.scoreNumberDefender {
+  justify-self: start;
 }
 
 .phaseLineMuted {
@@ -163,25 +188,12 @@
   font-size: clamp(18px, 2.8vw, 22px);
 }
 
-.totalsLine {
-  margin-bottom: 12px;
-}
-
-.totalsPlayerName {
-  font-weight: 800;
-  color: #f1f5f9;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.dashSep {
-  opacity: 0.4;
-  margin: 0 8px;
-}
-
 .winnerLine {
-  font-weight: 800;
-  font-size: clamp(17px, 2.6vw, 21px);
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(24px, 4.8vw, 38px);
+  line-height: 1.08;
   color: #fef08a;
+  text-shadow: 0 0 22px rgba(251, 191, 36, 0.35);
 }
 
 .smallHint {
@@ -191,8 +203,3 @@
   line-height: 1.4;
 }
 
-.scoreLine {
-  margin-top: 12px;
-  font-size: clamp(15px, 2.3vw, 18px);
-  opacity: 0.85;
-}

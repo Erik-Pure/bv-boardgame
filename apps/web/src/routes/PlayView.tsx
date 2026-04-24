@@ -167,6 +167,53 @@ function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string 
   return map[icon]?.[flash] ?? null;
 }
 
+function parseCardOutcomeDeltaLine(line: string): { subject?: string; kind: "hp" | "pant" | "klunk"; delta: number } | null {
+  const trimmed = line.trim();
+  const selfMatch = /^(Pant|Ditt pant|HP|Din HP|Klunkar|Dina klunkar):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(trimmed);
+  if (selfMatch) {
+    return {
+      kind: outcomeLabelKind(selfMatch[1] ?? ""),
+      delta: Number(selfMatch[3]) - Number(selfMatch[2]),
+    };
+  }
+  const targetMatch = /^(.+?)\s+(HP|klunkar):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(trimmed);
+  if (!targetMatch) return null;
+  return {
+    subject: targetMatch[1],
+    kind: outcomeLabelKind(targetMatch[2] ?? ""),
+    delta: Number(targetMatch[4]) - Number(targetMatch[3]),
+  };
+}
+
+function outcomeLabelKind(label: string): "hp" | "pant" | "klunk" {
+  const s = label.toLowerCase();
+  if (s.includes("pant")) return "pant";
+  if (s.includes("klunk")) return "klunk";
+  return "hp";
+}
+
+function formatOutcomeToastPart(delta: { subject?: string; kind: "hp" | "pant" | "klunk"; delta: number }): string | null {
+  if (delta.delta === 0) return null;
+  if (delta.kind === "hp" && delta.delta > 0) return null;
+  const signed = delta.delta > 0 ? `+${delta.delta}` : String(delta.delta);
+  const suffix = delta.kind === "klunk" ? "klunk" : delta.kind === "pant" ? "pant" : "HP";
+  return `${delta.subject ? `${delta.subject} ` : ""}${signed} ${suffix}`;
+}
+
+function cardOutcomeToastMessage(pending: Extract<Pending, { type: "card" }>): string | null {
+  if (pending.kind !== "event") return null;
+  if (pending.cardId === "event_apocalypse") return `${pending.title}: alla +1 klunk`;
+
+  const parts = pending.text
+    .split("\n")
+    .map(parseCardOutcomeDeltaLine)
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .map(formatOutcomeToastPart)
+    .filter((x): x is string => !!x);
+  if (parts.length === 0) return null;
+  return `${pending.title}: ${parts.join(", ")}`;
+}
+
 /** Samma ton som `EquipIcon` för generiska siluetter (vit + lätt blå glow). */
 const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
@@ -879,10 +926,6 @@ export function PlayView() {
         me.id === pending.attackerId
           ? (teammate?.name ?? "")
           : (attacker?.name ?? sv.play.theAttacker);
-      const fighterReactionItems =
-        isTeamFighter && !myTeamRoll && reactionOpen
-          ? (me.inventory ?? []).filter((it) => COMBAT_FIGHTER_REACTION_ITEM_IDS.has(String(it.itemId)))
-          : [];
 
       if (isTeamFighter) {
         return (
@@ -933,42 +976,6 @@ export function PlayView() {
                 </>
               )}
             </div>
-            {fighterReactionItems.length > 0 ? (
-              <div className={u.stack8}>
-                <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>Spela kort innan slaget</div>
-                {fighterReactionItems.map((it) => {
-                  const id = String(it.itemId);
-                  const targetPlayerId =
-                    id === "beard_back" || id === "get_lucky" ? undefined : me.id;
-                  const disabled = id === "manopositiv" && me.gold < 4;
-                  return (
-                    <ArcadeButton
-                      key={it.instanceId}
-                      variant="blue"
-                      fullWidth
-                      disabled={disabled}
-                      onClick={() =>
-                        send({
-                          type: "useItem",
-                          playerId: me.id,
-                          instanceId: it.instanceId,
-                          targetPlayerId,
-                        })
-                      }
-                    >
-                      {itemTitle(it.itemId)}
-                      {id === "light_beer" ? sv.play.itemSuffixLightBeer : ""}
-                      {id === "folk_beer" ? sv.play.itemSuffixFolkBeer : ""}
-                      {id === "double_hops" ? sv.play.itemSuffixDoubleHops : ""}
-                      {id === "beer_bomb" ? sv.play.itemSuffixBeerBomb : ""}
-                      {id === "manopositiv" ? sv.play.itemSuffixManopositiv : ""}
-                      {id === "beard_back" ? " (+tärning)" : ""}
-                      {id === "get_lucky" ? " (+4, risk)" : ""}
-                    </ArcadeButton>
-                  );
-                })}
-              </div>
-            ) : null}
             {(pending.reactors?.length ?? 0) > 0 && !everyoneDone && reactionOpen ? (
               <div className={`${u.textCenter} ${u.o85}`}>
                 {sv.play.waitIntervene}
@@ -1854,7 +1861,17 @@ export function PlayView() {
       );
     }
     return (
-      <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "confirmCard", playerId: me.id })}>
+      <ArcadeButton
+        variant="pink"
+        fullWidth
+        onClick={() => {
+          const outcomeToast = cardOutcomeToastMessage(myCardPending);
+          send({ type: "confirmCard", playerId: me.id });
+          if (status === "connected" && outcomeToast) {
+            window.setTimeout(() => showToast(outcomeToast), 120);
+          }
+        }}
+      >
         {sv.cardModal.continue}
       </ArcadeButton>
     );
@@ -3676,17 +3693,6 @@ const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([
   "lengraddad",
   "not_my_round",
   "spill_intentional",
-]);
-
-/** Kort som den/de som faktiskt slåss får spela under reaktionsfasen innan de slår. */
-const COMBAT_FIGHTER_REACTION_ITEM_IDS = new Set<string>([
-  "light_beer",
-  "folk_beer",
-  "double_hops",
-  "beer_bomb",
-  "manopositiv",
-  "beard_back",
-  "get_lucky",
 ]);
 
 /** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */

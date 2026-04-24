@@ -209,7 +209,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid förlust sker ingen utbetalning.
 - **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
 - **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
-- **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska också kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort.
+- **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
 
 ### 9.1.1 Team battle-monster
 
