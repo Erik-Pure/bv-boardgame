@@ -244,6 +244,7 @@ function clearCombatHelpRequest(pending: Extract<Pending, { type: "combat" }>): 
   pending.helpAccepted = undefined;
   pending.helpUsedPositiveItem = undefined;
   pending.helpContract = undefined;
+  pending.helpProposedContract = undefined;
 }
 
 function pvpWinsWithDefaults(pending: Extract<Pending, { type: "pvp" }>): { attacker: number; defender: number } {
@@ -445,6 +446,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       name: item.name,
       damageNegate: item.damageNegate,
       combatBonus: item.combatBonus,
+      penaltySipExtra: item.penaltySipExtra,
       moveBonus: item.moveBonus,
       gainGoldPerCombat: item.gainGoldPerCombat,
       gainKlunkPerCombat: item.gainKlunkPerCombat,
@@ -551,7 +553,7 @@ function applyWeaponWinRandomDamage(params: {
 function penaltySipTotalForPlayer(p: Player, baseCount: number): number {
   const base = Math.max(0, Math.floor(baseCount));
   if (base <= 0) return 0;
-  return base + (p.equipment.helmet?.penaltySipExtra ?? 0);
+  return base + (p.equipment.helmet?.penaltySipExtra ?? 0) + (p.equipment.accessory?.penaltySipExtra ?? 0);
 }
 
 function isAfter2030(now = new Date()): boolean {
@@ -2000,6 +2002,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     next.pending?.type === "combat" &&
     (next.pending.phase === "helpChooseHelper" ||
       next.pending.phase === "helpAwaitDecision" ||
+      next.pending.phase === "helpAwaitRequesterDecision" ||
       next.pending.phase === "helpAwaitCard")
   ) {
     return { state: next, events: ["state"] };
@@ -2023,6 +2026,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.helpAccepted = undefined;
     pending.helpUsedPositiveItem = undefined;
     pending.helpContract = undefined;
+    pending.helpProposedContract = undefined;
     pending.phase = "helpAwaitDecision";
     const helperName = next.players.find((p) => p.id === action.helperId)?.name ?? "okänd";
     log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} frågar ${helperName} om hjälp.`);
@@ -2046,17 +2050,69 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.helpAccepted = false;
       pending.helpUsedPositiveItem = undefined;
       pending.helpContract = undefined;
+      pending.helpProposedContract = undefined;
       pending.phase = "reactions";
       return { state: next, events: ["state"] };
     }
     if (!playerHasPositiveHelpItem(helper)) {
       return { state, events: [], error: "Du har inga positiva hjälpkort att spela" };
     }
+    if (action.decision === "free") {
+      pending.helpAccepted = true;
+      pending.helpUsedPositiveItem = false;
+      pending.helpContract = "free";
+      pending.helpProposedContract = undefined;
+      pending.phase = "helpAwaitCard";
+      log(next, `${helper.name} accepterar att hjälpa till (free).`);
+      return { state: next, events: ["state"] };
+    }
+    pending.helpAccepted = undefined;
+    pending.helpUsedPositiveItem = undefined;
+    pending.helpContract = undefined;
+    pending.helpProposedContract = action.decision;
+    pending.phase = "helpAwaitRequesterDecision";
+    log(next, `${helper.name} vill hjälpa till mot ersättning (${action.decision}) och väntar på svar.`);
+    return { state: next, events: ["state"] };
+  }
+
+  if (
+    action.type === "combatHelpRequesterDecision" &&
+    next.pending?.type === "combat" &&
+    next.pending.phase === "helpAwaitRequesterDecision"
+  ) {
+    const pending = next.pending;
+    if (action.playerId !== pending.attackerId) {
+      return { state, events: [], error: "Bara angriparen kan svara på hjälparens krav" };
+    }
+    const helper = pending.helpSelectedHelperId
+      ? next.players.find((p) => p.id === pending.helpSelectedHelperId)
+      : null;
+    const requested = pending.helpProposedContract;
+    if (!helper || !requested) {
+      return { state, events: [], error: "Ingen aktiv hjälpförfrågan att svara på" };
+    }
+    if (!action.accept) {
+      log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} tackar nej till hjälpvillkoret (${requested}).`);
+      pending.helpSelectedHelperId = undefined;
+      pending.helpAccepted = false;
+      pending.helpUsedPositiveItem = undefined;
+      pending.helpContract = undefined;
+      pending.helpProposedContract = undefined;
+      pending.phase = "reactions";
+      return { state: next, events: ["state"] };
+    }
+    if (!playerHasPositiveHelpItem(helper)) {
+      return { state, events: [], error: "Hjälparen har inga positiva hjälpkort kvar" };
+    }
     pending.helpAccepted = true;
     pending.helpUsedPositiveItem = false;
-    pending.helpContract = action.decision as CombatHelpContract;
+    pending.helpContract = requested as CombatHelpContract;
+    pending.helpProposedContract = undefined;
     pending.phase = "helpAwaitCard";
-    log(next, `${helper.name} accepterar att hjälpa till (${action.decision}).`);
+    log(
+      next,
+      `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} accepterar hjälpvillkoret (${requested}) från ${helper.name}.`,
+    );
     return { state: next, events: ["state"] };
   }
 
@@ -2110,13 +2166,23 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "healing_potion") {
-      const before = user.hp;
-      user.hp = Math.min(user.maxHp, user.hp + 3);
-      log(next, `${user.name} använder en helande brygd (+${user.hp - before} HP).`);
+      const target = action.targetPlayerId
+        ? next.players.find((p) => p.id === action.targetPlayerId)
+        : user;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      const before = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + 3);
+      const healed = target.hp - before;
+      log(
+        next,
+        target.id === user.id
+          ? `${user.name} använder en helande brygd (+${healed} HP).`
+          : `${user.name} använder en helande brygd på ${target.name} (+${healed} HP).`,
+      );
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "healing_potion", user.id, undefined, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "healing_potion", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2955,6 +3021,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       helpCandidateIds: pending.helpCandidateIds,
       helpSelectedHelperId: pending.helpSelectedHelperId,
       helpContract: pending.helpContract,
+      helpProposedContract: pending.helpProposedContract,
       helpAccepted: pending.helpAccepted,
       helpUsedPositiveItem: pending.helpUsedPositiveItem,
       teamRolls: undefined,
@@ -3387,16 +3454,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           defenderTotal: dr,
           tie: true,
         });
-        pending.phase = "preRoundItems";
-        pending.rolls = {};
-        pending.roundItemReady = {};
-        pending.pvpAttackMods = {};
+        pending.phase = "roundReveal";
+        pending.roundRevealLead = "nextRound";
+        /** Omslag i samma rondnummer efter att båda bekräftat lika-resultatet. */
+        pending.nextRoundNumber = currentRound;
+        pending.roundRevealAcked = {};
+        pending.winnerId = undefined;
+        pending.loserId = undefined;
         pending.resolvedTotals = { attackerTotal: ar, defenderTotal: dr };
         log(
           next,
-          `PvP: Lika (${ar})! Spela kort och gör er redo för omslag (rond ${currentRound}).`,
+          `PvP: Lika (${ar})! Bekräfta resultatet på mobilen innan omslag i rond ${currentRound}.`,
         );
-        tryAdvancePvpPreRoundToRolls(next, pending);
         return { state: next, events: ["state"] };
       }
       const attacker = next.players.find((x) => x.id === pending.attackerId)!;

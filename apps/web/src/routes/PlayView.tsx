@@ -167,53 +167,6 @@ function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string 
   return map[icon]?.[flash] ?? null;
 }
 
-function parseCardOutcomeDeltaLine(line: string): { subject?: string; kind: "hp" | "pant" | "klunk"; delta: number } | null {
-  const trimmed = line.trim();
-  const selfMatch = /^(Pant|Ditt pant|HP|Din HP|Klunkar|Dina klunkar):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(trimmed);
-  if (selfMatch) {
-    return {
-      kind: outcomeLabelKind(selfMatch[1] ?? ""),
-      delta: Number(selfMatch[3]) - Number(selfMatch[2]),
-    };
-  }
-  const targetMatch = /^(.+?)\s+(HP|klunkar):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(trimmed);
-  if (!targetMatch) return null;
-  return {
-    subject: targetMatch[1],
-    kind: outcomeLabelKind(targetMatch[2] ?? ""),
-    delta: Number(targetMatch[4]) - Number(targetMatch[3]),
-  };
-}
-
-function outcomeLabelKind(label: string): "hp" | "pant" | "klunk" {
-  const s = label.toLowerCase();
-  if (s.includes("pant")) return "pant";
-  if (s.includes("klunk")) return "klunk";
-  return "hp";
-}
-
-function formatOutcomeToastPart(delta: { subject?: string; kind: "hp" | "pant" | "klunk"; delta: number }): string | null {
-  if (delta.delta === 0) return null;
-  if (delta.kind === "hp" && delta.delta > 0) return null;
-  const signed = delta.delta > 0 ? `+${delta.delta}` : String(delta.delta);
-  const suffix = delta.kind === "klunk" ? "klunk" : delta.kind === "pant" ? "pant" : "HP";
-  return `${delta.subject ? `${delta.subject} ` : ""}${signed} ${suffix}`;
-}
-
-function cardOutcomeToastMessage(pending: Extract<Pending, { type: "card" }>): string | null {
-  if (pending.kind !== "event") return null;
-  if (pending.cardId === "event_apocalypse") return `${pending.title}: alla +1 klunk`;
-
-  const parts = pending.text
-    .split("\n")
-    .map(parseCardOutcomeDeltaLine)
-    .filter((x): x is NonNullable<typeof x> => !!x)
-    .map(formatOutcomeToastPart)
-    .filter((x): x is string => !!x);
-  if (parts.length === 0) return null;
-  return `${pending.title}: ${parts.join(", ")}`;
-}
-
 /** Samma ton som `EquipIcon` för generiska siluetter (vit + lätt blå glow). */
 const MERCHANT_TYPE_ICON_FILTER =
   "brightness(0) invert(0.98) drop-shadow(0 0 6px rgba(96,165,250,0.38))";
@@ -843,6 +796,52 @@ export function PlayView() {
       );
     }
 
+    if (pending?.type === "combat" && pending.phase === "helpAwaitRequesterDecision") {
+      const helperId = pending.helpSelectedHelperId;
+      const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
+      const requesterName = state.players.find((p) => p.id === pending.attackerId)?.name ?? sv.play.theAttacker;
+      const isRequester = pending.attackerId === me.id;
+      const requested = pending.helpProposedContract;
+      if (!helperId || !requested) return <div className={`${u.textCenter} ${u.o82}`}>{sv.play.waitingState}</div>;
+      const requestedLabel =
+        requested === "pant"
+          ? sv.play.combatHelpDecisionPant
+          : requested === "treasure"
+            ? sv.play.combatHelpDecisionTreasure
+            : sv.play.combatHelpDecisionSplit;
+      if (isRequester) {
+        return (
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.o92}`}>
+              {sv.play.combatHelpRequesterPrompt(helperName)}
+            </div>
+            <div className={`${u.textCenter} ${u.o85}`}>{requestedLabel}</div>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "combatHelpRequesterDecision", playerId: me.id, accept: true })}
+            >
+              {sv.play.combatHelpRequesterAccept}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatHelpRequesterDecision", playerId: me.id, accept: false })}
+            >
+              {sv.play.combatHelpRequesterDecline}
+            </ArcadeButton>
+          </div>
+        );
+      }
+      return (
+        <div className={`${u.textCenter} ${u.o82}`}>
+          {me.id === helperId
+            ? sv.play.combatHelpRequesterWait(requesterName)
+            : sv.play.combatHelpWaitDecision(requesterName)}
+        </div>
+      );
+    }
+
     if (pending?.type === "combat" && pending.phase === "helpAwaitCard") {
       const helperId = pending.helpSelectedHelperId;
       const isHelper = helperId === me.id;
@@ -1422,6 +1421,7 @@ export function PlayView() {
           ? rt.defenderTotal
           : rt.attackerTotal
         : null;
+      const tieRound = myTotal !== null && oppTotal !== null && myTotal === oppTotal;
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>{sv.play.pvpRound(pvpRound)}</div>
@@ -1429,6 +1429,9 @@ export function PlayView() {
             <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>
               {myTotal > oppTotal ? sv.play.pvpRoundYouWon : sv.play.pvpRoundYouLost}
             </div>
+          ) : null}
+          {tieRound ? (
+            <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>{sv.play.pvpTieRerollHint}</div>
           ) : null}
           <div className={styles.sheetDiceBlock}>
             {myRoll ? (
@@ -1864,13 +1867,7 @@ export function PlayView() {
       <ArcadeButton
         variant="pink"
         fullWidth
-        onClick={() => {
-          const outcomeToast = cardOutcomeToastMessage(myCardPending);
-          send({ type: "confirmCard", playerId: me.id });
-          if (status === "connected" && outcomeToast) {
-            window.setTimeout(() => showToast(outcomeToast), 120);
-          }
-        }}
+        onClick={() => send({ type: "confirmCard", playerId: me.id })}
       >
         {sv.cardModal.continue}
       </ArcadeButton>
@@ -1890,7 +1887,7 @@ export function PlayView() {
     const meta = itemMeta(inst.itemId);
     const passive = meta.target === "passive";
     const broPick = meta.target === "combat_bro";
-    const needsTarget = meta.target === "other" || broPick;
+    const needsTarget = meta.target === "other" || meta.target === "self_or_other" || broPick;
     const canUse = isItemPlayableNow(inst.itemId, meta.target);
     const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
     const candidates =
@@ -1898,6 +1895,8 @@ export function PlayView() {
         ? state.players.filter((p) => p.id !== combatAttackerId)
         : meta.target === "other"
           ? state.players.filter((p) => p.id !== me.id)
+          : meta.target === "self_or_other"
+            ? state.players
           : [];
     const chosen = needsTarget ? itemTargetId : null;
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
@@ -3647,10 +3646,10 @@ function MerchantShopTypeIcon(props: { item: ShopItem }) {
   return null;
 }
 
-type ItemUseTarget = "self" | "other" | "combat" | "combat_bro" | "passive";
+type ItemUseTarget = "self" | "other" | "self_or_other" | "combat" | "combat_bro" | "passive";
 
 const ITEM_TARGET: Record<string, ItemUseTarget> = {
-  healing_potion: "self",
+  healing_potion: "self_or_other",
   sleep_potion: "other",
   sip_card: "other",
   weak_beer: "combat",
