@@ -546,6 +546,7 @@
   min-width: 0;
   font-size: clamp(1.05rem, 2.8vmin, 1.42rem);
   line-height: 1.38;
+  text-align: left;
 }
 
 .tableToastSip {
@@ -561,6 +562,11 @@
 .tableToastVaska {
   border-color: rgba(45, 212, 191, 0.45);
   background: linear-gradient(180deg, rgba(15, 118, 110, 0.42) 0%, rgba(2, 6, 23, 0.9) 100%);
+}
+
+.tableToastReward {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: linear-gradient(180deg, rgba(120, 53, 15, 0.5) 0%, rgba(2, 6, 23, 0.9) 100%);
 }
 
 .tableToastEntering {

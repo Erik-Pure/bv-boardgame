@@ -112,6 +112,8 @@ export interface Accessory {
   damageNegate?: number;
   /** +attack i strid (monster). */
   combatBonus?: number;
+  /** Extra klunkar when this player receives a penalty sip event. */
+  penaltySipExtra?: number;
   /** Få pant per strid (oavsett utfall). */
   gainGoldPerCombat?: number;
   /** Få klunk per strid (oavsett utfall). */
@@ -360,6 +362,7 @@ export type Pending =
         | "reactions"
         | "helpChooseHelper"
         | "helpAwaitDecision"
+        | "helpAwaitRequesterDecision"
         | "helpAwaitCard"
         | "rollPreview"
         | "chooseHitMitigation";
@@ -411,6 +414,8 @@ export type Pending =
       helpSelectedHelperId?: string;
       /** Hjälp-funktion: ersättningsmodell om hjälp accepterats. */
       helpContract?: CombatHelpContract;
+      /** Hjälp-funktion: hjälparens föreslagna ersättning som angriparen måste godkänna. */
+      helpProposedContract?: "pant" | "treasure" | "split";
       /** Hjälp-funktion: hjälparen har accepterat att hjälpa. */
       helpAccepted?: boolean;
       /** Hjälp-funktion: hjälparen har spelat minst ett positivt kort i denna förfrågan. */
@@ -566,6 +571,7 @@ export type ClientAction =
       playerId: string;
       decision: "decline" | "free" | "pant" | "treasure" | "split";
     }
+  | { type: "combatHelpRequesterDecision"; playerId: string; accept: boolean }
   | { type: "sipNoticeAck"; playerId: string }
   | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" }
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean };

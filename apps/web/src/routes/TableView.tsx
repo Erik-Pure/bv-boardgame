@@ -122,7 +122,7 @@ const TABLE_TOAST_TTL_MS = 8000;
 const TABLE_TOAST_EXIT_MS = 320;
 const TABLE_TOAST_MAX_VISIBLE = 5;
 
-type TableToastCategory = "sip" | "pvp" | "vaska";
+type TableToastCategory = "sip" | "pvp" | "vaska" | "reward";
 type TableToast = {
   id: string;
   text: string;
@@ -133,11 +133,119 @@ type TableToast = {
   leaving?: boolean;
 };
 
+function eventCardOutcomeToasts(
+  pending: Extract<NonNullable<GameState["pending"]>, { type: "card" }>,
+  playersById: Map<string, Player>,
+): Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> {
+  if (pending.kind !== "event") return [];
+  if (pending.cardId === "event_apocalypse") {
+    return [{ text: "Alla spelare får 1 straffklunk.", category: "sip", iconKinds: ["klunk"] }];
+  }
+  const out: Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> = [];
+  const selfName = playersById.get(pending.playerId)?.name ?? "Spelare";
+  const lines = pending.text.split("\n");
+  const pushSip = (name: string, amount: number) => {
+    if (amount <= 0) return;
+    out.push({
+      text: `${name} får ${amount} straffklunk${amount === 1 ? "" : "ar"}.`,
+      category: "sip",
+      iconKinds: ["klunk"],
+    });
+  };
+  const pushHp = (name: string, delta: number) => {
+    if (delta === 0) return;
+    if (delta < 0) {
+      const dmg = Math.abs(delta);
+      out.push({
+        text: `${name} tar ${dmg} skada.`,
+        category: "pvp",
+        iconKinds: ["hp"],
+      });
+      return;
+    }
+    out.push({
+      text: `${name} läker ${delta} HP.`,
+      category: "pvp",
+      iconKinds: ["hp"],
+    });
+  };
+  const pushPant = (name: string, delta: number) => {
+    if (delta === 0) return;
+    if (delta > 0) {
+      out.push({
+        text: `${name} får ${delta} pant.`,
+        category: "pvp",
+        iconKinds: ["pant"],
+      });
+      return;
+    }
+    out.push({
+      text: `${name} förlorar ${Math.abs(delta)} pant.`,
+      category: "pvp",
+      iconKinds: ["pant"],
+    });
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    const selfMatch = /^Klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    if (selfMatch) {
+      const before = Number(selfMatch[1]);
+      const after = Number(selfMatch[2]);
+      const gain = after - before;
+      pushSip(selfName, gain);
+      continue;
+    }
+    const targetMatch = /^(.+?)\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    if (targetMatch) {
+      const name = targetMatch[1];
+      const before = Number(targetMatch[2]);
+      const after = Number(targetMatch[3]);
+      const gain = after - before;
+      pushSip(name, gain);
+      continue;
+    }
+    const selfHpMatch = /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    if (selfHpMatch) {
+      const before = Number(selfHpMatch[1]);
+      const after = Number(selfHpMatch[2]);
+      pushHp(selfName, after - before);
+      continue;
+    }
+    const targetHpMatch = /^(.+?)\s+HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    if (targetHpMatch) {
+      const name = targetHpMatch[1];
+      const before = Number(targetHpMatch[2]);
+      const after = Number(targetHpMatch[3]);
+      pushHp(name, after - before);
+      continue;
+    }
+    const selfPantMatch = /^Pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
+    if (selfPantMatch) {
+      const before = Number(selfPantMatch[1]);
+      const after = Number(selfPantMatch[2]);
+      pushPant(selfName, after - before);
+      continue;
+    }
+    const targetPantMatch = /^(.+?)\s+pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
+    if (targetPantMatch) {
+      const name = targetPantMatch[1];
+      const before = Number(targetPantMatch[2]);
+      const after = Number(targetPantMatch[3]);
+      pushPant(name, after - before);
+    }
+  }
+  return out;
+}
+
 /** Ikoner i ordning: klunk → pant → hp (en rad per toast). */
 function tableToastIconKinds(message: string, category: TableToastCategory): StatIconKind[] {
   const m = message.toLowerCase();
   if (category === "vaska") {
     return ["attack"];
+  }
+  if (category === "reward") {
+    if (m.includes("skatt")) return ["attack"];
+    return ["pant"];
   }
   let klunk = false;
   let pant = false;
@@ -329,6 +437,9 @@ function TableViewBody() {
   const wakeLockRef = useRef<{ release: () => Promise<void>; released: boolean } | null>(null);
   const toastLogSeqRef = useRef<number | null>(null);
   const toastInitRef = useRef(false);
+  const rewardToastKeyRef = useRef<string | null>(null);
+  const prevSipNoticeKeysRef = useRef<Set<string>>(new Set());
+  const eventSipToastKeyRef = useRef<string | null>(null);
 
   const stackLevels = state?.levels?.length ? state.levels : [];
 
@@ -569,19 +680,20 @@ function TableViewBody() {
       return;
     }
     if (prevCombatSessionKeyRef.current === tableCombatSessionKey) {
+      if (!tableCombatModalReady) setTableCombatModalReady(true);
       return;
     }
     prevCombatSessionKeyRef.current = tableCombatSessionKey;
     const pend = state?.pending;
     if (!pend || pend.type !== "combat") return;
-    if (pend.phase === "chooseTeammate") {
+    if (pend.phase === "chooseTeammate" || pend.phase === "enemyIntro") {
       setTableCombatModalReady(true);
       return;
     }
     setTableCombatModalReady(false);
     const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [tableCombatSessionKey, state?.pending]);
+  }, [tableCombatSessionKey, tableCombatModalReady, state?.pending]);
 
   const monsterResultHoldover =
     tableCombatOutcomeCardPending && lastMonsterRollPreviewSnapshotRef.current
@@ -593,8 +705,7 @@ function TableViewBody() {
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
 
-  const showTableCombatBoardPanel =
-    (state?.pending?.type === "combat" && tableCombatModalReady) || showMonsterCombatOutcomeOnCard;
+  const showTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
 
   const moveTargets = useMemo(() => {
     if (state?.pending?.type !== "moveChoice") return null;
@@ -682,6 +793,9 @@ function TableViewBody() {
     if (!state) {
       toastInitRef.current = false;
       toastLogSeqRef.current = null;
+      rewardToastKeyRef.current = null;
+      prevSipNoticeKeysRef.current = new Set();
+      eventSipToastKeyRef.current = null;
       setTableToasts([]);
       return;
     }
@@ -721,6 +835,95 @@ function TableViewBody() {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
     toastLogSeqRef.current = seq;
+  }, [state]);
+
+  useEffect(() => {
+    if (!state) return;
+    const sipNotices = state.sipNotices ?? [];
+    const currentKeys = new Set<string>();
+    const occurrence = new Map<string, number>();
+    const incoming: TableToast[] = [];
+    const now = Date.now();
+    for (const n of sipNotices) {
+      const base = `${n.recipientId}|${n.fromPlayerName}|${n.klunkCount ?? 1}|${n.title ?? ""}|${n.body ?? ""}|${n.noticeKind ?? "custom"}`;
+      const idx = occurrence.get(base) ?? 0;
+      occurrence.set(base, idx + 1);
+      const key = `${base}#${idx}`;
+      currentKeys.add(key);
+      if (prevSipNoticeKeysRef.current.has(key)) continue;
+      const recipientName = playersById.get(n.recipientId)?.name ?? "Spelare";
+      const count = Math.max(1, Math.floor(n.klunkCount ?? 1));
+      incoming.push({
+        id: `sipnotice:${key}`,
+        text: `${recipientName} får ${count} straffklunk${count === 1 ? "" : "ar"}.`,
+        category: "sip",
+        iconKinds: ["klunk"],
+        createdAt: now,
+        expiresAt: now + TABLE_TOAST_TTL_MS,
+      });
+    }
+    prevSipNoticeKeysRef.current = currentKeys;
+    if (incoming.length > 0) {
+      setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
+    }
+  }, [state, playersById]);
+
+  useEffect(() => {
+    if (!state) return;
+    const p = state.pending;
+    if (p?.type !== "card" || p.kind !== "event") return;
+    const outcomes = eventCardOutcomeToasts(p, playersById);
+    if (outcomes.length === 0) return;
+    const key = `${p.playerId}|${p.cardId}|${p.text}`;
+    if (eventSipToastKeyRef.current === key) return;
+    eventSipToastKeyRef.current = key;
+    const now = Date.now();
+    const incoming: TableToast[] = outcomes.map((outcome, idx) => ({
+      id: `eventsip:${key}:${idx}`,
+      text: outcome.text,
+      category: outcome.category,
+      iconKinds: outcome.iconKinds,
+      createdAt: now,
+      expiresAt: now + TABLE_TOAST_TTL_MS,
+    }));
+    setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
+  }, [state, playersById]);
+
+  useEffect(() => {
+    if (!state) return;
+    const p = state.pending;
+    if (p?.type !== "card" || p.cardId !== "combat_win" || !p.combatWin) return;
+    const key = `${p.playerId}:${p.cardId}:${p.combatWin.enemyName}:${p.combatWin.rollTotal}:${p.combatWin.rewardGold}:${p.combatWin.rewardItems}`;
+    if (rewardToastKeyRef.current === key) return;
+    rewardToastKeyRef.current = key;
+    const now = Date.now();
+    const rewardRecipients = p.combatWin.teammateName
+      ? `${p.combatWin.winnerName} och ${p.combatWin.teammateName}`
+      : p.combatWin.winnerName;
+    const incoming: TableToast[] = [];
+    if ((p.combatWin.rewardGold ?? 0) > 0) {
+      incoming.push({
+        id: `${key}:reward-gold`,
+        text: `Belöning till ${rewardRecipients}: +${p.combatWin.rewardGold} pant`,
+        category: "reward",
+        iconKinds: ["pant"],
+        createdAt: now,
+        expiresAt: now + TABLE_TOAST_TTL_MS,
+      });
+    }
+    if ((p.combatWin.rewardItems ?? 0) > 0) {
+      incoming.push({
+        id: `${key}:reward-items`,
+        text: `Belöning till ${rewardRecipients}: ${p.combatWin.rewardItems} ${p.combatWin.rewardItems === 1 ? "skatt" : "skatter"}`,
+        category: "reward",
+        iconKinds: ["attack"],
+        createdAt: now,
+        expiresAt: now + TABLE_TOAST_TTL_MS,
+      });
+    }
+    if (incoming.length > 0) {
+      setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
+    }
   }, [state]);
 
   useEffect(() => {
@@ -1764,7 +1967,9 @@ function TableViewBody() {
                   ? tableStyles.tableToastSip
                   : toast.category === "vaska"
                     ? tableStyles.tableToastVaska
-                    : tableStyles.tableToastPvp,
+                    : toast.category === "reward"
+                      ? tableStyles.tableToastReward
+                      : tableStyles.tableToastPvp,
                 toast.leaving ? tableStyles.tableToastLeaving : tableStyles.tableToastEntering,
               ]
                 .filter(Boolean)

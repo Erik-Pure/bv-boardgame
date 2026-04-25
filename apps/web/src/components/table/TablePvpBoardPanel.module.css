@@ -51,9 +51,9 @@
 
 .duelTitleRow {
   display: grid;
-  grid-template-columns: minmax(70px, 1fr) auto minmax(70px, 1fr);
+  grid-template-columns: minmax(120px, 1.35fr) auto minmax(120px, 1.35fr);
   align-items: center;
-  gap: clamp(16px, 4vw, 42px);
+  gap: clamp(20px, 5vw, 56px);
   margin-bottom: 8px;
 }
 
@@ -69,10 +69,12 @@
 
 .scoreNumberAttacker {
   justify-self: end;
+  transform: translateX(-8px);
 }
 
 .scoreNumberDefender {
   justify-self: start;
+  transform: translateX(8px);
 }
 
 .phaseLineMuted {

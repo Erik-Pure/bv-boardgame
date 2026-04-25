@@ -133,6 +133,30 @@ function TableCombatBoardPanelInner(props: {
 
   const modifierState = hold ? hold.preAck : state;
 
+  const outcomeViewerName = hold
+    ? state.players.find((pl) => pl.id === hold.outcomeCard.playerId)?.name
+    : undefined;
+
+  const outcomeWinData = useMemo(() => {
+    if (!hold) return null;
+    const c = hold.outcomeCard;
+    if (c.cardId !== "combat_win") return null;
+    return resolveCombatWinViewer(
+      c.combatWin ?? parseLegacyCombatWinText(c.text, outcomeViewerName),
+      outcomeViewerName,
+    );
+  }, [hold, outcomeViewerName]);
+
+  const outcomeLoseData = useMemo(() => {
+    if (!hold) return null;
+    const c = hold.outcomeCard;
+    if (c.cardId !== "combat_lose") return null;
+    return resolveCombatLossViewer(
+      c.combatLoss ?? parseLegacyCombatLoseText(c.text, outcomeViewerName),
+      outcomeViewerName,
+    );
+  }, [hold, outcomeViewerName]);
+
   const showMonsterForDiceAnim = pending?.type === "combat" && pending.monsterId !== "boss";
 
   const combatDiceAnimKey =
@@ -183,6 +207,7 @@ function TableCombatBoardPanelInner(props: {
       p.phase === "reactions" ||
       p.phase === "helpChooseHelper" ||
       p.phase === "helpAwaitDecision" ||
+      p.phase === "helpAwaitRequesterDecision" ||
       p.phase === "helpAwaitCard" ||
       p.phase === "rollPreview" ||
       p.phase === "chooseHitMitigation";
@@ -254,6 +279,7 @@ function TableCombatBoardPanelInner(props: {
     pending.phase === "reactions" ||
     pending.phase === "helpChooseHelper" ||
     pending.phase === "helpAwaitDecision" ||
+    pending.phase === "helpAwaitRequesterDecision" ||
     pending.phase === "helpAwaitCard" ||
     pending.phase === "rollPreview" ||
     pending.phase === "chooseHitMitigation";
@@ -274,6 +300,7 @@ function TableCombatBoardPanelInner(props: {
       pending.phase === "reactions" ||
       pending.phase === "helpChooseHelper" ||
       pending.phase === "helpAwaitDecision" ||
+      pending.phase === "helpAwaitRequesterDecision" ||
       pending.phase === "helpAwaitCard" ||
       pending.phase === "rollPreview" ||
       pending.phase === "chooseHitMitigation");
@@ -299,6 +326,8 @@ function TableCombatBoardPanelInner(props: {
             ? "2.5 — Välj hjälpare"
             : pending.phase === "helpAwaitDecision"
               ? "2.6 — Väntar hjälpsvar"
+              : pending.phase === "helpAwaitRequesterDecision"
+                ? "2.65 — Väntar godkännande"
               : pending.phase === "helpAwaitCard"
                 ? "2.7 — Väntar hjälpkort"
           : pending.phase === "chooseHitMitigation"
@@ -365,30 +394,6 @@ function TableCombatBoardPanelInner(props: {
   const monsterEncounterCardEl = showMonsterCard ? (
     <MonsterEncounterCard {...boardMonsterCardProps} fillAvailableHeight={false} />
   ) : null;
-
-  const outcomeViewerName = hold
-    ? state.players.find((pl) => pl.id === hold.outcomeCard.playerId)?.name
-    : undefined;
-
-  const outcomeWinData = useMemo(() => {
-    if (!hold) return null;
-    const c = hold.outcomeCard;
-    if (c.cardId !== "combat_win") return null;
-    return resolveCombatWinViewer(
-      c.combatWin ?? parseLegacyCombatWinText(c.text, outcomeViewerName),
-      outcomeViewerName,
-    );
-  }, [hold, outcomeViewerName]);
-
-  const outcomeLoseData = useMemo(() => {
-    if (!hold) return null;
-    const c = hold.outcomeCard;
-    if (c.cardId !== "combat_lose") return null;
-    return resolveCombatLossViewer(
-      c.combatLoss ?? parseLegacyCombatLoseText(c.text, outcomeViewerName),
-      outcomeViewerName,
-    );
-  }, [hold, outcomeViewerName]);
 
   const combatWinLoseBackFace = hold ? (
     <div
@@ -616,6 +621,11 @@ function TableCombatBoardPanelInner(props: {
       {pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId ? (
         <div className={combatStyles.hintLine13}>
           {sv.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
+        </div>
+      ) : null}
+      {pending.phase === "helpAwaitRequesterDecision" && pending.helpSelectedHelperId ? (
+        <div className={combatStyles.hintLine13}>
+          {sv.table.combatHelpAwaitDecision(playersById.get(pending.attackerId)?.name ?? "angriparen")}
         </div>
       ) : null}
       {pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId ? (

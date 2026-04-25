@@ -79,6 +79,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       name: eq.name,
       damageNegate: eq.damageNegate,
       combatBonus: eq.combatBonus,
+      penaltySipExtra: eq.penaltySipExtra,
       moveBonus: eq.moveBonus,
       gainGoldPerCombat: eq.gainGoldPerCombat,
       gainKlunkPerCombat: eq.gainKlunkPerCombat,

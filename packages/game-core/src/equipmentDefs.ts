@@ -75,7 +75,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 15,
     power: 2,
     sipAttackBonus: 1,
-    rulesText: "Monsterstrid: du kan ta en straffklunk före slaget för +1 attack.",
+    rulesText: "Ta en straffklunk före tärningsslaget för +1 attack.",
   },
   {
     id: "ew_singlepipe",
@@ -84,7 +84,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 11,
     power: 1,
     sipAttackBonus: 1,
-    rulesText: "Monsterstrid: valfri straffklunk före slaget ger +1 attack.",
+    rulesText: "Ta en straffklunk före tärningsslaget för +1 attack.",
   },
   {
     id: "eh_cap_front",
@@ -230,9 +230,9 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Svart bälte",
     price: 10,
     combatBonus: 1,
-    gainKlunkPerCombat: 1,
+    penaltySipExtra: 1,
     rulesText:
-      "Svart bälte i karatefylle: när en monsterstrid börjar läggs +1 straffklunk på din klunkräknare (gäller inte BvB).",
+      "Svart bälte i karatefylle: när du får straffklunk dricker du +1 extra klunk.",
   },
   {
     id: "ea_linne",

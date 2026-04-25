@@ -240,6 +240,7 @@ export function shopItemToEquipmentPreviewPiece(
     name: item.name,
     damageNegate: item.damageNegate,
     combatBonus: item.combatBonus,
+    penaltySipExtra: item.penaltySipExtra,
     moveBonus: item.moveBonus,
     gainGoldPerCombat: item.gainGoldPerCombat,
     gainKlunkPerCombat: item.gainKlunkPerCombat,

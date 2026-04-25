@@ -35,7 +35,7 @@
   font-weight: 600;
   line-height: 1.35;
   color: #f8fafc;
-  text-align: center;
+  text-align: left;
   pointer-events: none;
   animation: playToastIn 0.22s ease-out;
 }
