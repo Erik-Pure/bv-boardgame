@@ -558,6 +558,8 @@ export function PlayView() {
       return true;
     }
     if (itemId === "lengraddad" && inCombatReactions) return true;
+    if (itemId === "not_my_round" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
+    if (itemId === "spill_intentional" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "get_lucky" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "beard_back" && inCombatReactions) return isCombatFighterNow;
     if (itemId === "beard_back" && inPvpAwaitingRolls) return true;

@@ -51,7 +51,7 @@ const MAX_PLAYERS = 8;
 const INITIAL_PLAYER_PANT = 5;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
-const COMBAT_REACTION_TIMEOUT_MS = 20_000;
+const COMBAT_REACTION_TIMEOUT_MS = 10_000;
 const COMBAT_REACTION_PLAYABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "weak_beer",
   "light_beer",
@@ -2893,7 +2893,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "not_my_round") {
-      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      const combatFallbackTargetId =
+        next.pending?.type === "combat" && next.pending.phase === "reactions"
+          ? next.pending.attackerId
+          : undefined;
+      const targetId = action.targetPlayerId ?? combatFallbackTargetId;
+      const target = targetId ? next.players.find((p) => p.id === targetId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       if (target.equipment.accessory?.preventTheft) {
@@ -2954,7 +2959,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "spill_intentional") {
-      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      const combatFallbackTargetId =
+        next.pending?.type === "combat" && next.pending.phase === "reactions"
+          ? next.pending.attackerId
+          : undefined;
+      const targetId = action.targetPlayerId ?? combatFallbackTargetId;
+      const target = targetId ? next.players.find((p) => p.id === targetId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       let spillSide: TableItemPlaySidePayload | undefined;
