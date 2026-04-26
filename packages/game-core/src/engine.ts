@@ -1633,6 +1633,25 @@ function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string):
   pending.reacted[reactorId] = "pass";
 }
 
+/** Reaktorer utan spelbara ingripandekort markeras automatiskt som "gör inget". */
+function autoPassReactorsWithoutPlayableItems(
+  state: GameState,
+  pending: Extract<Pending, { type: "combat" }>,
+): void {
+  pending.reacted ??= {};
+  for (const rid of pending.reactors ?? []) {
+    if (pending.reacted[rid] === "intervened") continue;
+    const reactor = state.players.find((p) => p.id === rid);
+    if (!reactor) {
+      pending.reacted[rid] = "pass";
+      continue;
+    }
+    if (!playerHasCombatReactionPlayableItem(reactor, pending)) {
+      pending.reacted[rid] = "pass";
+    }
+  }
+}
+
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
   const level = state.levels[p.levelIndex];
   if (!level) return;
@@ -1955,6 +1974,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.phase = "reactions";
     pending.reactionsDeadlineAt = Date.now() + COMBAT_REACTION_TIMEOUT_MS;
     pending.teamRolls = {};
+    autoPassReactorsWithoutPlayableItems(next, pending);
     const reactors = pending.reactors ?? [];
     if (reactors.length > 0) {
       log(next, `Strid: andra kan spela föremål innan slaget.`);
@@ -1980,9 +2000,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "combatReact" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
     const pending = next.pending;
-    if ((pending.reactionsDeadlineAt ?? 0) > 0 && Date.now() > (pending.reactionsDeadlineAt ?? 0)) {
-      return { state, events: [], error: "Reaktionsfönstret har stängt" };
-    }
     const reactorPl = next.players.find((x) => x.id === action.playerId);
     if (!reactorPl) return { state, events: [], error: "Spelaren hittades inte" };
     if (!playerCanCombatIntervene(reactorPl)) {
@@ -2015,6 +2032,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (pending.teamBattleRequired || isFinalBossMonsterId(pending.monsterId as MonsterId)) {
       return { state, events: [], error: "Hjälp kan bara begäras i vanliga monsterstrider" };
     }
+    autoPassReactorsWithoutPlayableItems(next, pending);
     const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
     const reactionDeadlineAt = pending.reactionsDeadlineAt ?? 0;
     const reactionClosed = reactionDeadlineAt > 0 && Date.now() > reactionDeadlineAt;
@@ -2174,15 +2192,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const inPvpPreRoundItems =
       pvpPending?.phase === "preRoundItems" &&
       (action.playerId === pvpPending.attackerId || action.playerId === pvpPending.defenderId);
-    const reactionDeadlineAt =
-      inCombatReactions && combatPending ? (combatPending.reactionsDeadlineAt ?? 0) : 0;
-    if (
-      inCombatReactions &&
-      reactionDeadlineAt > 0 &&
-      Date.now() > reactionDeadlineAt
-    ) {
-      return { state, events: [], error: "Reaktionsfönstret har stängt" };
-    }
     if (inCombatReactions && !playerCanCombatIntervene(user)) {
       return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
     }
@@ -3097,14 +3106,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== cp.id && !(needsAssistRoll && action.playerId === assistId)) {
       return { state, events: [], error: "Inte din tur" };
     }
-    // If there are eligible reactors, wait until everyone has either passed or slutfört ingripande (kort).
+    autoPassReactorsWithoutPlayableItems(next, pending);
+    // Slag får bara gå innan timeout om alla uttryckligen valt "gör inget".
     const reactors = pending.reactors ?? [];
     const reacted = pending.reacted ?? {};
     const allDone = combatReactionsAllAnswered(reactors, reacted);
     const reactionsTimedOut =
       (pending.reactionsDeadlineAt ?? 0) > 0 && Date.now() > (pending.reactionsDeadlineAt ?? 0);
     if (reactors.length > 0 && !allDone && !reactionsTimedOut) {
-      return { state, events: [], error: "Väntar på att alla reaktioner är klara (ingrip eller gör inget)." };
+      return { state, events: [], error: "Väntar på att reaktionsfönstret stänger eller att alla gör inget." };
     }
     if (reactors.length > 0 && !allDone && reactionsTimedOut) {
       log(next, "Reaktionsfönstret tog slut — striden fortsätter.");

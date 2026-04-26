@@ -1,6 +1,6 @@
 /**
- * Alla som får reagera har antingen passat eller spelat minst en ingripande-effekt.
- * (Klick på "ingrip" utan kort sätter inget — de måste fortfarande välja pass eller kort.)
+ * Tidig upplåsning av slag/hjälp sker bara när alla reaktorer uttryckligen har passat.
+ * Har någon ingripit med kort måste reaktionsfönstret löpa ut innan striden går vidare.
  */
 export function combatReactionsAllAnswered(
   reactors: string[],
@@ -10,6 +10,6 @@ export function combatReactionsAllAnswered(
   const map = reacted ?? {};
   return reactors.every((id) => {
     const v = map[id];
-    return v === "pass" || v === "intervened";
+    return v === "pass";
   });
 }
