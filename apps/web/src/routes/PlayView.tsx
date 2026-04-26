@@ -1118,9 +1118,6 @@ export function PlayView() {
       }
 
       if (isEligibleReactor && !hasAnyReaction && attacker) {
-        if (!reactionOpen) {
-          return <div className={`${u.textCenter} ${u.o75}`}>Reaktionsfönstret har stängt.</div>;
-        }
         if (hasPassed) {
           return (
             <div className={`${u.textCenter} ${u.o78}`}>
@@ -1146,9 +1143,6 @@ export function PlayView() {
       }
 
       if (isEligibleReactor && hasAnyReaction && attacker) {
-        if (!reactionOpen) {
-          return <div className={`${u.textCenter} ${u.o75}`}>Reaktionsfönstret har stängt.</div>;
-        }
         if (wantsIntervene) {
           const interveneItems = (me.inventory ?? []).filter((it) => canPlayInterveneItem(String(it.itemId)));
           if (interveneItems.length === 0) {
