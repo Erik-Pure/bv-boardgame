@@ -1860,6 +1860,7 @@ function TableViewBody() {
                 return (
                   <div
                     key={p.id}
+                    className={active ? tableStyles.turnBannerActivePlayerCardPulse : undefined}
                     style={{
                       minWidth: 150,
                       borderRadius: 0,
@@ -1868,6 +1869,7 @@ function TableViewBody() {
                       background: active ? p.color : "rgba(255,255,255,0.04)",
                       boxShadow: "none",
                       flexShrink: 0,
+                      ["--turn-active-player-color" as string]: p.color,
                     }}
                     title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
                   >

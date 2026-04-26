@@ -61,6 +61,10 @@ body {
   overflow-x: clip;
 }
 
+body {
+  background: radial-gradient(circle at center, #000000 0%, #1a1a1a 100%);
+}
+
 #root {
   width: 100%;
   max-width: 100%;

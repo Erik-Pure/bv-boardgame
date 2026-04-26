@@ -3,6 +3,8 @@ import type { LevelBoard, Tile, TileType } from "./types.js";
 
 /** Yttre kant på “hålet” i mitten: 5×5 → 4·5−4 = 16 rutor per våning. */
 export const BOARD_RING_GRID_SIZE = 5;
+const LARGE_LOBBY_RING_GRID_SIZE = 6;
+const LARGE_LOBBY_MIN_PLAYERS = 4;
 
 export function ringTileCount(gridSize: number): number {
   return 4 * gridSize - 4;
@@ -84,10 +86,11 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
   };
 }
 
-export function generateLevels(seed: number): LevelBoard[] {
+export function generateLevels(seed: number, playerCount = 2): LevelBoard[] {
   const rng = createRng(seed);
   const levels: LevelBoard[] = [];
-  const n = ringTileCount(BOARD_RING_GRID_SIZE);
+  const gridSize = playerCount >= LARGE_LOBBY_MIN_PLAYERS ? LARGE_LOBBY_RING_GRID_SIZE : BOARD_RING_GRID_SIZE;
+  const n = ringTileCount(gridSize);
 
   /** Nivå 0 = källare; 1–2 övriga våningar (totalt 3 nivåer). */
   const NUM_LEVELS = 3;

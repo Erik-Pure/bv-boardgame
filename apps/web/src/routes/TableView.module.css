@@ -15,7 +15,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
-  background: #0b1020;
+  background: transparent;
   color: #e5e7eb;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -41,6 +41,7 @@
   align-items: center;
   column-gap: 10px;
   min-width: 0;
+  background: #000000;
 }
 
 .headerLobbyRow {
@@ -189,8 +190,9 @@
   height: 100%;
   overflow: hidden;
   align-items: stretch;
-  padding-bottom: calc(var(--table-banner-reserve, 0px) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--table-banner-reserve, 0px) + env(safe-area-inset-bottom, 0px) + -14px);
   box-sizing: border-box;
+  background: transparent;
 }
 
 .boardViewport {
@@ -201,6 +203,7 @@
   min-height: 0;
   height: 100%;
   contain: layout;
+  background: transparent;
 }
 
 .merchantShoppingOverlay {
@@ -284,7 +287,7 @@
 .tableSvg {
   border: 1px solid #ffffff22;
   border-radius: 12px;
-  background-color: #0f172a;
+  background-color: transparent;
 }
 
 .modalBackdropLobby {
@@ -626,6 +629,41 @@
     0 -8px 28px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   min-width: 0;
+}
+
+.turnBannerActivePlayerCardPulse {
+  animation: turnBannerActivePlayerPulse 1.55s ease-in-out infinite;
+}
+
+@keyframes turnBannerActivePlayerPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 50px 10px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 26%, transparent),
+      0 0 50px 36px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 16%, transparent),
+      0 0 50px 78px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 9%, transparent),
+      0 0 120px 44px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 26%, transparent);
+    transform: scale(0.985);
+  }
+  50% {
+    box-shadow:
+      0 0 50px 12px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 34%, transparent),
+      0 0 50px 52px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 20%, transparent),
+      0 0 50px 320px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 12%, transparent),
+      0 0 240px 62px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 33%, transparent);
+    transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turnBannerActivePlayerCardPulse {
+    animation: none;
+    box-shadow:
+      0 0 0 10px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 26%, transparent),
+      0 0 0 36px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 16%, transparent),
+      0 0 120px 44px color-mix(in srgb, var(--turn-active-player-color, #ffffff) 26%, transparent);
+    transform: none;
+  }
 }
 
 .turnBannerTopRow {

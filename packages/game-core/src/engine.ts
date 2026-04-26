@@ -46,7 +46,7 @@ import type {
   Tile,
 } from "./types.js";
 
-const MAX_PLAYERS = 6;
+const MAX_PLAYERS = 8;
 /** Pant varje spelare har när spelet startar (efter lobby). */
 const INITIAL_PLAYER_PANT = 5;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
@@ -1435,7 +1435,7 @@ export function startGame(
     return { state, events: [], error: "Alla spelare måste vara redo" };
   }
   next.seed = seed;
-  next.levels = generateLevels(seed);
+  next.levels = generateLevels(seed, next.players.length);
   const bossRng = createRng(seed ^ 0x9e3779b9);
   const pickedBoss = FINAL_BOSS_IDS[Math.floor(bossRng() * FINAL_BOSS_IDS.length)]!;
   next.finalBossMonsterId = pickedBoss;
