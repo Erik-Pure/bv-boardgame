@@ -1,4 +1,5 @@
-import type { Weapon } from "./types.js";
+import { helmetAttackBonus } from "./beerCanEquipment.js";
+import type { Player, Weapon } from "./types.js";
 
 /** Vapnets kraft efter pant-trösklar (samma som i strid). */
 export function effectiveWeaponPiecePower(weapon: Weapon | undefined, gold: number): number {
@@ -15,4 +16,17 @@ export function effectiveWeaponPiecePower(weapon: Weapon | undefined, gold: numb
     pow = Math.min(pow, weapon.powerDynamicMax);
   }
   return pow;
+}
+
+/**
+ * All utrustningsattack som läggs till utöver t6 i monsterstrid (vapen efter pant-trappor + rustning/hjälm/tillbehör).
+ * Ska matcha summan av `weaponPower` i motorn.
+ */
+export function monsterCombatEquipmentAttackBonus(p: Player): number {
+  return (
+    effectiveWeaponPiecePower(p.equipment.weapon, p.gold) +
+    (p.equipment.armor?.combatBonus ?? 0) +
+    helmetAttackBonus(p) +
+    (p.equipment.accessory?.combatBonus ?? 0)
+  );
 }

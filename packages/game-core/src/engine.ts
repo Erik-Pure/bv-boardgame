@@ -22,10 +22,10 @@ import {
   createFinalBossCombatPending,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
-import { effectiveWeaponPiecePower } from "./weaponPower.js";
+import { monsterCombatEquipmentAttackBonus } from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
-import { beerCanBurkrustningBonusMaxHp, helmetAttackBonus } from "./beerCanEquipment.js";
+import { beerCanBurkrustningBonusMaxHp } from "./beerCanEquipment.js";
 import { pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
@@ -109,6 +109,16 @@ function log(state: GameState, message: string): void {
   if (state.log.length > 200) state.log.shift();
 }
 
+/** Nästa t6 för spelaren: ev. fast sida från «Ett sjätte ölsinne», annars slump. */
+function rollD6WithOptionalSixSense(player: Player, rng: () => number): { die: number; forced: boolean } {
+  const f = player.nextForcedDieFace;
+  if (typeof f === "number" && f >= 1 && f <= 6 && Number.isInteger(f)) {
+    player.nextForcedDieFace = undefined;
+    return { die: f, forced: true };
+  }
+  return { die: rollDie(rng, 6), forced: false };
+}
+
 /** Bräd-tv: lägg till spelat föremål (solfjäder tills rensning). */
 function appendTableItemPlayReveal(
   next: GameState,
@@ -179,6 +189,7 @@ const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "hangover",
   "monster_hype",
   "beard_back",
+  "six_sense",
 ]);
 
 function playerHasPvpPreRoundItem(player: Player): boolean {
@@ -475,12 +486,7 @@ function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): v
 }
 
 function weaponPower(p: Player): number {
-  return (
-    effectiveWeaponPower(p) +
-    (p.equipment.armor?.combatBonus ?? 0) +
-    helmetAttackBonus(p) +
-    (p.equipment.accessory?.combatBonus ?? 0)
-  );
+  return monsterCombatEquipmentAttackBonus(p);
 }
 
 /** BvB-tärning: endast utrustningsdelars `pvpDieBonus` (vapen, rustning, hjälm, tillbehör) — inga vanliga monster-attribut. */
@@ -492,10 +498,6 @@ function pvpRollStrengthBonus(p: Player): number {
     (e.helmet?.pvpDieBonus ?? 0) +
     (e.accessory?.pvpDieBonus ?? 0)
   );
-}
-
-function effectiveWeaponPower(p: Player): number {
-  return effectiveWeaponPiecePower(p.equipment.weapon, p.gold);
 }
 
 function applyWeaponWinGoldBonus(winner: Player): number {
@@ -611,6 +613,42 @@ const COMBAT_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helm
 
 function newItemInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
+}
+
+/** Föremål som ger +attack (eller motsv.) i strid / BvB-förberedelse — slumpas en per spelare vid spelstart. */
+const START_COMBAT_BUFF_ITEM_IDS: ItemId[] = [
+  "light_beer",
+  "folk_beer",
+  "double_hops",
+  "beer_bomb",
+  "beard_back",
+];
+
+/** Föremål som ger −attack (eller motsv.) mot motståndare / nästa strid — slumpas en per spelare vid spelstart. */
+const START_COMBAT_DEBUFF_ITEM_IDS: ItemId[] = [
+  "weak_beer",
+  "tripwire",
+  "hangover",
+  "monster_hype",
+  "yeast_sabotage",
+  "lengraddad",
+];
+
+function grantStartingCombatItems(state: GameState, seed: number): void {
+  let i = 0;
+  for (const p of state.players) {
+    const rng = createRng(seed ^ (0x5f3759df + i * 0x9e3779b9));
+    i += 1;
+    const buffId = pick(rng, START_COMBAT_BUFF_ITEM_IDS);
+    const debuffId = pick(rng, START_COMBAT_DEBUFF_ITEM_IDS);
+    p.inventory ??= [];
+    p.inventory.push(createItemInstance(buffId, newItemInstanceId(rng)));
+    p.inventory.push(createItemInstance(debuffId, newItemInstanceId(rng)));
+    log(
+      state,
+      `${p.name} får startföremål: ${itemDisplayTitle(buffId)} (+ i strid) och ${itemDisplayTitle(debuffId)} (− i strid).`,
+    );
+  }
 }
 
 function grantRandomCombatRewardItem(
@@ -1425,7 +1463,9 @@ export function startGame(
     p.nextMoveBonus = 0;
     p.nextCombatModifier = 0;
     p.eliminated = false;
+    p.inventory = [];
   }
+  grantStartingCombatItems(next, seed);
   next.pending = null;
   next.winnerId = null;
   next.winnerName = null;
@@ -2590,13 +2630,23 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "pretzel_snack") {
-      const before = user.hp;
-      user.hp = Math.min(user.maxHp, user.hp + 2);
-      log(next, `${user.name} äter en pretzel (+${user.hp - before} HP).`);
+      const target = action.targetPlayerId
+        ? next.players.find((p) => p.id === action.targetPlayerId)
+        : user;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      const before = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + 2);
+      const healed = target.hp - before;
+      log(
+        next,
+        target.id === user.id
+          ? `${user.name} äter en pretzel (+${healed} HP).`
+          : `${user.name} ger ${target.name} en pretzel (+${healed} HP).`,
+      );
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
-      notifyItemPlayForTableAfterUse(next, "pretzel_snack", user.id, undefined, inCombatTableFan);
+      notifyItemPlayForTableAfterUse(next, "pretzel_snack", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -2607,6 +2657,63 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
       notifyItemPlayForTableAfterUse(next, "coin_purse", user.id, undefined, inCombatTableFan);
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "shortcut") {
+      if (inCombatItemWindow || inPvpPreRoundItems) {
+        return { state, events: [], error: "Genväg kan inte användas under strid eller BvB-förberedelse." };
+      }
+      if (!isYourTurn) {
+        return { state, events: [], error: "Inte din tur" };
+      }
+      const pe = next.pending;
+      if (
+        pe != null &&
+        !(
+          (pe.type === "moveChoice" && pe.playerId === user.id) ||
+          (pe.type === "merchant" && pe.playerId === user.id)
+        )
+      ) {
+        return {
+          state,
+          events: [],
+          error: "Genvägen kan inte användas nu — avsluta pågående val först.",
+        };
+      }
+      const targetLevelIndex = user.levelIndex + 1;
+      if (targetLevelIndex >= next.levels.length) {
+        return { state, events: [], error: "Du är redan på den översta våningen." };
+      }
+      const baseCosts = levelUpCostsForTargetLevel(targetLevelIndex);
+      const discount = user.equipment.accessory?.levelUpDiscountGold ?? 0;
+      const goldCost = Math.max(0, baseCosts.gold - Math.max(0, discount));
+      if (user.gold < goldCost) {
+        return {
+          state,
+          events: [],
+          error: `Du behöver ${goldCost} pant för nästa våning (genvägen betalar bara med pant).`,
+        };
+      }
+      logMonsterScalePreviewForAscend(next, user, targetLevelIndex, "door");
+      user.gold -= goldCost;
+      user.levelIndex = targetLevelIndex;
+      user.tileIndex = 0;
+      if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
+        next.pending = null;
+      }
+      if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
+        next.pending = null;
+      }
+      log(
+        next,
+        `${user.name} använder Genväg och betalar ${goldCost} pant för att stiga till nivå ${user.levelIndex + 1}.`,
+      );
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      logMonsterScaleAfterAscend(next, user);
+      notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, inCombatTableFan);
+      endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -2715,6 +2822,44 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       inv.splice(idx, 1);
       user.inventory = inv;
       notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatTableFan);
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "rigged_game") {
+      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if (target.equipment.accessory?.preventTheft) {
+        return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
+      }
+      const slot = randomEquippedSlot(target, rng);
+      if (!slot) return { state, events: [], error: "Målet har ingen utrustning att stjäla" };
+      const piece = target.equipment[slot]!;
+      const stealSide: TableItemPlaySidePayload = {
+        sideEquipmentSlot: slot,
+        sideEquipmentName: piece.name ?? String(slot),
+      };
+      target.equipment[slot] = undefined as any;
+      if (slot === "armor" || slot === "helmet") {
+        target.maxHp = maxHpFor(target);
+        if (target.hp > target.maxHp) target.hp = target.maxHp;
+      }
+      user.equipment[slot] = { ...(piece as any) };
+      if (slot === "armor" || slot === "helmet") {
+        user.maxHp = maxHpFor(user);
+        if (user.hp > user.maxHp) user.hp = user.maxHp;
+      }
+      log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name}.`);
+      pushPlayerNotice(
+        next,
+        target.id,
+        user.name,
+        "Riggat spel",
+        `${user.name} tog ${piece.name ?? slot} från dig med Riggat spel.`,
+      );
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      notifyItemPlayForTableAfterUse(next, "rigged_game", user.id, target.id, inCombatTableFan, stealSide);
       return { state: next, events: ["state"] };
     }
 
@@ -2895,6 +3040,50 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
 
+    if (inst.itemId === "six_sense") {
+      const face = action.chosenDieFace;
+      if (typeof face !== "number" || face < 1 || face > 6 || face !== Math.floor(face)) {
+        return { state, events: [], error: "Välj tärningsvärde 1–6." };
+      }
+      if (inCombatHelpAwaitCard) {
+        return { state, events: [], error: "Föremålet kan inte användas nu." };
+      }
+      const fighterInCombatReactions =
+        combatPending?.phase === "reactions" &&
+        (combatPending.attackerId === user.id || combatPending.assistId === user.id);
+      const inPvpPre =
+        pvpPending?.phase === "preRoundItems" &&
+        (pvpPending.attackerId === user.id || pvpPending.defenderId === user.id);
+      const inPvpRoll =
+        pvpPending?.phase === "awaitingRolls" &&
+        (pvpPending.attackerId === user.id || pvpPending.defenderId === user.id);
+      const onMapTurn =
+        isYourTurn &&
+        (combatPending == null || combatPending.phase !== "reactions" || fighterInCombatReactions);
+      const allowed = onMapTurn || inPvpPre || inPvpRoll;
+      if (!allowed) {
+        return { state, events: [], error: "Föremålet kan inte användas nu." };
+      }
+      user.nextForcedDieFace = face as Player["nextForcedDieFace"];
+      log(next, `${user.name} använder Ett sjätte ölsinne — nästa tärning visar ${face}.`);
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      markCombatReactorUsedItemIfNeeded(next, user.id);
+      if (fighterInCombatReactions) {
+        notifyItemPlayForTableAfterUse(next, "six_sense", user.id, undefined, true);
+      } else if (inPvpPre && pvpPending?.type === "pvp") {
+        pvpPending.roundItemReady ??= {};
+        pvpPending.roundItemReady[user.id] = false;
+        appendTableItemPlayReveal(next, "six_sense", user.id, undefined);
+        maybePvpPreRoundAutoReadyAfterItemUse(next, user.id);
+      } else if (inPvpRoll) {
+        appendTableItemPlayReveal(next, "six_sense", user.id, undefined);
+      } else {
+        notifyItemPlayForTableAfterUse(next, "six_sense", user.id, undefined, inCombatTableFan);
+      }
+      return { state: next, events: ["state"] };
+    }
+
     return { state, events: [], error: "Okänt föremål" };
   }
 
@@ -2931,7 +3120,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const tempMod = roller.nextCombatModifier ?? 0;
     roller.nextCombatModifier = 0;
     const mod = (pending.attackMods?.[roller.id] ?? 0) + tempMod;
-    const rawDie = rollDie(rng, 6);
+    const rawRoll = rollD6WithOptionalSixSense(roller, rng);
+    const rawDie = rawRoll.die;
     const attackDoubled = roller.nextCombatAttackDiceDouble === true;
     if (attackDoubled) {
       roller.nextCombatAttackDiceDouble = false;
@@ -2965,6 +3155,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       total,
       attackDiceDoubled: attackDoubled || undefined,
     };
+    if (rawRoll.forced) {
+      log(next, `${roller.name}s stridstärning: ${rawDie} (fast siffra).`);
+    }
 
     if (needsAssistRoll) {
       const aRoll = pending.teamRolls[pending.attackerId];
@@ -3425,7 +3618,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
-    const rawDie = rollDie(rng, 6);
+    const rawRoll = rollD6WithOptionalSixSense(p, rng);
+    const rawDie = rawRoll.die;
     const attackDoubled = p.nextCombatAttackDiceDouble === true;
     if (attackDoubled) {
       p.nextCombatAttackDiceDouble = false;
@@ -3436,7 +3630,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.rolls[action.playerId] = { die: rawDie, total };
     log(
       next,
-      `${p.name} rolls for PvP: ${rawDie}${attackDoubled ? ` (dubblat till ${dieContribution} i total)` : ""}${pvpMod !== 0 ? ` (PvP-mod ${pvpMod > 0 ? `+${pvpMod}` : pvpMod})` : ""} (total ${total}).`,
+      `${p.name} rolls for PvP: ${rawDie}${rawRoll.forced ? " (fast siffra)" : ""}${attackDoubled ? ` (dubblat till ${dieContribution} i total)` : ""}${pvpMod !== 0 ? ` (PvP-mod ${pvpMod > 0 ? `+${pvpMod}` : pvpMod})` : ""} (total ${total}).`,
     );
 
     const a = pending.rolls[pending.attackerId];
@@ -3750,7 +3944,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   clearTableItemPlay(next);
   applyCanmanOnMovementRoll(next, cp);
 
-  const dice = rollDie(rng, 6);
+  const diceRoll = rollD6WithOptionalSixSense(cp, rng);
+  const dice = diceRoll.die;
   const bonus = moveBonusSteps(cp) + (cp.nextMoveBonus ?? 0);
   cp.nextMoveBonus = 0;
   const totalDice = dice + bonus;
@@ -3763,7 +3958,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const ccw = counterClockwiseTileIndex(cp.tileIndex, totalDice, n);
   const cwTile = level.tiles[cw]!;
   const ccwTile = level.tiles[ccw]!;
-  log(next, `${cp.name} slår ${dice}${bonus ? ` (+${bonus})` : ""}. Välj en riktning.`);
+  log(
+    next,
+    `${cp.name} slår ${dice}${diceRoll.forced ? " (fast siffra)" : ""}${bonus ? ` (+${bonus})` : ""}. Välj en riktning.`,
+  );
   next.pending = {
     type: "moveChoice",
     playerId: cp.id,

@@ -245,6 +245,8 @@ export function PlayView() {
   const [showPlayers, setShowPlayers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  /** Mobil: ansvarsfullt spelande — en gång per rum & flik efter bekräftelse. */
+  const [showResponsibleReminder, setShowResponsibleReminder] = useState(false);
   const [interactionPanelCollapsed, setInteractionPanelCollapsed] = useState(false);
   const [rainbowEffectsEnabled, setRainbowEffectsEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -257,6 +259,8 @@ export function PlayView() {
   const [itemTargetId, setItemTargetId] = useState<string | null>(null);
   /** Efter första "Använd" för föremål som kräver målspelare: visa då mål-knapparna. */
   const [itemUseTargetPhase, setItemUseTargetPhase] = useState(false);
+  /** «Ett sjätte ölsinne»: vald tärningsyta innan useItem. */
+  const [itemSixSenseFace, setItemSixSenseFace] = useState<number | null>(null);
   const [wantsIntervene, setWantsIntervene] = useState(false);
   const [beerBroPickInstance, setBeerBroPickInstance] = useState<string | null>(null);
   /** Lengräddad, En enkel stöld, Spilla med flit — kräver målspelare vid ingripande. */
@@ -292,6 +296,37 @@ export function PlayView() {
   });
 
   const me = findMe(state, myId);
+
+  useEffect(() => {
+    setShowResponsibleReminder(false);
+  }, [room]);
+
+  const dismissResponsibleReminder = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(`bv:responsibleReminderAck:${room}`, "1");
+    } catch {
+      // ignore
+    }
+    setShowResponsibleReminder(false);
+  }, [room]);
+
+  useEffect(() => {
+    if (status !== "connected") {
+      setShowResponsibleReminder(false);
+      return;
+    }
+    if (showResponsibleReminder) return;
+    if (!state || !myId) return;
+    if (!state.players.some((p) => p.id === myId)) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches) return;
+    try {
+      if (window.sessionStorage.getItem(`bv:responsibleReminderAck:${room}`) === "1") return;
+    } catch {
+      return;
+    }
+    setShowResponsibleReminder(true);
+  }, [status, state, myId, room, showResponsibleReminder]);
 
   /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
   useEffect(() => {
@@ -463,6 +498,7 @@ export function PlayView() {
   useEffect(() => {
     setItemTargetId(null);
     setItemUseTargetPhase(false);
+    setItemSixSenseFace(null);
   }, [itemDetail?.instanceId]);
 
   const combatReactionsPhase = pending?.type === "combat" && pending.phase === "reactions";
@@ -499,10 +535,39 @@ export function PlayView() {
     playerCanCombatIntervene(me);
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
+    if (itemId === "shortcut") {
+      if (!me || !state) return false;
+      if (inCombatReactions || inPvpPreRoundItems) return false;
+      if (!isMyTurn) return false;
+      const tli = me.levelIndex + 1;
+      if (tli >= (state.levels?.length ?? 0)) return false;
+      const costs = levelUpCostsForTargetLevel(tli);
+      const discount = me.equipment.accessory?.levelUpDiscountGold ?? 0;
+      const goldCost = Math.max(0, costs.gold - Math.max(0, discount));
+      if (me.gold < goldCost) return false;
+      const pe = state.pending;
+      if (
+        pe != null &&
+        !(
+          (pe.type === "moveChoice" && pe.playerId === me.id) ||
+          (pe.type === "merchant" && pe.playerId === me.id)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    }
     if (itemId === "lengraddad" && inCombatReactions) return true;
     if (itemId === "get_lucky" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "beard_back" && inCombatReactions) return isCombatFighterNow;
     if (itemId === "beard_back" && inPvpAwaitingRolls) return true;
+    if (itemId === "six_sense") {
+      if (inCombatReactions) return isCombatFighterNow;
+      if (inPvpPreRoundItems) return true;
+      if (inPvpAwaitingRolls) return true;
+      if (isMyTurn) return true;
+      return false;
+    }
     if (inPvpPreRoundItems) return PVP_PRE_ROUND_ITEM_IDS.has(itemId);
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
@@ -1901,11 +1966,13 @@ export function PlayView() {
     const chosen = needsTarget ? itemTargetId : null;
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
     const showTargetPicker = needsTarget && itemUseTargetPhase;
+    const needsSixSenseFace = inst.itemId === "six_sense" && canUse;
     const usePrimaryDisabled =
       passive ||
       !canUse ||
       (broPick && !combatAttackerId) ||
-      (needsTarget && itemUseTargetPhase && !chosen);
+      (needsTarget && itemUseTargetPhase && !chosen) ||
+      (needsSixSenseFace && itemSixSenseFace == null);
     return (
       <div className={u.stack10}>
         {passive ? (
@@ -1925,6 +1992,29 @@ export function PlayView() {
                   onClick={() => setItemTargetId(p.id)}
                 >
                   {p.name}
+                </ArcadeButton>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {needsSixSenseFace ? (
+          <div className={u.stack8}>
+            <div className={u.itemsTarget12}>{sv.play.itemsChooseDiceFace}</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 8,
+              }}
+            >
+              {([1, 2, 3, 4, 5, 6] as const).map((n) => (
+                <ArcadeButton
+                  key={n}
+                  variant={itemSixSenseFace === n ? "pink" : "gray"}
+                  fullWidth
+                  onClick={() => setItemSixSenseFace(n)}
+                >
+                  {String(n)}
                 </ArcadeButton>
               ))}
             </div>
@@ -1953,6 +2043,10 @@ export function PlayView() {
                   playerId: me.id,
                   instanceId: inst.instanceId,
                   targetPlayerId: chosen ?? undefined,
+                  chosenDieFace:
+                    inst.itemId === "six_sense" && typeof itemSixSenseFace === "number"
+                      ? itemSixSenseFace
+                      : undefined,
                 });
                 setItemDetail(null);
               }}
@@ -2979,6 +3073,47 @@ export function PlayView() {
         </div>
       )}
 
+      {showResponsibleReminder && (
+        <Modal
+          title={sv.play.responsibleReminderTitle}
+          onClose={dismissResponsibleReminder}
+          instantFront
+          hideClose
+          backdropCloses={false}
+          zIndex={130}
+          centered
+          panelStyle={{ paddingTop: 24, paddingBottom: 24, paddingLeft: 16, paddingRight: 16 }}
+          titleBelow={<StatIcon kind="hp" size={88} />}
+          titleStyle={{
+            fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+            fontWeight: 400,
+            fontSize: "clamp(22px, 5.2vw, 30px)",
+            letterSpacing: "0.03em",
+            lineHeight: 1.15,
+            color: "#fef9c3",
+            textShadow: "0 2px 14px rgba(0,0,0,0.75), 0 0 22px rgba(250, 204, 21, 0.25)",
+          }}
+        >
+          <div className={u.stack12} style={{ width: "100%", alignItems: "center" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 15,
+                lineHeight: 1.5,
+                color: "rgba(248, 250, 252, 0.95)",
+                textAlign: "center",
+                maxWidth: "100%",
+              }}
+            >
+              {sv.play.responsibleReminderBody}
+            </p>
+            <ArcadeButton variant="pink" fullWidth onClick={dismissResponsibleReminder}>
+              {sv.play.responsibleReminderOk}
+            </ArcadeButton>
+          </div>
+        </Modal>
+      )}
+
       {showSettings && (
         <Modal title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
           <div className={u.stack12}>
@@ -3661,8 +3796,11 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   manopositiv: "combat",
   beard_back: "self",
   hangover: "combat",
-  pretzel_snack: "self",
+  pretzel_snack: "self_or_other",
   coin_purse: "self",
+  shortcut: "self",
+  six_sense: "self",
+  rigged_game: "other",
   monster_hype: "combat",
   yeast_sabotage: "combat",
   beer_bro: "combat_bro",
@@ -3724,6 +3862,7 @@ const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
   "hangover",
   "monster_hype",
   "beard_back",
+  "six_sense",
 ]);
 
 /** Effektrader för modal: samma sammandrag som i affären när prylen finns i katalogen (annars fallback). */
@@ -4132,15 +4271,26 @@ function Modal(props: {
   /** Ingen kort-flip; framsida visas direkt (används för inventory-föremål). */
   instantFront?: boolean;
   titleStyle?: CSSProperties;
+  /** Rad under rubriken (t.ex. ikon), centrerad om `centered`. */
+  titleBelow?: ReactNode;
   hideClose?: boolean;
   headerRight?: ReactNode;
+  /** Centrera rubrik, titleBelow och innehåll. */
+  centered?: boolean;
+  /** false: stäng inte vid klick utanför (t.ex. obligatorisk påminnelse). */
+  backdropCloses?: boolean;
+  zIndex?: number;
+  /** Extra stilar på kortpanelen (t.ex. mer luft uppe/nere). */
+  panelStyle?: CSSProperties;
 }) {
   const showClose = props.hideClose !== true;
+  const z = props.zIndex ?? 120;
+  const centered = props.centered === true;
   return (
     <CardFlipModalShell
-      zIndex={120}
+      zIndex={z}
       maxWidth={560}
-      onBackdropMouseDown={props.onClose}
+      onBackdropMouseDown={props.backdropCloses === false ? undefined : props.onClose}
       instantFront={props.instantFront}
     >
       <div
@@ -4150,8 +4300,9 @@ function Modal(props: {
           border: "1px solid #ffffff22",
           background: "#0b1226",
           padding: 14,
-          textAlign: "left",
+          textAlign: centered ? "center" : "left",
           color: "#ffffff",
+          ...props.panelStyle,
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -4160,8 +4311,9 @@ function Modal(props: {
             display: "flex",
             alignItems: "center",
             gap: 10,
-            marginBottom: 10,
+            marginBottom: props.titleBelow != null ? (centered ? 8 : 4) : 10,
             minWidth: 0,
+            justifyContent: centered ? (showClose ? "space-between" : "center") : undefined,
           }}
         >
           <div
@@ -4169,8 +4321,9 @@ function Modal(props: {
               fontWeight: 900,
               fontSize: 16,
               color: "#ffffff",
-              flex: props.headerRight || !showClose ? "1 1 auto" : undefined,
+              flex: showClose ? "1 1 auto" : props.headerRight ? "1 1 auto" : undefined,
               minWidth: 0,
+              ...(centered && !showClose ? { width: "100%", maxWidth: "100%", textAlign: "center" as const } : {}),
               ...props.titleStyle,
             }}
           >
@@ -4187,7 +4340,34 @@ function Modal(props: {
             </div>
           ) : null}
         </div>
-        {props.children}
+        {props.titleBelow != null ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: centered ? 16 : 12,
+              marginTop: centered ? 8 : 2,
+            }}
+          >
+            {props.titleBelow}
+          </div>
+        ) : null}
+        {centered ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 14,
+              maxWidth: 440,
+              margin: "0 auto",
+            }}
+          >
+            {props.children}
+          </div>
+        ) : (
+          props.children
+        )}
       </div>
     </CardFlipModalShell>
   );

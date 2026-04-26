@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSPr
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
+  monsterCombatEquipmentAttackBonus,
   playerCanCombatIntervene,
   type GameState,
   type MonsterId,
@@ -95,12 +96,24 @@ function helpContractLabel(contract: "free" | "pant" | "treasure" | "split" | un
   }
 }
 
-/** Kort/items som alltid räknas in i attackmodifiern (t6 + kraft + detta). Pip-vapnets bonus visas separat som valfri. */
-function boardAttackerOutgoingRollModifier(pending: TableCombatPending, state: GameState): number {
-  const attacker = state.players.find((p) => p.id === pending.attackerId);
-  const fromCards = pending.attackMods?.[pending.attackerId] ?? 0;
-  const fromItems = attacker?.nextCombatModifier ?? 0;
-  return fromCards + fromItems;
+/**
+ * Modifier som visas vid tärningen: kort/föremål (attackMods + ev. nextCombatModifier under reaktioner)
+ * plus samma utrustningsattack som motorn (`weaponPower`).
+ * Vid lagstrid: båda spelarnas bidrag; `nextCombatModifier` räknas bara i `reactions` (nollas när någon slagit).
+ */
+function boardMonsterDiceStackModifier(pending: TableCombatPending, state: GameState): number {
+  const ids = pending.assistId ? [pending.attackerId, pending.assistId] : [pending.attackerId];
+  let sum = 0;
+  for (const id of ids) {
+    const p = state.players.find((x) => x.id === id);
+    if (!p) continue;
+    sum += pending.attackMods?.[id] ?? 0;
+    sum += monsterCombatEquipmentAttackBonus(p);
+    if (pending.phase === "reactions") {
+      sum += p.nextCombatModifier ?? 0;
+    }
+  }
+  return sum;
 }
 
 function TableCombatBoardPanelInner(props: {
@@ -462,12 +475,29 @@ function TableCombatBoardPanelInner(props: {
 
   const diceHeroMotionEase = "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
-  const diceBaseModifier = boardAttackerOutgoingRollModifier(pending, modifierState);
+  const diceBaseModifier = boardMonsterDiceStackModifier(pending, modifierState);
   const boardDiceModifierBaseStr = formatSignedDiceModifier(diceBaseModifier);
   const showDiceModifierStack =
     pending.phase === "reactions" ||
     pending.phase === "rollPreview" ||
     pending.phase === "chooseHitMitigation";
+  const attackDiceDoubledCount =
+    pending.phase === "reactions"
+      ? [pending.attackerId, pending.assistId]
+          .filter((id): id is string => !!id)
+          .reduce((sum, id) => {
+            const p = modifierState.players.find((x) => x.id === id);
+            return sum + (p?.nextCombatAttackDiceDouble === true ? 1 : 0);
+          }, 0)
+      : pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation"
+        ? (pending.previewAttackDiceDoubled ? 1 : 0) + (pending.previewBroAttackDiceDoubled ? 1 : 0)
+        : 0;
+  const attackDiceDoubledHint =
+    attackDiceDoubledCount <= 0
+      ? null
+      : attackDiceDoubledCount === 1
+        ? "2 x tärningsslag"
+        : `2 x tärningsslag (x${attackDiceDoubledCount})`;
   const sipWeaponTakenBonus =
     (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
     pending.previewUsedSipWeaponBonus === true &&
@@ -509,7 +539,7 @@ function TableCombatBoardPanelInner(props: {
           >
             <div
               style={{
-                width: hold ? 0 : showMonsterDiceColumn ? 200 : 0,
+                width: hold ? 0 : showMonsterDiceColumn ? 300 : 0,
                 minWidth: 0,
                 opacity: (() => {
                   if (!showMonsterDiceColumn) return 0;
@@ -520,7 +550,7 @@ function TableCombatBoardPanelInner(props: {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 10,
+                gap: 8,
                 flexShrink: 0,
                 transition:
                   hold || !boardAnimationsEnabled
@@ -529,31 +559,39 @@ function TableCombatBoardPanelInner(props: {
                 pointerEvents: showMonsterDiceColumn && !hold ? "auto" : "none",
               }}
             >
-              <div className={combatStyles.diceGlowCircle}>
-                {pending.phase === "reactions" ? (
-                  <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
-                ) : (
-                  <div className={combatStyles.flexCenterGap10}>
-                    <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
-                    {pending.previewBroDie != null ? (
-                      <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+              <div className={combatStyles.diceRowWithModifiers}>
+                {showDiceModifierStack &&
+                (boardDiceModifierBaseStr || sipWeaponTakenBonus != null || attackDiceDoubledHint != null) ? (
+                  <div
+                    className={`${sipWeaponTakenBonus != null ? combatStyles.modifierStackGap4 : combatStyles.modifierStack} ${combatStyles.modifiersBesideDice}`}
+                  >
+                    {boardDiceModifierBaseStr ? (
+                      <div className={combatStyles.diceModifierBig}>{boardDiceModifierBaseStr}</div>
+                    ) : null}
+                    {attackDiceDoubledHint ? (
+                      <div className={combatStyles.attackDiceDoubledHint}>{attackDiceDoubledHint}</div>
+                    ) : null}
+                    {sipWeaponTakenBonus != null ? (
+                      <div className={combatStyles.modifierStackGap2}>
+                        <span className={combatStyles.sipBonusBig}>+{sipWeaponTakenBonus}</span>
+                        <span className={combatStyles.sipTakenCaption}>{sv.table.diceModifierSipTakenSub}</span>
+                      </div>
                     ) : null}
                   </div>
-                )}
-              </div>
-              {showDiceModifierStack && (boardDiceModifierBaseStr || sipWeaponTakenBonus != null) ? (
-                <div className={sipWeaponTakenBonus != null ? combatStyles.modifierStackGap4 : combatStyles.modifierStack}>
-                  {boardDiceModifierBaseStr ? (
-                    <div className={combatStyles.diceModifierBig}>{boardDiceModifierBaseStr}</div>
-                  ) : null}
-                  {sipWeaponTakenBonus != null ? (
-                    <div className={combatStyles.modifierStackGap2}>
-                      <span className={combatStyles.sipBonusBig}>+{sipWeaponTakenBonus}</span>
-                      <span className={combatStyles.sipTakenCaption}>{sv.table.diceModifierSipTakenSub}</span>
+                ) : null}
+                <div className={combatStyles.diceGlowCircle}>
+                  {pending.phase === "reactions" ? (
+                    <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
+                  ) : (
+                    <div className={combatStyles.flexCenterGap10}>
+                      <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+                      {pending.previewBroDie != null ? (
+                        <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+                      ) : null}
                     </div>
-                  ) : null}
+                  )}
                 </div>
-              ) : null}
+              </div>
               {pending.phase === "chooseHitMitigation" ? (
                 <div className={combatStyles.hitMitigationHint}>
                   {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}

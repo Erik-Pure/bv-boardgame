@@ -64,6 +64,7 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_lengraddad",
   "item_not_my_round",
   "item_spill_intentional",
+  "item_rigged_game",
 ]);
 
 /** Kort-id:n som inte ska visas (mall / boss-mellanrunda). Skatt döljs med `kind` — samma kort visas vid skattrutor i spelet. */

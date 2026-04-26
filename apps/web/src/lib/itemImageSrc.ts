@@ -9,6 +9,7 @@ export function itemImageSrc(itemId: string): string {
     folk_beer: "/items/8-bit-beer.webp",
     tripwire: "/items/tripwire.webp",
     pretzel_snack: "/items/brezel.webp",
+    shortcut: "/items/shortcut.webp",
     coin_purse: "/items/coin-purse.webp",
     double_hops: "/items/double-hops.webp",
     beer_bomb: "/items/beer-bomb.webp",
@@ -25,6 +26,8 @@ export function itemImageSrc(itemId: string): string {
     early_night: "/items/item_early_night.webp",
     get_lucky: "/items/getlucky.webp",
     manopositiv: "/items/manopositiv.webp",
+    six_sense: "/items/sixsense.webp",
+    rigged_game: "/items/riggedgame.webp",
   };
   return m[itemId] ?? "/card-placeholder.png";
 }

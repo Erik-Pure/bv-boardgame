@@ -352,7 +352,7 @@
       "id": "item_pretzel_snack",
       "kind": "item",
       "title": "Pretzel",
-      "text": "Använd: återställ 2 HP.",
+      "text": "Använd: återställ 2 HP hos dig eller en annan spelare.",
       "artKey": "item/pretzel",
       "effects": [
         {
@@ -519,6 +519,30 @@
       "text": "Stridsreaktion: +4 på vald spelares attack. Du förlorar 4 pant när kortet spelas.",
       "artKey": "item/manopositiv",
       "effects": []
+    },
+    {
+      "id": "item_shortcut",
+      "kind": "item",
+      "title": "Genväg",
+      "text": "Använd på din tur: gå upp en nivå, förutsatt att du har tillräckligt med pant.",
+      "artKey": "item/shortcut",
+      "effects": []
+    },
+    {
+      "id": "item_six_sense",
+      "kind": "item",
+      "title": "Ett sjätte ölsinne",
+      "text": "Välj vilken siffra tärningen ska visa vid ditt nästa tärningsslag.",
+      "artKey": "item/six-sense",
+      "effects": []
+    },
+    {
+      "id": "item_rigged_game",
+      "kind": "item",
+      "title": "Riggat spel",
+      "text": "Använd på en annan spelare: ta en slumpmässig utrustning.",
+      "artKey": "item/rigged-game",
+      "effects": []
     }
   ],
   "decks": {
@@ -569,6 +593,7 @@
       "item_folk_beer",
       "item_tripwire",
       "item_pretzel_snack",
+      "item_shortcut",
       "item_coin_purse",
       "item_double_hops",
       "item_beer_bomb",
@@ -584,7 +609,9 @@
       "item_spill_intentional",
       "item_early_night",
       "item_get_lucky",
-      "item_manopositiv"
+      "item_manopositiv",
+      "item_six_sense",
+      "item_rigged_game"
     ]
   }
 }

@@ -98,7 +98,7 @@ wss.on("connection", (ws) => {
       if (msg.type === "action") {
         const room = getOrCreateRoom(joined.roomCode).room;
         log.debug("action", joined.roomCode, joined.playerId, (msg.action as any)?.type);
-        const err = handleAction(room, joined.playerId, msg.action);
+        const err = handleAction(room, joined.conn, msg.action);
         if (err) {
           sendError(ws, err);
           return;

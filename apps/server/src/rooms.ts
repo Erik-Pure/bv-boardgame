@@ -125,51 +125,75 @@ export function joinRoom(params: {
   return { conn, room };
 }
 
-export function handleAction(room: Room, playerId: string, raw: unknown): string | null {
+function removePlayerFromRoomState(state: GameState, playerId: string): GameState["players"][number] | null {
+  const leaving = state.players.find((p) => p.id === playerId);
+  if (!leaving) return null;
+  state.players = state.players.filter((p) => p.id !== playerId);
+  state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
+  state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
+  state.tableItemPlayReveals = (state.tableItemPlayReveals ?? []).filter(
+    (r) => r.actorId !== playerId && r.targetPlayerId !== playerId,
+  );
+
+  if (state.turnOrder.length === 0) {
+    state.currentTurnIndex = 0;
+  } else {
+    state.currentTurnIndex = Math.max(0, Math.min(state.currentTurnIndex, state.turnOrder.length - 1));
+  }
+
+  if (state.phase === "lobby") {
+    for (const p of state.players) p.isHost = false;
+    if (state.players[0]) state.players[0].isHost = true;
+  }
+
+  if (state.pending) {
+    const pendingJson = JSON.stringify(state.pending);
+    if (pendingJson.includes(playerId)) state.pending = null;
+  }
+
+  if (state.phase === "playing" && state.players.length <= 1) {
+    const winner = state.players[0] ?? null;
+    state.phase = "ended";
+    state.pending = null;
+    state.winnerId = winner?.id ?? null;
+    state.winnerName = winner?.name ?? null;
+  }
+  return leaving;
+}
+
+export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
   const action = raw as ClientAction | { type?: string };
 
   if (action?.type === "leaveGame") {
-    const state = room.state;
-    const leaving = state.players.find((p) => p.id === playerId);
+    const leaving = removePlayerFromRoomState(room.state, conn.playerId);
     if (!leaving) return null;
-    state.players = state.players.filter((p) => p.id !== playerId);
-    state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
-    state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
-    state.tableItemPlayReveals = (state.tableItemPlayReveals ?? []).filter(
-      (r) => r.actorId !== playerId && r.targetPlayerId !== playerId,
-    );
+    room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
+    return null;
+  }
 
-    if (state.turnOrder.length === 0) {
-      state.currentTurnIndex = 0;
-    } else {
-      state.currentTurnIndex = Math.max(0, Math.min(state.currentTurnIndex, state.turnOrder.length - 1));
-    }
-
-    if (state.phase === "lobby") {
-      for (const p of state.players) p.isHost = false;
-      if (state.players[0]) state.players[0].isHost = true;
-    }
-
-    if (state.pending) {
-      const pendingJson = JSON.stringify(state.pending);
-      if (pendingJson.includes(playerId)) state.pending = null;
-    }
-
-    state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
-
-    if (state.phase === "playing" && state.players.length <= 1) {
-      const winner = state.players[0] ?? null;
-      state.phase = "ended";
-      state.pending = null;
-      state.winnerId = winner?.id ?? null;
-      state.winnerName = winner?.name ?? null;
+  if (action?.type === "tableKickPlayer") {
+    if (conn.role !== "table") return "Endast bordet kan ta bort en spelare";
+    const targetId = (action as { targetPlayerId?: unknown }).targetPlayerId;
+    if (typeof targetId !== "string" || targetId.length === 0) return "Ogiltig spelare";
+    const leaving = removePlayerFromRoomState(room.state, targetId);
+    if (!leaving) return "Spelaren finns inte";
+    room.state.log.push({ at: Date.now(), message: `${leaving.name} togs bort från spelet (bordet).` });
+    for (const c of [...room.conns]) {
+      if (c.role === "controller" && c.playerId === targetId) {
+        try {
+          c.ws.close();
+        } catch {
+          // ignore
+        }
+        room.conns.delete(c);
+      }
     }
     return null;
   }
 
   if (room.state.phase === "lobby" && action?.type === "startGame") {
     const seed = Math.floor(Math.random() * 1_000_000_000);
-    const res = startGame(room.state, playerId, seed);
+    const res = startGame(room.state, conn.playerId, seed);
     if (res.error) return res.error;
     room.state = res.state;
     return null;

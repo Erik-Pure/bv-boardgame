@@ -36,7 +36,10 @@ export type ItemId =
   | "spill_intentional"
   | "early_night"
   | "get_lucky"
-  | "manopositiv";
+  | "manopositiv"
+  | "shortcut"
+  | "six_sense"
+  | "rigged_game";
 
 export interface ItemInstance {
   instanceId: string;
@@ -447,6 +450,8 @@ export interface Player {
   nextMoveBonus: number;
   /** Nästa monsterstrid: dubblera spelarens t6-värde i attacktotalen (Skägget rakt bak); `die` kvar 1–6 för krit. */
   nextCombatAttackDiceDouble?: boolean;
+  /** Nästa egna t6 (rörelse, monsterstrid, BvB): fast sida efter «Ett sjätte ölsinne»; nollas när slaget görs. */
+  nextForcedDieFace?: 1 | 2 | 3 | 4 | 5 | 6;
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
   skippedTurns: number;
@@ -555,7 +560,7 @@ export type ClientAction =
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
-  | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string }
+  | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
   /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = +1 klunk och +sipAttackBonus på slaget). */
   | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
   | { type: "skipMonsterEncounter"; playerId: string }

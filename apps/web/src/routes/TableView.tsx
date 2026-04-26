@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -20,6 +20,7 @@ import {
   subscribeBoardPerformancePrefs,
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
+  writeBoardPreventSleepEnabled,
 } from "../lib/boardPerformancePrefs";
 import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { ArcadeButton } from "../components/ArcadeButton";
@@ -325,7 +326,12 @@ function pendingCardOwner(state: GameState | null) {
 type TableLobbyPlayer = GameState["players"][number];
 
 /** Enkel rad för pre-game lobby (som tidigare). */
-function TablePreGameLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+function TablePreGameLobbyPlayerRow(props: {
+  p: TableLobbyPlayer;
+  kickEnabled: boolean;
+  onKickPlayer: (playerId: string, displayName: string) => void;
+}) {
+  const { p, kickEnabled, onKickPlayer } = props;
   const afflictions = tablePlayerAfflictionLines(p);
   const tintStyle = { "--player-color": p.color } as CSSProperties;
   return (
@@ -346,11 +352,26 @@ function TablePreGameLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
         className={`${tableStyles.readyIndicator} ${p.ready ? tableStyles.readyIndicatorOn : tableStyles.readyIndicatorOff}`}
         aria-label={p.ready ? sv.play.ready : sv.play.unready}
       />
+      <button
+        type="button"
+        className={tableStyles.tableKickButton}
+        disabled={!kickEnabled}
+        title={sv.table.tableKickPlayer}
+        aria-label={sv.table.tableKickPlayerAria(p.name)}
+        onClick={() => onKickPlayer(p.id, p.name)}
+      >
+        {sv.table.tableKickPlayerButton}
+      </button>
     </div>
   );
 }
 
-function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
+function TableLobbyPlayerRow(props: {
+  p: TableLobbyPlayer;
+  kickEnabled: boolean;
+  onKickPlayer: (playerId: string, displayName: string) => void;
+}) {
+  const { p, kickEnabled, onKickPlayer } = props;
   const afflictions = tablePlayerAfflictionLines(p);
   const weaponName = p.equipment.weapon?.name ?? "—";
   const armorName = p.equipment.armor?.name ?? "—";
@@ -359,8 +380,8 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
   const dotStyle = { "--player-color": p.color } as CSSProperties;
   return (
     <div className={tableStyles.lobbyCard}>
-      <div className={u.flexSpaceBetweenGap10}>
-        <div className={tableStyles.lobbyNameCluster}>
+      <div className={u.flexSpaceBetweenGap10} style={{ alignItems: "center", minWidth: 0 }}>
+        <div className={tableStyles.lobbyNameCluster} style={{ minWidth: 0, flex: "1 1 auto" }}>
           <span aria-hidden className={tableStyles.playerColorDot12} style={dotStyle} />
           <span>
             {p.name}
@@ -370,20 +391,34 @@ function TableLobbyPlayerRow({ p }: { p: TableLobbyPlayer }) {
             {p.ready ? "✅" : "⛔"}
           </span>
         </div>
-        <div className={u.inlineFlexGap12WrapEnd} aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}>
-          <span className={u.inlineFlexGap4}>
-            <StatIcon kind="hp" size={18} />
-            {p.hp}/{p.maxHp}
-          </span>
-          <span className={u.inlineFlexGap4}>
-            <StatIcon kind="pant" size={18} />
-            {p.gold}
-          </span>
-          <span className={u.inlineFlexGap4}>
-            <StatIcon kind="klunk" size={18} />
-            {p.klunkar}
-          </span>
-        </div>
+        <button
+          type="button"
+          className={tableStyles.tableKickButton}
+          disabled={!kickEnabled}
+          title={sv.table.tableKickPlayer}
+          aria-label={sv.table.tableKickPlayerAria(p.name)}
+          onClick={() => onKickPlayer(p.id, p.name)}
+        >
+          {sv.table.tableKickPlayerButton}
+        </button>
+      </div>
+      <div
+        className={u.inlineFlexGap12WrapEnd}
+        style={{ marginTop: 10, alignItems: "center" }}
+        aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}
+      >
+        <span className={u.inlineFlexGap4}>
+          <StatIcon kind="hp" size={18} />
+          {p.hp}/{p.maxHp}
+        </span>
+        <span className={u.inlineFlexGap4}>
+          <StatIcon kind="pant" size={18} />
+          {p.gold}
+        </span>
+        <span className={u.inlineFlexGap4}>
+          <StatIcon kind="klunk" size={18} />
+          {p.klunkar}
+        </span>
       </div>
       {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
       <div className={tableStyles.lobbyEquipGrid}>
@@ -431,7 +466,6 @@ function TableViewBody() {
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
   /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
   const [showSidebarLog, setShowSidebarLog] = useState(false);
-  const [preventSleep, setPreventSleep] = useState(false);
   const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
   const [tableToasts, setTableToasts] = useState<TableToast[]>([]);
   const wakeLockRef = useRef<{ release: () => Promise<void>; released: boolean } | null>(null);
@@ -549,7 +583,7 @@ function TableViewBody() {
 
   const tableConfig = useMemo(() => ({ gameMode: "bossKill" as const }), []);
 
-  const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay } =
+  const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay, clientRef } =
     useWsGameClient({
       roomCode: room,
       playerName: name,
@@ -564,6 +598,13 @@ function TableViewBody() {
         }
       },
     });
+
+  const kickPlayerFromTable = useCallback((playerId: string, displayName: string) => {
+    if (!window.confirm(sv.table.tableKickConfirm(displayName))) return;
+    clientRef.current?.send({ type: "action", action: { type: "tableKickPlayer", targetPlayerId: playerId } });
+  }, [clientRef]);
+
+  const tableKickEnabled = status === "connected";
   useEffect(() => {
     if (status === "connected" || status === "connecting") setErr(null);
   }, [status]);
@@ -585,7 +626,7 @@ function TableViewBody() {
   }, [tableSettingsOpen]);
 
   useEffect(() => {
-    if (!preventSleep) {
+    if (!boardPerf.preventSleepEnabled) {
       const sentinel = wakeLockRef.current;
       wakeLockRef.current = null;
       if (sentinel && !sentinel.released) {
@@ -622,7 +663,7 @@ function TableViewBody() {
     };
 
     const onVisibilityChange = () => {
-      if (!preventSleep) return;
+      if (!boardPerf.preventSleepEnabled) return;
       if (document.visibilityState === "visible" && !wakeLockRef.current) {
         void requestWakeLock();
       }
@@ -639,7 +680,7 @@ function TableViewBody() {
         void sentinel.release().catch(() => undefined);
       }
     };
-  }, [preventSleep]);
+  }, [boardPerf.preventSleepEnabled]);
 
   // Håll loggen i botten när nya rader kommer eller när loggen visas i sidopanelen.
   useEffect(() => {
@@ -1256,7 +1297,12 @@ function TableViewBody() {
                 </div>
                 <div className={u.stack8}>
                   {state.players.map((p) => (
-                    <TablePreGameLobbyPlayerRow key={p.id} p={p} />
+                    <TablePreGameLobbyPlayerRow
+                      key={p.id}
+                      p={p}
+                      kickEnabled={tableKickEnabled}
+                      onKickPlayer={kickPlayerFromTable}
+                    />
                   ))}
                 </div>
               </div>
@@ -1380,7 +1426,12 @@ function TableViewBody() {
                   <h3>{sv.table.lobbyList}</h3>
                   <div className={u.stack8}>
                     {state.players.map((p) => (
-                      <TableLobbyPlayerRow key={p.id} p={p} />
+                      <TableLobbyPlayerRow
+                        key={p.id}
+                        p={p}
+                        kickEnabled={tableKickEnabled}
+                        onKickPlayer={kickPlayerFromTable}
+                      />
                     ))}
                   </div>
                 </>
@@ -1911,8 +1962,11 @@ function TableViewBody() {
             <label className={tableStyles.tableSettingsRow}>
               <input
                 type="checkbox"
-                checked={preventSleep}
-                onChange={(e) => setPreventSleep(e.target.checked)}
+                checked={boardPerf.preventSleepEnabled}
+                onChange={(e) => {
+                  writeBoardPreventSleepEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
                 disabled={!wakeLockAvailable}
                 aria-label={sv.table.wakeLockToggle}
               />

@@ -164,6 +164,7 @@ export function itemInventoryEffectBadge(
     healing_potion: { icon: "heart", label: "+3" },
     pretzel_snack: { icon: "heart", label: "+2" },
     coin_purse: { icon: "pant", label: "+4" },
+    shortcut: { icon: "pant", label: "↑" },
     weak_beer: { icon: "attack", label: "−2", labelTone: "danger" },
     light_beer: { icon: "attack", label: "+1" },
     folk_beer: { icon: "attack", label: "+2" },
@@ -182,6 +183,8 @@ export function itemInventoryEffectBadge(
     beer_bro: { icon: "attack", label: "×2" },
     sleep_potion: { icon: "monster", label: "Zzz" },
     beard_back: { icon: "attack", label: "×2" },
+    six_sense: { icon: "bvb", label: "t6" },
+    rigged_game: { icon: "armor", label: "⇄" },
     not_my_round: { icon: "attack", label: "−", labelTone: "danger" },
     spill_intentional: { icon: "attack", label: "×" },
   };

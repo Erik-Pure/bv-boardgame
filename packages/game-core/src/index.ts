@@ -33,7 +33,7 @@ export {
   ringTileCount,
 } from "./board.js";
 export { createRng, rollDie, pick } from "./rng.js";
-export { effectiveWeaponPiecePower } from "./weaponPower.js";
+export { effectiveWeaponPiecePower, monsterCombatEquipmentAttackBonus } from "./weaponPower.js";
 export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 export {
   applyAction,

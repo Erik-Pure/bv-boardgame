@@ -66,6 +66,15 @@ export const sv = {
     createLobby: "Skapa lobby",
     footerCards: "Kortkatalog",
     footerRules: "Spelets regler",
+    /** Första besöket på startsidan — åldersgräns 18+. */
+    ageGateTitle: "Håll i hatten! Är du 18+?",
+    ageGateBody:
+      "För att spela behöver du vara minst 18 år gammal. Kom ihåg att alltid dricka ansvarsfullt!",
+    ageGateConfirm: "Ja, jag är över 18 år",
+    ageGateDecline: "Jag är under 18",
+    ageGateDeclineBody:
+      "Spelet är till för vuxna. Du kan stänga fliken eller komma tillbaka när du uppfyller ålderskravet.",
+    ageGateBack: "Tillbaka",
   },
   joinPage: {
     title: "Gå med i spel",
@@ -239,6 +248,8 @@ export const sv = {
     pvpLootTheftProtectedHint:
       "Motståndaren är skyddad mot utrustningsbyte — välj pant, straffklunk eller skada.",
     rollDie: "Slå tärning",
+    /** Föremålet «Ett sjätte ölsinne»: välj fast tärningsyta innan Använd. */
+    itemsChooseDiceFace: "Välj siffra (1–6) för nästa slag",
     /** Under strid efter Skägget rakt bak — t6 visas som slaget men bidraget till total är 2×. */
     combatAttackDoubledHint: "Tärningen räknas dubbelt i attacktotalen (Skägget rakt bak).",
     lobbyHeader: (room: string, status: string) => `Lobby ${room} · ${status}`,
@@ -252,6 +263,11 @@ export const sv = {
     settingsLobbyStatus: "Anslutning",
     settingsTurnStatus: "Turstatus",
     settingsLeaveGame: "Lämna spelet",
+    /** Mobil efter join: ansvarsfullt spelande / alkohol (obligatorisk bekräftelse). */
+    responsibleReminderTitle: "En viktig påminnelse",
+    responsibleReminderBody:
+      "Vi vill att alla ska ha roligt! Drick ansvarsfullt och tänk på att alkohol kan vara skadligt för hälsan. Du behöver absolut inte dricka alkohol för att delta – vatten, läsk eller alkoholfri öl fungerar precis lika bra för att vinna (eller förlora) med stil.",
+    responsibleReminderOk: "Jag förstår",
     panelMinimize: "Minimera panel",
     panelMaximize: "Visa panel",
     waitingState: "Väntar på tillstånd…",
@@ -414,6 +430,13 @@ export const sv = {
     die: "Tärning",
     pending: "Väntande",
     lobbyList: "Lobby",
+    /** Bords-tv: ta bort en spelare ur rummet (t.ex. måste gå). */
+    tableKickPlayer: "Ta bort från spelet",
+    /** Knapptext (kort) — hel rad i `tableKickPlayer` + `title`. */
+    tableKickPlayerButton: "Ta bort",
+    tableKickPlayerAria: (name: string) => `Ta bort ${name} från spelet`,
+    tableKickConfirm: (name: string) =>
+      `Ta bort ${name} från spelet? Mobilkontrollen kopplas ner och platsen frigörs.`,
     log: "Logg",
     /** Sidopanel: visa spelhändelseloggen (av som standard). */
     sidebarShowLog: "Visa logg",
@@ -471,7 +494,10 @@ export const sv = {
       title: "Baksmälla",
       text: "Stridsreaktion: −3 på vald spelares attack.",
     },
-    pretzel_snack: { title: "Pretzel", text: "Återställ 2 HP." },
+    pretzel_snack: {
+      title: "Pretzel",
+      text: "Återställ 2 HP hos dig eller en annan spelare.",
+    },
     coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Okontrollerad jäsning",
@@ -501,6 +527,18 @@ export const sv = {
     manopositiv: {
       title: "Manopositiv",
       text: "+4 attack i strid, men du förlorar 4 pant när kortet spelas.",
+    },
+    shortcut: {
+      title: "Genväg",
+      text: "På din tur: betala panten för nästa våning (samma som nivå-rutan) och gå upp en våning. Gäller bara pant, inte klunkkrav.",
+    },
+    six_sense: {
+      title: "Ett sjätte ölsinne",
+      text: "Välj siffra 1–6: din nästa tärning (rörelse, monsterstrid eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
+    },
+    rigged_game: {
+      title: "Riggat spel",
+      text: "Ta en slumpmässig utrustning från en annan spelare.",
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
     spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt föremål eller utrustning för en spelare." },

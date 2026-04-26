@@ -35,6 +35,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "item/manopositiv": "Etting, Tusing, Thomas Husing, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
+  "item/shortcut": "Vermont marching juice, Bryggverket & Malmö Brewing Co",
   "item/getlucky": "Get Lucky, Bryggverket",
   "item/hops": "Kaakao kaakao, Bryggverket & Mabrouk Chocolate",
   "item/8-bit-beer": "41337, Bryggverket",
@@ -153,6 +154,9 @@ export function artImageSrc(artKey?: string): string {
       "early-night": "item_early_night",
       getlucky: "getlucky",
       manopositiv: "manopositiv",
+      shortcut: "shortcut",
+      "six-sense": "sixsense",
+      "rigged-game": "riggedgame",
     };
     const key = key0;
     const mapped = itemArtMap[key];

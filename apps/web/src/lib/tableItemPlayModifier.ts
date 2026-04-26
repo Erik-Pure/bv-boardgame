@@ -39,6 +39,8 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
       return { iconSrc: ICON.heart, value: "+2" };
     case "coin_purse":
       return { iconSrc: ICON.pant, value: "+4" };
+    case "shortcut":
+      return { iconSrc: ICON.pant, value: "↑" };
     case "sip_card":
       return { iconSrc: ICON.klunk, value: "+1" };
     case "lengraddad":
@@ -53,6 +55,10 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
       return { iconSrc: "/icons/thumbdown-icon.svg", value: "1" };
     case "early_night":
       return { iconSrc: ICON.monster, value: "↷" };
+    case "six_sense":
+      return { iconSrc: "/icons/bvb-icon.svg", value: "t6" };
+    case "rigged_game":
+      return { iconSrc: "/icons/armor-icon.svg", value: "⇄" };
     default:
       return null;
   }
