@@ -52,7 +52,7 @@ export function Home() {
         minHeight: "100vh",
         boxSizing: "border-box",
         color: "#f8fafc",
-        background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+        background: "transparent",
       }}
     >
       <img
@@ -65,7 +65,6 @@ export function Home() {
           margin: "0 auto 28px",
         }}
       />
-
       <ArcadeButton variant="pink" fullWidth onClick={() => nav("/join")}>
         {sv.home.primaryJoin}
       </ArcadeButton>

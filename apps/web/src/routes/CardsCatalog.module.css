@@ -5,7 +5,7 @@
   color: #f8fafc;
   min-height: 100vh;
   box-sizing: border-box;
-  background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  background: transparent;
 }
 
 .catalogHeaderRow {

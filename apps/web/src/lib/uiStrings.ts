@@ -61,7 +61,7 @@ export function capitalizeWord(s: string): string {
 export const sv = {
   home: {
     title: "Bryggmästarnas Mästare",
-    subtitle: "Storskärmsbräde och mobila spelkontroller — samma lobbykod.",
+    subtitle: "De dåliga batcherna",
     primaryJoin: "Gå med i ett spel",
     createLobby: "Skapa lobby",
     footerCards: "Kortkatalog",

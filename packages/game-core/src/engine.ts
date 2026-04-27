@@ -2188,6 +2188,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const inCombatReactions = combatPending?.phase === "reactions";
     const inCombatHelpAwaitCard = combatPending?.phase === "helpAwaitCard";
     const inCombatItemWindow = inCombatReactions || inCombatHelpAwaitCard;
+    const shouldSendDirectTargetNotices = !inCombatItemWindow;
     const inCombatTableFan = inCombatItemWindow;
     const inPvpPreRoundItems =
       pvpPending?.phase === "preRoundItems" &&
@@ -2821,13 +2822,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       target.gold -= steal;
       user.gold += steal;
       log(next, `${user.name} spelar Split the G och tar ${steal} pant från ${target.name}.`);
-      pushPlayerNotice(
-        next,
-        target.id,
-        user.name,
-        "Split the G",
-        `${user.name} tog ${steal} pant från dig med Split the G.`,
-      );
+      if (shouldSendDirectTargetNotices) {
+        pushPlayerNotice(
+          next,
+          target.id,
+          user.name,
+          "Split the G",
+          `${user.name} tog ${steal} pant från dig med Split the G.`,
+        );
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatTableFan);
@@ -2859,13 +2862,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (user.hp > user.maxHp) user.hp = user.maxHp;
       }
       log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name}.`);
-      pushPlayerNotice(
-        next,
-        target.id,
-        user.name,
-        "Riggat spel",
-        `${user.name} tog ${piece.name ?? slot} från dig med Riggat spel.`,
-      );
+      if (shouldSendDirectTargetNotices) {
+        pushPlayerNotice(
+          next,
+          target.id,
+          user.name,
+          "Riggat spel",
+          `${user.name} tog ${piece.name ?? slot} från dig med Riggat spel.`,
+        );
+      }
       inv.splice(idx, 1);
       user.inventory = inv;
       notifyItemPlayForTableAfterUse(next, "rigged_game", user.id, target.id, inCombatTableFan, stealSide);
@@ -2878,13 +2883,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       target.nextCombatModifier = (target.nextCombatModifier ?? 0) - 2;
       log(next, `${user.name} spelar Lengräddad på ${target.name}: nästa strid −2 i attack.`);
-      pushPlayerNotice(
-        next,
-        target.id,
-        user.name,
-        "Lengräddad",
-        `${user.name} spelade Lengräddad på dig. Din nästa strid får −2 attack.`,
-      );
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -2912,13 +2910,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.inventory ??= [];
         user.inventory.push(stolen);
         log(next, `${user.name} stjäl ${itemDisplayTitle(stolen.itemId)} från ${target.name}.`);
-        pushPlayerNotice(
-          next,
-          target.id,
-          user.name,
-          "En enkel stöld",
-          `${user.name} stal ${itemDisplayTitle(stolen.itemId)} från dig.`,
-        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "En enkel stöld",
+            `${user.name} stal ${itemDisplayTitle(stolen.itemId)} från dig.`,
+          );
+        }
       } else {
         const slot = randomEquippedSlot(target, rng);
         if (!slot) return { state, events: [], error: "Målet har inget att stjäla" };
@@ -2943,13 +2943,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           user.equipment.accessory = { ...(piece as any) };
         }
         log(next, `${user.name} stjäl ${piece.name ?? slot} (${slot}) från ${target.name}.`);
-        pushPlayerNotice(
-          next,
-          target.id,
-          user.name,
-          "En enkel stöld",
-          `${user.name} stal ${piece.name ?? slot} från dig.`,
-        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "En enkel stöld",
+            `${user.name} stal ${piece.name ?? slot} från dig.`,
+          );
+        }
       }
       inv.splice(idx, 1);
       user.inventory = inv;
@@ -2973,13 +2975,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const ruined = target.inventory.splice(ti, 1)[0]!;
         spillSide = { sideInventoryItemId: ruined.itemId };
         log(next, `${user.name} spiller med flit och förstör ${itemDisplayTitle(ruined.itemId)} hos ${target.name}.`);
-        pushPlayerNotice(
-          next,
-          target.id,
-          user.name,
-          "Spilla med flit",
-          `${user.name} förstörde ${itemDisplayTitle(ruined.itemId)} hos dig.`,
-        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "Spilla med flit",
+            `${user.name} förstörde ${itemDisplayTitle(ruined.itemId)} hos dig.`,
+          );
+        }
       } else {
         const slot = randomEquippedSlot(target, rng);
         if (!slot) return { state, events: [], error: "Målet har inget att förstöra" };
@@ -2991,13 +2995,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           if (target.hp > target.maxHp) target.hp = target.maxHp;
         }
         log(next, `${user.name} spiller med flit och förstör ${piece.name ?? slot} hos ${target.name}.`);
-        pushPlayerNotice(
-          next,
-          target.id,
-          user.name,
-          "Spilla med flit",
-          `${user.name} förstörde ${piece.name ?? slot} hos dig.`,
-        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "Spilla med flit",
+            `${user.name} förstörde ${piece.name ?? slot} hos dig.`,
+          );
+        }
       }
       inv.splice(idx, 1);
       user.inventory = inv;

@@ -19,7 +19,7 @@ export function JoinGame() {
         minHeight: "100vh",
         boxSizing: "border-box",
         color: "#f8fafc",
-        background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
+        background: "transparent",
       }}
     >
       <Link to="/" style={{ color: "#93c5fd", fontSize: 15, textDecoration: "none" }}>
