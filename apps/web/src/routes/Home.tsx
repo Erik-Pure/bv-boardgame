@@ -46,7 +46,7 @@ export function Home() {
     <>
     <div
       style={{
-        maxWidth: 520,
+        maxWidth: 680,
         margin: "0 auto",
         padding: "40px 20px 56px",
         minHeight: "100vh",
@@ -55,17 +55,23 @@ export function Home() {
         background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)",
       }}
     >
-      <h1 style={{ margin: "0 0 10px", fontSize: "clamp(1.65rem, 5vw, 2rem)", fontWeight: 800, letterSpacing: "0.02em" }}>
-        {sv.home.title}
-      </h1>
-      <p style={{ margin: "0 0 32px", opacity: 0.88, lineHeight: 1.5, fontSize: 16 }}>{sv.home.subtitle}</p>
+      <img
+        src="/icons/bmm-logo.png"
+        alt="Bryggmästarnas Mästare"
+        style={{
+          display: "block",
+          width: "min(100%, 560px)",
+          height: "auto",
+          margin: "0 auto 28px",
+        }}
+      />
 
       <ArcadeButton variant="pink" fullWidth onClick={() => nav("/join")}>
         {sv.home.primaryJoin}
       </ArcadeButton>
 
       <div style={{ marginTop: 14 }}>
-        <ArcadeButton variant="blue" fullWidth onClick={() => nav(`/table?room=${suggestedRoom}&name=Bord`)}>
+        <ArcadeButton variant="gray" fullWidth onClick={() => nav(`/table?room=${suggestedRoom}&name=Bord`)}>
           {sv.home.createLobby}
         </ArcadeButton>
       </div>

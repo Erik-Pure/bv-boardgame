@@ -1,4 +1,4 @@
-# Bryggmästarens väg (MVP)
+# Bryggmästarnas Mästare (MVP)
 
 Webbaserat brädspel (bordvy + mobilkontroller) enligt `docs/DESIGN_SPEC.md` och `docs/TECH_SPEC.md`.
 

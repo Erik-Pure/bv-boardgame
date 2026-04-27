@@ -21,7 +21,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Ölnamn på kort:** där det är lämpligt (och i linje med varumärkesavtal) ska **händelsekort, items och smaktexter** gärna **anknyta till riktiga eller typiska Bryggverket-sorter och ölnamn** för stämning och igenkänning. Exakt lista växer med innehållsarbete; undvik att låsa in felaktiga produktpåståenden.
 
-**Arbetstitel (tills vidare):** *Bryggmästarens väg*.
+**Arbetstitel (tills vidare):** *Bryggmästarnas Mästare*.
 
 ---
 
@@ -448,7 +448,7 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 |---------|--------|----------|
 | 0.1 | — | Initial spec (konversation) |
 | 0.2 | 2025-03-24 | Vinstlägen, tur/tid, 6 spelare, tärningsrörelse, respawn med en pryl kvar, dörrar med level-krav |
-| 0.3 | 2025-03-24 | Bryggverket (Umeå), arbetstitel *Bryggmästarens väg*, SVG-first utan PixiJS i v1, foto-boost (då §13) |
+| 0.3 | 2025-03-24 | Bryggverket (Umeå), arbetstitel *Bryggmästarnas Mästare*, SVG-first utan PixiJS i v1, foto-boost (då §13) |
 | 0.4 | 2025-03-24 | §2.1 kamera pan/zoom + fokus; §7.4 rutyper; §9 PvE/PvP + byte; §10 ekonomi/affärer; omnumrering §11–§18 |
 | 0.5 | 2026-03-25 | Svenska + **pant** som målvaluta; Bryggverkets ölnamn på kort; §2.1 tur-rad, målram, viewport-kamera; §9.1 monsterval (Sip Snatcher, Brewizard/Sourceress); §16.1 kortstat-rader; §7.4/§9/§10 pant-terminologi; MVP/senare uppdaterad |
 | 0.6 | 2026-03-31 | PvP omslag vid lika med rondvisning; fler monster med klunk-straff; nya team battle-monster (medkämpe krävs); nivåstyrd team-battle-frekvens; item-drop från svårare monster samt varsitt item till båda vid team-seger |

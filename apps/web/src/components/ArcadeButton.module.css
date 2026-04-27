@@ -18,68 +18,45 @@
   justify-content: center;
   gap: 10px;
 
-  font-family: var(--heading);
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 
-  border-radius: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -10px 18px rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.2));
+  background: var(--btn-bg, linear-gradient(180deg, #2d3555, #202741));
+  box-shadow: var(--btn-shadow, 0 8px 22px rgba(0, 0, 0, 0.32));
 
   transition:
     transform 120ms ease,
-    filter 120ms ease,
+    opacity 120ms ease,
     box-shadow 120ms ease,
-    border-color 120ms ease;
+    border-color 120ms ease,
+    background 120ms ease;
 
-  position: relative;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
-.inner::before {
-  content: "";
-  position: absolute;
-  inset: 2px 6px auto 6px;
-  height: 45%;
-  border-radius: 16px;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.55),
-    rgba(255, 255, 255, 0.08) 55%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  pointer-events: none;
+.label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
 }
 
-.inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    70% 70% at 50% 20%,
-    rgba(255, 255, 255, 0.18),
-    rgba(255, 255, 255, 0) 60%
-  );
-  pointer-events: none;
+.fullWidth .label {
+  width: 100%;
 }
 
 .btn:active .inner {
-  transform: translateY(2px) scale(0.99);
-  box-shadow:
-    0 6px 14px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -12px 18px rgba(0, 0, 0, 0.22);
+  transform: translateY(1px) scale(0.995);
+  box-shadow: var(--btn-shadow-pressed, 0 5px 12px rgba(0, 0, 0, 0.28));
 }
 
 .btn:focus-visible .inner {
-  outline: 3px solid rgba(255, 255, 255, 0.55);
+  outline: 2px solid var(--btn-focus, rgba(147, 197, 253, 0.85));
   outline-offset: 3px;
 }
 
@@ -88,8 +65,7 @@
 }
 
 .btn:disabled .inner {
-  filter: grayscale(0.55) brightness(0.85);
-  opacity: 0.75;
+  opacity: 0.6;
 }
 
 .btn:disabled:active .inner {
@@ -113,43 +89,130 @@
 .size_md .inner {
   padding: 12px 16px;
   min-height: 48px;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .size_sm .inner {
   padding: 8px 12px;
   min-height: 36px;
-  font-size: 14px;
-  border-radius: 14px;
+  font-size: 15px;
 }
 
 .variant_blue .inner {
-  background: linear-gradient(180deg, #46e2ff 0%, #168bff 55%, #0b49ff 100%);
+  --btn-border: rgba(148, 163, 184, 0.34);
+  --btn-focus: rgba(203, 213, 225, 0.9);
+  --btn-bg:
+    radial-gradient(110% 130% at 22% 8%, rgba(148, 163, 184, 0.2), transparent 56%),
+    radial-gradient(130% 120% at 78% 28%, rgba(100, 116, 139, 0.18), transparent 60%),
+    linear-gradient(180deg, #252a33 0%, #1b2028 52%, #11151c 100%);
+  --btn-shadow:
+    0 10px 24px rgba(10, 13, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --btn-shadow-pressed:
+    0 6px 14px rgba(10, 13, 18, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .variant_pink .inner {
-  background: linear-gradient(180deg, #ff67dd 0%, #b842ff 55%, #7b2bff 100%);
+  --btn-border: rgba(148, 163, 184, 0.36);
+  --btn-focus: rgba(203, 213, 225, 0.9);
+  --btn-bg:
+    radial-gradient(100% 130% at 24% 10%, rgba(148, 163, 184, 0.22), transparent 54%),
+    radial-gradient(120% 115% at 78% 26%, rgba(100, 116, 139, 0.18), transparent 58%),
+    linear-gradient(180deg, #2a3039 0%, #1d232c 52%, #121821 100%);
+  --btn-shadow:
+    0 10px 24px rgba(10, 13, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --btn-shadow-pressed:
+    0 6px 14px rgba(10, 13, 18, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.variant_blue .label,
+.variant_pink .label {
+  background-image: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #ffffff 42%,
+    #d1d5db 48%,
+    #e5e7eb 50%,
+    #d1d5db 52%,
+    #ffffff 58%,
+    #ffffff 100%
+  );
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: primaryTextGradientShift 10s ease-in-out infinite;
+  text-shadow: 0 1px 2px #0f172a47;
+}
+
+@keyframes primaryTextGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  32% {
+    background-position: 0% 50%;
+  }
+  78% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variant_blue .label,
+  .variant_pink .label {
+    animation: none;
+    background-position: 50% 50%;
+  }
 }
 
 .variant_gray .inner {
-  background: linear-gradient(180deg, #9aa6b2 0%, #6b7280 55%, #4b5563 100%);
-}
-
-/* Panta burkar — platta svarta rutor, tunn mörkgrå kant (ingen glans) */
-.variant_merchant .inner {
-  border-radius: 10px;
-  border: 1px solid rgba(72, 75, 85, 0.98);
-  background: rgba(10, 10, 13, 0.4);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42);
+  color: #374151;
   text-shadow: none;
+  --btn-border: rgba(203, 213, 225, 0.95);
+  --btn-focus: rgba(148, 163, 184, 0.95);
+  --btn-bg:
+    radial-gradient(90% 120% at 28% 18%, rgba(186, 230, 253, 0.42), transparent 58%),
+    radial-gradient(95% 120% at 72% 36%, rgba(196, 181, 253, 0.32), transparent 62%),
+    linear-gradient(180deg, #f8fafc 0%, #eff4fa 58%, #e6edf5 100%);
+  --btn-shadow:
+    0 8px 20px rgba(100, 116, 139, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --btn-shadow-pressed:
+    0 5px 12px rgba(100, 116, 139, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
-.variant_merchant .inner::before,
-.variant_merchant .inner::after {
-  display: none;
+.variant_merchant .inner {
+  --btn-border: rgba(255, 225, 170, 0.42);
+  --btn-focus: rgba(251, 191, 36, 0.9);
+  border-radius: 22px;
+  justify-content: flex-start;
+  --btn-bg:
+    radial-gradient(100% 120% at 26% 16%, rgba(251, 191, 36, 0.38), transparent 56%),
+    radial-gradient(110% 120% at 74% 28%, rgba(249, 115, 22, 0.22), transparent 60%),
+    linear-gradient(180deg, #3b3226 0%, #2f281f 55%, #262018 100%);
+  --btn-shadow:
+    0 10px 22px rgba(26, 18, 9, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --btn-shadow-pressed:
+    0 6px 14px rgba(26, 18, 9, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.variant_merchant .label {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .variant_merchant.btn:active .inner {
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px rgba(9, 14, 24, 0.16);
 }
 

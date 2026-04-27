@@ -30,7 +30,9 @@ export function ArcadeButton(
 
   return (
     <button className={cls} {...rest}>
-      <span className={styles.inner}>{children}</span>
+      <span className={styles.inner}>
+        <span className={styles.label}>{children}</span>
+      </span>
     </button>
   );
 }

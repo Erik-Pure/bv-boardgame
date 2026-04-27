@@ -60,7 +60,7 @@ export function capitalizeWord(s: string): string {
 /** Samlad svensk copy tills riktig i18n finns */
 export const sv = {
   home: {
-    title: "Bryggmästarens väg",
+    title: "Bryggmästarnas Mästare",
     subtitle: "Storskärmsbräde och mobila spelkontroller — samma lobbykod.",
     primaryJoin: "Gå med i ett spel",
     createLobby: "Skapa lobby",
@@ -226,7 +226,7 @@ export const sv = {
     levelUpMonsterScaleOnDestination: (boardLevelIndex: number): string => {
       const bonus = boardLevelIndex;
       if (bonus <= 0) return "";
-      return `På våning ${boardLevelIndex + 1} (planet du går in på) har monster +${bonus} på styrkekrav i strid — bara där, inte på andra våningar. Pant, klunkar och skada ändras inte av detta.`;
+      return `På nästa våning blir dåliga batchar starkare och gör mer i skada.`;
     },
     levelUpNow: "Stig till nästa nivå nu",
     levelUpStayForTile: "Stanna kvar (ta nivå-rutan senare)",

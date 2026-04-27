@@ -38,7 +38,7 @@ export function GameRules() {
         ← Till startsidan
       </Link>
       <h1 style={{ margin: "18px 0 10px", fontSize: "clamp(1.45rem, 4.5vw, 1.9rem)", fontWeight: 800, color: "#fff" }}>
-        🍺 Bryggmästarens väg: Snabbguide
+        🍺 Bryggmästarnas Mästare: Snabbguide
       </h1>
       <p style={{ margin: "0 0 20px", opacity: 0.9, fontSize: 16 }}>
         Målet är att bli den sista stående bryggaren eller den som först besegrar spelets Slutboss. Spelet styrs via mobilen

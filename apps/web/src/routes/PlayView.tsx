@@ -8,7 +8,6 @@ import {
   isBeerCanShieldName,
   brewerKlunkProgressRatio,
   brewerLevel,
-  canAscendByKlunkRequirement,
   combatReactionsAllAnswered,
   FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
@@ -1543,16 +1542,6 @@ export function PlayView() {
               disabled={me.gold < pending.costs.gold}
             >
               {sv.play.payPant(pending.costs.gold)}
-            </ArcadeButton>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() => send({ type: "useDoor", playerId: me.id, method: "sips" })}
-              disabled={!canAscendByKlunkRequirement(me, pending.targetLevelIndex)}
-            >
-              {me.klunkar >= pending.costs.sips
-                ? sv.play.haveKlunkar(pending.costs.sips)
-                : sv.play.doorAscendSipsOrBrewer(pending.costs.sips)}
             </ArcadeButton>
             <ArcadeButton
               variant="gray"

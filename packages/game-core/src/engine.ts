@@ -1475,7 +1475,7 @@ export function startGame(
   next.lastDiceRollerId = null;
   next.sipNotices = [];
   clearTableItemPlay(next);
-  log(next, `— Bryggmästarens väg börjar! (seed ${seed}) —`);
+  log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
   if (bossMonster) {
     log(
       next,

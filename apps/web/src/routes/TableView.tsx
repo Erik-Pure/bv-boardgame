@@ -1853,6 +1853,7 @@ function TableViewBody() {
                 padding: "0",
                 justifyContent: "center",
                 overflowX: "auto",
+                overflowY: "hidden",
               }}
             >
               {state!.players.map((p) => {
