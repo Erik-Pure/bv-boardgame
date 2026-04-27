@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import styles from "./CardFlipModalShell.module.css";
 
-const CARD_BACK_SRC = "/icons/card-bg.svg";
+const CARD_BACK_SRC = "/cardbg/card1.webp";
 
 /** Designyta 400×560 px (5∶7); höjd styrs av `aspect-ratio` i CSS. */
 const CARD_REF_W = 400;
@@ -31,7 +31,7 @@ export function CardFlipScene(props: {
   faceInnerClassName?: string;
   sceneClassName?: string;
   sceneStyle?: CSSProperties;
-  /** Innehåll på kortbaksidan (annars `card-bg.svg`). */
+  /** Innehåll på kortbaksidan (annars `cardbg/card1.png`). */
   backFace?: ReactNode;
   /** Efter att spelfronten syns (180°): rotera till baksida med `backFace` / resultat. */
   flipToResultBack?: boolean;

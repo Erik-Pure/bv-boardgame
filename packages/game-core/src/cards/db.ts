@@ -22,10 +22,18 @@ export function itemDisplayTitle(itemId: string): string {
   }
 }
 
-export function drawFromDeck(kind: CardKind, rng: () => number): CardDef {
+export function drawFromDeck(
+  kind: CardKind,
+  rng: () => number,
+  disabledCardIds?: ReadonlySet<string>,
+): CardDef {
   const deck = db.decks?.[kind];
   if (!deck || deck.length === 0) throw new Error(`No deck for kind: ${kind}`);
-  const id = deck[Math.floor(rng() * deck.length)]!;
+  const filtered = disabledCardIds?.size
+    ? deck.filter((id) => !disabledCardIds.has(id))
+    : deck;
+  const source = filtered.length > 0 ? filtered : deck;
+  const id = source[Math.floor(rng() * source.length)]!;
   return getCard(id);
 }
 
@@ -33,10 +41,14 @@ export function drawFromDeck(kind: CardKind, rng: () => number): CardDef {
  * Item-kortens `decks.item` i cards.json — samma pool som `grantRandomCombatRewardItem` ska använda
  * (tidigare fanns en hårdkodad lista som utelämnade t.ex. canman).
  */
-export function itemDeckItemIds(): ItemId[] {
+export function itemDeckItemIds(disabledCardIds?: ReadonlySet<string>): ItemId[] {
   const deck = db.decks?.item;
   if (!deck?.length) throw new Error("cards.json: decks.item is missing or empty");
-  return deck.map((cardId) => {
+  const filtered = disabledCardIds?.size
+    ? deck.filter((id) => !disabledCardIds.has(id))
+    : deck;
+  const source = filtered.length > 0 ? filtered : deck;
+  return source.map((cardId) => {
     if (!cardId.startsWith("item_")) {
       throw new Error(`cards.json decks.item: expected id to start with "item_": ${cardId}`);
     }

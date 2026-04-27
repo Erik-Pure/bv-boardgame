@@ -3,7 +3,7 @@ import { createRng, fnv1a32, pick, rollDie, stableStringify } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./cards/grantedItemText.js";
 import type { EffectApplyOut } from "./cards/types.js";
-import { drawFromDeck, getCard, itemDeckItemIds, itemDisplayTitle } from "./cards/db.js";
+import { allCards, drawFromDeck, getCard, itemDeckItemIds, itemDisplayTitle } from "./cards/db.js";
 import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
@@ -47,8 +47,6 @@ import type {
 } from "./types.js";
 
 const MAX_PLAYERS = 8;
-/** Pant varje spelare har när spelet startar (efter lobby). */
-const INITIAL_PLAYER_PANT = 5;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
 const COMBAT_REACTION_TIMEOUT_MS = 10_000;
@@ -77,12 +75,55 @@ const PLAYER_COLORS = [
   "#9333ea",
   "#db2777",
 ];
+const DRAWABLE_CARD_ID_SET = new Set(
+  allCards()
+    .filter((card) => card.kind === "item" || card.kind === "event" || card.kind === "rest" || card.kind === "treasure" || card.kind === "empty")
+    .map((card) => card.id),
+);
+const DEFAULT_CONFIG: GameState["config"] = {
+  turnSeconds: 60,
+  gameMode: "bossKill",
+  difficulty: "folkol",
+  hardcore: false,
+  boardSize: "default",
+  levelCount: 3,
+  maxHp: 10,
+  startPant: 5,
+  wakeLockBeforeStart: false,
+  disabledCardIds: [],
+  cardCover: "default",
+};
+
+function normalizeConfig(state: GameState): void {
+  state.config = {
+    ...DEFAULT_CONFIG,
+    ...state.config,
+  };
+  state.config.turnSeconds = Math.min(120, Math.max(30, Number(state.config.turnSeconds || 60)));
+  state.config.levelCount = Math.max(1, Math.min(5, Math.floor(Number(state.config.levelCount || 3))));
+  state.config.maxHp = Math.max(6, Math.min(30, Math.floor(Number(state.config.maxHp || 10))));
+  state.config.startPant = Math.max(0, Math.min(50, Math.floor(Number(state.config.startPant || 5))));
+  if (!["lattol", "folkol", "starkol", "imperial"].includes(state.config.difficulty)) {
+    state.config.difficulty = "folkol";
+  }
+  if (!["default", "large", "xlarge"].includes(state.config.boardSize)) {
+    state.config.boardSize = "default";
+  }
+  if (!["default", "alt1", "alt2"].includes(state.config.cardCover)) {
+    state.config.cardCover = "default";
+  }
+  state.config.hardcore = !!state.config.hardcore;
+  state.config.wakeLockBeforeStart = !!state.config.wakeLockBeforeStart;
+  state.config.disabledCardIds = Array.from(
+    new Set((state.config.disabledCardIds ?? []).filter((id) => typeof id === "string" && DRAWABLE_CARD_ID_SET.has(id))),
+  );
+}
 
 export function createEmptyLobby(roomCode: string): GameState {
   return {
     phase: "lobby",
     seed: 0,
-    config: { turnSeconds: 60, gameMode: "bossKill" },
+    config: { ...DEFAULT_CONFIG },
     roomCode,
     players: [],
     turnOrder: [],
@@ -607,8 +648,6 @@ function randomEquippedSlot(p: Player, rng: () => number): "weapon" | "armor" | 
 }
 
 
-const COMBAT_REWARD_ITEMS: ItemId[] = itemDeckItemIds();
-
 const COMBAT_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
 
 function newItemInstanceId(rng: () => number): string {
@@ -657,7 +696,8 @@ function grantRandomCombatRewardItem(
   rng: () => number,
   sourceName: string,
 ): ItemId {
-  const itemId = pick(rng, COMBAT_REWARD_ITEMS);
+  const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
+  const itemId = pick(rng, itemDeckItemIds(disabledCardIds));
   player.inventory ??= [];
   player.inventory.push(createItemInstance(itemId, newItemInstanceId(rng)));
   log(state, `${player.name} hittar ett föremål efter segern mot ${sourceName}.`);
@@ -1419,6 +1459,7 @@ export function startGame(
   seed: number,
 ): ApplyResult {
   const next = cloneState(state);
+  normalizeConfig(next);
   if (next.phase !== "lobby") {
     return { state, events: [], error: "Spelet har redan startat" };
   }
@@ -1435,7 +1476,10 @@ export function startGame(
     return { state, events: [], error: "Alla spelare måste vara redo" };
   }
   next.seed = seed;
-  next.levels = generateLevels(seed, next.players.length);
+  next.levels = generateLevels(seed, next.players.length, {
+    levelCount: next.config.levelCount,
+    boardSize: next.config.boardSize,
+  });
   const bossRng = createRng(seed ^ 0x9e3779b9);
   const pickedBoss = FINAL_BOSS_IDS[Math.floor(bossRng() * FINAL_BOSS_IDS.length)]!;
   next.finalBossMonsterId = pickedBoss;
@@ -1457,9 +1501,10 @@ export function startGame(
   for (const p of next.players) {
     p.levelIndex = 0;
     p.tileIndex = 0;
-    p.gold = INITIAL_PLAYER_PANT;
-    p.hp = maxHpFor(p);
-    p.maxHp = maxHpFor(p);
+    p.gold = next.config.startPant;
+    const baseMaxHp = next.config.maxHp;
+    p.maxHp = baseMaxHp;
+    p.hp = baseMaxHp;
     p.nextMoveBonus = 0;
     p.nextCombatModifier = 0;
     p.eliminated = false;
@@ -1671,7 +1716,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       });
       break;
     case "rest": {
-      const card = drawFromDeck("rest", rng);
+      const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
+      const card = drawFromDeck("rest", rng, disabledCardIds);
       const beforeHp = p.hp;
       const beforeGold = p.gold;
       const beforeKlunk = p.klunkar;
@@ -1708,7 +1754,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
         });
         break;
       }
-      const card = drawFromDeck("treasure", rng);
+      const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
+      const card = drawFromDeck("treasure", rng, disabledCardIds);
       const effectOut: EffectApplyOut = {};
       const out = applyEffects({
         state,
@@ -1737,7 +1784,8 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       break;
     }
     case "event": {
-      const card = drawFromDeck("event", rng);
+      const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
+      const card = drawFromDeck("event", rng, disabledCardIds);
       resolveEventCardOnLand({ state, player: p, card, rng, log, showCard });
       break;
     }
@@ -1861,6 +1909,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const actionMix = fnv1a32(stableStringify(action));
   const rng = createRng((base ^ actionMix) >>> 0);
   const next = cloneState(state);
+  normalizeConfig(next);
   const events: string[] = [];
 
   if (next.phase === "lobby") {
@@ -1874,7 +1923,47 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.type === "setConfig") {
       const p = next.players.find((x) => x.id === action.playerId);
       if (!p?.isHost) return { state, events: [], error: "Endast värd" };
-      next.config.turnSeconds = Math.min(120, Math.max(30, action.turnSeconds));
+      if (typeof action.turnSeconds === "number") {
+        next.config.turnSeconds = Math.min(120, Math.max(30, action.turnSeconds));
+      }
+      if (
+        action.difficulty === "lattol" ||
+        action.difficulty === "folkol" ||
+        action.difficulty === "starkol" ||
+        action.difficulty === "imperial"
+      ) {
+        next.config.difficulty = action.difficulty;
+      }
+      if (typeof action.hardcore === "boolean") {
+        next.config.hardcore = action.hardcore;
+      }
+      if (action.boardSize === "default" || action.boardSize === "large" || action.boardSize === "xlarge") {
+        next.config.boardSize = action.boardSize;
+      }
+      if (typeof action.levelCount === "number" && Number.isFinite(action.levelCount)) {
+        next.config.levelCount = Math.max(1, Math.min(5, Math.floor(action.levelCount)));
+      }
+      if (typeof action.maxHp === "number" && Number.isFinite(action.maxHp)) {
+        next.config.maxHp = Math.max(6, Math.min(30, Math.floor(action.maxHp)));
+      }
+      if (typeof action.startPant === "number" && Number.isFinite(action.startPant)) {
+        next.config.startPant = Math.max(0, Math.min(50, Math.floor(action.startPant)));
+      }
+      if (typeof action.wakeLockBeforeStart === "boolean") {
+        next.config.wakeLockBeforeStart = action.wakeLockBeforeStart;
+      }
+      if (Array.isArray(action.disabledCardIds)) {
+        next.config.disabledCardIds = Array.from(
+          new Set(
+            action.disabledCardIds.filter(
+              (id) => typeof id === "string" && id.trim().length > 0 && DRAWABLE_CARD_ID_SET.has(id),
+            ),
+          ),
+        );
+      }
+      if (action.cardCover === "default" || action.cardCover === "alt1" || action.cardCover === "alt2") {
+        next.config.cardCover = action.cardCover;
+      }
       return { state: next, events: ["lobbyUpdate"] };
     }
     return { state, events: [], error: "Ogiltig lobby-åtgärd" };
@@ -1904,11 +1993,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       queueFirstBrewerDownIfNeeded(next);
       return { state: next, events: ["state"] };
     }
-    if (action.choice === "retry") {
+    if (action.choice === "retry" && !next.config.hardcore) {
       victim.eliminated = false;
       victim.levelIndex = 0;
       victim.tileIndex = 0;
-      victim.gold = 0;
+      victim.gold = next.config.startPant;
       victim.klunkar = 0;
       victim.equipment = {};
       victim.inventory = [];
@@ -1917,9 +2006,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.nextCombatAttackDiceDouble = undefined;
       victim.skippedTurns = 0;
       victim.skipTurnReasons = undefined;
-      victim.maxHp = 10;
+      victim.maxHp = next.config.maxHp;
       victim.hp = victim.maxHp;
-      log(next, `${victim.name} startar om på nytt: tillbaka till start, utan utrustning/föremål, 0 pant och 0 klunkar.`);
+      log(
+        next,
+        `${victim.name} startar om på nytt: tillbaka till start, utan utrustning/föremål, ${victim.gold} pant och 0 klunkar.`,
+      );
       next.pending = null;
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, victim.id);

@@ -131,7 +131,8 @@ export function applyEffects(params: {
         };
       }
       if (!out.grantedItemId && !out.grantedEquipmentName && !out.equipmentReplaceOffer) {
-        const pool = itemDeckItemIds();
+        const disabledCardIds = new Set(params.state.config.disabledCardIds ?? []);
+        const pool = itemDeckItemIds(disabledCardIds);
         const itemId = pick(params.rng, pool);
         params.player.inventory ??= [];
         params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));

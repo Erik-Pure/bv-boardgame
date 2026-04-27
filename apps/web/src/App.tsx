@@ -6,6 +6,7 @@ import { Home } from "./routes/Home";
 import { JoinGame } from "./routes/JoinGame";
 import { TableView } from "./routes/TableView";
 import { PlayView } from "./routes/PlayView";
+import { HostLobbySetup } from "./routes/HostLobbySetup";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Route path="/join" element={<JoinGame />} />
       <Route path="/rules" element={<GameRules />} />
       <Route path="/cards" element={<CardsCatalog />} />
+      <Route path="/host-lobby" element={<HostLobbySetup />} />
       <Route path="/table" element={<TableView />} />
       <Route path="/play" element={<PlayView />} />
       <Route path="*" element={<Navigate to="/" replace />} />

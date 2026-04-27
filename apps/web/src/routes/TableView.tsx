@@ -57,6 +57,7 @@ import {
 import { PLAYER_MARKER_TOKEN_H, PLAYER_MARKER_TOKEN_W, PLAYER_MARKER_VIEWBOX, playerMarkerStyleVars, playerMarkerSvgMarkupFor } from "../lib/playerMarkerSvg";
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
+import { consumeLobbyConfigDraft } from "../lib/lobbyConfigDraft";
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -581,7 +582,10 @@ function TableViewBody() {
     ],
   );
 
-  const tableConfig = useMemo(() => ({ gameMode: "bossKill" as const }), []);
+  const tableConfig = useMemo(
+    () => ({ gameMode: "bossKill" as const, ...(consumeLobbyConfigDraft(room) ?? {}) }),
+    [room],
+  );
 
   const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay, clientRef } =
     useWsGameClient({
@@ -625,8 +629,11 @@ function TableViewBody() {
     return () => window.removeEventListener("keydown", onKey);
   }, [tableSettingsOpen]);
 
+  const shouldHoldWakeLock =
+    boardPerf.preventSleepEnabled || (state?.phase === "lobby" && state.config.wakeLockBeforeStart === true);
+
   useEffect(() => {
-    if (!boardPerf.preventSleepEnabled) {
+    if (!shouldHoldWakeLock) {
       const sentinel = wakeLockRef.current;
       wakeLockRef.current = null;
       if (sentinel && !sentinel.released) {
@@ -663,7 +670,7 @@ function TableViewBody() {
     };
 
     const onVisibilityChange = () => {
-      if (!boardPerf.preventSleepEnabled) return;
+      if (!shouldHoldWakeLock) return;
       if (document.visibilityState === "visible" && !wakeLockRef.current) {
         void requestWakeLock();
       }
@@ -680,7 +687,7 @@ function TableViewBody() {
         void sentinel.release().catch(() => undefined);
       }
     };
-  }, [boardPerf.preventSleepEnabled]);
+  }, [shouldHoldWakeLock]);
 
   // Håll loggen i botten när nya rader kommer eller när loggen visas i sidopanelen.
   useEffect(() => {
@@ -1421,21 +1428,17 @@ function TableViewBody() {
 
           {state && (
             <>
-              {state.phase !== "lobby" ? (
-                <>
-                  <h3>{sv.table.lobbyList}</h3>
-                  <div className={u.stack8}>
-                    {state.players.map((p) => (
-                      <TableLobbyPlayerRow
-                        key={p.id}
-                        p={p}
-                        kickEnabled={tableKickEnabled}
-                        onKickPlayer={kickPlayerFromTable}
-                      />
-                    ))}
-                  </div>
-                </>
-              ) : null}
+              <h3>{sv.table.lobbyList}</h3>
+              <div className={u.stack8}>
+                {state.players.map((p) => (
+                  <TableLobbyPlayerRow
+                    key={p.id}
+                    p={p}
+                    kickEnabled={tableKickEnabled}
+                    onKickPlayer={kickPlayerFromTable}
+                  />
+                ))}
+              </div>
 
               <label className={tableStyles.sidebarPanelToggleRow}>
                 <input

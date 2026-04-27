@@ -63,7 +63,19 @@ export function joinRoom(params: {
   playerName: string;
   role: ClientRole;
   requestedPlayerId?: string;
-  config?: { turnSeconds?: number; gameMode?: "bossKill" };
+  config?: {
+    turnSeconds?: number;
+    gameMode?: "bossKill";
+    difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
+    hardcore?: boolean;
+    boardSize?: "default" | "large" | "xlarge";
+    levelCount?: number;
+    maxHp?: number;
+    startPant?: number;
+    wakeLockBeforeStart?: boolean;
+    disabledCardIds?: string[];
+    cardCover?: "default" | "alt1" | "alt2";
+  };
 }): { conn: ClientConn; room: Room } | { error: string } {
   const { room, created } = getOrCreateRoom(params.roomCode);
 
@@ -73,6 +85,33 @@ export function joinRoom(params: {
     }
     if (params.config.gameMode) {
       room.state.config.gameMode = params.config.gameMode;
+    }
+    if (params.config.difficulty) {
+      room.state.config.difficulty = params.config.difficulty;
+    }
+    if (typeof params.config.hardcore === "boolean") {
+      room.state.config.hardcore = params.config.hardcore;
+    }
+    if (params.config.boardSize) {
+      room.state.config.boardSize = params.config.boardSize;
+    }
+    if (typeof params.config.levelCount === "number") {
+      room.state.config.levelCount = Math.max(1, Math.min(5, Math.floor(params.config.levelCount)));
+    }
+    if (typeof params.config.maxHp === "number") {
+      room.state.config.maxHp = Math.max(6, Math.min(30, Math.floor(params.config.maxHp)));
+    }
+    if (typeof params.config.startPant === "number") {
+      room.state.config.startPant = Math.max(0, Math.min(50, Math.floor(params.config.startPant)));
+    }
+    if (typeof params.config.wakeLockBeforeStart === "boolean") {
+      room.state.config.wakeLockBeforeStart = params.config.wakeLockBeforeStart;
+    }
+    if (Array.isArray(params.config.disabledCardIds)) {
+      room.state.config.disabledCardIds = Array.from(new Set(params.config.disabledCardIds.filter(Boolean)));
+    }
+    if (params.config.cardCover) {
+      room.state.config.cardCover = params.config.cardCover;
     }
     room.state.log.push({
       at: Date.now(),

@@ -5,6 +5,7 @@ import type { LevelBoard, Tile, TileType } from "./types.js";
 export const BOARD_RING_GRID_SIZE = 5;
 const LARGE_LOBBY_RING_GRID_SIZE = 6;
 const LARGE_LOBBY_MIN_PLAYERS = 4;
+const XL_LOBBY_RING_GRID_SIZE = 7;
 
 export function ringTileCount(gridSize: number): number {
   return 4 * gridSize - 4;
@@ -86,14 +87,24 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
   };
 }
 
-export function generateLevels(seed: number, playerCount = 2): LevelBoard[] {
+export function generateLevels(
+  seed: number,
+  playerCount = 2,
+  opts?: { levelCount?: number; boardSize?: "default" | "large" | "xlarge" },
+): LevelBoard[] {
   const rng = createRng(seed);
   const levels: LevelBoard[] = [];
-  const gridSize = playerCount >= LARGE_LOBBY_MIN_PLAYERS ? LARGE_LOBBY_RING_GRID_SIZE : BOARD_RING_GRID_SIZE;
+  const defaultGridSize = playerCount >= LARGE_LOBBY_MIN_PLAYERS ? LARGE_LOBBY_RING_GRID_SIZE : BOARD_RING_GRID_SIZE;
+  const gridSize =
+    opts?.boardSize === "xlarge"
+      ? Math.max(defaultGridSize, XL_LOBBY_RING_GRID_SIZE)
+      : opts?.boardSize === "large"
+        ? Math.max(defaultGridSize, LARGE_LOBBY_RING_GRID_SIZE + 1)
+        : defaultGridSize;
   const n = ringTileCount(gridSize);
 
-  /** Nivå 0 = källare; 1–2 övriga våningar (totalt 3 nivåer). */
-  const NUM_LEVELS = 3;
+  /** Nivå 0 = källare; 1–2 övriga våningar (totalt 3 nivåer som default). */
+  const NUM_LEVELS = Math.max(1, Math.floor(opts?.levelCount ?? 3));
 
   for (let li = 0; li < NUM_LEVELS; li++) {
     const tiles: Tile[] = [];
@@ -105,6 +116,18 @@ export function generateLevels(seed: number, playerCount = 2): LevelBoard[] {
       for (let i = 0; i < c; i++) types.push(t);
     }
     while (types.length < n) types.push(rng() < 0.6 ? "event" : "combat");
+    const isFinalLevel = li === NUM_LEVELS - 1;
+    if (!isFinalLevel) {
+      for (let i = 0; i < types.length; i++) {
+        if (types[i] === "boss") {
+          types[i] = "combat";
+        }
+      }
+    } else if (!types.includes("boss")) {
+      // Guarantee exactly one boss tile on the final level.
+      const replaceIdx = Math.floor(rng() * types.length);
+      types[replaceIdx] = "boss";
+    }
     for (let i = types.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [types[i], types[j]] = [types[j]!, types[i]!];

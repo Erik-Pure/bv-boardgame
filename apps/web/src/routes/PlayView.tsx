@@ -638,7 +638,6 @@ export function PlayView() {
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
-
   const leaveCurrentGame = () => {
     clientRef.current?.send({ type: "action", action: { type: "leaveGame" } });
     window.setTimeout(() => {
@@ -2627,13 +2626,15 @@ export function PlayView() {
                 <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
                 <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{sv.play.brewerDownLead}</p>
                 <div className={u.stack10Mt4}>
-                  <ArcadeButton
-                    variant="pink"
-                    fullWidth
-                    onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "retry" })}
-                  >
-                    {sv.play.brewerDownRetry}
-                  </ArcadeButton>
+                  {!state.config.hardcore ? (
+                    <ArcadeButton
+                      variant="pink"
+                      fullWidth
+                      onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "retry" })}
+                    >
+                      {sv.play.brewerDownRetry}
+                    </ArcadeButton>
+                  ) : null}
                   <ArcadeButton
                     variant="gray"
                     fullWidth

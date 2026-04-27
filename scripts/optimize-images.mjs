@@ -5,7 +5,7 @@ import sharp from "sharp";
 const ROOT = path.resolve(process.cwd());
 const PUBLIC_DIR = path.join(ROOT, "apps/web/public");
 
-const TARGET_DIRS = ["monsters", "event", "items", "equipment"];
+const TARGET_DIRS = ["monsters", "event", "items", "equipment", "cardbg"];
 
 const FORMATS = [
   { format: "webp", ext: "webp", options: { quality: 78 } },

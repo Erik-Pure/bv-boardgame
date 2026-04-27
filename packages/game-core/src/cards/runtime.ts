@@ -46,6 +46,24 @@ function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef 
   return normal[Math.floor(rng() * normal.length)]!;
 }
 
+function startLevelDifficultyNeedMod(
+  difficulty: "lattol" | "folkol" | "starkol" | "imperial",
+  levelIndex: number,
+): number {
+  if (levelIndex !== 0) return 0;
+  switch (difficulty) {
+    case "lattol":
+      return -1;
+    case "starkol":
+      return 1;
+    case "imperial":
+      return 2;
+    case "folkol":
+    default:
+      return 0;
+  }
+}
+
 /** Slutboss-ruta: använder {@link GameState.finalBossMonsterId}; alltid individuell strid (ingen team battle). */
 export function createFinalBossCombatPending(
   state: GameState,
@@ -71,6 +89,7 @@ export function createMonsterCombatPending(
 ): Extract<Pending, { type: "combat" }> {
   const teamBattleRequired = !!monster.teamBattleRequired;
   const reactors = teamBattleRequired ? [] : combatReactorsFor(state, attacker.id);
+  const difficultyMod = startLevelDifficultyNeedMod(state.config.difficulty, attacker.levelIndex);
   return {
     type: "combat",
     attackerId: attacker.id,
@@ -78,7 +97,7 @@ export function createMonsterCombatPending(
     tileIndex: attacker.tileIndex,
     monsterId: monster.id,
     enemyName: monster.name,
-    need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex),
+    need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex) + difficultyMod,
     needMod: 0,
     baseDamage: monster.baseDamage + (isStandardMonsterId(monster.id) ? monsterNeedBonusForBoardLevel(attacker.levelIndex) : 0),
     lossSipsOnLose: monster.lossSipsOnLose,

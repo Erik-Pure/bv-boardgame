@@ -1,4 +1,5 @@
 import { createLogger } from "./logger";
+import type { GameConfig } from "@bv/game-core";
 
 const log = createLogger("ws");
 
@@ -72,7 +73,7 @@ export function createClient(params: {
   roomCode: string;
   playerName: string;
   as: "table" | "controller";
-  config?: { turnSeconds?: number; gameMode?: "bossKill" };
+  config?: Partial<GameConfig>;
   onMessage: (msg: ServerMessage) => void;
   onStatus: (s: WsStatus) => void;
   /** Standard 15s; kortare värde ger snabbare återförsök vid dåligt nät (t.ex. mobil). */

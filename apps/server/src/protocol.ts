@@ -10,6 +10,15 @@ export const clientHelloSchema = z.object({
     .object({
       turnSeconds: z.number().int().min(10).max(600).optional(),
       gameMode: z.enum(["bossKill"]).optional(),
+      difficulty: z.enum(["lattol", "folkol", "starkol", "imperial"]).optional(),
+      hardcore: z.boolean().optional(),
+      boardSize: z.enum(["default", "large", "xlarge"]).optional(),
+      levelCount: z.number().int().min(1).max(5).optional(),
+      maxHp: z.number().int().min(6).max(30).optional(),
+      startPant: z.number().int().min(0).max(50).optional(),
+      wakeLockBeforeStart: z.boolean().optional(),
+      disabledCardIds: z.array(z.string().min(1)).optional(),
+      cardCover: z.enum(["default", "alt1", "alt2"]).optional(),
     })
     .optional(),
 });

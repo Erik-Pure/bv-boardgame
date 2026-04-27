@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
@@ -23,17 +23,8 @@ function writeHomeAgeGateAck(): void {
   }
 }
 
-function randomCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const n = 6;
-  let s = "";
-  for (let i = 0; i < n; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return s;
-}
-
 export function Home() {
   const nav = useNavigate();
-  const suggestedRoom = useMemo(() => randomCode(), []);
   const [ageGateOpen, setAgeGateOpen] = useState(() => !readHomeAgeGateAck());
   const [ageGatePhase, setAgeGatePhase] = useState<"ask" | "declined">("ask");
 
@@ -70,7 +61,7 @@ export function Home() {
       </ArcadeButton>
 
       <div style={{ marginTop: 14 }}>
-        <ArcadeButton variant="gray" fullWidth onClick={() => nav(`/table?room=${suggestedRoom}&name=Bord`)}>
+        <ArcadeButton variant="gray" fullWidth onClick={() => nav("/host-lobby")}>
           {sv.home.createLobby}
         </ArcadeButton>
       </div>

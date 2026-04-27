@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.36 |
-| Senast uppdaterad | 2026-04-25 |
+| Version | 0.37 |
+| Senast uppdaterad | 2026-04-27 |
 
 ---
 
@@ -66,10 +66,12 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Sessionsflöde**
 
-1. Värd öppnar sidan → skapar **lobby** → får **genererad kod** (t.ex. 6 tecken).
-2. Övriga ansluter med kod → väljer namn och utseende (t.ex. huvud + färg på gemensam kropp).
-3. Värd startar när spelare är redo.
-4. **Spelregler och slump** ska vara **auktoritativa på servern** (förhindra fusk).
+1. Värd öppnar sidan → väljer **Skapa lobby** → går till en **dedikerad pre-game-inställningsvy** (ingen kod/QR i detta steg).
+2. Värd väljer lobbyinställningar (svårighet, hardcore, bräde, nivåer, kortbaksida, extra inställningar) och fortsätter till bordsvyn.
+3. Bordsvyn visar **genererad lobbykod + QR** för anslutning.
+4. Övriga ansluter med kod → väljer namn och utseende (t.ex. huvud + färg på gemensam kropp).
+5. Värd startar när spelare är redo.
+6. **Spelregler och slump** ska vara **auktoritativa på servern** (förhindra fusk).
 
 ---
 
@@ -91,10 +93,20 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 
 ## 4. Lobby och begränsningar
 
-- **Max antal spelare:** 6.
+- **Max antal spelare:** 8.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
 - **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`.
+
+### 4.2 Pre-game inställningsvy (värd)
+
+När värden väljer **Skapa lobby** visas först en separat sida för förkonfiguration, innan man går in i bordets lobby med kod/QR.
+
+- **Grundinställningar:** svårighetsgrad (`lattol`, `folkol`, `starkol`, `imperial`), **Hardcore mode**.
+- **Bräde:** `boardSize` (default/large/xlarge) och antal nivåer (2–5, default 3).
+- **Kortbaksida:** väljs via bildgalleri med preview.
+- **Fler inställningar:** max HP, startpant och tillåtna kort (`item`/`event`) via expanderbara paneler.
+- Valen sparas i lobby-config och används av servern när lobbyn skapas/startas.
 
 ### 4.1 Mobilvy i lobby (väntan på start)
 
@@ -144,10 +156,10 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 ### 7.2 Nivåer (våningsplan)
 
-- Spelet använder **tre** våningsplan i följd (**`levelIndex` 0–2**, visas som **Nivå 1–3** på brädet; första kan tematiskt vara “källare” m.m.), med **dörrar uppåt** enligt §7.3 och **boss** på sista våningen.
+- Spelet använder **konfigurerbart antal våningsplan** (nuvarande spann 2–5, default 3), med dörrar uppåt enligt §7.3 och **boss endast på sista våningen**.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
-- **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle); stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
+- **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
 ### 7.3 Dörrar mellan nivåer
@@ -253,7 +265,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ## 10. Ekonomi och affärer
 
 - Spelare har **pant** (heltal ≥ 0) som huvudvaluta — **inte** “guld” i spelarens upplevelse.
-- **Startpant:** när värden **startar partiet** (fas går från lobby till spel) har **varje spelare 5 pant** (implementation: `INITIAL_PLAYER_PANT` i `game-core` vid `startGame`). I lobby visas ingen “startpant” — värdet sätts vid spelstart. **Respawn** efter omstart följer fortfarande §12 (**0 pant**).
+- **Startpant:** sätts i lobbyinställningar (default 5) och appliceras när partiet startar. **Respawn/omstart** använder samma konfigurerade startpant om omstart är tillåten.
 - **Affärer** nås via **affärsrutor** (§7.4) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
 - Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
@@ -316,7 +328,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 - Spelaren kan **välja att starta om på nytt** efter att ha blivit besegrad/“död” (exakt trigger definieras i combat-regler).
 - **Omstart (nuvarande implementation):** spelaren återställs till ett nytt startläge: **start-ruta** (nivå 1, tile 0), **0 pant**, **0 klunkar**, tomt **inventory**, ingen **utrustning**, och strids-/statusflaggor nollställs.
-- **HP vid omstart:** sätts till grundvärde (nuvarande implementation: **10/10**).
+- **HP vid omstart:** sätts till lobbykonfigurerat max HP (default 10).
+- **Hardcore mode:** om aktivt tillåts ingen omstart; spelaren elimineras vid 0 HP.
 - **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1.
 - **Respawn-plats:** definiera i implementation (t.ex. starttile på aktuell nivå eller alltid nivå 1 — dokumentera här när fastställt).
 
@@ -482,4 +495,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.34 | 2026-04-22 | §2.1: **presentationsskala** på bord (viewport-baserad, max ca **1.48**, höjd-tak, dim oskalad, `transform-origin: top center`, överkant + safe-area-padding); **lobby/ended** stänger av pan på viewport så **Avsluta spelet** fungerar; §16.2 kortkatalog: **dolda** poster (`combat_monster`, `boss_round_win`, alla `treasure`) |
 | 0.35 | 2026-04-24 | §2/§2.1/§9/§10.1: monsterresultat på samma bordskort, stabil mobil interaktionspanel, BvB-tärningar utan blink, svenska skade-toastar i team battle, uppdaterade ingripanderegler för **Get Lucky**/**Manopositiv**, auto-pass när inga spelbara reaktionskort finns samt borttagen extra **Tillbaka** i målval |
 | 0.36 | 2026-04-25 | §2.1: BvB-tärning på bordet visas nu **per spelare** direkt när kast finns (ingen flicker under reveal-delay) samt team battle-overlays stabiliserade efter val av medkämpe (ingen svart board-vy) |
+| 0.37 | 2026-04-27 | Ny värdstyrd pre-game-inställningsvy före bordet; max spelare 8; konfigurerbara lobbyregler (svårighet, hardcore, brädstorlek, nivåer 2–5, max HP, startpant, kortbaksida, tillåtna item/event-kort); boss garanteras endast på sista våningen |
 

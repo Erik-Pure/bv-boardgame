@@ -462,10 +462,21 @@ export interface Player {
 }
 
 export type GameMode = "bossKill";
+export type DifficultyPreset = "lattol" | "folkol" | "starkol" | "imperial";
+export type BoardSizePreset = "default" | "large" | "xlarge";
 
 export interface GameConfig {
   turnSeconds: number;
   gameMode: GameMode;
+  difficulty: DifficultyPreset;
+  hardcore: boolean;
+  boardSize: BoardSizePreset;
+  levelCount: number;
+  maxHp: number;
+  startPant: number;
+  wakeLockBeforeStart: boolean;
+  disabledCardIds: string[];
+  cardCover: "default" | "alt1" | "alt2";
 }
 
 export type SipNoticeKind = "custom" | "duel_loss";
@@ -546,7 +557,20 @@ export interface GameState {
 export type ClientAction =
   | { type: "setReady"; playerId: string; ready: boolean }
   | { type: "startGame"; playerId: string }
-  | { type: "setConfig"; playerId: string; turnSeconds: number }
+  | {
+      type: "setConfig";
+      playerId: string;
+      turnSeconds?: number;
+      difficulty?: DifficultyPreset;
+      hardcore?: boolean;
+      boardSize?: BoardSizePreset;
+      levelCount?: number;
+      maxHp?: number;
+      startPant?: number;
+      wakeLockBeforeStart?: boolean;
+      disabledCardIds?: string[];
+      cardCover?: "default" | "alt1" | "alt2";
+    }
   | { type: "rollMove"; playerId: string }
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
   | { type: "chooseEncounter"; playerId: string; choice: "pvp" | "tile" }

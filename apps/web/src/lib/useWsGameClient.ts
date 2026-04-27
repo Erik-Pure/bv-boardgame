@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient, type ServerMessage, type WsStatus } from "./ws";
+import type { GameConfig } from "@bv/game-core";
 
 /** Första stegen korta — mobil / bakgrund kan pausa timers; pageshow/online kompletterar. */
 const RECONNECT_DELAYS_MS = [800, 1500, 2500, 4000, 6000, 8000, 8000, 8000];
@@ -10,7 +11,7 @@ type Args = {
   roomCode: string;
   playerName: string;
   as: "table" | "controller";
-  config?: { turnSeconds?: number; gameMode?: "bossKill" };
+  config?: Partial<GameConfig>;
   connectTimeoutMs?: number;
   onMessage: (m: ServerMessage) => void;
 };
