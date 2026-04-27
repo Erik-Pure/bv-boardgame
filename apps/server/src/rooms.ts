@@ -74,7 +74,7 @@ export function joinRoom(params: {
     startPant?: number;
     wakeLockBeforeStart?: boolean;
     disabledCardIds?: string[];
-    cardCover?: "default" | "alt1" | "alt2";
+    cardCover?: string;
   };
 }): { conn: ClientConn; room: Room } | { error: string } {
   const { room, created } = getOrCreateRoom(params.roomCode);

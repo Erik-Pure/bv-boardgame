@@ -66,7 +66,7 @@ export const MONSTERS: MonsterDef[] = [
     name: "Skum banan",
     strength: 3,
     baseDamage: 2,
-    rulesText: "Om klockan är efter 20:30: ta 3 skada i stället.",
+    rulesText: "Om klockan är efter 20:30: gör den 1 extra skada (jämfört med sin ordinarie attack).",
     rewardGold: 4,
     rewardItems: 1,
     artKey: "monster/skum-banan",

@@ -56,12 +56,14 @@ export function Home() {
           margin: "0 auto 28px",
         }}
       />
-      <ArcadeButton variant="pink" fullWidth onClick={() => nav("/join")}>
+      <ArcadeButton variant="pink" size="lg" fullWidth={false} onClick={() => nav("/join")}>
         {sv.home.primaryJoin}
       </ArcadeButton>
 
-      <div style={{ marginTop: 14 }}>
-        <ArcadeButton variant="gray" fullWidth onClick={() => nav("/host-lobby")}>
+      <div style={{ margin: "28px 0", borderTop: "1px solid rgba(148,163,184,0.25)", }}>
+        <h4>Starta ett nytt spel</h4>
+        <p style={{ marginBottom: 28 }}>Skapa upp en ny lobby och bjud in dina vänner att spela. Vi rekommenderar att du använder en storskärm för att spela som alla deltagare kan se.</p>
+        <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={() => nav("/host-lobby")}>
           {sv.home.createLobby}
         </ArcadeButton>
       </div>

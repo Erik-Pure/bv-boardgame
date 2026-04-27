@@ -57,7 +57,7 @@ import {
 import { PLAYER_MARKER_TOKEN_H, PLAYER_MARKER_TOKEN_W, PLAYER_MARKER_VIEWBOX, playerMarkerStyleVars, playerMarkerSvgMarkupFor } from "../lib/playerMarkerSvg";
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
-import { consumeLobbyConfigDraft } from "../lib/lobbyConfigDraft";
+import { readLobbyConfigDraft } from "../lib/lobbyConfigDraft";
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -582,9 +582,10 @@ function TableViewBody() {
     ],
   );
 
+  const draftConfigForRoom = useMemo(() => readLobbyConfigDraft(room), [room]);
   const tableConfig = useMemo(
-    () => ({ gameMode: "bossKill" as const, ...(consumeLobbyConfigDraft(room) ?? {}) }),
-    [room],
+    () => ({ gameMode: "bossKill" as const, ...(draftConfigForRoom ?? {}) }),
+    [draftConfigForRoom],
   );
 
   const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay, clientRef } =
@@ -1286,6 +1287,21 @@ function TableViewBody() {
           {state?.phase === "lobby" ? (
             <div role="dialog" aria-label={sv.table.lobby} className={tableStyles.modalBackdropLobby}>
               <div className={tableStyles.modalCardLobby}>
+                <picture>
+                  <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
+                  <source srcSet="/icons/bmm-logo-horisontal.webp" type="image/webp" />
+                  <img
+                    src="/icons/bmm-logo-horisontal.png"
+                    alt="Bryggmästarnas Mästare"
+                    draggable={false}
+                    style={{
+                      display: "block",
+                      width: "min(100%, 520px)",
+                      height: "auto",
+                      margin: "0 auto 10px",
+                    }}
+                  />
+                </picture>
                 <div className={tableStyles.lobbyCodeRow}>
                   <div className={tableStyles.lobbyCodeDisplay}>{room}</div>
                 </div>
@@ -1487,6 +1503,7 @@ function TableViewBody() {
           zIndex={48}
           maxWidth={520}
           instantFront
+          cardCoverId={state.config.cardCover}
           blockPointerUntilFlipped={false}
           contentScale={overlayContentScale}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
@@ -1562,6 +1579,7 @@ function TableViewBody() {
           zIndex={44}
           maxWidth={720}
           blockPointerUntilFlipped={false}
+          cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
           faceInnerClassName={
             isEventStoryCardPending(state.pending)

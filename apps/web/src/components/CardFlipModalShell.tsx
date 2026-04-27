@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import styles from "./CardFlipModalShell.module.css";
-
-const CARD_BACK_SRC = "/cardbg/card1.webp";
+import { cardCoverToBackUrls } from "../lib/cardBackArt";
 
 /** Designyta 400×560 px (5∶7); höjd styrs av `aspect-ratio` i CSS. */
 const CARD_REF_W = 400;
@@ -31,7 +30,9 @@ export function CardFlipScene(props: {
   faceInnerClassName?: string;
   sceneClassName?: string;
   sceneStyle?: CSSProperties;
-  /** Innehåll på kortbaksidan (annars `cardbg/card1.png`). */
+  /** Lobby `GameConfig.cardCover` (t.ex. `card1` …) — styr standard-baksida om `backFace` utelämnas. */
+  cardCoverId?: string | null;
+  /** Innehåll på kortbaksidan (annars kortbaksida från `cardCoverId`). */
   backFace?: ReactNode;
   /** Efter att spelfronten syns (180°): rotera till baksida med `backFace` / resultat. */
   flipToResultBack?: boolean;
@@ -95,6 +96,7 @@ export function CardFlipScene(props: {
     .filter(Boolean)
     .join(" ");
   const cardPointerEvents = blockPointer && !interactOk ? "none" : "auto";
+  const backUrls = cardCoverToBackUrls(props.cardCoverId);
 
   return (
     <div
@@ -122,7 +124,10 @@ export function CardFlipScene(props: {
               aria-hidden
             >
               {props.backFace ?? (
-                <img src={CARD_BACK_SRC} alt="" className={styles.backImg} draggable={false} />
+                <picture className={styles.backPicture}>
+                  <source srcSet={backUrls.webp} type="image/webp" />
+                  <img src={backUrls.png} alt="" className={styles.backImg} draggable={false} />
+                </picture>
               )}
             </div>
             <div className={styles.faceFront}>
@@ -151,6 +156,8 @@ export function CardFlipModalShell(props: {
   faceInnerClassName?: string;
   /** @see CardFlipScene `instantFront` */
   instantFront?: boolean;
+  /** @see CardFlipScene `cardCoverId` */
+  cardCoverId?: string | null;
   /** Slutboss: röd pulserande gradient bakom möteskortet. */
   bossPulsingBackdrop?: boolean;
   /** Enkel modal-animation utan kort-baksida/flip (fade + slide-up). */
@@ -219,6 +226,7 @@ export function CardFlipModalShell(props: {
           faceInnerClassName={props.faceInnerClassName}
           blockPointerUntilFlipped={props.blockPointerUntilFlipped}
           instantFront={props.instantFront}
+          cardCoverId={props.cardCoverId}
           sceneStyle={stackAbove ? { flexShrink: 0 } : undefined}
         >
           {props.children}

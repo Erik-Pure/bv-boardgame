@@ -25,7 +25,7 @@ import { applyDamage, moveBonusSteps } from "./damage.js";
 import { monsterCombatEquipmentAttackBonus } from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
-import { beerCanBurkrustningBonusMaxHp } from "./beerCanEquipment.js";
+import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import { pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
@@ -91,7 +91,7 @@ const DEFAULT_CONFIG: GameState["config"] = {
   startPant: 5,
   wakeLockBeforeStart: false,
   disabledCardIds: [],
-  cardCover: "default",
+  cardCover: "card1",
 };
 
 function normalizeConfig(state: GameState): void {
@@ -109,9 +109,10 @@ function normalizeConfig(state: GameState): void {
   if (!["default", "large", "xlarge"].includes(state.config.boardSize)) {
     state.config.boardSize = "default";
   }
-  if (!["default", "alt1", "alt2"].includes(state.config.cardCover)) {
-    state.config.cardCover = "default";
-  }
+  const rawCover = String(state.config.cardCover ?? "").trim();
+  const mappedLegacyCover =
+    rawCover === "default" ? "card1" : rawCover === "alt1" ? "card2" : rawCover === "alt2" ? "card3" : rawCover;
+  state.config.cardCover = mappedLegacyCover.length > 0 ? mappedLegacyCover.slice(0, 64) : "card1";
   state.config.hardcore = !!state.config.hardcore;
   state.config.wakeLockBeforeStart = !!state.config.wakeLockBeforeStart;
   state.config.disabledCardIds = Array.from(
@@ -438,14 +439,12 @@ export function canAscendByKlunkRequirement(p: Player, targetLevelIndex: number)
   return brewerLevel(p) >= targetLevelIndex + 1;
 }
 
-function maxHpFor(p: Player): number {
-  const arm = p.equipment.armor?.bonusHp ?? 0;
-  const helm = p.equipment.helmet?.bonusHp ?? 0;
-  return 10 + arm + helm + beerCanBurkrustningBonusMaxHp(p);
+function maxHpFor(state: GameState, p: Player): number {
+  return playerMaxHpFromBase(state.config.maxHp, p);
 }
 
 /** Sätter utrustning från affär/skatt-byte (samma fält som `merchantBuy`). */
-function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
+function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number): void {
   if (item.slot === "weapon") {
     p.equipment.weapon = {
       name: item.name,
@@ -473,7 +472,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
       healHpPerTurn: item.healHpPerTurn,
     };
-    p.maxHp = maxHpFor(p);
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     p.hp = Math.min(p.hp + 2, p.maxHp);
   } else if (item.slot === "helmet") {
     p.equipment.helmet = {
@@ -489,7 +488,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem): void {
       klunkAttackBonusMax: item.klunkAttackBonusMax,
       pvpDieBonus: item.pvpDieBonus,
     };
-    p.maxHp = maxHpFor(p);
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     const helmHp = item.bonusHp ?? 0;
     if (helmHp > 0) p.hp = Math.min(p.hp + helmHp, p.maxHp);
     else p.hp = Math.min(p.hp, p.maxHp);
@@ -625,7 +624,7 @@ function applyAdjacentSplashDamage(state: GameState, attacker: Player, dmg: numb
   return adj.length > 0;
 }
 
-function removeRandomEquipment(p: Player, rng: () => number): string | null {
+function removeRandomEquipment(p: Player, rng: () => number, baseMaxHp: number): string | null {
   const slots: Array<"weapon" | "armor" | "helmet" | "accessory"> = ["weapon", "armor", "helmet", "accessory"];
   const have = slots.filter((s) => !!p.equipment[s]);
   if (have.length === 0) return null;
@@ -634,7 +633,7 @@ function removeRandomEquipment(p: Player, rng: () => number): string | null {
   const label = prev?.name ?? chosen;
   p.equipment[chosen] = undefined;
   if (chosen === "armor") {
-    p.maxHp = maxHpFor(p);
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
   }
   return label;
@@ -762,7 +761,7 @@ function grantRandomCombatReward(
             gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
             healHpPerTurn: eq.healHpPerTurn,
           };
-          player.maxHp = maxHpFor(player);
+          player.maxHp = maxHpFor(state, player);
           player.hp = Math.min(player.hp, player.maxHp);
         } else if (slot === "helmet") {
           player.equipment.helmet = {
@@ -778,7 +777,7 @@ function grantRandomCombatReward(
             klunkAttackBonusMax: eq.klunkAttackBonusMax,
             pvpDieBonus: eq.pvpDieBonus,
           };
-          player.maxHp = maxHpFor(player);
+          player.maxHp = maxHpFor(state, player);
           player.hp = Math.min(player.hp, player.maxHp);
         } else {
           player.equipment.accessory = {
@@ -815,7 +814,8 @@ function computeMonsterDamage(
   let raw: number;
   let redirected = false;
   if (monsterId === "skum_banan") {
-    raw = isAfter2030() ? 3 : 2;
+    const base = def?.baseDamage ?? 2;
+    raw = isAfter2030() ? base + 1 : base;
   } else if (monsterId === "folke_bengtsson") {
     raw = p.klunkar > 5 ? 3 : 1;
   } else if (monsterId === "kapten_interrobang") {
@@ -903,7 +903,7 @@ function destroyOneRandomItemOrEquipmentGlobally(
     const piece = o.player.equipment[slot]!;
     o.player.equipment[slot] = undefined as any;
     if (slot === "armor") {
-      o.player.maxHp = maxHpFor(o.player);
+      o.player.maxHp = maxHpFor(state, o.player);
       if (o.player.hp > o.player.maxHp) o.player.hp = o.player.maxHp;
     }
     logFn(state, `${o.player.name} tappar utrustning: ${piece.name ?? slot} (Onda bryggverket).`);
@@ -1064,7 +1064,7 @@ function applyCombatLoss(
   }
   let lostEquipmentName: string | undefined;
   if (monsterId === "keg_lifter") {
-    const lost = removeRandomEquipment(p, rng);
+    const lost = removeRandomEquipment(p, rng, next.config.maxHp);
     if (lost) {
       lostEquipmentName = lost;
       log(next, `${p.name} tappar ett slumpmässigt utrustat föremål: ${lost}.`);
@@ -1219,7 +1219,7 @@ function finalizeCombatAfterRollPreview(
       log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
     }
     p.xp += tile.type === "boss" ? 8 : 2;
-    p.maxHp = maxHpFor(p);
+    p.maxHp = maxHpFor(next, p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
     let attackerItemCount = rewardItems;
     let helperItemCount = 0;
@@ -1961,8 +1961,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           ),
         );
       }
-      if (action.cardCover === "default" || action.cardCover === "alt1" || action.cardCover === "alt2") {
-        next.config.cardCover = action.cardCover;
+      if (typeof action.cardCover === "string" && action.cardCover.trim().length > 0) {
+        next.config.cardCover = action.cardCover.trim().slice(0, 64);
       }
       return { state: next, events: ["lobbyUpdate"] };
     }
@@ -2945,12 +2945,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       };
       target.equipment[slot] = undefined as any;
       if (slot === "armor" || slot === "helmet") {
-        target.maxHp = maxHpFor(target);
+        target.maxHp = maxHpFor(next, target);
         if (target.hp > target.maxHp) target.hp = target.maxHp;
       }
       user.equipment[slot] = { ...(piece as any) };
       if (slot === "armor" || slot === "helmet") {
-        user.maxHp = maxHpFor(user);
+        user.maxHp = maxHpFor(next, user);
         if (user.hp > user.maxHp) user.hp = user.maxHp;
       }
       log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name}.`);
@@ -3018,18 +3018,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         stealSide = { sideEquipmentSlot: slot, sideEquipmentName: piece.name ?? String(slot) };
         target.equipment[slot] = undefined as any;
         if (slot === "armor") {
-          target.maxHp = maxHpFor(target);
+          target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
           user.equipment.armor = { ...(piece as any) };
-          user.maxHp = maxHpFor(user);
+          user.maxHp = maxHpFor(next, user);
           if (user.hp > user.maxHp) user.hp = user.maxHp;
         } else if (slot === "weapon") {
           user.equipment.weapon = { ...(piece as any) };
         } else if (slot === "helmet") {
-          target.maxHp = maxHpFor(target);
+          target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
           user.equipment.helmet = { ...(piece as any) };
-          user.maxHp = maxHpFor(user);
+          user.maxHp = maxHpFor(next, user);
           if (user.hp > user.maxHp) user.hp = user.maxHp;
         } else {
           user.equipment.accessory = { ...(piece as any) };
@@ -3083,7 +3083,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         spillSide = { sideEquipmentSlot: slot, sideEquipmentName: piece.name ?? String(slot) };
         target.equipment[slot] = undefined as any;
         if (slot === "armor" || slot === "helmet") {
-          target.maxHp = maxHpFor(target);
+          target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
         }
         log(next, `${user.name} spiller med flit och förstör ${piece.name ?? slot} hos ${target.name}.`);
@@ -3591,7 +3591,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Ogiltig utrustning" };
       }
       const item = catalogEquipmentToMerchantShopItem(eq, eq.id);
-      equipShopLikeItemToPlayer(p, item);
+      equipShopLikeItemToPlayer(p, item, next.config.maxHp);
       log(next, `${p.name} byter ut ${erPending.slot} mot ${erPending.newName}.`);
     } else {
       log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
@@ -3858,7 +3858,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (p.gold < item.price) return { state, events: [], error: "För lite pant" };
     p.gold -= item.price;
     if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
-      equipShopLikeItemToPlayer(p, item);
+      equipShopLikeItemToPlayer(p, item, next.config.maxHp);
     } else if (item.slot === "heal") {
       p.inventory ??= [];
       p.inventory.push(createItemInstance("healing_potion", newItemInstanceId(rng)));
@@ -3995,18 +3995,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (piece) {
         loser.equipment[slot] = undefined;
         if (slot === "armor" || slot === "helmet") {
-          loser.maxHp = maxHpFor(loser);
+          loser.maxHp = maxHpFor(next, loser);
           if (loser.hp > loser.maxHp) loser.hp = loser.maxHp;
         }
         if (slot === "weapon") {
           winner.equipment.weapon = { ...piece } as typeof winner.equipment.weapon;
         } else if (slot === "armor") {
           winner.equipment.armor = { ...piece } as typeof winner.equipment.armor;
-          winner.maxHp = maxHpFor(winner);
+          winner.maxHp = maxHpFor(next, winner);
           if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
         } else if (slot === "helmet") {
           winner.equipment.helmet = { ...piece } as typeof winner.equipment.helmet;
-          winner.maxHp = maxHpFor(winner);
+          winner.maxHp = maxHpFor(next, winner);
           if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
         } else {
           winner.equipment.accessory = { ...piece } as typeof winner.equipment.accessory;

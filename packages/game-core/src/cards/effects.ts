@@ -5,6 +5,7 @@ import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
 import { itemDeckItemIds } from "./db.js";
 import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
+import { playerMaxHpFromBase } from "../playerMaxHp.js";
 
 function newInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
@@ -17,7 +18,7 @@ type RandomEquipRoll =
   | { kind: "offer"; name: string; slot: EquipmentSlot; catalogId: string };
 
 /** Tom slot → utrusta direkt; upptagen slot → erbjud byte (hanteras efter kort i motorn). */
-function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): RandomEquipRoll | null {
+function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseMaxHp: number): RandomEquipRoll | null {
   const slot = pick(rng, RANDOM_REWARD_EQUIPMENT_SLOTS);
   const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
   if (pool.length === 0) return null;
@@ -52,8 +53,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
       healHpPerTurn: eq.healHpPerTurn,
     };
-    player.maxHp =
-      10 + (player.equipment.armor?.bonusHp ?? 0) + (player.equipment.helmet?.bonusHp ?? 0);
+    player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
     player.hp = Math.min(player.hp, player.maxHp);
   } else if (slot === "helmet") {
     player.equipment.helmet = {
@@ -69,8 +69,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number): Rand
       klunkAttackBonusMax: eq.klunkAttackBonusMax,
       pvpDieBonus: eq.pvpDieBonus,
     };
-    player.maxHp =
-      10 + (player.equipment.armor?.bonusHp ?? 0) + (player.equipment.helmet?.bonusHp ?? 0);
+    player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
     const helmHp = eq.bonusHp ?? 0;
     if (helmHp > 0) player.hp = Math.min(player.hp + helmHp, player.maxHp);
     else player.hp = Math.min(player.hp, player.maxHp);
@@ -119,7 +118,9 @@ export function applyEffects(params: {
       out.item = (out.item ?? 0) + 1;
     } else if (e.type === "randomItem") {
       const tryEquip = params.rng() < 0.35;
-      const equipRoll = tryEquip ? tryGrantRandomEquipmentOrOffer(params.player, params.rng) : null;
+      const equipRoll = tryEquip
+        ? tryGrantRandomEquipmentOrOffer(params.player, params.rng, params.state.config.maxHp)
+        : null;
       if (equipRoll?.kind === "equipped") {
         out.grantedEquipmentName = equipRoll.name;
         out.grantedEquipmentSlot = equipRoll.slot;

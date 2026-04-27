@@ -170,6 +170,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.backPicture {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .backImg {
   width: 100%;
   height: 100%;

@@ -1,0 +1,88 @@
+/**
+ * Join: regnbåge upptill — samma teknik som reaktionspanelen (PlayView .bottomSheetActiveTurnBg).
+ */
+.joinHeroWash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(54dvh, 480px);
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  /* Mjuk nederkant så ingen skarp linje mot body (radial #000 → #1a1a1a) */
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgba(0, 0, 0, 0.88) 72%,
+    rgba(0, 0, 0, 0.35) 88%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgba(0, 0, 0, 0.88) 72%,
+    rgba(0, 0, 0, 0.35) 88%,
+    transparent 100%
+  );
+}
+
+.joinHeroWash::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 220vmax;
+  height: 220vmax;
+  margin: 0;
+  background: conic-gradient(
+    from 0deg,
+    hsl(350, 95%, 58%),
+    hsl(300, 92%, 56%),
+    hsl(250, 90%, 58%),
+    hsl(200, 88%, 52%),
+    hsl(150, 85%, 48%),
+    hsl(100, 88%, 50%),
+    hsl(50, 95%, 54%),
+    hsl(350, 95%, 58%)
+  );
+  filter: blur(22px) saturate(1.75);
+  mix-blend-mode: screen;
+  opacity: 0.62;
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: joinHeroRainbowSpin 11s linear infinite;
+}
+
+/* Tonar ner mot samma mörka ton som body-gradientens ytterkant */
+.joinHeroWash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.12) 40%,
+    rgba(10, 10, 12, 0.75) 74%,
+    #1a1a1a 92%,
+    #1a1a1a 100%
+  );
+}
+
+@keyframes joinHeroRainbowSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .joinHeroWash::before {
+    animation: none;
+    transform: translate(-50%, -50%);
+  }
+}

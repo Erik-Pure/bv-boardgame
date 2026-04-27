@@ -14,7 +14,7 @@ export function defaultLobbyConfigDraft(): LobbyConfigDraft {
     startPant: 5,
     wakeLockBeforeStart: false,
     disabledCardIds: [],
-    cardCover: "default",
+    cardCover: "card1",
   };
 }
 
@@ -30,15 +30,22 @@ export function saveLobbyConfigDraft(roomCode: string, cfg: LobbyConfigDraft): v
   }
 }
 
-export function consumeLobbyConfigDraft(roomCode: string): Partial<GameConfig> | undefined {
+export function readLobbyConfigDraft(roomCode: string): Partial<GameConfig> | undefined {
   try {
     const k = key(roomCode);
     const raw = window.sessionStorage.getItem(k);
     if (!raw) return undefined;
-    window.sessionStorage.removeItem(k);
     const parsed = JSON.parse(raw) as LobbyConfigDraft;
     return parsed;
   } catch {
     return undefined;
+  }
+}
+
+export function clearLobbyConfigDraft(roomCode: string): void {
+  try {
+    window.sessionStorage.removeItem(key(roomCode));
+  } catch {
+    // ignore
   }
 }

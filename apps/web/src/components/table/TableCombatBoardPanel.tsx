@@ -271,6 +271,7 @@ function TableCombatBoardPanelInner(props: {
       <TeamBattleIntroCard
         variant="table"
         attackerName={att?.name ?? "?"}
+        cardCoverId={state.config.cardCover}
         tableOverlayAnimation={TABLE_BOARD_MODAL_OVERLAY_ANIMATION}
         tableCardEntranceAnimation={TABLE_BOARD_MODAL_CARD_ANIMATION}
         monster={monsterEncounterCardPropsFromCombatPending(pending, {
@@ -610,6 +611,7 @@ function TableCombatBoardPanelInner(props: {
                 maxWidth={400}
                 faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
                 blockPointerUntilFlipped={false}
+                cardCoverId={state.config.cardCover}
                 backFace={combatWinLoseBackFace ?? mitigationBackFace}
                 flipToResultBack={
                   hold
@@ -701,6 +703,7 @@ function TableCombatBoardPanelInner(props: {
         zIndex={44}
         maxWidth={400}
         blockPointerUntilFlipped={false}
+        cardCoverId={state.config.cardCover}
         style={overlayDynamics}
         aboveScene={combatBoardBossHeaderLines}
         contentScale={combatBlockScale}

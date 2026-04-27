@@ -73,6 +73,8 @@ const CARD_INNER_WITH_MONSTER: CSSProperties = {
 export function TeamBattleIntroCard(props: {
   attackerName: string;
   variant: "table" | "play";
+  /** Lobby: vilken kortbaksida som visas vid flip (mobil). */
+  cardCoverId?: string | null;
   /** Bord: samma overlay-anim som övriga stridsmodaler */
   tableOverlayAnimation?: string;
   tableCardEntranceAnimation?: string;
@@ -219,6 +221,7 @@ export function TeamBattleIntroCard(props: {
       instantFront
       simpleEntrance={hasMonster}
       blockPointerUntilFlipped={false}
+      cardCoverId={props.cardCoverId}
       faceInnerClassName={hasMonster ? undefined : cardFlipShellStyles.faceInnerNoVerticalOverflow}
     >
       {hasMonster ? (

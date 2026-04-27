@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.37 |
+| Version | 0.39 |
 | Senast uppdaterad | 2026-04-27 |
 
 ---
@@ -67,7 +67,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 **Sessionsflöde**
 
 1. Värd öppnar sidan → väljer **Skapa lobby** → går till en **dedikerad pre-game-inställningsvy** (ingen kod/QR i detta steg).
-2. Värd väljer lobbyinställningar (svårighet, hardcore, bräde, nivåer, kortbaksida, extra inställningar) och fortsätter till bordsvyn.
+2. Värd väljer lobbyinställningar (svårighet, hardcore, bräde, nivåer, utseende, extra inställningar) och fortsätter till bordsvyn.
 3. Bordsvyn visar **genererad lobbykod + QR** för anslutning.
 4. Övriga ansluter med kod → väljer namn och utseende (t.ex. huvud + färg på gemensam kropp).
 5. Värd startar när spelare är redo.
@@ -104,7 +104,7 @@ När värden väljer **Skapa lobby** visas först en separat sida för förkonfi
 
 - **Grundinställningar:** svårighetsgrad (`lattol`, `folkol`, `starkol`, `imperial`), **Hardcore mode**.
 - **Bräde:** `boardSize` (default/large/xlarge) och antal nivåer (2–5, default 3).
-- **Kortbaksida:** väljs via bildgalleri med preview.
+- **Utseende (bl.a. kortbaksida):** väljs via bildgalleri med preview; fler kosmetiska val planeras.
 - **Fler inställningar:** max HP, startpant och tillåtna kort (`item`/`event`) via expanderbara paneler.
 - Valen sparas i lobby-config och används av servern när lobbyn skapas/startas.
 
@@ -496,4 +496,6 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.35 | 2026-04-24 | §2/§2.1/§9/§10.1: monsterresultat på samma bordskort, stabil mobil interaktionspanel, BvB-tärningar utan blink, svenska skade-toastar i team battle, uppdaterade ingripanderegler för **Get Lucky**/**Manopositiv**, auto-pass när inga spelbara reaktionskort finns samt borttagen extra **Tillbaka** i målval |
 | 0.36 | 2026-04-25 | §2.1: BvB-tärning på bordet visas nu **per spelare** direkt när kast finns (ingen flicker under reveal-delay) samt team battle-overlays stabiliserade efter val av medkämpe (ingen svart board-vy) |
 | 0.37 | 2026-04-27 | Ny värdstyrd pre-game-inställningsvy före bordet; max spelare 8; konfigurerbara lobbyregler (svårighet, hardcore, brädstorlek, nivåer 2–5, max HP, startpant, kortbaksida, tillåtna item/event-kort); boss garanteras endast på sista våningen |
+| 0.38 | 2026-04-27 | §4.2 “Utseende”-formulering; tillfällig **§20** achievements/kosmetik-roadmap (sedan borttagen) |
+| 0.39 | 2026-04-27 | Borttagen **§20** och `docs/ACHIEVEMENTS_AND_UNLOCKS_ROADMAP.md`; §4.2 utan roadmap-hänvisning |
 

@@ -5,6 +5,7 @@ import {
   beerCanTrioDamageNegate,
   helmetDamageNegateExcludingBeerCanSet,
 } from "./beerCanEquipment.js";
+import { playerMaxHpFromBase } from "./playerMaxHp.js";
 
 export function equipmentDamageNegate(p: Player): number {
   const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
@@ -28,8 +29,7 @@ export function consumeNegateAllOnce(state: GameState, p: Player, log?: (s: Game
   if (p.equipment.armor?.negateAllOnce) {
     const name = p.equipment.armor.name;
     p.equipment.armor = undefined;
-    // Recompute hp caps (base 10, armor bonus is now 0).
-    p.maxHp = 10;
+    p.maxHp = playerMaxHpFromBase(state.config.maxHp, p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
     log?.(state, `${p.name}'s ${name} shatters!`);
     return;

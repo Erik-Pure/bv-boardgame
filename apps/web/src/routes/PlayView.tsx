@@ -295,6 +295,7 @@ export function PlayView() {
   });
 
   const me = findMe(state, myId);
+  const lobbyCardCoverId = state?.config.cardCover;
 
   useEffect(() => {
     setShowResponsibleReminder(false);
@@ -2517,6 +2518,7 @@ export function PlayView() {
           combatWin={pending.combatWin}
           combatLoss={pending.combatLoss}
           viewerName={me.name}
+          cardCoverId={lobbyCardCoverId}
         />
       )}
       {state?.phase === "playing" &&
@@ -2526,6 +2528,7 @@ export function PlayView() {
         pending.phase === "chooseTeammate" && (
           <TeamBattleIntroCard
             variant="play"
+            cardCoverId={lobbyCardCoverId}
             attackerName={
               state.players.find((p) => p.id === pending.attackerId)?.name ?? capitalizeWord(sv.play.theAttacker)
             }
@@ -2559,6 +2562,7 @@ export function PlayView() {
               ? state.players.find((p) => p.id === myEnemyIntroPending.assistId)?.name
               : undefined
           }
+          cardCoverId={lobbyCardCoverId}
         />
       )}
 
@@ -2575,6 +2579,7 @@ export function PlayView() {
       {state?.phase === "playing" && pending?.type === "brewerDown" && me && (
         <CardFlipModalShell
           zIndex={165}
+          cardCoverId={lobbyCardCoverId}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             placeItems: "center",
@@ -3061,6 +3066,7 @@ export function PlayView() {
 
       {showResponsibleReminder && (
         <Modal
+          cardCoverId={lobbyCardCoverId}
           title={sv.play.responsibleReminderTitle}
           onClose={dismissResponsibleReminder}
           instantFront
@@ -3101,7 +3107,7 @@ export function PlayView() {
       )}
 
       {showSettings && (
-        <Modal title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
+        <Modal cardCoverId={lobbyCardCoverId} title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
           <div className={u.stack12}>
             <label
               style={{
@@ -3157,7 +3163,7 @@ export function PlayView() {
       )}
 
       {showLeaveConfirm && (
-        <Modal title={sv.play.settingsLeaveGame} onClose={() => setShowLeaveConfirm(false)} instantFront>
+        <Modal cardCoverId={lobbyCardCoverId} title={sv.play.settingsLeaveGame} onClose={() => setShowLeaveConfirm(false)} instantFront>
           <div className={u.stack12}>
             <div className={`${u.o9} ${u.fs14}`}>Är du säker på att du vill lämna spelet?</div>
             <ArcadeButton
@@ -3179,7 +3185,7 @@ export function PlayView() {
       )}
 
       {showPlayers && state && (
-        <Modal title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)} instantFront>
+        <Modal cardCoverId={lobbyCardCoverId} title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)} instantFront>
           <div className={u.stack10}>
             {state.players.map((p) => (
               <div
@@ -3269,6 +3275,7 @@ export function PlayView() {
         const uniqueArt = pieceName ? equipmentUniqueImageSrc(pieceName) : null;
         return (
           <Modal
+            cardCoverId={lobbyCardCoverId}
             title={modalTitle}
             onClose={() => setEquipDetail(null)}
             instantFront
@@ -3351,6 +3358,7 @@ export function PlayView() {
         const modalTitle = inst ? itemMeta(inst.itemId).title : sv.play.itemNotFound;
         return (
           <Modal
+            cardCoverId={lobbyCardCoverId}
             title={modalTitle}
             onClose={() => setItemDetail(null)}
             instantFront
@@ -4268,6 +4276,7 @@ function Modal(props: {
   zIndex?: number;
   /** Extra stilar på kortpanelen (t.ex. mer luft uppe/nere). */
   panelStyle?: CSSProperties;
+  cardCoverId?: string | null;
 }) {
   const showClose = props.hideClose !== true;
   const z = props.zIndex ?? 120;
@@ -4278,6 +4287,7 @@ function Modal(props: {
       maxWidth={560}
       onBackdropMouseDown={props.backdropCloses === false ? undefined : props.onClose}
       instantFront={props.instantFront}
+      cardCoverId={props.cardCoverId}
     >
       <div
         style={{
@@ -4494,6 +4504,7 @@ function EnemyIntroModal(props: {
   bossWinLootDash?: boolean;
   bossPulsingBackdrop?: boolean;
   teammateName?: string;
+  cardCoverId?: string | null;
 }) {
   const bossRoundLabel = (() => {
     const raw = props.bossLivesRemaining;
@@ -4542,6 +4553,7 @@ function EnemyIntroModal(props: {
       zIndex={100}
       aboveScene={aboveScene}
       bossPulsingBackdrop={props.bossPulsingBackdrop}
+      cardCoverId={props.cardCoverId}
       faceInnerClassName={props.showCard ? cardFlipShellStyles.faceInnerNoVerticalOverflow : undefined}
       style={{
         placeItems: "start center",
@@ -4756,6 +4768,7 @@ function CardModal(props: {
   combatLoss?: CombatLoseSummary;
   /** Kortägarens visningsnamn (ersätter "Du" i vinst/förlust om det behövs). */
   viewerName?: string;
+  cardCoverId?: string | null;
 }) {
   const effectiveArtKey = resolveCardRevealArtKey(props.artKey, props.grantedItemId, {
     cardText: props.text,
@@ -4796,6 +4809,7 @@ function CardModal(props: {
     <CardFlipModalShell
       zIndex={100}
       simpleEntrance={useSimpleOutcomeEntrance}
+      cardCoverId={props.cardCoverId}
       faceInnerClassName={
         eventStoryLayout || (useMonsterLayout && mon)
           ? cardFlipShellStyles.faceInnerNoVerticalOverflow

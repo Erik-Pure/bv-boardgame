@@ -18,7 +18,7 @@ export const clientHelloSchema = z.object({
       startPant: z.number().int().min(0).max(50).optional(),
       wakeLockBeforeStart: z.boolean().optional(),
       disabledCardIds: z.array(z.string().min(1)).optional(),
-      cardCover: z.enum(["default", "alt1", "alt2"]).optional(),
+      cardCover: z.string().min(1).max(64).optional(),
     })
     .optional(),
 });

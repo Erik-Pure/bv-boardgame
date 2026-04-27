@@ -79,7 +79,6 @@ export const sv = {
   joinPage: {
     title: "Gå med i spel",
     subtitle: "Skriv in lobbyn som värden visar och välj ditt namn.",
-    back: "Till startsidan",
     roomLabel: "Lobbykod",
     nameLabel: "Namn",
     namePlaceholder: "Ditt namn",
@@ -292,7 +291,8 @@ export const sv = {
     lobbyLevelCount: "Antal nivåer",
     lobbyHardcore: "Hardcore (ingen omstart vid 0 HP)",
     lobbyWakeLockBeforeStart: "Håll skärmen vaken redan i lobby",
-    lobbyCardCover: "Kortbaksida",
+    /** Lobby: sektion för kosmetik (kortbaksida, framtida pjäsar, ramar …). */
+    lobbyAppearance: "Utseende",
     lobbyCardCoverDefault: "Standard",
     lobbyCardCoverAlt1: "Variant 1",
     lobbyCardCoverAlt2: "Variant 2",

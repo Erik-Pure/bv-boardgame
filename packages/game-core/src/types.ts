@@ -476,7 +476,7 @@ export interface GameConfig {
   startPant: number;
   wakeLockBeforeStart: boolean;
   disabledCardIds: string[];
-  cardCover: "default" | "alt1" | "alt2";
+  cardCover: string;
 }
 
 export type SipNoticeKind = "custom" | "duel_loss";
@@ -569,7 +569,7 @@ export type ClientAction =
       startPant?: number;
       wakeLockBeforeStart?: boolean;
       disabledCardIds?: string[];
-      cardCover?: "default" | "alt1" | "alt2";
+      cardCover?: string;
     }
   | { type: "rollMove"; playerId: string }
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
