@@ -22,7 +22,10 @@ export type MonsterId =
   | "enhorningsryttare"
   | "fargglada_gubbar"
   | "transporter"
-  | "cowboys";
+  | "cowboys"
+  | "demonkrigare"
+  | "busiga_buskar"
+  | "solen";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -325,6 +328,39 @@ export const MONSTERS: MonsterDef[] = [
     rewardGold: 5,
     rewardItems: 1,
     artKey: "monster/cowboys",
+  },
+  {
+    id: "demonkrigare",
+    name: "Demonkrigare",
+    strength: 5,
+    baseDamage: 3,
+    rulesText: "Vid förlust: en annan spelare får +3 HP.",
+    lossSipsOnLose: 1,
+    rewardGold: 6,
+    rewardItems: 2,
+    artKey: "monster/demonkrigare",
+  },
+  {
+    id: "busiga_buskar",
+    name: "Busiga buskar",
+    strength: 2,
+    baseDamage: 1,
+    rulesText: "Vid förlust: ge upp till 5 pant till spelaren som har minst pant.",
+    lossSipsOnLose: 1,
+    rewardGold: 4,
+    rewardItems: 1,
+    artKey: "monster/busigabuskar",
+  },
+  {
+    id: "solen",
+    name: "Solen",
+    strength: 2,
+    baseDamage: 2,
+    rulesText: "Vid förlust: du får sol i ögonen och står över nästa tur.",
+    lossSipsOnLose: 1,
+    rewardGold: 2,
+    rewardItems: 2,
+    artKey: "monster/solen",
   },
 ];
 

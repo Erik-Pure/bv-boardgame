@@ -1073,6 +1073,37 @@ function applyCombatLoss(
   const imperialAdjacentSplash =
     monsterId === "imperial_dragon_stout" ? applyAdjacentSplashDamage(next, p, 1) : false;
 
+  if (monsterId === "demonkrigare") {
+    const candidates = next.players.filter((pl) => pl.id !== p.id && !pl.eliminated && pl.hp > 0);
+    if (candidates.length > 0) {
+      const target = pick(rng, candidates);
+      const beforeHeal = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + 3);
+      log(
+        next,
+        `Demonkrigaren hånskrattar: ${target.name} läker ${target.hp - beforeHeal} HP efter ${p.name}s förlust.`,
+      );
+    }
+  } else if (monsterId === "busiga_buskar") {
+    const candidates = next.players.filter((pl) => pl.id !== p.id && !pl.eliminated && pl.hp > 0);
+    if (candidates.length > 0) {
+      const minGold = Math.min(...candidates.map((pl) => pl.gold));
+      const poorest = candidates.filter((pl) => pl.gold === minGold);
+      const target = pick(rng, poorest);
+      const transfer = Math.min(5, p.gold);
+      if (transfer > 0) {
+        p.gold -= transfer;
+        target.gold += transfer;
+      }
+      log(next, `${p.name} ger ${transfer} pant till ${target.name} (minst pant) efter buskarnas förluststraff.`);
+    }
+  } else if (monsterId === "solen") {
+    p.skippedTurns = (p.skippedTurns ?? 0) + 1;
+    p.skipTurnReasons ??= [];
+    p.skipTurnReasons.push("normal");
+    log(next, `${p.name} får solen i ögonen efter förlusten och står över nästa tur.`);
+  }
+
   applySlutbossLossPartyEffects(next, monsterId, ctx.enemyName, rng, log);
 
   log(
