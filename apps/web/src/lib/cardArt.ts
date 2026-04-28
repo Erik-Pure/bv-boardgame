@@ -33,7 +33,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "monster/cowboys": "Get Lucky, Bryggverket",
   "monster/demonkrigare": "Helles await, Bryggverket & Snausarve Gårdsbryggeri",
   "monster/busigabuskar": "Summersour, Bryggverket",
-  "monster/solen": "Solen, Bryggverket",
+  "monster/solen": "Sommarlager, Bryggverket",
   "monster/store-narcissius": "Den store Narcissus, Bryggverket",
   "item/manopositiv": "Etting, Tusing, Thomas Husing, Bryggverket",
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
