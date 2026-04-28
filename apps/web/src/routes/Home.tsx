@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { sv } from "../lib/uiStrings";
+import styles from "./Home.module.css";
 
 const HOME_AGE_GATE_KEY = "bv:homeAgeGateAck";
 
@@ -46,16 +47,12 @@ export function Home() {
         background: "transparent",
       }}
     >
-      <img
-        src="/icons/bmm-logo.png"
-        alt="Bryggmästarnas Mästare"
-        style={{
-          display: "block",
-          width: "min(100%, 560px)",
-          height: "auto",
-          margin: "0 auto 28px",
-        }}
-      />
+      <div className={styles.logoHero}>
+        <div className={styles.logoGlowSpin} aria-hidden>
+          <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
+        </div>
+        <img className={styles.logoImage} src="/icons/bmm-logo.png" alt="Bryggmästarnas Mästare" />
+      </div>
       <ArcadeButton variant="pink" size="lg" fullWidth={false} onClick={() => nav("/join")}>
         {sv.home.primaryJoin}
       </ArcadeButton>

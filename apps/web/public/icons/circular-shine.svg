@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="172.78" height="172.78" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 172.78 172.78">
+  <defs>
+    <radialGradient id="d" cx="86.39" cy="86.39" fx="86.39" fy="86.39" r="86.39" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f9ed32"/>
+      <stop offset="1" stop-color="#fff200" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="c" data-name="Layer 1">
+    <path d="M172.78,63.843l-56.837,10.306,47.477-32.903-31.886-31.886-32.903,47.477L108.936,0h-45.093l10.306,56.837L41.246,9.36l-31.886,31.886,47.477,32.903L0,63.843v45.093l56.837-10.306-47.477,32.903,31.886,31.886,32.903-47.477-10.306,56.837h45.093l-10.306-56.837,32.903,47.477,31.886-31.886-47.477-32.903,56.837,10.306v-45.093Z" fill="url(#d)"/>
+  </g>
+</svg>
