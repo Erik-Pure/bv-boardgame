@@ -59,7 +59,7 @@ export function Home() {
 
       <div style={{ margin: "28px 0", borderTop: "1px solid rgba(148,163,184,0.25)", }}>
         <h4>Starta ett nytt spel</h4>
-        <p style={{ marginBottom: 28 }}>Skapa upp en ny lobby och bjud in dina vänner att spela. Vi rekommenderar att du använder en storskärm för att spela som alla deltagare kan se.</p>
+        <p style={{ marginBottom: 28 }}>Skapa upp en ny lobby och bjud in dina vänner att spela. Vi rekommenderar att du använder en stor skärm som alla deltagare kan se.</p>
         <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={() => nav("/host-lobby")}>
           {sv.home.createLobby}
         </ArcadeButton>
