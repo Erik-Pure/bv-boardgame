@@ -67,8 +67,12 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_rigged_game",
 ]);
 
-/** Kort-id:n som inte ska visas (mall / boss-mellanrunda). Skatt döljs med `kind` — samma kort visas vid skattrutor i spelet. */
-const HIDDEN_CATALOG_CARD_IDS = new Set<string>(["combat_monster", "boss_round_win"]);
+/** Kort-id:n som inte ska visas (mall/systemkort). Skatt döljs med `kind` — samma kort visas vid skattrutor i spelet. */
+const HIDDEN_CATALOG_CARD_IDS = new Set<string>([
+  "combat_monster",
+  "boss_round_win",
+  "event_find_item_random",
+]);
 
 function monsterOverviewBadges(m: MonsterDef): EffectBadgeData[] {
   const badges: EffectBadgeData[] = [{ icon: "monster", label: String(m.strength) }];
