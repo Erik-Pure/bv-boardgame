@@ -14,7 +14,6 @@ export function JoinGame() {
 
   return (
     <div style={{ position: "relative", minHeight: "100svh", isolation: "isolate" }}>
-      <div className={styles.joinHeroWash} aria-hidden />
       <div
         style={{
           position: "relative",
@@ -28,16 +27,16 @@ export function JoinGame() {
           background: "transparent",
         }}
       >
-        <img
-          src="/icons/bmm-logo.png"
-          alt="Bryggmästarnas Mästare"
-          style={{
-            display: "block",
-            width: "min(100%, 420px)",
-            height: "auto",
-            margin: "0 auto 14px",
-          }}
-        />
+        <div className={styles.logoHero}>
+          <div className={styles.logoGlowSpin} aria-hidden>
+            <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
+          </div>
+          <img
+            className={styles.logoImage}
+            src="/icons/bmm-logo.png"
+            alt="Bryggmästarnas Mästare"
+          />
+        </div>
         <h1 style={{ margin: "20px 0 8px", fontSize: "clamp(1.5rem, 5vw, 1.85rem)", fontWeight: 800 }}>
           {sv.joinPage.title}
         </h1>

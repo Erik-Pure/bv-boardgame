@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.40 |
-| Senast uppdaterad | 2026-04-27 |
+| Version | 0.41 |
+| Senast uppdaterad | 2026-04-29 |
 
 ---
 
@@ -148,7 +148,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 - Banan byggs av **tiles** (kvadrat eller hex — **ett** system för hela projektet).
 - **Slumpad uppbyggnad** per parti med **server-side seed** (reproducerbar för debug).
-- **Yttre ring per våning:** rektangulär **ram** runt ett tomt hål; antal rutor på ringen är **`4·s−4`** där `s` är innerkantens sidlängd i rutnät (i nuvarande data t.ex. **`s = 5` → 16 rutor** per våning). Varje ruta har ett **index** `0 … n−1` i den ordning som banan genereras — samma ordning ska **storskärmsklienten** använda när den placerar rutor (`ringPos` m.m.).
+- **Yttre ring per våning:** rektangulär **ram** runt ett tomt hål; antal rutor på ringen är **`4·s−4`** där `s` är serverns ring-grid (t.ex. **`s = 5` → 16 rutor**, **`s = 6` → 20**, **`s = 7` → 24**). På bordet renderas ringen i en widescreen-vänlig rektangel med samma perimeter (nuvarande mapping: **`5 → 6×4`**, **`6 → 8×4`**, **`7 → 9×5`**). Varje ruta har ett **index** `0 … n−1` i den ordning som banan genereras — samma ordning ska **storskärmsklienten** använda när den placerar rutor (`ringPosRect` m.m.).
 - **Synk mellan server och bord:** om ett partis `levels[i].tiles.length` skiljer sig från en hårdkodad layout (t.ex. äldre sparad state med färre rutor) måste klienten **härleda `s` från `tiles.length`** så att **visuella steg längs ringen** stämmer med **serverns rörelse** (modulo `n`). Annars kan målmarkeringar och spelarnas intuition för tärningsrörelse feltolkas trots att servern räknar rätt.
 - **Bordsvy (`/table`):** våningsplanen visas **horisontellt i rad** (sida vid sida) med mellanrum; pan, zoom och auto-fokus tar **hela brädets bredd** i beaktande.
 - **Flera pjäser på samma ruta:** spelarmarkörer (kapsyler med initial) placeras i en **liten kluster-layout** (t.ex. diagonal för två, triangel för tre, cirkel för fler) så att de **inte ligger på en horisontell rad** — tydligare överblick och mindre överlappning visuellt.
@@ -316,7 +316,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. Under bilden visas en **kompakt effektlista** (samma princip som Panta burkar / kortkatalog) **och** valfri **`rulesText`** per katalogpost (smaktext / särregler, t.ex. **Solbrillor**, **Svart bälte**, burk-setet). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
 
-**Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **−1** skada per träff **först när spelaren har minst 15 klunkar**; ingen separat boss-extra på burk-prylarna längre.
+**Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **+5 HP** och **−4 skada per träff** när spelaren har minst **15 klunkar**, annars ingen reduktion.
 
 **Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
 
@@ -503,4 +503,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.38 | 2026-04-27 | §4.2 “Utseende”-formulering; tillfällig **§20** achievements/kosmetik-roadmap (sedan borttagen) |
 | 0.39 | 2026-04-27 | Borttagen **§20** och `docs/ACHIEVEMENTS_AND_UNLOCKS_ROADMAP.md`; §4.2 utan roadmap-hänvisning |
 | 0.40 | 2026-04-28 | §9.1 monsterlista utökad med **Demonkrigare**, **Busiga buskar** och **Solen** samt dokumenterade specialeffekter vid förlust |
+| 0.41 | 2026-04-29 | §7.1 bordslayout uppdaterad till widescreen-rektangel per board-size (5→6×4, 6→8×4, 7→9×5) med bibehållen ringordning; §11 Legendarisk Burkhjälm synkad till +5 HP och −4 skada vid 15+ klunkar |
 

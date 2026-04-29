@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent, WheelEvent } from "react";
 import type { GameState } from "@bv/game-core";
-import { activePlayer, clamp, ringPos } from "../lib/tableBoard";
+import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
 
 export type Cam = { x: number; y: number; scale: number };
 
@@ -12,6 +12,8 @@ export type UseTableCameraParams = {
   totalSvgWidth: number;
   ringStackGap: number;
   gridSize: number;
+  ringCols?: number;
+  ringRows?: number;
   tileSize: number;
   boardPad: number;
   targetRingOutset: number;
@@ -32,12 +34,16 @@ export function useTableCamera(params: UseTableCameraParams) {
     totalSvgWidth,
     ringStackGap,
     gridSize,
+    ringCols,
+    ringRows,
     tileSize,
     boardPad,
     targetRingOutset,
     boardAnimationsEnabled = true,
     boardPanEnabled = true,
   } = params;
+  const cols = ringCols ?? gridSize;
+  const rows = ringRows ?? gridSize;
 
   // Smidig kamera: renderad cam lerpar mot targetCam.
   const targetCam = useRef<Cam>({
@@ -181,7 +187,7 @@ export function useTableCamera(params: UseTableCameraParams) {
         const level = lvls[levelIndex];
         if (!level || tileIndex < 0 || tileIndex >= level.tiles.length) return;
         const xOff = xForLevel(levelIndex);
-        const { col, row } = ringPos(gridSize, tileIndex);
+        const { col, row } = ringPosRect(cols, rows, tileIndex);
         const left = xOff + boardPad + col * tileSize - ringMargin;
         const top = boardPad + row * tileSize - ringMargin;
         const right = xOff + boardPad + (col + 1) * tileSize + ringMargin;
@@ -257,6 +263,8 @@ export function useTableCamera(params: UseTableCameraParams) {
     boardViewportPx.w,
     boardViewportPx.h,
     gridSize,
+    cols,
+    rows,
     tileSize,
     boardPad,
     targetRingOutset,

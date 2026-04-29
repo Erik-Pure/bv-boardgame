@@ -152,8 +152,9 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "helmet",
     name: "Legendarisk Burkhjälm",
     price: 25,
-    damageNegate: 3,
-    rulesText: "Ger −4 skada per träff när du har minst 15 klunkar — annars ingen reduktion.",
+    bonusHp: 5,
+    damageNegate: 4,
+    rulesText: "Ger +5 HP och −4 skada per träff när du har minst 15 klunkar — annars ingen reduktion.",
   },
   {
     id: "eh_beer_filled_helmet",

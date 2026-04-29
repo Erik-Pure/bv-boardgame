@@ -31,7 +31,7 @@ import { TreasureCardContent } from "../components/TreasureCardContent";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
-import { activePlayer, clamp, ringPos } from "../lib/tableBoard";
+import { activePlayer, clamp, ringPosRect, ringRectDimsFromGridSize } from "../lib/tableBoard";
 import { TableBoardCameraViewport } from "../components/table/TableBoardCameraViewport";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import turnBannerStyles from "./turnBanner.module.css";
@@ -64,6 +64,8 @@ const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
   0: "/backgrounds/level1bg.webp",
   1: "/backgrounds/level2bg.webp",
   2: "/backgrounds/level3bg.webp",
+  3: "/backgrounds/level4bg.webp",
+  4: "/backgrounds/level5bg.webp",
 };
 
 /** Publika tillgångar under apps/web/public/tiles/ */
@@ -620,10 +622,12 @@ function TableViewBody() {
   const ringNTiles =
     stackLevels[0]?.tiles.length ?? ringTileCount(BOARD_RING_GRID_SIZE);
   const gridSize = ringGridSizeFromTileCount(ringNTiles);
+  /** Widescreen: anpassa rektangeln dynamiskt per vald board-storlek i lobby. */
+  const { cols: ringCols, rows: ringRows } = ringRectDimsFromGridSize(gridSize);
   /** Marginal inuti SVG så målram + tjock stroke inte klipps vid brädets kanter. */
   const boardPad = targetRingOutset + 4;
-  const gridPixelW = gridSize * tileSize;
-  const gridPixelH = gridSize * tileSize;
+  const gridPixelW = ringCols * tileSize;
+  const gridPixelH = ringRows * tileSize;
   const boardWidth = gridPixelW + 2 * boardPad;
   const boardHeight = gridPixelH + 2 * boardPad;
   /** Horisontellt avstånd mellan våningsplan (sida vid sida). */
@@ -653,6 +657,8 @@ function TableViewBody() {
       totalSvgWidth,
       ringStackGap: RING_STACK_GAP,
       gridSize,
+      ringCols,
+      ringRows,
       tileSize,
       boardPad,
       targetRingOutset,
@@ -665,6 +671,8 @@ function TableViewBody() {
       boardHeight,
       totalSvgWidth,
       gridSize,
+      ringCols,
+      ringRows,
       tileSize,
       boardPad,
       targetRingOutset,
@@ -1175,7 +1183,7 @@ function TableViewBody() {
                   <g key={`floor-${li}`} transform={`translate(${ringOffsetX(li)}, 0)`}>
                     <defs>
                       {level.tiles.map((t, i) => {
-                        const { col, row } = ringPos(gridSize, i);
+                        const { col, row } = ringPosRect(ringCols, ringRows, i);
                         const x = boardPad + col * tileSize;
                         const y = boardPad + row * tileSize;
                         const w = tileSize - 12;
@@ -1214,7 +1222,7 @@ function TableViewBody() {
                     </text>
                     <g style={{ filter: lit ? undefined : "brightness(0.38) saturate(0.5)" }}>
                       {level.tiles.map((t, i) => {
-                        const { col, row } = ringPos(gridSize, i);
+                        const { col, row } = ringPosRect(ringCols, ringRows, i);
                         const x = boardPad + col * tileSize;
                         const y = boardPad + row * tileSize;
                         const w = tileSize - 12;
@@ -1299,7 +1307,7 @@ function TableViewBody() {
                       }}
                     >
                       {level.tiles.map((t, i) => {
-                        const { col, row } = ringPos(gridSize, i);
+                        const { col, row } = ringPosRect(ringCols, ringRows, i);
                         const x = boardPad + col * tileSize;
                         const y = boardPad + row * tileSize;
                         const w = tileSize - 12;
