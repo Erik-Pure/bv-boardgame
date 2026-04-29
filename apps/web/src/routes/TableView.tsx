@@ -3,9 +3,6 @@ import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  BOARD_RING_GRID_SIZE,
-  ringGridSizeFromTileCount,
-  ringTileCount,
   type GameState,
   type Player,
   type TileType,
@@ -31,7 +28,7 @@ import { TreasureCardContent } from "../components/TreasureCardContent";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
-import { activePlayer, clamp, ringPosRect, ringRectDimsFromGridSize } from "../lib/tableBoard";
+import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
 import { TableBoardCameraViewport } from "../components/table/TableBoardCameraViewport";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import turnBannerStyles from "./turnBanner.module.css";
@@ -39,6 +36,8 @@ import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossV
 import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
+import { useScreenWakeLock } from "../hooks/useScreenWakeLock";
+import { useTableBoardViewModel } from "../hooks/useTableBoardViewModel";
 import { CARD_FLIP_FRONT_ANIM_READY_MS, CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
@@ -147,6 +146,14 @@ type TableToast = {
 };
 type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
 
+function parseRolledDieFromCardText(text: string): number | null {
+  const m = /Tärning:\s*(\d+)/i.exec(text);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(1, Math.min(6, Math.round(n)));
+}
+
 function eventCardOutcomeToasts(
   pending: Extract<NonNullable<GameState["pending"]>, { type: "card" }>,
   playersById: Map<string, Player>,
@@ -158,13 +165,7 @@ function eventCardOutcomeToasts(
   const out: Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> = [];
   const selfName = playersById.get(pending.playerId)?.name ?? "Spelare";
   const lines = pending.text.split("\n");
-  const rolledDie = (() => {
-    const m = /Tärning:\s*(\d+)/i.exec(pending.text);
-    if (!m) return null;
-    const n = Number(m[1]);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(1, Math.min(6, Math.round(n)));
-  })();
+  const rolledDie = parseRolledDieFromCardText(pending.text);
   if (rolledDie != null) {
     if (pending.cardId === "event_happyhour") {
       if (rolledDie === 1) {
@@ -474,8 +475,8 @@ function TableLobbyPlayerRow(props: {
   const dotStyle = { "--player-color": p.color } as CSSProperties;
   return (
     <div className={tableStyles.lobbyCard}>
-      <div className={u.flexSpaceBetweenGap10} style={{ alignItems: "center", minWidth: 0 }}>
-        <div className={tableStyles.lobbyNameCluster} style={{ minWidth: 0, flex: "1 1 auto" }}>
+      <div className={`${u.flexSpaceBetweenGap10} ${tableStyles.lobbyRowTop}`}>
+        <div className={`${tableStyles.lobbyNameCluster} ${tableStyles.lobbyNameClusterGrow}`}>
           <span aria-hidden className={tableStyles.playerColorDot12} style={dotStyle} />
           <span>
             {p.name}
@@ -497,22 +498,10 @@ function TableLobbyPlayerRow(props: {
         </button>
       </div>
       <div
-        className={u.inlineFlexGap12WrapEnd}
-        style={{ marginTop: 10, alignItems: "center" }}
+        className={`${u.inlineFlexGap12WrapEnd} ${tableStyles.lobbyStatsRow}`}
         aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}
       >
-        <span className={u.inlineFlexGap4}>
-          <StatIcon kind="hp" size={18} />
-          {p.hp}/{p.maxHp}
-        </span>
-        <span className={u.inlineFlexGap4}>
-          <StatIcon kind="pant" size={18} />
-          {p.gold}
-        </span>
-        <span className={u.inlineFlexGap4}>
-          <StatIcon kind="klunk" size={18} />
-          {p.klunkar}
-        </span>
+        <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={p.gold} klunkar={p.klunkar} iconSize={18} />
       </div>
       {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
       <div className={tableStyles.lobbyEquipGrid}>
@@ -533,6 +522,25 @@ function TableLobbyPlayerRow(props: {
   );
 }
 
+function PlayerVitals(props: { hp: number; maxHp: number; pant: number; klunkar: number; iconSize: number }) {
+  return (
+    <div className={tableStyles.playerVitalsRow}>
+      <span className={tableStyles.playerVitalsItem}>
+        <StatIcon kind="hp" size={props.iconSize} />
+        {props.hp}/{props.maxHp}
+      </span>
+      <span className={tableStyles.playerVitalsItem}>
+        <StatIcon kind="pant" size={props.iconSize} />
+        {props.pant}
+      </span>
+      <span className={tableStyles.playerVitalsItem}>
+        <StatIcon kind="klunk" size={props.iconSize} />
+        {props.klunkar}
+      </span>
+    </div>
+  );
+}
+
 export function TableView() {
   return (
     <TablePresentationScaleProvider>
@@ -541,408 +549,14 @@ export function TableView() {
   );
 }
 
-function TableViewBody() {
-  const navigate = useNavigate();
-  const overlayContentScale = useTableOverlayContentScale();
-  const [sp] = useSearchParams();
-  const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
-  const joinQrUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/join?room=${encodeURIComponent(room)}`
-      : `/join?room=${encodeURIComponent(room)}`;
-  const name = sp.get("name") ?? "Bord";
-
-  const [state, setState] = useState<GameState | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
-  const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
-  const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
-  /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
-  const [showSidebarLog, setShowSidebarLog] = useState(false);
-  const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
+function useTableToasts(state: GameState | null, playersById: Map<string, Player>) {
   const [tableToasts, setTableToasts] = useState<TableToast[]>([]);
-  const wakeLockRef = useRef<{ release: () => Promise<void>; released: boolean } | null>(null);
   const toastLogSeqRef = useRef<number | null>(null);
   const toastInitRef = useRef(false);
   const rewardToastKeyRef = useRef<string | null>(null);
   const prevSipNoticeKeysRef = useRef<Set<string>>(new Set());
   const eventSipToastKeyRef = useRef<string | null>(null);
 
-  const stackLevels = state?.levels?.length ? state.levels : [];
-
-  const playersById = useMemo(() => {
-    const ps = state?.players ?? [];
-    return new Map(ps.map((p) => [p.id, p]));
-  }, [state?.players]);
-
-  /** Senaste monster-rollPreview (klon) — används när `pending` blivit combat_win/lose så samma kort/DOM kan fortsätta. */
-  const lastMonsterRollPreviewSnapshotRef = useRef<GameState | null>(null);
-
-  useLayoutEffect(() => {
-    if (!state) return;
-    const p = state.pending;
-    if (p?.type === "combat" && p.phase === "rollPreview" && p.monsterId !== "boss") {
-      lastMonsterRollPreviewSnapshotRef.current = JSON.parse(JSON.stringify(state)) as GameState;
-    }
-  }, [state]);
-
-  const tableCombatOutcomeCardPending = (() => {
-    const p = state?.pending;
-    if (p?.type !== "card") return null;
-    if (p.cardId !== "combat_win" && p.cardId !== "combat_lose") return null;
-    return p;
-  })();
-
-  useEffect(() => {
-    if (!tableCombatOutcomeCardPending) {
-      lastMonsterRollPreviewSnapshotRef.current = null;
-    }
-  }, [tableCombatOutcomeCardPending]);
-
-  const playersByTileKey = useMemo(() => {
-    const ps = state?.players ?? [];
-    const levels = state?.levels ?? [];
-    const map = new Map<string, Player[]>();
-    for (const p of ps) {
-      const nTiles = levels[p.levelIndex]?.tiles?.length ?? 0;
-      const ti = nTiles <= 0 ? 0 : Math.min(Math.max(0, p.tileIndex), nTiles - 1);
-      const key = `${p.levelIndex}-${ti}`;
-      const arr = map.get(key);
-      if (arr) arr.push(p);
-      else map.set(key, [p]);
-    }
-    return map;
-  }, [state?.players, state?.levels]);
-
-  const tileSize = 120;
-  /** Luft mellan tile-ytan och den gula målramen (px). */
-  const targetRingOutset = 8;
-  /** Måste matcha `level.tiles.length` så visuell stegräkning = serverns modulo-ring (se ringMovement). */
-  const ringNTiles =
-    stackLevels[0]?.tiles.length ?? ringTileCount(BOARD_RING_GRID_SIZE);
-  const gridSize = ringGridSizeFromTileCount(ringNTiles);
-  /** Widescreen: anpassa rektangeln dynamiskt per vald board-storlek i lobby. */
-  const { cols: ringCols, rows: ringRows } = ringRectDimsFromGridSize(gridSize);
-  /** Marginal inuti SVG så målram + tjock stroke inte klipps vid brädets kanter. */
-  const boardPad = targetRingOutset + 4;
-  const gridPixelW = ringCols * tileSize;
-  const gridPixelH = ringRows * tileSize;
-  const boardWidth = gridPixelW + 2 * boardPad;
-  const boardHeight = gridPixelH + 2 * boardPad;
-  /** Horisontellt avstånd mellan våningsplan (sida vid sida). */
-  const RING_STACK_GAP = 44;
-  const stackCount = stackLevels.length;
-  const totalSvgWidth =
-    stackCount === 0 ? boardWidth : stackCount * boardWidth + (stackCount - 1) * RING_STACK_GAP;
-  const totalSvgHeight = boardHeight;
-
-  const maxFloorReached = useMemo(() => {
-    if (!state?.players?.length) return 0;
-    return Math.max(0, ...state.players.map((p) => p.levelIndex));
-  }, [state?.players]);
-
-  const floorLitOnTable = (levelIndex: number) =>
-    stackCount === 0 || levelIndex === 0 || maxFloorReached >= levelIndex;
-
-  const ringOffsetX = (levelIndex: number) =>
-    stackCount === 0 ? 0 : levelIndex * (boardWidth + RING_STACK_GAP);
-
-  const logRef = useRef<HTMLDivElement | null>(null);
-  const tableCameraParams = useMemo(
-    () => ({
-      state,
-      boardWidth,
-      boardHeight,
-      totalSvgWidth,
-      ringStackGap: RING_STACK_GAP,
-      gridSize,
-      ringCols,
-      ringRows,
-      tileSize,
-      boardPad,
-      targetRingOutset,
-      boardAnimationsEnabled: boardPerf.boardAnimationsEnabled,
-      boardPanEnabled: boardPerf.boardPanEnabled,
-    }),
-    [
-      state,
-      boardWidth,
-      boardHeight,
-      totalSvgWidth,
-      gridSize,
-      ringCols,
-      ringRows,
-      tileSize,
-      boardPad,
-      targetRingOutset,
-      boardPerf.boardAnimationsEnabled,
-      boardPerf.boardPanEnabled,
-    ],
-  );
-
-  const draftConfigForRoom = useMemo(() => readLobbyConfigDraft(room), [room]);
-  const tableConfig = useMemo(
-    () => ({ gameMode: "bossKill" as const, ...(draftConfigForRoom ?? {}) }),
-    [draftConfigForRoom],
-  );
-
-  const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay, clientRef } =
-    useWsGameClient({
-      roomCode: room,
-      playerName: name,
-      as: "table",
-      config: tableConfig,
-      connectTimeoutMs: 10_000,
-      onMessage: (m: ServerMessage) => {
-        if (m.type === "error") setErr(m.message);
-        if (m.type === "state" && isGameState(m.state)) {
-          setState(m.state);
-          setErr(null);
-        }
-      },
-    });
-
-  const kickPlayerFromTable = useCallback((playerId: string, displayName: string) => {
-    if (!window.confirm(sv.table.tableKickConfirm(displayName))) return;
-    clientRef.current?.send({ type: "action", action: { type: "tableKickPlayer", targetPlayerId: playerId } });
-  }, [clientRef]);
-
-  const tableKickEnabled = status === "connected";
-  useEffect(() => {
-    if (status === "connected" || status === "connecting") setErr(null);
-  }, [status]);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    setWakeLockAvailable(typeof (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } }).wakeLock?.request === "function");
-  }, []);
-
-  useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
-
-  useEffect(() => {
-    if (!tableSettingsOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setTableSettingsOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [tableSettingsOpen]);
-
-  const shouldHoldWakeLock =
-    boardPerf.preventSleepEnabled || (state?.phase === "lobby" && state.config.wakeLockBeforeStart === true);
-
-  useEffect(() => {
-    if (!shouldHoldWakeLock) {
-      const sentinel = wakeLockRef.current;
-      wakeLockRef.current = null;
-      if (sentinel && !sentinel.released) {
-        void sentinel.release().catch(() => undefined);
-      }
-      return;
-    }
-    if (typeof document === "undefined") return;
-    const nav = navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } };
-    if (!nav.wakeLock?.request) return;
-
-    let cancelled = false;
-    const requestWakeLock = async () => {
-      if (cancelled || document.visibilityState !== "visible") return;
-      try {
-        const lock = (await nav.wakeLock!.request("screen")) as {
-          released: boolean;
-          release: () => Promise<void>;
-          addEventListener?: (type: "release", listener: () => void) => void;
-        };
-        if (cancelled) {
-          if (!lock.released) await lock.release();
-          return;
-        }
-        wakeLockRef.current = lock;
-        lock.addEventListener?.("release", () => {
-          if (wakeLockRef.current === lock) {
-            wakeLockRef.current = null;
-          }
-        });
-      } catch {
-        // Ignore; togglen kan vara på även om browsern tillfälligt nekar låset.
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (!shouldHoldWakeLock) return;
-      if (document.visibilityState === "visible" && !wakeLockRef.current) {
-        void requestWakeLock();
-      }
-    };
-
-    void requestWakeLock();
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      const sentinel = wakeLockRef.current;
-      wakeLockRef.current = null;
-      if (sentinel && !sentinel.released) {
-        void sentinel.release().catch(() => undefined);
-      }
-    };
-  }, [shouldHoldWakeLock]);
-
-  // Håll loggen i botten när nya rader kommer eller när loggen visas i sidopanelen.
-  useEffect(() => {
-    const el = logRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [state?.log?.length, showSidebarLog]);
-
-  const cur = activePlayer(state);
-  const readyCount = state?.players?.filter((p) => p.ready).length ?? 0;
-  const cardOwner = pendingCardOwner(state);
-
-  const tableCardPendingKey =
-    state?.pending?.type === "card"
-      ? `${state.pending.cardId}:${state.pending.playerId}`
-      : null;
-  const [tableCardModalReady, setTableCardModalReady] = useState(false);
-  useEffect(() => {
-    if (!tableCardPendingKey) {
-      setTableCardModalReady(false);
-      return;
-    }
-    setTableCardModalReady(false);
-    const t = window.setTimeout(() => setTableCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [tableCardPendingKey]);
-  const pendingCard: PendingCard | null = state?.pending?.type === "card" ? state.pending : null;
-  const showTableRollEventCard =
-    !!pendingCard &&
-    pendingCard.kind === "event" &&
-    isEventStoryCardPending(pendingCard) &&
-    TABLE_ROLL_EVENT_CARD_IDS.has(pendingCard.cardId);
-
-  const tableCombatSessionKey =
-    state?.pending?.type === "combat"
-      ? `${state.pending.attackerId}-${state.pending.levelIndex}-${state.pending.tileIndex}-${state.pending.monsterId}`
-      : null;
-  const [tableCombatModalReady, setTableCombatModalReady] = useState(false);
-  const prevCombatSessionKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!tableCombatSessionKey) {
-      setTableCombatModalReady(false);
-      prevCombatSessionKeyRef.current = null;
-      return;
-    }
-    if (prevCombatSessionKeyRef.current === tableCombatSessionKey) {
-      if (!tableCombatModalReady) setTableCombatModalReady(true);
-      return;
-    }
-    prevCombatSessionKeyRef.current = tableCombatSessionKey;
-    const pend = state?.pending;
-    if (!pend || pend.type !== "combat") return;
-    if (pend.phase === "chooseTeammate" || pend.phase === "enemyIntro") {
-      setTableCombatModalReady(true);
-      return;
-    }
-    setTableCombatModalReady(false);
-    const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [tableCombatSessionKey, tableCombatModalReady, state?.pending]);
-
-  const monsterResultHoldover =
-    tableCombatOutcomeCardPending && lastMonsterRollPreviewSnapshotRef.current
-      ? {
-          preAck: lastMonsterRollPreviewSnapshotRef.current,
-          outcomeCard: tableCombatOutcomeCardPending,
-        }
-      : null;
-
-  const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
-
-  const showTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
-
-  const moveTargets = useMemo(() => {
-    if (state?.pending?.type !== "moveChoice") return null;
-    return new Set(state.pending.options.map((o) => `${o.target.levelIndex}-${o.target.tileIndex}`));
-  }, [state?.pending]);
-
-  /** Samma läge som när `rollMove` får köras: ingen annan pending, aktiv spelare kan röra sig. */
-  const highlightRollMoveOrigin = useMemo(() => {
-    if (state?.phase !== "playing") return false;
-    if (state.pending != null) return false;
-    if (!cur || cur.eliminated) return false;
-    if (cur.hp <= 0) return false;
-    return true;
-  }, [state?.phase, state?.pending, cur]);
-
-  const playingTurn = state?.phase === "playing" && cur;
-  const pendingMoveChoice = state?.pending?.type === "moveChoice" ? state.pending : null;
-  const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
-  const moveTurnCornerLabel =
-    cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
-  const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
-  const prevTurnPlayerIdRef = useRef<string | null>(null);
-  const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
-  const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
-  const prevShowMoveTurnHudRef = useRef(false);
-  const lastShownMoveHudRef = useRef<{ id: string; label: string } | null>(null);
-  useEffect(() => {
-    if (cur && showMoveTurnCornerHud) {
-      lastShownMoveHudRef.current = {
-        id: cur.id,
-        label: `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur`,
-      };
-    }
-    const prevVisible = prevShowMoveTurnHudRef.current;
-    if (prevVisible && !showMoveTurnCornerHud) {
-      const last = lastShownMoveHudRef.current;
-      if (last) {
-        setMoveTurnHudExit(last);
-        window.setTimeout(() => {
-          setMoveTurnHudExit((v) => (v?.id === last.id ? null : v));
-        }, 380);
-      }
-    }
-    prevShowMoveTurnHudRef.current = showMoveTurnCornerHud;
-  }, [cur, showMoveTurnCornerHud]);
-  useEffect(() => {
-    if (!cur?.id) {
-      prevTurnPlayerIdRef.current = null;
-      setTurnBannerHandoff(false);
-      setMoveTurnHudExit(null);
-      return;
-    }
-    const prev = prevTurnPlayerIdRef.current;
-    if (prev !== null && prev !== cur.id) {
-      setTurnBannerHandoff(true);
-      const t = window.setTimeout(() => setTurnBannerHandoff(false), 720);
-      // Vid turbyte: visa endast ny HUD-in-animation (ingen överlappande gammal etikett).
-      setMoveTurnHudExit(null);
-      prevTurnPlayerIdRef.current = cur.id;
-      return () => window.clearTimeout(t);
-    }
-    prevTurnPlayerIdRef.current = cur.id;
-  }, [cur?.id, playersById]);
-  const itemPlayFanCards = useMemo(() => {
-    if (!state) return [];
-    if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
-      return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!);
-    }
-    const reveals = state.tableItemPlayReveals;
-    if (reveals && reveals.length > 0) {
-      return expandTableRevealsToFanCards(state, reveals);
-    }
-    return [];
-  }, [state]);
-  const showItemPlayFan = itemPlayFanCards.length > 0;
-  const turnBannerBottomReservePx =
-    playingTurn && currentTurnAfflictions.length > 0
-      ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
-      : TABLE_TURN_BANNER_RESERVE_PX;
-
-  const bannerReserveStyle = {
-    "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
-  } as CSSProperties;
   useEffect(() => {
     if (!state) {
       toastInitRef.current = false;
@@ -962,7 +576,6 @@ function TableViewBody() {
       return;
     }
     if (seq < prevSeq) {
-      // Ny match/reset: baseline utan att flooda historisk logg.
       toastLogSeqRef.current = seq;
       return;
     }
@@ -1101,6 +714,309 @@ function TableViewBody() {
     return () => window.clearInterval(t);
   }, [tableToasts]);
 
+  return tableToasts;
+}
+
+function TableViewBody() {
+  const navigate = useNavigate();
+  const overlayContentScale = useTableOverlayContentScale();
+  const [sp] = useSearchParams();
+  const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
+  const joinQrUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/join?room=${encodeURIComponent(room)}`
+      : `/join?room=${encodeURIComponent(room)}`;
+  const name = sp.get("name") ?? "Bord";
+
+  const [state, setState] = useState<GameState | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
+  const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
+  /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
+  const [showSidebarLog, setShowSidebarLog] = useState(false);
+
+  const {
+    stackLevels,
+    playersById,
+    playersByTileKey,
+    tileSize,
+    targetRingOutset,
+    gridSize,
+    ringCols,
+    ringRows,
+    boardPad,
+    boardWidth,
+    boardHeight,
+    ringStackGap: RING_STACK_GAP,
+    totalSvgWidth,
+    totalSvgHeight,
+    floorLitOnTable,
+    ringOffsetX,
+  } = useTableBoardViewModel(state);
+
+  /** Senaste monster-rollPreview (klon) — används när `pending` blivit combat_win/lose så samma kort/DOM kan fortsätta. */
+  const lastMonsterRollPreviewSnapshotRef = useRef<GameState | null>(null);
+
+  useLayoutEffect(() => {
+    if (!state) return;
+    const p = state.pending;
+    if (p?.type === "combat" && p.phase === "rollPreview" && p.monsterId !== "boss") {
+      lastMonsterRollPreviewSnapshotRef.current = JSON.parse(JSON.stringify(state)) as GameState;
+    }
+  }, [state]);
+
+  const tableCombatOutcomeCardPending = (() => {
+    const p = state?.pending;
+    if (p?.type !== "card") return null;
+    if (p.cardId !== "combat_win" && p.cardId !== "combat_lose") return null;
+    return p;
+  })();
+
+  useEffect(() => {
+    if (!tableCombatOutcomeCardPending) {
+      lastMonsterRollPreviewSnapshotRef.current = null;
+    }
+  }, [tableCombatOutcomeCardPending]);
+
+  const logRef = useRef<HTMLDivElement | null>(null);
+  const tableCameraParams = useMemo(
+    () => ({
+      state,
+      boardWidth,
+      boardHeight,
+      totalSvgWidth,
+      ringStackGap: RING_STACK_GAP,
+      gridSize,
+      ringCols,
+      ringRows,
+      tileSize,
+      boardPad,
+      targetRingOutset,
+      boardAnimationsEnabled: boardPerf.boardAnimationsEnabled,
+      boardPanEnabled: boardPerf.boardPanEnabled,
+    }),
+    [
+      state,
+      boardWidth,
+      boardHeight,
+      totalSvgWidth,
+      gridSize,
+      ringCols,
+      ringRows,
+      tileSize,
+      boardPad,
+      targetRingOutset,
+      boardPerf.boardAnimationsEnabled,
+      boardPerf.boardPanEnabled,
+    ],
+  );
+
+  const draftConfigForRoom = useMemo(() => readLobbyConfigDraft(room), [room]);
+  const tableConfig = useMemo(
+    () => ({ gameMode: "bossKill" as const, ...(draftConfigForRoom ?? {}) }),
+    [draftConfigForRoom],
+  );
+
+  const { status, reconnectAttemptN, overlayPhase, requestReconnect, showReconnectOverlay, clientRef } =
+    useWsGameClient({
+      roomCode: room,
+      playerName: name,
+      as: "table",
+      config: tableConfig,
+      connectTimeoutMs: 10_000,
+      onMessage: (m: ServerMessage) => {
+        if (m.type === "error") setErr(m.message);
+        if (m.type === "state" && isGameState(m.state)) {
+          setState(m.state);
+          setErr(null);
+        }
+      },
+    });
+
+  const kickPlayerFromTable = useCallback((playerId: string, displayName: string) => {
+    if (!window.confirm(sv.table.tableKickConfirm(displayName))) return;
+    clientRef.current?.send({ type: "action", action: { type: "tableKickPlayer", targetPlayerId: playerId } });
+  }, [clientRef]);
+
+  const tableKickEnabled = status === "connected";
+  useEffect(() => {
+    if (status === "connected" || status === "connecting") setErr(null);
+  }, [status]);
+
+  useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
+
+  useEffect(() => {
+    if (!tableSettingsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTableSettingsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tableSettingsOpen]);
+
+  const shouldHoldWakeLock =
+    boardPerf.preventSleepEnabled || (state?.phase === "lobby" && state.config.wakeLockBeforeStart === true);
+  const wakeLockAvailable = useScreenWakeLock(shouldHoldWakeLock);
+
+  // Håll loggen i botten när nya rader kommer eller när loggen visas i sidopanelen.
+  useEffect(() => {
+    const el = logRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [state?.log?.length, showSidebarLog]);
+
+  const cur = activePlayer(state);
+  const readyCount = state?.players?.filter((p) => p.ready).length ?? 0;
+  const cardOwner = pendingCardOwner(state);
+
+  const tableCardPendingKey =
+    state?.pending?.type === "card"
+      ? `${state.pending.cardId}:${state.pending.playerId}`
+      : null;
+  const [tableCardModalReady, setTableCardModalReady] = useState(false);
+  useEffect(() => {
+    if (!tableCardPendingKey) {
+      setTableCardModalReady(false);
+      return;
+    }
+    setTableCardModalReady(false);
+    const t = window.setTimeout(() => setTableCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [tableCardPendingKey]);
+  const pendingCard: PendingCard | null = state?.pending?.type === "card" ? state.pending : null;
+  const showTableRollEventCard =
+    !!pendingCard &&
+    pendingCard.kind === "event" &&
+    isEventStoryCardPending(pendingCard) &&
+    TABLE_ROLL_EVENT_CARD_IDS.has(pendingCard.cardId);
+
+  const tableCombatSessionKey =
+    state?.pending?.type === "combat"
+      ? `${state.pending.attackerId}-${state.pending.levelIndex}-${state.pending.tileIndex}-${state.pending.monsterId}`
+      : null;
+  const [tableCombatModalReady, setTableCombatModalReady] = useState(false);
+  const prevCombatSessionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!tableCombatSessionKey) {
+      setTableCombatModalReady(false);
+      prevCombatSessionKeyRef.current = null;
+      return;
+    }
+    if (prevCombatSessionKeyRef.current === tableCombatSessionKey) {
+      if (!tableCombatModalReady) setTableCombatModalReady(true);
+      return;
+    }
+    prevCombatSessionKeyRef.current = tableCombatSessionKey;
+    const pend = state?.pending;
+    if (!pend || pend.type !== "combat") return;
+    if (pend.phase === "chooseTeammate" || pend.phase === "enemyIntro") {
+      setTableCombatModalReady(true);
+      return;
+    }
+    setTableCombatModalReady(false);
+    const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [tableCombatSessionKey, tableCombatModalReady, state?.pending]);
+
+  const monsterResultHoldover =
+    tableCombatOutcomeCardPending && lastMonsterRollPreviewSnapshotRef.current
+      ? {
+          preAck: lastMonsterRollPreviewSnapshotRef.current,
+          outcomeCard: tableCombatOutcomeCardPending,
+        }
+      : null;
+
+  const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
+
+  const showTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
+
+  const moveTargets = useMemo(() => {
+    if (state?.pending?.type !== "moveChoice") return null;
+    return new Set(state.pending.options.map((o) => `${o.target.levelIndex}-${o.target.tileIndex}`));
+  }, [state?.pending]);
+
+  /** Samma läge som när `rollMove` får köras: ingen annan pending, aktiv spelare kan röra sig. */
+  const highlightRollMoveOrigin = useMemo(() => {
+    if (state?.phase !== "playing") return false;
+    if (state.pending != null) return false;
+    if (!cur || cur.eliminated) return false;
+    if (cur.hp <= 0) return false;
+    return true;
+  }, [state?.phase, state?.pending, cur]);
+
+  const playingTurn = state?.phase === "playing" && cur;
+  const pendingMoveChoice = state?.pending?.type === "moveChoice" ? state.pending : null;
+  const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
+  const moveTurnCornerLabel =
+    cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
+  const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
+  const boardPlayers = state?.players ?? [];
+  const prevTurnPlayerIdRef = useRef<string | null>(null);
+  const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
+  const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
+  const prevShowMoveTurnHudRef = useRef(false);
+  const lastShownMoveHudRef = useRef<{ id: string; label: string } | null>(null);
+  useEffect(() => {
+    if (cur && showMoveTurnCornerHud) {
+      lastShownMoveHudRef.current = {
+        id: cur.id,
+        label: `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur`,
+      };
+    }
+    const prevVisible = prevShowMoveTurnHudRef.current;
+    if (prevVisible && !showMoveTurnCornerHud) {
+      const last = lastShownMoveHudRef.current;
+      if (last) {
+        setMoveTurnHudExit(last);
+        window.setTimeout(() => {
+          setMoveTurnHudExit((v) => (v?.id === last.id ? null : v));
+        }, 380);
+      }
+    }
+    prevShowMoveTurnHudRef.current = showMoveTurnCornerHud;
+  }, [cur, showMoveTurnCornerHud]);
+  useEffect(() => {
+    if (!cur?.id) {
+      prevTurnPlayerIdRef.current = null;
+      setTurnBannerHandoff(false);
+      setMoveTurnHudExit(null);
+      return;
+    }
+    const prev = prevTurnPlayerIdRef.current;
+    if (prev !== null && prev !== cur.id) {
+      setTurnBannerHandoff(true);
+      const t = window.setTimeout(() => setTurnBannerHandoff(false), 720);
+      // Vid turbyte: visa endast ny HUD-in-animation (ingen överlappande gammal etikett).
+      setMoveTurnHudExit(null);
+      prevTurnPlayerIdRef.current = cur.id;
+      return () => window.clearTimeout(t);
+    }
+    prevTurnPlayerIdRef.current = cur.id;
+  }, [cur?.id, playersById]);
+  const itemPlayFanCards = useMemo(() => {
+    if (!state) return [];
+    if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
+      return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!);
+    }
+    const reveals = state.tableItemPlayReveals;
+    if (reveals && reveals.length > 0) {
+      return expandTableRevealsToFanCards(state, reveals);
+    }
+    return [];
+  }, [state]);
+  const showItemPlayFan = itemPlayFanCards.length > 0;
+  const turnBannerBottomReservePx =
+    playingTurn && currentTurnAfflictions.length > 0
+      ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
+      : TABLE_TURN_BANNER_RESERVE_PX;
+
+  const bannerReserveStyle = {
+    "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
+  } as CSSProperties;
+  const tableToasts = useTableToasts(state, playersById);
+
   return (
     <div className={tableStyles.tableRoot}>
       <div className={tableStyles.headerBarWrap}>
@@ -1216,7 +1132,7 @@ function TableViewBody() {
                       fontSize={12}
                       fontWeight={700}
                       opacity={0.92}
-                      style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.65)", strokeWidth: 2 }}
+                      className={tableStyles.svgLabelStroke}
                     >
                       {sv.table.floorN(li + 1)}
                     </text>
@@ -1292,7 +1208,7 @@ function TableViewBody() {
                                 fontSize={13}
                                 fontWeight={700}
                                 opacity={0.95}
-                                style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.75)", strokeWidth: 3 }}
+                                className={tableStyles.svgTileLabelStroke}
                               >
                                 {tileTypeLabel(t.type)}
                               </text>
@@ -1355,10 +1271,7 @@ function TableViewBody() {
                                           strokeWidth={3.4}
                                           fontSize={34}
                                           fontWeight={900}
-                                          style={{
-                                            userSelect: "none",
-                                            paintOrder: "stroke fill",
-                                          }}
+                                          className={tableStyles.svgTokenInitialText}
                                         >
                                           {initial}
                                         </text>
@@ -1399,12 +1312,7 @@ function TableViewBody() {
                     src="/icons/bmm-logo-horisontal.png"
                     alt="Bryggmästarnas Mästare"
                     draggable={false}
-                    style={{
-                      display: "block",
-                      width: "min(100%, 520px)",
-                      height: "auto",
-                      margin: "0 auto 10px",
-                    }}
+                    className={tableStyles.lobbyLogo}
                   />
                 </picture>
                 <div className={tableStyles.lobbyCodeRow}>
@@ -1418,7 +1326,7 @@ function TableViewBody() {
                       value={joinQrUrl}
                       size={176}
                       includeMargin
-                      style={{ width: "clamp(160px, 32vw, 220px)", height: "auto", display: "block" }}
+                      className={tableStyles.lobbyQrCode}
                     />
                   </div>
                   <div className={u.caption12o86Center}>Skanna för att gå med i lobbyn</div>
@@ -1613,8 +1521,6 @@ function TableViewBody() {
           contentScale={overlayContentScale}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
-            pointerEvents: "none",
-            placeItems: "start center",
             paddingTop:
               overlayContentScale > 1
                 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
@@ -1622,6 +1528,7 @@ function TableViewBody() {
             background: TABLE_BOARD_OVERLAY_BG,
             animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
+          className={tableStyles.overlayTopCenter}
         >
           {(() => {
             const pr = state.pending;
@@ -1629,21 +1536,7 @@ function TableViewBody() {
             const victim = state.players.find((pl) => pl.id === pr.playerId);
             const name = victim?.name ?? "";
             return (
-              <div
-                style={{
-                  width: "100%",
-                  maxWidth: 480,
-                  margin: "0 auto",
-                  boxSizing: "border-box",
-                  borderRadius: 16,
-                  border: "1px solid #ffffff22",
-                  background: "rgba(11, 18, 38, 0.94)",
-                  boxShadow: "0 24px 56px rgba(0,0,0,0.45)",
-                  padding: "22px 20px 24px",
-                  textAlign: "center",
-                  color: "#e5e7eb",
-                }}
-              >
+              <div className={tableStyles.brewerDownPanel}>
                 <CombatSheetFrame
                   sheetTitle={sv.play.brewerDownTitle}
                   titleStyle={{
@@ -1660,16 +1553,10 @@ function TableViewBody() {
                     src="/icons/skull-icon.svg"
                     alt=""
                     draggable={false}
-                    style={{
-                      width: 96,
-                      height: "auto",
-                      margin: "10px auto 14px",
-                      display: "block",
-                      filter: "brightness(0) invert(1)",
-                    }}
+                    className={tableStyles.brewerDownSkull}
                   />
-                  <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{name}</div>
-                  <div style={{ fontSize: 14, opacity: 0.88, lineHeight: 1.45 }}>
+                  <div className={tableStyles.brewerDownName}>{name}</div>
+                  <div className={tableStyles.brewerDownBody}>
                     {sv.table.brewerDownWaitPhone(name)}
                   </div>
                 </CombatSheetFrame>
@@ -1701,8 +1588,6 @@ function TableViewBody() {
               : undefined
           }
           style={{
-            pointerEvents: "none",
-            placeItems: "start center",
             paddingTop:
               overlayContentScale > 1
                 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
@@ -1716,121 +1601,21 @@ function TableViewBody() {
                 ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
                 : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
+          className={tableStyles.overlayTopCenter}
         >
           {(() => {
             const pCard = state.pending;
             const eventStoryFrame = isEventStoryCardPending(pCard);
             return (
           <div
-            style={{
-              width: "100%",
-              textAlign: "left",
-              ...(eventStoryFrame
-                ? {
-                    maxWidth: 520,
-                    margin: "0 auto",
-                    padding: "0 10px 12px",
-                    boxSizing: "border-box",
-                  }
-                : {
-                    borderRadius: 16,
-                    border: "1px solid #ffffff22",
-                    background: "rgba(11, 18, 38, 0.92)",
-                    padding: 16,
-                  }),
-            }}
+            className={[
+              tableStyles.tableModalFrameBase,
+              eventStoryFrame ? tableStyles.tableModalFrameStory : tableStyles.tableModalFrameDefault,
+            ].join(" ")}
           >
-            {(() => {
-              const p = state.pending;
-              const viewer = cardOwner?.name;
-              const winData =
-                p.cardId === "combat_win"
-                  ? resolveCombatWinViewer(
-                      p.combatWin ?? parseLegacyCombatWinText(p.text, viewer),
-                      viewer,
-                    )
-                  : null;
-              const loseData =
-                p.cardId === "combat_lose"
-                  ? resolveCombatLossViewer(
-                      p.combatLoss ?? parseLegacyCombatLoseText(p.text, viewer),
-                      viewer,
-                    )
-                  : null;
-              if (winData) {
-                return (
-                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame showSheetTitle={false}>
-                      <CombatWinCardContent data={winData} />
-                    </CombatSheetFrame>
-                  </div>
-                );
-              }
-              if (loseData) {
-                return (
-                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame showSheetTitle={false}>
-                      <CombatLoseCardContent data={loseData} />
-                    </CombatSheetFrame>
-                  </div>
-                );
-              }
-              if (isFoundItemRevealCard(p.cardId)) {
-                return (
-                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame
-                      sheetTitle={sv.table.hiddenItemFoundTitle}
-                      titleStyle={{ textAlign: "center", fontSize: 30, letterSpacing: "0.03em", marginBottom: 14 }}
-                    >
-                      <TableHiddenItemRevealCardContent />
-                    </CombatSheetFrame>
-                  </div>
-                );
-              }
-              if (p.kind === "treasure" && !p.cardId.startsWith("treasure_item_")) {
-                return (
-                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
-                      <TreasureCardContent title={p.title} text={p.text} cardId={p.cardId} />
-                    </CombatSheetFrame>
-                  </div>
-                );
-              }
-              if (p.cardId === "door_locked") {
-                return (
-                  <div style={{ textAlign: "center", color: "#e5e7eb" }}>
-                    <CombatSheetFrame
-                      sheetTitle={p.title}
-                      titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
-                    >
-                      <TableLevelUpLockedCardContent text={p.text} />
-                    </CombatSheetFrame>
-                  </div>
-                );
-              }
-              return (
-                <div
-                  className={[
-                    monsterCardFrameStyles.wrap,
-                    monsterCardFrameStyles.wrapFill,
-                    monsterCardFrameStyles.wrapEventStory,
-                  ].join(" ")}
-                >
-                  <TableEventStoryCardFrame card={p} showWaitingHint />
-                </div>
-              );
-            })()}
+            <TablePendingCardContent pending={state.pending} viewerName={cardOwner?.name} />
             {!eventStoryFrame ? (
-              <div
-                style={{
-                  opacity: 0.65,
-                  fontSize: 12,
-                  marginTop: 10,
-                  textAlign: "center",
-                }}
-              >
-                {sv.table.waitingConfirmPhone}
-              </div>
+              <div className={tableStyles.pendingWaitingHint}>{sv.table.waitingConfirmPhone}</div>
             ) : null}
           </div>
             );
@@ -1860,79 +1645,29 @@ function TableViewBody() {
               }
             >
             {turnBannerHandoff ? (
-              <div className={turnBannerStyles.shineSweep} key={cur!.id} aria-hidden />
+              <div className={turnBannerStyles.shineSweep} key={cur?.id ?? "turn"} aria-hidden />
             ) : null}
             {currentTurnAfflictions.length > 0 ? (
               <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
             ) : null}
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                padding: "0",
-                justifyContent: "center",
-                overflowX: "auto",
-                overflowY: "hidden",
-              }}
-            >
-              {state!.players.map((p) => {
+            <div className={tableStyles.turnPlayersScroller}>
+              {boardPlayers.map((p) => {
                 const active = cur?.id === p.id;
                 return (
                   <div
                     key={p.id}
-                    className={active ? tableStyles.turnBannerActivePlayerCardPulse : undefined}
+                    className={[tableStyles.turnPlayerCard, active ? tableStyles.turnBannerActivePlayerCardPulse : ""].join(
+                      " ",
+                    )}
                     style={{
-                      minWidth: 150,
-                      borderRadius: 0,
-                      padding: "6px 16px",
-                      border: "none",
                       background: active ? p.color : "rgba(255,255,255,0.04)",
-                      boxShadow: "none",
-                      flexShrink: 0,
                       ["--turn-active-player-color" as string]: p.color,
                     }}
                     title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
                   >
-                    <div
-                      style={{
-                        fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                        fontSize: 20,
-                        fontWeight: 900,
-                        lineHeight: 1.1,
-                        textAlign: "center",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {p.name}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 12,
-                        fontSize: 17,
-                        fontWeight: 800,
-                        textAlign: "center",
-                      }}
-                    >
-                      <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="hp" size={22} />
-                        <span>
-                          {p.hp}/{p.maxHp}
-                        </span>
-                      </span>
-                      <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="pant" size={22} />
-                        <span>{p.gold}</span>
-                      </span>
-                      <span className={u.inlineFlexGap4}>
-                        <StatIcon kind="klunk" size={22} />
-                        <span>{p.klunkar}</span>
-                      </span>
+                    <div className={tableStyles.turnPlayerName}>{p.name}</div>
+                    <div className={tableStyles.turnPlayerVitals}>
+                      <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={p.gold} klunkar={p.klunkar} iconSize={22} />
                     </div>
                   </div>
                 );
@@ -2071,44 +1806,15 @@ function TableViewBody() {
 
 function TableLevelUpLockedCardContent(props: { text: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-        color: "#fff",
-        padding: "8px 4px 0",
-        gap: 14,
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          width: 112,
-          height: 112,
-          borderRadius: "50%",
-          display: "grid",
-          placeItems: "center",
-          background: "rgba(255,255,255,0.1)",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.2)",
-        }}
-      >
+    <div className={tableStyles.infoRevealCard}>
+      <div aria-hidden className={`${tableStyles.infoRevealIconCircle} ${tableStyles.levelUpLockCircle}`}>
         <img
           src="/icons/lvlup.svg"
           alt=""
-          className="lvlup-lock-icon lvlup-lock-icon-down"
-          style={{
-            width: 36,
-            height: 36,
-            filter: "brightness(0) invert(1)",
-            opacity: 0.96,
-          }}
+          className={`lvlup-lock-icon lvlup-lock-icon-down ${tableStyles.levelUpLockIcon}`}
         />
       </div>
-      <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
-        {props.text}
-      </p>
+      <p className={tableStyles.infoRevealText}>{props.text}</p>
     </div>
   );
 }
@@ -2123,67 +1829,17 @@ function TableEventStoryCardFrame(props: {
   return (
     <>
       <div className={monsterCardFrameStyles.spin} aria-hidden />
-      <div
-        className={monsterCardFrameStyles.inner}
-        style={{
-          background: "#0b1226",
-          padding: 12,
-          color: "#fff",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: "100%",
-          ...(props.cardStyle ?? {}),
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 10,
-            minWidth: 0,
-          }}
-        >
+      <div className={`${monsterCardFrameStyles.inner} ${tableStyles.eventCardInner}`} style={props.cardStyle}>
+        <div className={tableStyles.eventCardHeader}>
           <img
             src="/icons/event-icon.svg"
             alt=""
             draggable={false}
-            style={{
-              flexShrink: 0,
-              height: 24,
-              width: "auto",
-              objectFit: "contain",
-              filter: "brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))",
-              opacity: 0.96,
-            }}
+            className={tableStyles.eventCardIcon}
           />
-          <div
-            style={{
-              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-              fontWeight: 900,
-              fontSize: 22,
-              lineHeight: 1.1,
-              letterSpacing: "0.02em",
-              wordBreak: "break-word",
-              minWidth: 0,
-            }}
-          >
-            {props.card.title}
-          </div>
+          <div className={tableStyles.eventCardTitle}>{props.card.title}</div>
         </div>
-        <div
-          style={{
-            width: "100%",
-            margin: "0 0 14px",
-            aspectRatio: "4/3",
-            flexShrink: 0,
-            borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid #ffffff22",
-            background: "rgba(255,255,255,0.92)",
-            boxSizing: "border-box",
-          }}
-        >
+        <div className={tableStyles.eventCardArtWrap}>
           <img
             src={artImageSrcForPending(props.card.artKey, props.card.grantedItemId, {
               cardText: props.card.text,
@@ -2193,49 +1849,16 @@ function TableEventStoryCardFrame(props: {
               (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
             }}
             alt={sv.table.cardArtAlt}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              display: "block",
-            }}
+            className={tableStyles.eventCardArt}
           />
         </div>
-        <div
-          style={{
-            opacity: 0.98,
-            color: "#e5e7eb",
-            whiteSpace: "pre-wrap",
-            lineHeight: 1.45,
-            fontSize: 15,
-          }}
-        >
-          {props.card.text}
-        </div>
+        <div className={tableStyles.eventCardBody}>{props.card.text}</div>
         {props.showWaitingHint ? (
-          <div
-            style={{
-              opacity: 0.62,
-              fontSize: 12,
-              lineHeight: 1.35,
-              marginTop: 12,
-              color: "rgba(226, 232, 240, 0.9)",
-            }}
-          >
-            {sv.table.waitingConfirmPhone}
-          </div>
+          <div className={tableStyles.eventCardHint}>{sv.table.waitingConfirmPhone}</div>
         ) : null}
-        {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
+        {showBeerRef ? <div className={tableStyles.eventCardSpacer} aria-hidden /> : null}
         {showBeerRef ? (
-          <div
-            style={{
-              marginTop: 0,
-              paddingTop: 10,
-              borderTop: "1px solid rgba(255,255,255,0.1)",
-              flexShrink: 0,
-            }}
-          >
+          <div className={tableStyles.eventCardAttribution}>
             <CardArtAttribution artKey={revealArtKey} dense />
           </div>
         ) : null}
@@ -2251,13 +1874,7 @@ function TableEventRollHeroOverlay(props: {
   cardCoverId?: string | null;
 }) {
   const effectiveScale = props.contentScale > 1 ? props.contentScale : 1;
-  const rolledDie = (() => {
-    const m = /Tärning:\s*(\d+)/i.exec(props.card.text);
-    if (!m) return null;
-    const n = Number(m[1]);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(1, Math.min(6, Math.round(n)));
-  })();
+  const rolledDie = parseRolledDieFromCardText(props.card.text);
   const hasRolledResult = rolledDie != null && (props.card.choices?.length ?? 0) === 0;
   const [animState, setAnimState] = useState<"intro" | "shiftRight" | "diceIn">("intro");
   useEffect(() => {
@@ -2279,53 +1896,23 @@ function TableEventRollHeroOverlay(props: {
 
   return (
     <div
+      className={`${tableStyles.eventRollOverlay} ${tableStyles.overlayTopCenter}`}
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 44,
-        pointerEvents: "none",
-        display: "grid",
-        placeItems: "start center",
         paddingTop: props.contentScale > 1 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))" : 70,
         background: TABLE_BOARD_OVERLAY_BG,
         animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
       }}
     >
-      <div
-        style={{
-          transform: `scale(${effectiveScale})`,
-          transformOrigin: "top center",
-          width: "100%",
-          display: "grid",
-          justifyItems: "center",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: animState === "diceIn" ? 20 : 0,
-            transition: "gap 0.35s cubic-bezier(0.22, 0.61, 0.36, 1)",
-          }}
-        >
+      <div className={tableStyles.overlayScaleWrap} style={{ transform: `scale(${effectiveScale})` }}>
+        <div className={tableStyles.eventRollRow} style={{ gap: animState === "diceIn" ? 20 : 0 }}>
           <div
+            className={tableStyles.eventRollDicePanel}
             style={{
-              width: 300,
               opacity: animState === "diceIn" ? 1 : 0,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
               transform: animState === "diceIn" ? "translateX(0)" : "translateX(-10px)",
-              transition: "opacity 0.4s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)",
             }}
           >
-            <div
-              style={{
-                transform: "rotate(-12deg)",
-                filter: "drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55))",
-              }}
-            >
+            <div className={tableStyles.eventRollDie}>
               {hasRolledResult ? (
                 <DiceCube3D value={rolledDie} size={88} />
               ) : (
@@ -2334,18 +1921,14 @@ function TableEventRollHeroOverlay(props: {
             </div>
           </div>
           <div
+            className={tableStyles.eventRollCardPanel}
             style={{
-              width: 400,
-              maxWidth: 400,
-              flex: "0 1 auto",
-              alignSelf: "flex-start",
               transform:
                 animState === "intro"
                   ? "translateX(0) rotate(0deg)"
                   : animState === "shiftRight"
                     ? "translateX(36px) rotate(0deg)"
                     : "translateX(8px) rotate(5deg)",
-              transition: "transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1)",
             }}
           >
             <CardFlipScene
@@ -2375,52 +1958,93 @@ function isFoundItemRevealCard(cardId: string): boolean {
   return cardId.startsWith("event_find_item_") || cardId.startsWith("treasure_item_");
 }
 
-function TableHiddenItemRevealCardContent() {
+function TablePendingCardContent(props: { pending: PendingCard; viewerName?: string }) {
+  const p = props.pending;
+  const winData =
+    p.cardId === "combat_win"
+      ? resolveCombatWinViewer(
+          p.combatWin ?? parseLegacyCombatWinText(p.text, props.viewerName),
+          props.viewerName,
+        )
+      : null;
+  if (winData) {
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame showSheetTitle={false}>
+          <CombatWinCardContent data={winData} />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
+  const loseData =
+    p.cardId === "combat_lose"
+      ? resolveCombatLossViewer(
+          p.combatLoss ?? parseLegacyCombatLoseText(p.text, props.viewerName),
+          props.viewerName,
+        )
+      : null;
+  if (loseData) {
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame showSheetTitle={false}>
+          <CombatLoseCardContent data={loseData} />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
+  if (isFoundItemRevealCard(p.cardId)) {
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame
+          sheetTitle={sv.table.hiddenItemFoundTitle}
+          titleStyle={{ textAlign: "center", fontSize: 30, letterSpacing: "0.03em", marginBottom: 14 }}
+        >
+          <TableHiddenItemRevealCardContent />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
+  if (p.kind === "treasure" && !p.cardId.startsWith("treasure_item_")) {
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
+          <TreasureCardContent title={p.title} text={p.text} cardId={p.cardId} />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
+  if (p.cardId === "door_locked") {
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame
+          sheetTitle={p.title}
+          titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
+        >
+          <TableLevelUpLockedCardContent text={p.text} />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
   return (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-        color: "#fff",
-        padding: "8px 4px 0",
-        gap: 14,
-      }}
+      className={[
+        monsterCardFrameStyles.wrap,
+        monsterCardFrameStyles.wrapFill,
+        monsterCardFrameStyles.wrapEventStory,
+      ].join(" ")}
     >
-      <div
-        aria-hidden
-        style={{
-          width: 112,
-          height: 112,
-          borderRadius: "50%",
-          display: "grid",
-          placeItems: "center",
-          background: "radial-gradient(circle at 32% 28%, #d9a21f 0%, #b97908 58%, #8b5e07 100%)",
-          boxShadow: "inset 0 0 0 4px #facc15, 0 4px 16px rgba(0,0,0,0.35)",
-        }}
-      >
-        <span
-          aria-hidden
-          style={{
-            width: 58,
-            height: 58,
-            display: "inline-block",
-            backgroundColor: "#ffffff",
-            maskImage: "url(/icons/reward-icon.svg)",
-            WebkitMaskImage: "url(/icons/reward-icon.svg)",
-            maskSize: "contain",
-            WebkitMaskSize: "contain",
-            maskRepeat: "no-repeat",
-            WebkitMaskRepeat: "no-repeat",
-            maskPosition: "center",
-            WebkitMaskPosition: "center",
-          }}
-        />
+      <TableEventStoryCardFrame card={p} showWaitingHint />
+    </div>
+  );
+}
+
+function TableHiddenItemRevealCardContent() {
+  return (
+    <div className={tableStyles.infoRevealCard}>
+      <div aria-hidden className={`${tableStyles.infoRevealIconCircle} ${tableStyles.hiddenItemCircle}`}>
+        <span aria-hidden className={tableStyles.hiddenItemGlyph} />
       </div>
-      <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
-        {sv.table.hiddenItemFoundBody}
-      </p>
+      <p className={tableStyles.infoRevealText}>{sv.table.hiddenItemFoundBody}</p>
     </div>
   );
 }

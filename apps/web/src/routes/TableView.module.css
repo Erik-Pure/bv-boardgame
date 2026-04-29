@@ -384,6 +384,36 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
 }
 
+.lobbyLogo {
+  display: block;
+  width: min(100%, 520px);
+  height: auto;
+  margin: 0 auto 10px;
+}
+
+.lobbyQrCode {
+  width: clamp(160px, 32vw, 220px);
+  height: auto;
+  display: block;
+}
+
+.svgLabelStroke {
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.65);
+  stroke-width: 2;
+}
+
+.svgTileLabelStroke {
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 3;
+}
+
+.svgTokenInitialText {
+  user-select: none;
+  paint-order: stroke fill;
+}
+
 .tableSidebarAside {
   flex-grow: 0;
   flex-shrink: 1;
@@ -739,6 +769,46 @@
   word-break: break-word;
 }
 
+.turnPlayersScroller {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.turnPlayerCard {
+  min-width: 150px;
+  border-radius: 0;
+  padding: 6px 16px;
+  border: none;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.turnPlayerName {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+
+.turnPlayerVitals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .preGameTintBox {
   flex: 1;
   min-width: 0;
@@ -940,4 +1010,287 @@
   white-space: nowrap;
   transform: rotate(-10deg);
   transform-origin: center center;
+}
+
+.lobbyRowTop {
+  align-items: center;
+  min-width: 0;
+}
+
+.lobbyNameClusterGrow {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lobbyStatsRow {
+  margin-top: 10px;
+  align-items: center;
+}
+
+.playerVitalsRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.playerVitalsItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.overlayTopCenter {
+  pointer-events: none;
+  place-items: start center;
+}
+
+.overlayScaleWrap {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  transform-origin: top center;
+}
+
+.tableModalFrameBase {
+  width: 100%;
+  text-align: left;
+}
+
+.tableModalFrameStory {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 10px 12px;
+  box-sizing: border-box;
+}
+
+.tableModalFrameDefault {
+  border-radius: 16px;
+  border: 1px solid #ffffff22;
+  background: rgba(11, 18, 38, 0.92);
+  padding: 16px;
+}
+
+.centeredCardContent {
+  text-align: center;
+  color: #e5e7eb;
+}
+
+.pendingWaitingHint {
+  opacity: 0.65;
+  font-size: 12px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.brewerDownPanel {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid #ffffff22;
+  background: rgba(11, 18, 38, 0.94);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
+  padding: 22px 20px 24px;
+  text-align: center;
+  color: #e5e7eb;
+}
+
+.brewerDownSkull {
+  width: 96px;
+  height: auto;
+  margin: 10px auto 14px;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+.brewerDownName {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.brewerDownBody {
+  font-size: 14px;
+  opacity: 0.88;
+  line-height: 1.45;
+}
+
+.eventCardInner {
+  background: #0b1226;
+  padding: 12px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.eventCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.eventCardIcon {
+  flex-shrink: 0;
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22));
+  opacity: 0.96;
+}
+
+.eventCardTitle {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.eventCardArtWrap {
+  width: 100%;
+  margin: 0 0 14px;
+  aspect-ratio: 4 / 3;
+  flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #ffffff22;
+  background: rgba(255, 255, 255, 0.92);
+  box-sizing: border-box;
+}
+
+.eventCardArt {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.eventCardBody {
+  opacity: 0.98;
+  color: #e5e7eb;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+.eventCardHint {
+  opacity: 0.62;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 12px;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.eventCardSpacer {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.eventCardAttribution {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.eventRollOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  pointer-events: none;
+  display: grid;
+}
+
+.eventRollRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: gap 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.eventRollDicePanel {
+  width: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.4s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.eventRollDie {
+  transform: rotate(-12deg);
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55));
+}
+
+.eventRollCardPanel {
+  width: 400px;
+  max-width: 400px;
+  flex: 0 1 auto;
+  align-self: flex-start;
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.infoRevealCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #fff;
+  padding: 8px 4px 0;
+  gap: 14px;
+}
+
+.infoRevealIconCircle {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.levelUpLockCircle {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.hiddenItemCircle {
+  background: radial-gradient(circle at 32% 28%, #d9a21f 0%, #b97908 58%, #8b5e07 100%);
+  box-shadow: inset 0 0 0 4px #facc15, 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.levelUpLockIcon {
+  width: 36px;
+  height: 36px;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
+}
+
+.hiddenItemGlyph {
+  width: 58px;
+  height: 58px;
+  display: inline-block;
+  background-color: #ffffff;
+  mask-image: url(/icons/reward-icon.svg);
+  -webkit-mask-image: url(/icons/reward-icon.svg);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+.infoRevealText {
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.4;
 }
