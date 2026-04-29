@@ -1897,9 +1897,25 @@ export function PlayView() {
       );
     }
     if (!myCardPending) return null;
+    const rolledEventDie = (() => {
+      if (myCardPending.kind !== "event") return null;
+      const m = /Tärning:\s*(\d+)/i.exec(myCardPending.text);
+      if (!m) return null;
+      const n = Number(m[1]);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(1, Math.min(6, Math.round(n)));
+    })();
     if (myCardPending.choices && myCardPending.choices.length > 0) {
+      const showEventRollDie =
+        myCardPending.kind === "event" && myCardPending.choices.some((c) => c.id === "roll");
       return (
         <div className={u.stack8}>
+          {showEventRollDie ? (
+            <div className={styles.sheetDiceBlock}>
+              <DiceCube3D idleSpin spinning size={76} />
+              <div className={styles.sheetDiceCaption} aria-hidden />
+            </div>
+          ) : null}
           {myCardPending.choices.map((c) => (
             <ArcadeButton
               key={c.id}
@@ -1914,13 +1930,21 @@ export function PlayView() {
       );
     }
     return (
-      <ArcadeButton
-        variant="pink"
-        fullWidth
-        onClick={() => send({ type: "confirmCard", playerId: me.id })}
-      >
-        {sv.cardModal.continue}
-      </ArcadeButton>
+      <div className={u.stack8}>
+        {rolledEventDie != null ? (
+          <div className={styles.sheetDiceBlock}>
+            <DiceCube3D value={rolledEventDie} size={76} />
+            <div className={styles.sheetDiceCaption} aria-hidden />
+          </div>
+        ) : null}
+        <ArcadeButton
+          variant="pink"
+          fullWidth
+          onClick={() => send({ type: "confirmCard", playerId: me.id })}
+        >
+          {sv.cardModal.continue}
+        </ArcadeButton>
+      </div>
     );
   })();
 

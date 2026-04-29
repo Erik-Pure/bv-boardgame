@@ -77,17 +77,6 @@ export function Home() {
         }}
       >
         <Link
-          to="/cards"
-          style={{
-            color: "#94a3b8",
-            fontSize: 15,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
-          {sv.home.footerCards}
-        </Link>
-        <Link
           to="/rules"
           style={{
             color: "#94a3b8",

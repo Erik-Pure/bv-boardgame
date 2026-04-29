@@ -102,7 +102,7 @@
       "id": "combat_monster",
       "kind": "combat",
       "title": "Strid",
-      "text": "Ett monster dyker upp. Slå för att vinna.",
+      "text": "En dålig batch dyker upp. Slå för att vinna.",
       "artKey": "combat/monster",
       "effects": []
     },
@@ -320,7 +320,7 @@
       "id": "item_weak_beer",
       "kind": "item",
       "title": "Druckit för mycket",
-      "text": "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte monstret.",
+      "text": "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte batchen.",
       "artKey": "item/weak",
       "effects": []
     },
@@ -378,7 +378,7 @@
       "id": "item_double_hops",
       "kind": "item",
       "title": "En hjälpande hand",
-      "text": "Stridsreaktion: +2 på vald spelares attack. Påverkar spelare, inte monstret.",
+      "text": "Stridsreaktion: +2 på vald spelares attack. Påverkar spelare, inte batchen.",
       "artKey": "item/hops",
       "effects": []
     },
@@ -410,7 +410,7 @@
       "id": "item_monster_hype",
       "kind": "item",
       "title": "Okontrollerad jäsning",
-      "text": "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
+      "text": "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte batchens styrka.",
       "artKey": "item/hype",
       "effects": []
     },
@@ -418,7 +418,7 @@
       "id": "item_yeast_sabotage",
       "kind": "item",
       "title": "Skakad öl",
-      "text": "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte monstrets styrka.",
+      "text": "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte batchens styrka.",
       "artKey": "item/sabotage",
       "effects": []
     },
@@ -426,7 +426,7 @@
       "id": "item_beer_bro",
       "kind": "item",
       "title": "Ölkompis",
-      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte monstrets styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
+      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte batchens styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
       "artKey": "item/bro",
       "effects": []
     },
@@ -453,6 +453,147 @@
         {
           "type": "gold",
           "amount": 6
+        }
+      ]
+    },
+    {
+      "id": "event_baksmallebonus",
+      "kind": "event",
+      "title": "Baksmällebonus",
+      "text": "Om du har 5+ klunkar: läker 3 HP. Annars: +1 HP.",
+      "artKey": "event/baksmallebonus",
+      "effects": []
+    },
+    {
+      "id": "event_burkbonanza",
+      "kind": "event",
+      "title": "Burkbonanza",
+      "text": "Få +1 pant per klunk du har (max +15 pant).",
+      "artKey": "event/burkbonanza",
+      "effects": []
+    },
+    {
+      "id": "event_syndabock",
+      "kind": "event",
+      "title": "Peka argt",
+      "text": "Välj en spelare: den tar 1 skada, du tar 1 klunk.",
+      "artKey": "event/syndabock",
+      "effects": [],
+      "choices": [
+        {
+          "id": "choose",
+          "label": "Välj en spelare",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_pantad",
+      "kind": "event",
+      "title": "Pantad",
+      "text": "Slå tärningen. Vid 5+ ger du bort hälften av din pant till den fattigaste spelaren.",
+      "artKey": "event/pantad",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_dubbelinget",
+      "kind": "event",
+      "title": "Dubbelt eller inget",
+      "text": "Välj: behåll nuvarande pant, eller Slå tärningen. 1-3 = förlora 6 pant, 4-6 = få 12 pant.",
+      "artKey": "event/dubbelinget",
+      "effects": [],
+      "choices": [
+        {
+          "id": "keep",
+          "label": "Behåll nuvarande pant",
+          "effects": []
+        },
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_happyhour",
+      "kind": "event",
+      "title": "Happy hour",
+      "text": "Slå tärningen: 1 = alla andra får +1 pant, 2-5 = du får +2 pant, 6 = alla (inklusive du) läker 1 HP.",
+      "artKey": "event/happyhour",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_rotasoptunna",
+      "kind": "event",
+      "title": "Rota i soporna",
+      "text": "Slå tärning och få lika mycket pant x2.",
+      "artKey": "event/rotasoptunna",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_fastnatipant",
+      "kind": "event",
+      "title": "Fastnat i pantmaskinen",
+      "text": "Slå tärningen: 1-2 tappa 2 pant, 3-4 tappa 5 pant, 5-6 få 10 pant.",
+      "artKey": "event/fastnatipant",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_snurraflaskan",
+      "kind": "event",
+      "title": "Snurra flaskan",
+      "text": "Slå tärningen: 1 = ta 2 skada, 2-3 = +1 klunk, 4-5 = +3 pant, 6 = få ett slumpmässigt item.",
+      "artKey": "event/snurraflaskan",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "event_fastnatikylen",
+      "kind": "event",
+      "title": "Fastnat i kylen",
+      "text": "Slå tärningen: 1-2 stå över nästa drag, 3 = inget händer, 4-6 få 5 pant.",
+      "artKey": "event/fastnatikylen",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
         }
       ]
     },
@@ -500,7 +641,7 @@
       "id": "item_early_night",
       "kind": "item",
       "title": "Vaska",
-      "text": "Använd i strid som angripare: skippa monstret och avsluta mötet.",
+      "text": "Använd i strid som angripare: skippa den dåliga batchen och avsluta mötet.",
       "artKey": "item/early-night",
       "effects": []
     },
@@ -573,7 +714,17 @@
       "event_round_on_me",
       "event_spilled_pints",
       "event_faulty_brewery",
-      "event_new_launch"
+      "event_new_launch",
+      "event_baksmallebonus",
+      "event_burkbonanza",
+      "event_syndabock",
+      "event_pantad",
+      "event_dubbelinget",
+      "event_happyhour",
+      "event_rotasoptunna",
+      "event_fastnatipant",
+      "event_snurraflaskan",
+      "event_fastnatikylen"
     ],
     "rest": [
       "rest_brewery"

@@ -368,8 +368,8 @@ function logMonsterScalePreviewForAscend(
   const floor = targetLevelIndex + 1;
   const line =
     mode === "offer"
-      ? `Stiger ${p.name}: på våning ${floor} har monster +${bonus} på styrkekrav i strid (endast det planet).`
-      : `Om ${p.name} stiger: på våning ${floor} har monster +${bonus} på styrkekrav i strid (endast det planet).`;
+      ? `Stiger ${p.name}: på våning ${floor} har dåliga batcher +${bonus} på styrkekrav i strid (endast det planet).`
+      : `Om ${p.name} stiger: på våning ${floor} har dåliga batcher +${bonus} på styrkekrav i strid (endast det planet).`;
   log(state, line);
 }
 
@@ -378,7 +378,7 @@ function logMonsterScaleAfterAscend(state: GameState, p: Player): void {
   if (bonus <= 0) return;
   log(
     state,
-    `${p.name} är på våning ${p.levelIndex + 1} — monster där har +${bonus} på styrkekrav (andra våningar oförändrade).`,
+    `${p.name} är på våning ${p.levelIndex + 1} — dåliga batcher där har +${bonus} på styrkekrav (andra våningar oförändrade).`,
   );
 }
 
@@ -1215,10 +1215,10 @@ function finalizeCombatAfterRollPreview(
     const attackerWeaponRandomDamage = applyWeaponWinRandomDamage({ state: next, winner: p, rng, log });
     const assistMate = assistId ? (next.players.find((x) => x.id === assistId) ?? null) : null;
     const helpMate =
-      pending.helpAccepted && pending.helpSelectedHelperId
+      !teamBattleRequired && pending.helpAccepted && pending.helpSelectedHelperId
         ? (next.players.find((x) => x.id === pending.helpSelectedHelperId) ?? null)
         : null;
-    const helpContract = pending.helpAccepted ? pending.helpContract : undefined;
+    const helpContract = !teamBattleRequired && pending.helpAccepted ? pending.helpContract : undefined;
     const assistName = assistMate?.name ?? null;
     if (teamBattleRequired && assistMate) {
       assistMate.gold += rewardGold;
@@ -1326,15 +1326,15 @@ function finalizeCombatAfterRollPreview(
     if (teamBattleRequired && assistName) {
       log(
         next,
-        `${p.name} och ${assistName} besegrar ${tile.bossName ?? "monstret"}! (+${rewardGold} pant var, slag ${pr}≥${need})`,
+        `${p.name} och ${assistName} besegrar ${tile.bossName ?? "den dåliga batchen"}! (+${rewardGold} pant var, slag ${pr}≥${need})`,
       );
     } else if (assistName && attackerItemCount > 0) {
       log(
         next,
-        `${p.name} besegrar ${tile.bossName ?? "monstret"}! (+${rewardGold} pant, slag ${pr}≥${need}) ${assistName} får lika många skatter (${attackerItemCount}).`,
+        `${p.name} besegrar ${tile.bossName ?? "den dåliga batchen"}! (+${rewardGold} pant, slag ${pr}≥${need}) ${assistName} får lika många skatter (${attackerItemCount}).`,
       );
     } else {
-      log(next, `${p.name} besegrar ${tile.bossName ?? "monstret"}! (+${rewardGold} pant, slag ${pr}≥${need})`);
+      log(next, `${p.name} besegrar ${tile.bossName ?? "den dåliga batchen"}! (+${rewardGold} pant, slag ${pr}≥${need})`);
     }
     /** Slutboss: ingen "Batch räddad"-modal — spelet går direkt till resultat (mobil + bord). */
     if (tile.type !== "boss") {
@@ -2082,9 +2082,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const p = next.players.find((x) => x.id === pending.attackerId);
     if (!p) return { state, events: [], error: "Player not found" };
     if (p.equipment.accessory?.canSkipMonsterEncounter !== true) {
-      return { state, events: [], error: "Du kan inte undvika monsterstrider utan rätt accessoar" };
+      return { state, events: [], error: "Du kan inte undvika dåliga batcher utan rätt accessoar" };
     }
-    log(next, `${p.name} undviker monstermötet (${pending.enemyName}).`);
+    log(next, `${p.name} undviker batchmötet (${pending.enemyName}).`);
     next.pending = null;
     endTurnOrOfferLevelUp(next, p.id);
     return { state: next, events: ["state"] };
@@ -2153,7 +2153,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Bara angriparen kan be om hjälp" };
     }
     if (pending.teamBattleRequired || isFinalBossMonsterId(pending.monsterId as MonsterId)) {
-      return { state, events: [], error: "Hjälp kan bara begäras i vanliga monsterstrider" };
+      return { state, events: [], error: "Hjälp kan bara begäras i vanliga batchstrider" };
     }
     autoPassReactorsWithoutPlayableItems(next, pending);
     const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
@@ -3138,10 +3138,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inst.itemId === "early_night") {
       const pending = next.pending;
       if (!pending || pending.type !== "combat" || (pending.phase !== "enemyIntro" && pending.phase !== "reactions")) {
-        return { state, events: [], error: "Kan bara användas under ett pågående monstermöte" };
+        return { state, events: [], error: "Kan bara användas under ett pågående batchmöte" };
       }
       if (pending.attackerId !== user.id) return { state, events: [], error: "Endast angriparen kan skippa mötet" };
-      log(next, `${user.name} spelar Vaska och skippar monstret.`);
+      log(next, `${user.name} spelar Vaska och skippar den dåliga batchen.`);
       inv.splice(idx, 1);
       user.inventory = inv;
       appendCombatReactionItemPlay(next, "early_night", user.id, undefined);

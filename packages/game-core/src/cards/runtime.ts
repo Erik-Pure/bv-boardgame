@@ -6,6 +6,7 @@ import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type { CombatLoseSummary, CombatWinSummary, EquipmentSlot, GameState, Pending, Player } from "../types.js";
 import { combatReactorsFor } from "../combatReactors.js";
+import { rollDie } from "../rng.js";
 import {
   finalBossCardTagline,
   isFinalBossMonsterId,
@@ -173,6 +174,34 @@ export function resolveEventCardOnLand(params: {
   const beforeKlunk = p.klunkar;
 
   // Special: affects everyone
+  if (card.id === "event_baksmallebonus") {
+    const healed = p.klunkar >= 5 ? 3 : 1;
+    p.hp = Math.min(p.maxHp, p.hp + healed);
+    log(state, `Händelse: ${card.title}`);
+    showCard(state, {
+      playerId: p.id,
+      kind: "event",
+      cardId: card.id,
+      title: card.title,
+      text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
+      artKey: card.artKey,
+    });
+    return;
+  }
+  if (card.id === "event_burkbonanza") {
+    const gained = Math.max(0, Math.min(15, p.klunkar));
+    p.gold += gained;
+    log(state, `Händelse: ${card.title}`);
+    showCard(state, {
+      playerId: p.id,
+      kind: "event",
+      cardId: card.id,
+      title: card.title,
+      text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
+      artKey: card.artKey,
+    });
+    return;
+  }
   if (card.id === "event_apocalypse") {
     for (const pl of state.players) {
       pl.klunkar += 1;
@@ -211,6 +240,21 @@ export function resolveEventCardOnLand(params: {
 
   // Special: needs a target player (dynamic choices)
   if (card.id === "event_gift_sip" || card.id === "event_friendly_offering") {
+    const others = state.players.filter((x) => x.id !== p.id);
+    const choices = others.map((x) => ({ id: x.id, label: x.name }));
+    log(state, `Händelse: ${card.title} — ${p.name} måste välja.`);
+    showCard(state, {
+      playerId: p.id,
+      kind: "event",
+      cardId: card.id,
+      title: card.title,
+      text: card.text,
+      artKey: card.artKey,
+      choices,
+    });
+    return;
+  }
+  if (card.id === "event_syndabock") {
     const others = state.players.filter((x) => x.id !== p.id);
     const choices = others.map((x) => ({ id: x.id, label: x.name }));
     log(state, `Händelse: ${card.title} — ${p.name} måste välja.`);
@@ -276,6 +320,9 @@ export function handleCardOption(params: {
   startCombat?: Extract<Pending, { type: "combat" }>;
 } {
   const { state, player: p, pending, choiceId, rng, log } = params;
+  const beforeHp = p.hp;
+  const beforeGold = p.gold;
+  const beforeKlunk = p.klunkar;
 
   if (pending.kind === "combat" && pending.cardId === "monster:belgisk_munk") {
     const monster = MONSTERS.find((m) => m.id === "belgisk_munk");
@@ -318,14 +365,171 @@ export function handleCardOption(params: {
     };
     return { handled: true };
   }
+  if (pending.kind === "event" && pending.cardId === "event_syndabock") {
+    const target = state.players.find((x) => x.id === choiceId);
+    if (!target) return { handled: true, error: "Ogiltigt mål" };
+    const beforeTargetHp = target.hp;
+    const beforeTargetSips = target.klunkar;
+    const beforeSelfSips = p.klunkar;
+    applyEffects({
+      state,
+      player: target,
+      effects: [{ type: "damage", amount: 1, source: "syndabock" }],
+      rng,
+    });
+    p.klunkar += 1;
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nValt: ${target.name}` +
+        formatTargetStatDeltas(target.name, beforeTargetHp, target.hp, beforeTargetSips, target.klunkar) +
+        (beforeSelfSips !== p.klunkar ? `\nDina klunkar: ${beforeSelfSips} → ${p.klunkar}.` : ""),
+    };
+    log(state, `${p.name} pekar ut ${target.name} som syndabock.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_rotasoptunna" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    const gained = die * 2;
+    p.gold += gained;
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nTärning: ${die} → +${gained} pant.` +
+        formatSelfStatDeltas(p.gold - gained, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_fastnatipant" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    const delta = die <= 2 ? -2 : die <= 4 ? -5 : 10;
+    const beforeGold = p.gold;
+    p.gold = Math.max(0, p.gold + delta);
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text: `${pending.text}\nTärning: ${die}.` + formatSelfStatDeltas(beforeGold, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_happyhour" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    if (die === 1) {
+      for (const pl of state.players) if (pl.id !== p.id) pl.gold += 1;
+    } else if (die <= 5) {
+      p.gold += 2;
+    } else {
+      for (const pl of state.players) pl.hp = Math.min(pl.maxHp, pl.hp + 1);
+    }
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nTärning: ${die}.` +
+        formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_dubbelinget") {
+    if (choiceId === "keep") {
+      state.pending = { ...pending, choices: undefined, text: `${pending.text}\nVal: Behåll nuvarande pant.` };
+      log(state, `${p.name} spelar säkert i Dubbelt eller inget.`);
+      return { handled: true };
+    }
+    if (choiceId === "roll") {
+      const die = rollDie(rng, 6);
+      const delta = die <= 3 ? -6 : 12;
+      const beforeGold = p.gold;
+      p.gold = Math.max(0, p.gold + delta);
+      state.pending = {
+        ...pending,
+        choices: undefined,
+        text:
+          `${pending.text}\nTärning: ${die}.` +
+          formatSelfStatDeltas(beforeGold, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+      };
+      log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+      return { handled: true };
+    }
+  }
+  if (pending.kind === "event" && pending.cardId === "event_snurraflaskan" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    const effectOut: EffectApplyOut = {};
+    if (die === 1) applyEffects({ state, player: p, effects: [{ type: "damage", amount: 2, source: "snurraflaskan" }], rng, out: effectOut });
+    else if (die <= 3) applyEffects({ state, player: p, effects: [{ type: "klunkar", amount: 1 }], rng, out: effectOut });
+    else if (die <= 5) applyEffects({ state, player: p, effects: [{ type: "gold", amount: 3 }], rng, out: effectOut });
+    else applyEffects({ state, player: p, effects: [{ type: "randomItem" }], rng, out: effectOut });
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      artKey: artKeyForGrantedItem(effectOut, pending.artKey) ?? pending.artKey,
+      grantedItemId: effectOut.grantedItemId ?? pending.grantedItemId,
+      equipmentReplaceOffer: effectOut.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
+      text:
+        `${pending.text}\nTärning: ${die}.` +
+        appendTextForGrantedItem(effectOut) +
+        formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_fastnatikylen" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    if (die <= 2) {
+      p.skippedTurns = Math.max(0, p.skippedTurns) + 1;
+      p.skipTurnReasons ??= [];
+      p.skipTurnReasons.push("normal");
+    } else if (die >= 4) {
+      p.gold += 5;
+    }
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nTärning: ${die}.` +
+        formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_pantad" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    let transfer = 0;
+    let poorest: Player | null = null;
+    if (die >= 5) {
+      const candidates = state.players.filter((x) => x.id !== p.id);
+      for (const pl of candidates) {
+        if (!poorest || pl.gold < poorest.gold) poorest = pl;
+      }
+      if (poorest) {
+        transfer = Math.floor(p.gold / 2);
+        p.gold -= transfer;
+        poorest.gold += transfer;
+      }
+    }
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nTärning: ${die}.` +
+        (die >= 5 && poorest
+          ? `\n${poorest.name} var fattigast och fick ${transfer} pant.`
+          : "\nIngen pant överfördes.") +
+        formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
 
   const def = getCard(pending.cardId);
   const choice = def.choices?.find((c) => c.id === choiceId);
   if (!choice) return { handled: true, error: "Ogiltigt val" };
 
-  const beforeHp = p.hp;
-  const beforeGold = p.gold;
-  const beforeKlunk = p.klunkar;
   const effectOut: EffectApplyOut = {};
   applyEffects({ state, player: p, effects: choice.effects ?? [], rng, out: effectOut });
   log(state, `${p.name} väljer: ${choice.label}.`);

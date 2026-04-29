@@ -109,7 +109,7 @@ export const sv = {
     waitTeamSecondRoll: "Väntar på lagkamratens tärning.",
     chooseBeerBroPartner: "Välj spelare som slår med angriparen (egen t6 + vapen):",
     attackerViewingEncounter: (name: string) => `${name} tittar på mötet…`,
-    skipMonsterEncounter: "Undvik strid",
+    skipMonsterEncounter: "Undvik dålig batch",
     theAttacker: "angriparen",
     yourD6: "Din t6",
     beerBroD6: "Ölkompis t6",
@@ -342,14 +342,14 @@ export const sv = {
     moveSteps: (n: number) => `Rörelse +${n} steg`,
     powerPlus: (n: number) => `Kraft +${n}`,
     pvpWeaponDieBonus: (n: number) =>
-      `I dueller (BvB): +${n} på slagtotalen (påverkar inte monsterstrid).`,
+      `I dueller (BvB): +${n} på slagtotalen (påverkar inte strid mot dålig batch).`,
     combatCardSheetTitle: "Dålig batch",
     treasureCardSheetTitle: "Skatt",
     treasureLootHeading: "Byte",
     combatWinTitle: "Batch räddad!",
     combatWinRewards: "Belöningar",
     combatWinContinue: "FORTSÄTT",
-    combatWinEnemyFallback: "monstret",
+    combatWinEnemyFallback: "den dåliga batchen",
     combatWinTeamLegacy: "Ni vinner!",
     combatWinSubtitle: (winner: string, enemy: string) => `${winner} vinner mot ${enemy}`,
     combatWinSubtitleTeam: (a: string, b: string, enemy: string) => `${a} och ${b} vinner mot ${enemy}`,
@@ -384,7 +384,7 @@ export const sv = {
     teamBattleIntroBody: (attacker: string) =>
       `${attacker} väljer medkämpe på sin mobil innan striden börjar.`,
     teamBattleIntroHint:
-      "Vid förlust dricker båda extra straffklunk enligt monsterkortet — ni slår tillsammans mot samma styrka.",
+      "Vid förlust dricker båda extra straffklunk enligt batchkortet — ni slår tillsammans mot samma styrka.",
     combatPhase2: "2 — Kort & tärning",
     combatPhase3Choice: "3 — Träffval (klunk eller full)",
     combatPhase3Result: "3 — Resultat",
@@ -520,7 +520,7 @@ export const sv = {
     coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Okontrollerad jäsning",
-      text: "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte monstrets styrka.",
+      text: "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte batchens styrka.",
     },
     yeast_sabotage: {
       title: "Skakad öl",
@@ -528,7 +528,7 @@ export const sv = {
     },
     beer_bro: {
       title: "Ölkompis",
-      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte monstrets styrka. Vid vinst får ölkompisen lika många skatter som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
+      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte batchens styrka. Vid vinst får ölkompisen lika många skatter som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
     },
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
     lengraddad: {
@@ -553,7 +553,7 @@ export const sv = {
     },
     six_sense: {
       title: "Ett sjätte ölsinne",
-      text: "Välj siffra 1–6: din nästa tärning (rörelse, monsterstrid eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
+      text: "Välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
     },
     rigged_game: {
       title: "Riggat spel",

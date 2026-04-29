@@ -39,7 +39,7 @@ import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossV
 import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
-import { CardFlipModalShell } from "../components/CardFlipModalShell";
+import { CARD_FLIP_FRONT_ANIM_READY_MS, CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
@@ -123,6 +123,15 @@ const TABLE_ITEM_PLAY_LIFT_PX = 34;
 const TABLE_TOAST_TTL_MS = 8000;
 const TABLE_TOAST_EXIT_MS = 320;
 const TABLE_TOAST_MAX_VISIBLE = 5;
+const TABLE_ROLL_EVENT_CARD_IDS = new Set([
+  "event_pantad",
+  "event_dubbelinget",
+  "event_happyhour",
+  "event_rotasoptunna",
+  "event_fastnatipant",
+  "event_snurraflaskan",
+  "event_fastnatikylen",
+]);
 
 type TableToastCategory = "sip" | "pvp" | "vaska" | "reward";
 type TableToast = {
@@ -134,6 +143,7 @@ type TableToast = {
   expiresAt: number;
   leaving?: boolean;
 };
+type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
 
 function eventCardOutcomeToasts(
   pending: Extract<NonNullable<GameState["pending"]>, { type: "card" }>,
@@ -146,6 +156,79 @@ function eventCardOutcomeToasts(
   const out: Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> = [];
   const selfName = playersById.get(pending.playerId)?.name ?? "Spelare";
   const lines = pending.text.split("\n");
+  const rolledDie = (() => {
+    const m = /Tärning:\s*(\d+)/i.exec(pending.text);
+    if (!m) return null;
+    const n = Number(m[1]);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(1, Math.min(6, Math.round(n)));
+  })();
+  if (rolledDie != null) {
+    if (pending.cardId === "event_happyhour") {
+      if (rolledDie === 1) {
+        return [{ text: "Happy hour: alla andra får +1 pant.", category: "pvp", iconKinds: ["pant"] }];
+      }
+      if (rolledDie <= 5) {
+        return [{ text: `${selfName} får +2 pant.`, category: "pvp", iconKinds: ["pant"] }];
+      }
+      return [{ text: "Happy hour: alla läker 1 HP.", category: "pvp", iconKinds: ["hp"] }];
+    }
+    if (pending.cardId === "event_rotasoptunna") {
+      return [{ text: `${selfName} slog ${rolledDie} och får +${rolledDie * 2} pant.`, category: "pvp", iconKinds: ["pant"] }];
+    }
+    if (pending.cardId === "event_fastnatipant") {
+      const delta = rolledDie <= 2 ? -2 : rolledDie <= 4 ? -5 : 10;
+      return [
+        {
+          text: delta >= 0 ? `${selfName} får +${delta} pant.` : `${selfName} förlorar ${Math.abs(delta)} pant.`,
+          category: "pvp",
+          iconKinds: ["pant"],
+        },
+      ];
+    }
+    if (pending.cardId === "event_fastnatikylen") {
+      if (rolledDie <= 2) {
+        return [{ text: `${selfName} står över nästa drag.`, category: "pvp", iconKinds: ["attack"] }];
+      }
+      if (rolledDie === 3) return [{ text: `${selfName}: inget händer.`, category: "pvp", iconKinds: ["pant"] }];
+      return [{ text: `${selfName} får +5 pant.`, category: "pvp", iconKinds: ["pant"] }];
+    }
+    if (pending.cardId === "event_dubbelinget") {
+      const delta = rolledDie <= 3 ? -6 : 12;
+      return [
+        {
+          text: delta >= 0 ? `${selfName} vinner ${delta} pant.` : `${selfName} förlorar ${Math.abs(delta)} pant.`,
+          category: "pvp",
+          iconKinds: ["pant"],
+        },
+      ];
+    }
+    if (pending.cardId === "event_snurraflaskan") {
+      if (rolledDie === 1) return [{ text: `${selfName} tar 2 skada.`, category: "pvp", iconKinds: ["hp"] }];
+      if (rolledDie <= 3) return [{ text: `${selfName} får 1 straffklunk.`, category: "sip", iconKinds: ["klunk"] }];
+      if (rolledDie <= 5) return [{ text: `${selfName} får +3 pant.`, category: "pvp", iconKinds: ["pant"] }];
+      return [{ text: `${selfName} får ett slumpmässigt item.`, category: "reward", iconKinds: ["attack"] }];
+    }
+    if (pending.cardId === "event_pantad") {
+      if (rolledDie < 5) return [{ text: `${selfName} slog ${rolledDie}: ingen pant överfördes.`, category: "pvp", iconKinds: ["pant"] }];
+      const transferLine = lines.map((l) => l.trim()).find((l) => /fick\s+\d+\s+pant\./i.test(l));
+      if (transferLine) {
+        const m = /^(.+?)\s+var fattigast och fick\s+(\d+)\s+pant\./i.exec(transferLine);
+        if (m) {
+          return [{ text: `${selfName} gav ${m[2]} pant till ${m[1]}.`, category: "pvp", iconKinds: ["pant"] }];
+        }
+      }
+      return [{ text: `${selfName} slog ${rolledDie}: pant flyttades till fattigaste spelaren.`, category: "pvp", iconKinds: ["pant"] }];
+    }
+  }
+  if (pending.cardId === "event_baksmallebonus") {
+    const hpLine = lines
+      .map((l) => l.trim())
+      .find((line) => /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.test(line));
+    const m = hpLine ? /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(hpLine) : null;
+    const healed = m ? Math.max(0, Number(m[2]) - Number(m[1])) : 0;
+    return [{ text: `${selfName} får tillbaka ${healed} HP.`, category: "pvp", iconKinds: ["hp"] }];
+  }
   const pushSip = (name: string, amount: number) => {
     if (amount <= 0) return;
     out.push({
@@ -193,6 +276,14 @@ function eventCardOutcomeToasts(
     if (selfMatch) {
       const before = Number(selfMatch[1]);
       const after = Number(selfMatch[2]);
+      const gain = after - before;
+      pushSip(selfName, gain);
+      continue;
+    }
+    const selfPossessiveMatch = /^Dina\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    if (selfPossessiveMatch) {
+      const before = Number(selfPossessiveMatch[1]);
+      const after = Number(selfPossessiveMatch[2]);
       const gain = after - before;
       pushSip(selfName, gain);
       continue;
@@ -715,6 +806,12 @@ function TableViewBody() {
     const t = window.setTimeout(() => setTableCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [tableCardPendingKey]);
+  const pendingCard: PendingCard | null = state?.pending?.type === "card" ? state.pending : null;
+  const showTableRollEventCard =
+    !!pendingCard &&
+    pendingCard.kind === "event" &&
+    isEventStoryCardPending(pendingCard) &&
+    TABLE_ROLL_EVENT_CARD_IDS.has(pendingCard.cardId);
 
   const tableCombatSessionKey =
     state?.pending?.type === "combat"
@@ -1574,7 +1671,16 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {state?.pending?.type === "card" && tableCardModalReady && !showMonsterCombatOutcomeOnCard && (
+      {pendingCard && tableCardModalReady && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
+        <TableEventRollHeroOverlay
+          card={pendingCard}
+          contentScale={overlayContentScale}
+          boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
+          cardCoverId={state?.config.cardCover}
+        />
+      ) : null}
+
+      {state?.pending?.type === "card" && tableCardModalReady && !showMonsterCombatOutcomeOnCard && !showTableRollEventCard && (
         <CardFlipModalShell
           zIndex={44}
           maxWidth={720}
@@ -1694,8 +1800,6 @@ function TableViewBody() {
                   </div>
                 );
               }
-              const revealArtKey = resolveCardRevealArtKey(p.artKey, p.grantedItemId);
-              const showBeerRef = !!artAttributionLabel(revealArtKey);
               return (
                 <div
                   className={[
@@ -1704,121 +1808,7 @@ function TableViewBody() {
                     monsterCardFrameStyles.wrapEventStory,
                   ].join(" ")}
                 >
-                  <div className={monsterCardFrameStyles.spin} aria-hidden />
-                  <div
-                    className={monsterCardFrameStyles.inner}
-                    style={{
-                      background: "#0b1226",
-                      padding: 12,
-                      color: "#fff",
-                      display: "flex",
-                      flexDirection: "column",
-                      minHeight: "100%",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        marginBottom: 10,
-                        minWidth: 0,
-                      }}
-                    >
-                      <img
-                        src="/icons/event-icon.svg"
-                        alt=""
-                        draggable={false}
-                        style={{
-                          flexShrink: 0,
-                          height: 24,
-                          width: "auto",
-                          objectFit: "contain",
-                          filter:
-                            "brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))",
-                          opacity: 0.96,
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                          fontWeight: 900,
-                          fontSize: 22,
-                          lineHeight: 1.1,
-                          letterSpacing: "0.02em",
-                          wordBreak: "break-word",
-                          minWidth: 0,
-                        }}
-                      >
-                        {p.title}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        width: "100%",
-                        margin: "0 0 14px",
-                        aspectRatio: "4/3",
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        border: "1px solid #ffffff22",
-                        background: "rgba(255,255,255,0.92)",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <img
-                        src={artImageSrcForPending(p.artKey, p.grantedItemId, {
-                          cardText: p.text,
-                          cardId: p.cardId,
-                        })}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
-                        }}
-                        alt={sv.table.cardArtAlt}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: "center",
-                          display: "block",
-                        }}
-                      />
-                    </div>
-                    <div
-                      style={{
-                        opacity: 0.98,
-                        color: "#e5e7eb",
-                        whiteSpace: "pre-wrap",
-                        lineHeight: 1.45,
-                        fontSize: 15,
-                      }}
-                    >
-                      {p.text}
-                    </div>
-                    <div
-                      style={{
-                        opacity: 0.62,
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                        marginTop: 12,
-                        color: "rgba(226, 232, 240, 0.9)",
-                      }}
-                    >
-                      {sv.table.waitingConfirmPhone}
-                    </div>
-                    {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
-                    {showBeerRef ? (
-                      <div
-                        style={{
-                          marginTop: 0,
-                          paddingTop: 10,
-                          borderTop: "1px solid rgba(255,255,255,0.1)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <CardArtAttribution artKey={revealArtKey} dense />
-                      </div>
-                    ) : null}
-                  </div>
+                  <TableEventStoryCardFrame card={p} showWaitingHint />
                 </div>
               );
             })()}
@@ -2111,6 +2101,264 @@ function TableLevelUpLockedCardContent(props: { text: string }) {
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
         {props.text}
       </p>
+    </div>
+  );
+}
+
+function TableEventStoryCardFrame(props: {
+  card: PendingCard;
+  showWaitingHint?: boolean;
+  cardStyle?: CSSProperties;
+}) {
+  const revealArtKey = resolveCardRevealArtKey(props.card.artKey, props.card.grantedItemId);
+  const showBeerRef = !!artAttributionLabel(revealArtKey);
+  return (
+    <>
+      <div className={monsterCardFrameStyles.spin} aria-hidden />
+      <div
+        className={monsterCardFrameStyles.inner}
+        style={{
+          background: "#0b1226",
+          padding: 12,
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100%",
+          ...(props.cardStyle ?? {}),
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+            minWidth: 0,
+          }}
+        >
+          <img
+            src="/icons/event-icon.svg"
+            alt=""
+            draggable={false}
+            style={{
+              flexShrink: 0,
+              height: 24,
+              width: "auto",
+              objectFit: "contain",
+              filter: "brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))",
+              opacity: 0.96,
+            }}
+          />
+          <div
+            style={{
+              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+              fontWeight: 900,
+              fontSize: 22,
+              lineHeight: 1.1,
+              letterSpacing: "0.02em",
+              wordBreak: "break-word",
+              minWidth: 0,
+            }}
+          >
+            {props.card.title}
+          </div>
+        </div>
+        <div
+          style={{
+            width: "100%",
+            margin: "0 0 14px",
+            aspectRatio: "4/3",
+            flexShrink: 0,
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "1px solid #ffffff22",
+            background: "rgba(255,255,255,0.92)",
+            boxSizing: "border-box",
+          }}
+        >
+          <img
+            src={artImageSrcForPending(props.card.artKey, props.card.grantedItemId, {
+              cardText: props.card.text,
+              cardId: props.card.cardId,
+            })}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+            }}
+            alt={sv.table.cardArtAlt}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              display: "block",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            opacity: 0.98,
+            color: "#e5e7eb",
+            whiteSpace: "pre-wrap",
+            lineHeight: 1.45,
+            fontSize: 15,
+          }}
+        >
+          {props.card.text}
+        </div>
+        {props.showWaitingHint ? (
+          <div
+            style={{
+              opacity: 0.62,
+              fontSize: 12,
+              lineHeight: 1.35,
+              marginTop: 12,
+              color: "rgba(226, 232, 240, 0.9)",
+            }}
+          >
+            {sv.table.waitingConfirmPhone}
+          </div>
+        ) : null}
+        {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
+        {showBeerRef ? (
+          <div
+            style={{
+              marginTop: 0,
+              paddingTop: 10,
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              flexShrink: 0,
+            }}
+          >
+            <CardArtAttribution artKey={revealArtKey} dense />
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function TableEventRollHeroOverlay(props: {
+  card: PendingCard;
+  contentScale: number;
+  boardAnimationsEnabled: boolean;
+  cardCoverId?: string | null;
+}) {
+  const effectiveScale = props.contentScale > 1 ? props.contentScale : 1;
+  const rolledDie = (() => {
+    const m = /Tärning:\s*(\d+)/i.exec(props.card.text);
+    if (!m) return null;
+    const n = Number(m[1]);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(1, Math.min(6, Math.round(n)));
+  })();
+  const hasRolledResult = rolledDie != null && (props.card.choices?.length ?? 0) === 0;
+  const [animState, setAnimState] = useState<"intro" | "shiftRight" | "diceIn">("intro");
+  useEffect(() => {
+    const reducedMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || !props.boardAnimationsEnabled) {
+      setAnimState("diceIn");
+      return;
+    }
+    setAnimState("intro");
+    const startDelay = CARD_FLIP_FRONT_ANIM_READY_MS + 40;
+    const tShift = window.setTimeout(() => setAnimState("shiftRight"), startDelay);
+    const tDice = window.setTimeout(() => setAnimState("diceIn"), startDelay + 520);
+    return () => {
+      window.clearTimeout(tShift);
+      window.clearTimeout(tDice);
+    };
+  }, [props.card.cardId, props.card.playerId, props.boardAnimationsEnabled]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 44,
+        pointerEvents: "none",
+        display: "grid",
+        placeItems: "start center",
+        paddingTop: props.contentScale > 1 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))" : 70,
+        background: TABLE_BOARD_OVERLAY_BG,
+        animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+      }}
+    >
+      <div
+        style={{
+          transform: `scale(${effectiveScale})`,
+          transformOrigin: "top center",
+          width: "100%",
+          display: "grid",
+          justifyItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: animState === "diceIn" ? 20 : 0,
+            transition: "gap 0.35s cubic-bezier(0.22, 0.61, 0.36, 1)",
+          }}
+        >
+          <div
+            style={{
+              width: 300,
+              opacity: animState === "diceIn" ? 1 : 0,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              transform: animState === "diceIn" ? "translateX(0)" : "translateX(-10px)",
+              transition: "opacity 0.4s cubic-bezier(0.22, 0.61, 0.36, 1), transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)",
+            }}
+          >
+            <div
+              style={{
+                transform: "rotate(-12deg)",
+                filter: "drop-shadow(0 8px 20px rgba(0, 0, 0, 0.55))",
+              }}
+            >
+              {hasRolledResult ? (
+                <DiceCube3D value={rolledDie} size={88} />
+              ) : (
+                <DiceCube3D idleSpin spinning={props.boardAnimationsEnabled} size={88} />
+              )}
+            </div>
+          </div>
+          <div
+            style={{
+              width: 400,
+              maxWidth: 400,
+              flex: "0 1 auto",
+              alignSelf: "flex-start",
+              transform:
+                animState === "intro"
+                  ? "translateX(0) rotate(0deg)"
+                  : animState === "shiftRight"
+                    ? "translateX(36px) rotate(0deg)"
+                    : "translateX(8px) rotate(5deg)",
+              transition: "transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1)",
+            }}
+          >
+            <CardFlipScene
+              maxWidth={400}
+              blockPointerUntilFlipped={false}
+              faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
+              cardCoverId={props.cardCoverId}
+            >
+              <div
+                className={[
+                  monsterCardFrameStyles.wrap,
+                  monsterCardFrameStyles.wrapFill,
+                  monsterCardFrameStyles.wrapEventStory,
+                ].join(" ")}
+              >
+                <TableEventStoryCardFrame card={props.card} showWaitingHint />
+              </div>
+            </CardFlipScene>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
