@@ -8,9 +8,12 @@ import {
   getOrCreateRoom,
   handleAction,
   joinRoom,
+  pruneIdleRooms,
   removeConn,
   scheduleBroadcastState,
+  sendStateSnapshot,
   sendError,
+  touchRoom,
 } from "./rooms.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -27,6 +30,9 @@ app.get("/metrics", async () => getRuntimeStats());
 await app.listen({ port: PORT, host: HOST });
 
 const wss = new WebSocketServer({ server: app.server });
+setInterval(() => {
+  pruneIdleRooms();
+}, 60_000).unref?.();
 
 /** Stäng halvöppna klienter (t.ex. mobil i bakgrund) så att onclose triggas och de kan återansluta. */
 type TrackedWs = WebSocket & { isAlive?: boolean };
@@ -59,6 +65,19 @@ wss.on("connection", (ws) => {
     | null = null;
   let actionWindowStartMs = Date.now();
   let actionWindowCount = 0;
+  const seenActionIds = new Map<string, number>();
+  const ACTION_ID_TTL_MS = 5 * 60_000;
+
+  function rememberActionId(actionId: string, now: number): void {
+    seenActionIds.set(actionId, now);
+    for (const [id, ts] of seenActionIds) {
+      if (now - ts > ACTION_ID_TTL_MS) seenActionIds.delete(id);
+    }
+    if (seenActionIds.size > 300) {
+      const oldest = [...seenActionIds.entries()].sort((a, b) => a[1] - b[1]).slice(0, seenActionIds.size - 300);
+      for (const [id] of oldest) seenActionIds.delete(id);
+    }
+  }
 
   ws.on("message", (data) => {
     try {
@@ -90,8 +109,9 @@ wss.on("connection", (ws) => {
           playerId: res.conn.playerId,
         };
         ws.send(JSON.stringify(ack));
-        broadcastState(res.room);
-        log.debug("helloAck + broadcastState", res.room.code, res.conn.playerId);
+        sendStateSnapshot(res.conn, res.room);
+        touchRoom(res.room);
+        log.debug("helloAck + stateSnapshot", res.room.code, res.conn.playerId);
         return;
       }
 
@@ -110,6 +130,13 @@ wss.on("connection", (ws) => {
         if (actionWindowCount > 20) {
           sendError(ws, "För många actions per sekund. Vänta lite och försök igen.");
           return;
+        }
+        if (msg.actionId) {
+          const prev = seenActionIds.get(msg.actionId);
+          if (prev && now - prev <= ACTION_ID_TTL_MS) {
+            return;
+          }
+          rememberActionId(msg.actionId, now);
         }
 
         const room = getOrCreateRoom(joined.roomCode).room;

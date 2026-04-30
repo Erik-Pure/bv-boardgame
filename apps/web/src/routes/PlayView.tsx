@@ -291,6 +291,13 @@ export function PlayView() {
       if (m.type === "state" && isGameState(m.state)) {
         setState(m.state);
       }
+      if (m.type === "stateDelta") {
+        setState((prev) => {
+          if (!prev || typeof m.patch !== "object" || m.patch == null) return prev;
+          const merged = { ...prev, ...(m.patch as Partial<GameState>) };
+          return isGameState(merged) ? merged : prev;
+        });
+      }
     },
   });
 

@@ -24,6 +24,9 @@ export interface Room {
   state: GameState;
   conns: Set<ClientConn>;
   broadcastQueued: boolean;
+  lastActivityAt: number;
+  stateSeq: number;
+  levelsSignature: string;
 }
 
 const rooms = new Map<string, Room>();
@@ -32,7 +35,17 @@ const stats = {
   actionErrors: 0,
   broadcastsSent: 0,
   bytesSent: 0,
+  backpressureDrops: 0,
+  backpressureDisconnects: 0,
 };
+const WS_BUFFERED_DROP_THRESHOLD = 1_000_000; // 1MB
+const WS_BUFFERED_DISCONNECT_THRESHOLD = 4_000_000; // 4MB
+const IDLE_ROOM_TTL_MS = 10 * 60_000;
+
+function computeLevelsSignature(state: GameState): string {
+  if (!state.levels?.length) return "none";
+  return state.levels.map((lvl) => lvl.tiles.length).join(",");
+}
 
 export function getOrCreateRoom(code: string): { room: Room; created: boolean } {
   const roomCode = code.trim().toUpperCase();
@@ -40,7 +53,15 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   if (existing) return { room: existing, created: false };
   const state = createEmptyLobby(roomCode);
   state.log.push({ at: Date.now(), message: `Ny lobby skapad (${roomCode}).` });
-  const room: Room = { code: roomCode, state, conns: new Set(), broadcastQueued: false };
+  const room: Room = {
+    code: roomCode,
+    state,
+    conns: new Set(),
+    broadcastQueued: false,
+    lastActivityAt: Date.now(),
+    stateSeq: 0,
+    levelsSignature: computeLevelsSignature(state),
+  };
   rooms.set(roomCode, room);
   return { room, created: true };
 }
@@ -49,18 +70,70 @@ export function removeConn(conn: ClientConn): void {
   const room = rooms.get(conn.roomCode);
   if (!room) return;
   room.conns.delete(conn);
-  if (room.conns.size === 0) {
-    rooms.delete(conn.roomCode);
+  room.lastActivityAt = Date.now();
+}
+
+function sendPayload(conn: ClientConn, payload: string): void {
+  if (conn.ws.readyState !== conn.ws.OPEN) return;
+  if (conn.ws.bufferedAmount >= WS_BUFFERED_DISCONNECT_THRESHOLD) {
+    stats.backpressureDisconnects += 1;
+    try {
+      conn.ws.close();
+    } catch {
+      // ignore
+    }
+    return;
   }
+  if (conn.ws.bufferedAmount >= WS_BUFFERED_DROP_THRESHOLD) {
+    stats.backpressureDrops += 1;
+    return;
+  }
+  conn.ws.send(payload);
+}
+
+export function sendStateSnapshot(conn: ClientConn, room: Room): void {
+  const payload = JSON.stringify({ type: "state", state: room.state, seq: room.stateSeq });
+  stats.broadcastsSent += 1;
+  stats.bytesSent += payload.length;
+  sendPayload(conn, payload);
+}
+
+function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> } {
+  const levelsSig = computeLevelsSignature(room.state);
+  const includeLevels = levelsSig !== room.levelsSignature;
+  room.levelsSignature = levelsSig;
+  return {
+    seq: room.stateSeq,
+    patch: {
+      phase: room.state.phase,
+      config: room.state.config,
+      players: room.state.players,
+      turnOrder: room.state.turnOrder,
+      currentTurnIndex: room.state.currentTurnIndex,
+      pending: room.state.pending,
+      log: room.state.log,
+      winnerId: room.state.winnerId,
+      winnerName: room.state.winnerName,
+      goldenBeerCarrierId: room.state.goldenBeerCarrierId,
+      finalBossMonsterId: room.state.finalBossMonsterId,
+      finalBossLivesRemaining: room.state.finalBossLivesRemaining,
+      treasureTaken: room.state.treasureTaken,
+      lastDiceRoll: room.state.lastDiceRoll,
+      lastDiceRollerId: room.state.lastDiceRollerId,
+      sipNotices: room.state.sipNotices,
+      tableItemPlayReveals: room.state.tableItemPlayReveals,
+      ...(includeLevels ? { levels: room.state.levels } : {}),
+    },
+  };
 }
 
 export function broadcastState(room: Room): void {
-  const payload = JSON.stringify({ type: "state", state: room.state });
+  const delta = buildStateDelta(room);
+  const payload = JSON.stringify({ type: "stateDelta", ...delta });
   stats.broadcastsSent += 1;
   stats.bytesSent += payload.length;
-  for (const c of room.conns) {
-    if (c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
-  }
+  for (const c of room.conns) sendPayload(c, payload);
+  room.lastActivityAt = Date.now();
 }
 
 export function scheduleBroadcastState(room: Room): void {
@@ -83,6 +156,9 @@ export function getRuntimeStats(): {
   actionErrors: number;
   broadcastsSent: number;
   bytesSent: number;
+  backpressureDrops: number;
+  backpressureDisconnects: number;
+  idleRoomTtlMs: number;
 } {
   let connectionCount = 0;
   for (const room of rooms.values()) connectionCount += room.conns.size;
@@ -93,7 +169,25 @@ export function getRuntimeStats(): {
     actionErrors: stats.actionErrors,
     broadcastsSent: stats.broadcastsSent,
     bytesSent: stats.bytesSent,
+    backpressureDrops: stats.backpressureDrops,
+    backpressureDisconnects: stats.backpressureDisconnects,
+    idleRoomTtlMs: IDLE_ROOM_TTL_MS,
   };
+}
+
+export function touchRoom(room: Room): void {
+  room.lastActivityAt = Date.now();
+}
+
+export function pruneIdleRooms(now = Date.now()): number {
+  let removed = 0;
+  for (const [code, room] of rooms) {
+    if (room.conns.size > 0) continue;
+    if (now - room.lastActivityAt < IDLE_ROOM_TTL_MS) continue;
+    rooms.delete(code);
+    removed += 1;
+  }
+  return removed;
 }
 
 export function joinRoom(params: {
@@ -204,6 +298,7 @@ export function joinRoom(params: {
     playerId,
   };
   room.conns.add(conn);
+  room.lastActivityAt = Date.now();
   return { conn, room };
 }
 
@@ -245,6 +340,8 @@ function removePlayerFromRoomState(state: GameState, playerId: string): GameStat
 
 export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
   stats.actionsHandled += 1;
+  room.stateSeq += 1;
+  room.lastActivityAt = Date.now();
   const action = raw as ClientAction | { type?: string };
 
   if (action?.type === "leaveGame") {

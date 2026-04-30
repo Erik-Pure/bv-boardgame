@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.42 |
+| Version | 0.43 |
 | Senast uppdaterad | 2026-04-30 |
 
 ---
@@ -87,6 +87,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **WebSocket mot produktionsserver:** i Vercel **Settings → Environment Variables** sätts **`VITE_WS_URL`** till **`wss://<host för spelserver-appen>`** (samma som CapRover-servern exponerar över HTTPS). Värdet bakas in vid **`vite build`** — efter ändring krävs **ombyggnad** (Redeploy).
 - **Spelserver (`apps/server`):** [CapRover](https://caprover.com) (eller motsvarande) med **Docker** från repo-roten: `Dockerfile` bygger `@bv/game-core` + `server`; **`captain-definition`** pekar på `./Dockerfile`. Servern lyssnar på **`process.env.PORT`** (CapRover sätter `PORT`); lokalt default **3001**. Hälsokontroll: **`GET /health`** → `{ "ok": true }`.
 - **Serverobservabilitet (drift):** enkel runtime-metrics exponeras på **`GET /metrics`** (JSON) med bl.a. antal rum/anslutningar, actions, fel, broadcasts och ungefärlig bytesvolym för state-utskick.
+- **Idle-room städning:** rum utan aktiva anslutningar hålls kvar kort för reconnect men städas automatiskt efter TTL (nuvarande: ca 10 min inaktivitet).
 - **Lokalt:** `npm run dev` — Vite på **5173**, WebSocket i dev proxas via **`/bv-ws`** till servern (se `apps/web/vite.config.ts`).
 - **Deploy:** webben sker via **Vercel** (kopplat till GitHub; push triggar bygge) eller manuellt med **Vercel CLI** (`npx vercel --prod` från repo-roten efter `npx vercel login` / ev. `npx vercel link`). Spelservern: **CapRover CLI** med `npm run deploy:caprover` / `npm run deploy:caprover:staging` (läser **`.env`** via `dotenv-cli`; se `.env.example`).
 
@@ -392,7 +393,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **GameState** som kan serialiseras (JSON) och valideras på servern.
 - **Händelser** från klienter modelleras som **actions**; server svarar med **uppdaterad state** och/eller **eventlista** för logg.
 - **Belastningsskydd (server):** inkommande actions per klient begränsas (rate limit per sekund) för att minska spam/toppar.
-- **State-distribution:** state-broadcast till ett rum kan koalesceras i korta tidsfönster för att minska onödigt många WS-utskick vid snabba actions.
+- **Action-idempotency:** klient kan skicka `actionId`; server ignorerar dubletter inom ett tidsfönster för att tåla nätverks-retry/dubbelklick.
+- **State-distribution:** nya anslutningar får full **snapshot** (`state`), och löpande uppdateringar kan skickas som **delta** (`stateDelta`) för lägre payload och mindre serialiseringskostnad. Broadcast till ett rum koalesceras i korta tidsfönster vid snabba actions.
 - Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
 
 **Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
@@ -509,4 +511,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.40 | 2026-04-28 | §9.1 monsterlista utökad med **Demonkrigare**, **Busiga buskar** och **Solen** samt dokumenterade specialeffekter vid förlust |
 | 0.41 | 2026-04-29 | §7.1 bordslayout uppdaterad till widescreen-rektangel per board-size (5→6×4, 6→8×4, 7→9×5) med bibehållen ringordning; §11 Legendarisk Burkhjälm synkad till +5 HP och −4 skada vid 15+ klunkar |
 | 0.42 | 2026-04-30 | Spec uppdaterad med reaktionstimer i lobbyinställningar (0–30), serverns `/metrics`-endpoint samt belastningsåtgärder: rate limit per klient och koalescerade state-broadcasts |
+| 0.43 | 2026-04-30 | Serverstabilitet: snapshot+delta för state-distribution, `actionId`-idempotency för retries/dubletter, samt automatisk städning av inaktiva tomma rum (TTL) |
 

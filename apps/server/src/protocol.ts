@@ -34,6 +34,7 @@ export type ClientHello = z.infer<typeof clientHelloSchema>;
 
 export const clientActionSchema = z.object({
   type: z.literal("action"),
+  actionId: z.string().min(1).max(64).optional(),
   action: z.unknown(),
 });
 
@@ -48,5 +49,6 @@ export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 export type ServerMessage =
   | { type: "helloAck"; playerId: string; roomCode: string }
-  | { type: "state"; state: unknown }
+  | { type: "state"; state: unknown; seq?: number }
+  | { type: "stateDelta"; seq: number; patch: unknown }
   | { type: "error"; message: string };

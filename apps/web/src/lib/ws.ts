@@ -7,7 +7,8 @@ export type WsStatus = "disconnected" | "connecting" | "connected";
 
 export type ServerMessage =
   | { type: "helloAck"; playerId: string; roomCode: string }
-  | { type: "state"; state: unknown }
+  | { type: "state"; state: unknown; seq?: number }
+  | { type: "stateDelta"; seq: number; patch: unknown }
   | { type: "error"; message: string };
 
 function storageKey(roomCode: string): string {
@@ -91,6 +92,7 @@ export function createClient(params: {
 
   const connectTimeoutMs = params.connectTimeoutMs ?? 15000;
   let helloAcked = false;
+  let actionSeq = 0;
   let handshakeTimeoutId: number | null = null;
 
   const clearHandshakeTimeout = () => {
@@ -188,7 +190,12 @@ export function createClient(params: {
         });
         return;
       }
-      log.debug("send", (payload as any)?.type ?? payload);
+      const p = payload as { type?: string; actionId?: string };
+      if (p?.type === "action" && !p.actionId) {
+        actionSeq += 1;
+        p.actionId = `${Date.now().toString(36)}-${actionSeq.toString(36)}`;
+      }
+      log.debug("send", p?.type ?? payload);
       ws.send(JSON.stringify(payload));
     },
     close: () => {

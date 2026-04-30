@@ -832,6 +832,14 @@ function TableViewBody() {
           setState(m.state);
           setErr(null);
         }
+        if (m.type === "stateDelta") {
+          setState((prev) => {
+            if (!prev || typeof m.patch !== "object" || m.patch == null) return prev;
+            const merged = { ...prev, ...(m.patch as Partial<GameState>) };
+            return isGameState(merged) ? merged : prev;
+          });
+          setErr(null);
+        }
       },
     });
 
