@@ -4,10 +4,12 @@ import { clientMessageSchema, type ServerMessage } from "./protocol.js";
 import { createLogger } from "./logger.js";
 import {
   broadcastState,
+  getRuntimeStats,
   getOrCreateRoom,
   handleAction,
   joinRoom,
   removeConn,
+  scheduleBroadcastState,
   sendError,
 } from "./rooms.js";
 
@@ -20,6 +22,7 @@ const log = createLogger("ws");
 const app = Fastify({ logger: false });
 
 app.get("/health", async () => ({ ok: true }));
+app.get("/metrics", async () => getRuntimeStats());
 
 await app.listen({ port: PORT, host: HOST });
 
@@ -54,6 +57,8 @@ wss.on("connection", (ws) => {
   let joined:
     | { roomCode: string; playerId: string; conn: Parameters<typeof removeConn>[0] }
     | null = null;
+  let actionWindowStartMs = Date.now();
+  let actionWindowCount = 0;
 
   ws.on("message", (data) => {
     try {
@@ -96,6 +101,17 @@ wss.on("connection", (ws) => {
       }
 
       if (msg.type === "action") {
+        const now = Date.now();
+        if (now - actionWindowStartMs >= 1000) {
+          actionWindowStartMs = now;
+          actionWindowCount = 0;
+        }
+        actionWindowCount += 1;
+        if (actionWindowCount > 20) {
+          sendError(ws, "För många actions per sekund. Vänta lite och försök igen.");
+          return;
+        }
+
         const room = getOrCreateRoom(joined.roomCode).room;
         log.debug("action", joined.roomCode, joined.playerId, (msg.action as any)?.type);
         const err = handleAction(room, joined.conn, msg.action);
@@ -103,7 +119,7 @@ wss.on("connection", (ws) => {
           sendError(ws, err);
           return;
         }
-        broadcastState(room);
+        scheduleBroadcastState(room);
         log.debug("broadcast state", joined.roomCode);
       }
     } catch (e) {

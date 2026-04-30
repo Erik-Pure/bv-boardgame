@@ -467,6 +467,7 @@ export type BoardSizePreset = "default" | "large" | "xlarge";
 
 export interface GameConfig {
   turnSeconds: number;
+  reactionSeconds: number;
   gameMode: GameMode;
   difficulty: DifficultyPreset;
   hardcore: boolean;
@@ -561,6 +562,7 @@ export type ClientAction =
       type: "setConfig";
       playerId: string;
       turnSeconds?: number;
+      reactionSeconds?: number;
       difficulty?: DifficultyPreset;
       hardcore?: boolean;
       boardSize?: BoardSizePreset;

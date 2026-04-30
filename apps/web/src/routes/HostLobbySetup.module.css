@@ -1,0 +1,179 @@
+.root {
+  width: min(900px, calc(100% - 28px));
+  margin: 20px auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(4, 9, 22, 0.92);
+  padding: 18px 16px;
+  box-sizing: border-box;
+  color: #fff;
+}
+
+.title {
+  margin: 0 0 34px;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.topGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.fieldLabel {
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 0.92;
+  text-align: left;
+}
+
+.inlineCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.hardcoreRow {
+  padding-top: 34px;
+}
+
+.hardcoreLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.hardcoreIcon {
+  width: 18px;
+  height: 18px;
+  filter: brightness(0) saturate(100%) invert(49%) sepia(80%) saturate(2057%) hue-rotate(332deg) brightness(96%)
+    contrast(95%) drop-shadow(0 0 4px rgba(239, 68, 68, 0.45));
+}
+
+.section {
+  margin-top: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+}
+
+.summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 20px;
+  opacity: 0.95;
+}
+
+.sectionBody {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.boardGrid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.appearanceGrid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.coverBtn {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.coverBtnSelected {
+  border: 2px solid rgba(251, 191, 36, 0.95);
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.coverImg {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: block;
+}
+
+.coverLabel {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.coverLabelSelected {
+  color: #fcd34d;
+}
+
+.perfPanel {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+.perfTitle {
+  font-size: 15px;
+  font-weight: 800;
+  opacity: 0.92;
+}
+
+.cardsInner {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.cardsKind {
+  margin-bottom: 10px;
+}
+
+.cardsKindTitle {
+  font-weight: 700;
+  font-size: 12px;
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+.cardsRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.divider {
+  margin-top: 42px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: grid;
+  gap: 8px;
+}

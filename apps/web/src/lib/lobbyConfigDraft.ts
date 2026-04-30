@@ -1,4 +1,4 @@
-import type { GameConfig } from "@bv/game-core";
+import { CONFIG_NUMERIC, type GameConfig } from "@bv/game-core";
 
 const KEY_PREFIX = "bv:lobbyConfigDraft:";
 
@@ -7,11 +7,12 @@ export type LobbyConfigDraft = Omit<GameConfig, "turnSeconds" | "gameMode">;
 export function defaultLobbyConfigDraft(): LobbyConfigDraft {
   return {
     difficulty: "folkol",
+    reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
     hardcore: false,
     boardSize: "default",
     levelCount: 3,
-    maxHp: 10,
-    startPant: 5,
+    maxHp: CONFIG_NUMERIC.maxHp.default,
+    startPant: CONFIG_NUMERIC.startPant.default,
     wakeLockBeforeStart: false,
     disabledCardIds: [],
     cardCover: "card1",

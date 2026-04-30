@@ -92,7 +92,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText:
       "Om du slår 1: den svingar och missar dig men träffar en slumpmässig annan spelare i stället.",
     rewardGold: 5,
-    rewardItems: 1,
+    rewardItems: 2,
     artKey: "monster/rabarbapappa",
   },
   {
@@ -135,7 +135,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 4,
-    rewardItems: 1,
+    rewardItems: 2,
     artKey: "monster/megasouruz",
   },
   {
@@ -156,7 +156,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText:
       "Vid förlust: ta en klunk för att minska skada med 3",
     rewardGold: 5,
-    rewardItems: 1,
+    rewardItems: 2,
     artKey: "monster/kapten-interrobang",
   },
   {
@@ -167,7 +167,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText:
       "Vid skada: Ta en klunk för att minska skadan med 2 — eller ta full skada utan att dricka.",
     rewardGold: 5,
-    rewardItems: 1,
+    rewardItems: 2,
     artKey: "monster/sura-bar",
   },
   {
@@ -246,7 +246,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleRequired: true,
     teamBattleBonusGold: 2,
     rewardGold: 8,
-    rewardItems: 2,
+    rewardItems: 3,
     artKey: "monster/pimp",
   },
   {
@@ -272,7 +272,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleRequired: true,
     teamBattleBonusGold: 4,
     rewardGold: 10,
-    rewardItems: 2,
+    rewardItems: 4,
     artKey: "monster/taproom-titan",
   },
   {
@@ -305,7 +305,7 @@ export const MONSTERS: MonsterDef[] = [
     baseDamage: 2,
     rulesText: "",
     rewardGold: 6,
-    rewardItems: 1,
+    rewardItems: 2,
     artKey: "monster/fargglada_gubbar",
   },
   {

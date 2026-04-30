@@ -1,25 +1,29 @@
+import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { CardsCatalog } from "./routes/CardsCatalog";
 import { GameRules } from "./routes/GameRules";
 import { Home } from "./routes/Home";
 import { JoinGame } from "./routes/JoinGame";
-import { TableView } from "./routes/TableView";
-import { PlayView } from "./routes/PlayView";
 import { HostLobbySetup } from "./routes/HostLobbySetup";
+
+const TableView = lazy(() => import("./routes/TableView").then((m) => ({ default: m.TableView })));
+const PlayView = lazy(() => import("./routes/PlayView").then((m) => ({ default: m.PlayView })));
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/join" element={<JoinGame />} />
-      <Route path="/rules" element={<GameRules />} />
-      <Route path="/cards" element={<CardsCatalog />} />
-      <Route path="/host-lobby" element={<HostLobbySetup />} />
-      <Route path="/table" element={<TableView />} />
-      <Route path="/play" element={<PlayView />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<div style={{ minHeight: "100svh", display: "grid", placeItems: "center" }}>Laddar…</div>}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/join" element={<JoinGame />} />
+        <Route path="/rules" element={<GameRules />} />
+        <Route path="/cards" element={<CardsCatalog />} />
+        <Route path="/host-lobby" element={<HostLobbySetup />} />
+        <Route path="/table" element={<TableView />} />
+        <Route path="/play" element={<PlayView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

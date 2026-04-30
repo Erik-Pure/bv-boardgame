@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
 import {
   applyAction,
+  clampConfigNumber,
   createEmptyLobby,
   lobbyAddPlayer,
   startGame,
@@ -22,9 +23,16 @@ export interface Room {
   code: string;
   state: GameState;
   conns: Set<ClientConn>;
+  broadcastQueued: boolean;
 }
 
 const rooms = new Map<string, Room>();
+const stats = {
+  actionsHandled: 0,
+  actionErrors: 0,
+  broadcastsSent: 0,
+  bytesSent: 0,
+};
 
 export function getOrCreateRoom(code: string): { room: Room; created: boolean } {
   const roomCode = code.trim().toUpperCase();
@@ -32,7 +40,7 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   if (existing) return { room: existing, created: false };
   const state = createEmptyLobby(roomCode);
   state.log.push({ at: Date.now(), message: `Ny lobby skapad (${roomCode}).` });
-  const room: Room = { code: roomCode, state, conns: new Set() };
+  const room: Room = { code: roomCode, state, conns: new Set(), broadcastQueued: false };
   rooms.set(roomCode, room);
   return { room, created: true };
 }
@@ -48,13 +56,44 @@ export function removeConn(conn: ClientConn): void {
 
 export function broadcastState(room: Room): void {
   const payload = JSON.stringify({ type: "state", state: room.state });
+  stats.broadcastsSent += 1;
+  stats.bytesSent += payload.length;
   for (const c of room.conns) {
     if (c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
   }
 }
 
+export function scheduleBroadcastState(room: Room): void {
+  if (room.broadcastQueued) return;
+  room.broadcastQueued = true;
+  setTimeout(() => {
+    room.broadcastQueued = false;
+    broadcastState(room);
+  }, 16).unref?.();
+}
+
 export function sendError(ws: WebSocket, message: string): void {
   ws.send(JSON.stringify({ type: "error", message }));
+}
+
+export function getRuntimeStats(): {
+  roomCount: number;
+  connectionCount: number;
+  actionsHandled: number;
+  actionErrors: number;
+  broadcastsSent: number;
+  bytesSent: number;
+} {
+  let connectionCount = 0;
+  for (const room of rooms.values()) connectionCount += room.conns.size;
+  return {
+    roomCount: rooms.size,
+    connectionCount,
+    actionsHandled: stats.actionsHandled,
+    actionErrors: stats.actionErrors,
+    broadcastsSent: stats.broadcastsSent,
+    bytesSent: stats.bytesSent,
+  };
 }
 
 export function joinRoom(params: {
@@ -65,6 +104,7 @@ export function joinRoom(params: {
   requestedPlayerId?: string;
   config?: {
     turnSeconds?: number;
+    reactionSeconds?: number;
     gameMode?: "bossKill";
     difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
     hardcore?: boolean;
@@ -81,7 +121,10 @@ export function joinRoom(params: {
 
   if (created && params.role === "table" && params.config) {
     if (typeof params.config.turnSeconds === "number") {
-      room.state.config.turnSeconds = Math.min(120, Math.max(30, params.config.turnSeconds));
+      room.state.config.turnSeconds = clampConfigNumber("turnSeconds", params.config.turnSeconds);
+    }
+    if (typeof params.config.reactionSeconds === "number") {
+      room.state.config.reactionSeconds = clampConfigNumber("reactionSeconds", params.config.reactionSeconds);
     }
     if (params.config.gameMode) {
       room.state.config.gameMode = params.config.gameMode;
@@ -99,10 +142,10 @@ export function joinRoom(params: {
       room.state.config.levelCount = Math.max(1, Math.min(5, Math.floor(params.config.levelCount)));
     }
     if (typeof params.config.maxHp === "number") {
-      room.state.config.maxHp = Math.max(6, Math.min(30, Math.floor(params.config.maxHp)));
+      room.state.config.maxHp = clampConfigNumber("maxHp", params.config.maxHp);
     }
     if (typeof params.config.startPant === "number") {
-      room.state.config.startPant = Math.max(0, Math.min(50, Math.floor(params.config.startPant)));
+      room.state.config.startPant = clampConfigNumber("startPant", params.config.startPant);
     }
     if (typeof params.config.wakeLockBeforeStart === "boolean") {
       room.state.config.wakeLockBeforeStart = params.config.wakeLockBeforeStart;
@@ -201,6 +244,7 @@ function removePlayerFromRoomState(state: GameState, playerId: string): GameStat
 }
 
 export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
+  stats.actionsHandled += 1;
   const action = raw as ClientAction | { type?: string };
 
   if (action?.type === "leaveGame") {
@@ -239,7 +283,10 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
   }
 
   const res = applyAction(room.state, action as ClientAction);
-  if (res.error) return res.error;
+  if (res.error) {
+    stats.actionErrors += 1;
+    return res.error;
+  }
   room.state = res.state;
   return null;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONFIG_NUMERIC } from "@bv/game-core";
 
 export const clientHelloSchema = z.object({
   type: z.literal("hello"),
@@ -8,14 +9,20 @@ export const clientHelloSchema = z.object({
   playerId: z.string().uuid().optional(),
   config: z
     .object({
-      turnSeconds: z.number().int().min(10).max(600).optional(),
+      turnSeconds: z.number().int().min(CONFIG_NUMERIC.turnSeconds.min).max(CONFIG_NUMERIC.turnSeconds.max).optional(),
+      reactionSeconds: z
+        .number()
+        .int()
+        .min(CONFIG_NUMERIC.reactionSeconds.min)
+        .max(CONFIG_NUMERIC.reactionSeconds.max)
+        .optional(),
       gameMode: z.enum(["bossKill"]).optional(),
       difficulty: z.enum(["lattol", "folkol", "starkol", "imperial"]).optional(),
       hardcore: z.boolean().optional(),
       boardSize: z.enum(["default", "large", "xlarge"]).optional(),
       levelCount: z.number().int().min(1).max(5).optional(),
-      maxHp: z.number().int().min(6).max(30).optional(),
-      startPant: z.number().int().min(0).max(50).optional(),
+      maxHp: z.number().int().min(CONFIG_NUMERIC.maxHp.min).max(CONFIG_NUMERIC.maxHp.max).optional(),
+      startPant: z.number().int().min(CONFIG_NUMERIC.startPant.min).max(CONFIG_NUMERIC.startPant.max).optional(),
       wakeLockBeforeStart: z.boolean().optional(),
       disabledCardIds: z.array(z.string().min(1)).optional(),
       cardCover: z.string().min(1).max(64).optional(),

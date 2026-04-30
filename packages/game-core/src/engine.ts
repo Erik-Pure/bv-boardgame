@@ -45,11 +45,12 @@ import type {
   TableItemPlaySidePayload,
   Tile,
 } from "./types.js";
+import { CONFIG_NUMERIC, clampConfigNumber } from "./configConstraints.js";
 
 const MAX_PLAYERS = 8;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
-const COMBAT_REACTION_TIMEOUT_MS = 10_000;
+const DEFAULT_COMBAT_REACTION_TIMEOUT_MS = CONFIG_NUMERIC.reactionSeconds.default * 1000;
 const COMBAT_REACTION_PLAYABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "weak_beer",
   "light_beer",
@@ -81,14 +82,15 @@ const DRAWABLE_CARD_ID_SET = new Set(
     .map((card) => card.id),
 );
 const DEFAULT_CONFIG: GameState["config"] = {
-  turnSeconds: 60,
+  turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
+  reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
   gameMode: "bossKill",
   difficulty: "folkol",
   hardcore: false,
   boardSize: "default",
   levelCount: 3,
-  maxHp: 10,
-  startPant: 5,
+  maxHp: CONFIG_NUMERIC.maxHp.default,
+  startPant: CONFIG_NUMERIC.startPant.default,
   wakeLockBeforeStart: false,
   disabledCardIds: [],
   cardCover: "card1",
@@ -99,10 +101,11 @@ function normalizeConfig(state: GameState): void {
     ...DEFAULT_CONFIG,
     ...state.config,
   };
-  state.config.turnSeconds = Math.min(120, Math.max(30, Number(state.config.turnSeconds || 60)));
+  state.config.turnSeconds = clampConfigNumber("turnSeconds", state.config.turnSeconds);
+  state.config.reactionSeconds = clampConfigNumber("reactionSeconds", state.config.reactionSeconds);
   state.config.levelCount = Math.max(1, Math.min(5, Math.floor(Number(state.config.levelCount || 3))));
-  state.config.maxHp = Math.max(6, Math.min(30, Math.floor(Number(state.config.maxHp || 10))));
-  state.config.startPant = Math.max(0, Math.min(50, Math.floor(Number(state.config.startPant || 5))));
+  state.config.maxHp = clampConfigNumber("maxHp", state.config.maxHp);
+  state.config.startPant = clampConfigNumber("startPant", state.config.startPant);
   if (!["lattol", "folkol", "starkol", "imperial"].includes(state.config.difficulty)) {
     state.config.difficulty = "folkol";
   }
@@ -159,6 +162,12 @@ function rollD6WithOptionalSixSense(player: Player, rng: () => number): { die: n
     return { die: f, forced: true };
   }
   return { die: rollDie(rng, 6), forced: false };
+}
+
+function combatReactionTimeoutMs(config: GameState["config"]): number {
+  const sec = Number(config.reactionSeconds);
+  if (!Number.isFinite(sec)) return DEFAULT_COMBAT_REACTION_TIMEOUT_MS;
+  return clampConfigNumber("reactionSeconds", sec) * 1000;
 }
 
 /** Bräd-tv: lägg till spelat föremål (solfjäder tills rensning). */
@@ -1955,7 +1964,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const p = next.players.find((x) => x.id === action.playerId);
       if (!p?.isHost) return { state, events: [], error: "Endast värd" };
       if (typeof action.turnSeconds === "number") {
-        next.config.turnSeconds = Math.min(120, Math.max(30, action.turnSeconds));
+        next.config.turnSeconds = clampConfigNumber("turnSeconds", action.turnSeconds);
+      }
+      if (typeof action.reactionSeconds === "number" && Number.isFinite(action.reactionSeconds)) {
+        next.config.reactionSeconds = clampConfigNumber("reactionSeconds", action.reactionSeconds);
       }
       if (
         action.difficulty === "lattol" ||
@@ -1975,10 +1987,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         next.config.levelCount = Math.max(1, Math.min(5, Math.floor(action.levelCount)));
       }
       if (typeof action.maxHp === "number" && Number.isFinite(action.maxHp)) {
-        next.config.maxHp = Math.max(6, Math.min(30, Math.floor(action.maxHp)));
+        next.config.maxHp = clampConfigNumber("maxHp", action.maxHp);
       }
       if (typeof action.startPant === "number" && Number.isFinite(action.startPant)) {
-        next.config.startPant = Math.max(0, Math.min(50, Math.floor(action.startPant)));
+        next.config.startPant = clampConfigNumber("startPant", action.startPant);
       }
       if (typeof action.wakeLockBeforeStart === "boolean") {
         next.config.wakeLockBeforeStart = action.wakeLockBeforeStart;
@@ -2095,7 +2107,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan fortsätta" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
     pending.phase = "reactions";
-    pending.reactionsDeadlineAt = Date.now() + COMBAT_REACTION_TIMEOUT_MS;
+    pending.reactionsDeadlineAt = Date.now() + combatReactionTimeoutMs(next.config);
     pending.teamRolls = {};
     autoPassReactorsWithoutPlayableItems(next, pending);
     const reactors = pending.reactors ?? [];

@@ -3133,19 +3133,8 @@ export function PlayView() {
       {showSettings && (
         <Modal cardCoverId={lobbyCardCoverId} title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
           <div className={u.stack12}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.04)",
-              }}
-            >
-              <span style={{ fontWeight: 700 }}>{sv.play.settingsRainbowEffects}</span>
+            <label className={styles.settingsToggleRow}>
+              <span className={styles.settingsStrongLine}>{sv.play.settingsRainbowEffects}</span>
               <input
                 type="checkbox"
                 checked={rainbowEffectsEnabled}
@@ -3153,22 +3142,13 @@ export function PlayView() {
               />
             </label>
 
-            <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.04)",
-                fontSize: 13,
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ opacity: 0.72, marginBottom: 4 }}>{sv.play.settingsLobbyStatus}</div>
-              <div style={{ fontWeight: 700, wordBreak: "break-word" }}>{sv.play.lobbyHeader(room, wsStatusLabel(status))}</div>
+            <div className={styles.settingsStatusCard}>
+              <div className={styles.settingsMutedLabel}>{sv.play.settingsLobbyStatus}</div>
+              <div className={styles.settingsStrongLine}>{sv.play.lobbyHeader(room, wsStatusLabel(status))}</div>
               {footerTurnCaption ? (
                 <>
-                  <div style={{ opacity: 0.72, marginTop: 10, marginBottom: 4 }}>{sv.play.settingsTurnStatus}</div>
-                  <div style={{ fontWeight: 700 }}>{footerTurnCaption}</div>
+                  <div className={styles.settingsMutedLabelSpaced}>{sv.play.settingsTurnStatus}</div>
+                  <div className={styles.settingsStrongLine}>{footerTurnCaption}</div>
                 </>
               ) : null}
             </div>
@@ -3212,42 +3192,24 @@ export function PlayView() {
         <Modal cardCoverId={lobbyCardCoverId} title={sv.play.modalPlayers} onClose={() => setShowPlayers(false)} instantFront>
           <div className={u.stack10}>
             {state.players.map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  border: "1px solid #ffffff22",
-                  borderRadius: 14,
-                  padding: 12,
-                  background: "rgba(255,255,255,0.04)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 99, background: p.color, display: "inline-block" }} />
-                  <div style={{ fontWeight: 900 }}>
+              <div key={p.id} className={styles.playersCard}>
+                <div className={styles.playersHeaderRow}>
+                  <span className={styles.playersColorDot} style={{ background: p.color }} />
+                  <div className={styles.playersName}>
                     {p.name} {p.isHost ? sv.play.hostTag : ""} {p.ready ? "✅" : ""}
                   </div>
-                  <div
-                    style={{
-                      marginLeft: "auto",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      opacity: 0.85,
-                      fontSize: 12,
-                      fontWeight: 800,
-                    }}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <div className={styles.playersStats}>
+                    <span className={styles.playersStatItem}>
                       <StatIcon kind="hp" size={15} />
                       <span>
                         {p.hp}/{p.maxHp}
                       </span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span className={styles.playersStatItem}>
                       <StatIcon kind="pant" size={15} />
                       <span>{p.gold}</span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span className={styles.playersStatItem}>
                       <StatIcon kind="klunk" size={15} />
                       <span>{p.klunkar}</span>
                     </span>

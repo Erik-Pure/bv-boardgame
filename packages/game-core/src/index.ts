@@ -33,6 +33,7 @@ export {
   ringTileCount,
 } from "./board.js";
 export { createRng, rollDie, pick } from "./rng.js";
+export { CONFIG_NUMERIC, clampConfigNumber, type ConfigNumericKey } from "./configConstraints.js";
 export { effectiveWeaponPiecePower, monsterCombatEquipmentAttackBonus } from "./weaponPower.js";
 export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 export {

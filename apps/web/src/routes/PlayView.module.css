@@ -924,3 +924,80 @@
   }
 }
 
+.settingsToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settingsStatusCard {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.settingsMutedLabel {
+  opacity: 0.72;
+  margin-bottom: 4px;
+}
+
+.settingsMutedLabelSpaced {
+  opacity: 0.72;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.settingsStrongLine {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.playersCard {
+  border: 1px solid #ffffff22;
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playersHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.playersColorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.playersName {
+  font-weight: 900;
+}
+
+.playersStats {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.85;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.playersStatItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+

@@ -42,11 +42,12 @@ function parseArgs(argv) {
   const flags = new Set(argv.slice(2));
   const wantCheck = flags.has("--check");
   const wantWrite = flags.has("--write") || !wantCheck;
-  return { wantCheck, wantWrite };
+  const forceOverwrite = flags.has("--force") || flags.has("--overwrite");
+  return { wantCheck, wantWrite, forceOverwrite };
 }
 
 async function main() {
-  const { wantCheck, wantWrite } = parseArgs(process.argv);
+  const { wantCheck, wantWrite, forceOverwrite } = parseArgs(process.argv);
   const jobs = [];
   const missing = [];
 
@@ -57,9 +58,10 @@ async function main() {
       const baseNoExt = srcAbs.slice(0, -".png".length);
       for (const f of FORMATS) {
         const destAbs = `${baseNoExt}.${f.ext}`;
-        if (await exists(destAbs)) continue;
+        const destExists = await exists(destAbs);
+        if (destExists && !forceOverwrite) continue;
         const rel = path.relative(ROOT, destAbs);
-        if (wantCheck) missing.push(rel);
+        if (wantCheck && !destExists) missing.push(rel);
         if (wantWrite) jobs.push(convertFile(srcAbs, f.format, destAbs, f.options));
       }
     }
@@ -75,7 +77,9 @@ async function main() {
   }
 
   await Promise.all(jobs);
-  console.log(`Optimized ${jobs.length} outputs under ${path.relative(ROOT, PUBLIC_DIR)}/`);
+  console.log(
+    `Optimized ${jobs.length} outputs under ${path.relative(ROOT, PUBLIC_DIR)}/${forceOverwrite ? " (force overwrite)" : ""}`,
+  );
 }
 
 main().catch((e) => {
