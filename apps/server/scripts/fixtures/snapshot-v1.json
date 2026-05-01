@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "savedAt": 1714500000000,
+  "rooms": [
+    {
+      "code": "MIGV1",
+      "state": {
+        "phase": "lobby",
+        "seed": 123,
+        "config": {
+          "turnSeconds": 60,
+          "reactionSeconds": 10,
+          "gameMode": "bossKill",
+          "difficulty": "folkol",
+          "hardcore": false,
+          "boardSize": "default",
+          "levelCount": 3,
+          "maxHp": 10,
+          "startPant": 5,
+          "wakeLockBeforeStart": false,
+          "disabledCardIds": [],
+          "cardCover": "default"
+        },
+        "roomCode": "MIGV1",
+        "players": [],
+        "turnOrder": [],
+        "currentTurnIndex": 0,
+        "levels": [],
+        "pending": null,
+        "log": [],
+        "winnerId": null,
+        "winnerName": null,
+        "goldenBeerCarrierId": null,
+        "finalBossMonsterId": null,
+        "finalBossLivesRemaining": null,
+        "treasureTaken": {},
+        "lastDiceRoll": null,
+        "lastDiceRollerId": null,
+        "sipNotices": []
+      },
+      "lastActivityAt": 1714500000000,
+      "stateSeq": 0
+    }
+  ]
+}

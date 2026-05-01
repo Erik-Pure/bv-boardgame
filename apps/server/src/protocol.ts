@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { CONFIG_NUMERIC } from "@bv/game-core";
 
+export const CURRENT_PROTOCOL_VERSION = 1;
+export const MIN_SUPPORTED_CLIENT_PROTOCOL = 1;
+
 export const clientHelloSchema = z.object({
   type: z.literal("hello"),
   protocolVersion: z.number().int().positive().optional(),

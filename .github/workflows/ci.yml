@@ -30,3 +30,69 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  release-gate:
+    runs-on: ubuntu-latest
+    needs: images
+    env:
+      PORT: 3011
+      BASE_URL: http://127.0.0.1:3011
+      WS_URL: ws://127.0.0.1:3011
+      SERVER_AUTH_TOKEN: ci-token
+      ADMIN_TOKEN: ci-admin-token
+      PROTOCOL_VERSION: 1
+      METRICS_BEFORE_PATH: metrics-before.json
+      METRICS_AFTER_PATH: metrics-after.json
+      SLO_P95_MS: 300
+      SLO_ERROR_RATE_MAX: 0.05
+      LOAD_CLIENTS: 10
+      LOAD_ACTIONS_PER_CLIENT: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run -w @bv/game-core build && npm run -w server build
+      - name: Start server
+        run: |
+          npm run -w server start > server.log 2>&1 &
+          echo $! > server.pid
+          sleep 2
+      - name: Capture metrics before checks
+        run: curl -sS "$BASE_URL/metrics" > "$METRICS_BEFORE_PATH"
+      - name: Smoke gate
+        run: npm run smoke:server
+      - name: E2E gate
+        run: npm run e2e:server
+      - name: Migration gate
+        run: npm run migrate:check:server
+      - name: Load gate
+        run: npm run load:check:server
+      - name: Capture metrics after checks
+        run: curl -sS "$BASE_URL/metrics" > "$METRICS_AFTER_PATH"
+      - name: Threshold gate
+        run: node scripts/ci/check-metrics-thresholds.mjs
+      - name: Metrics summary
+        run: node scripts/ci/write-metrics-summary.mjs
+      - name: Upload metrics artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-metrics
+          path: |
+            metrics-before.json
+            metrics-after.json
+            server.log
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)" || true; fi
+
+  build-release:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - release-gate
+    steps:
+      - run: echo "Build and release gates passed"
+

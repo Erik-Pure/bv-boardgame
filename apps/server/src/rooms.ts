@@ -54,10 +54,27 @@ const stats = {
   bytesSent: 0,
   backpressureDrops: 0,
   backpressureDisconnects: 0,
+  actionLatencyMsRecent: [] as number[],
 };
 const WS_BUFFERED_DROP_THRESHOLD = 1_000_000; // 1MB
 const WS_BUFFERED_DISCONNECT_THRESHOLD = 4_000_000; // 4MB
 const IDLE_ROOM_TTL_MS = 10 * 60_000;
+const ACTION_LATENCY_SAMPLE_MAX = 500;
+
+function observeActionLatency(ms: number): void {
+  const safeMs = Number.isFinite(ms) ? Math.max(0, ms) : 0;
+  stats.actionLatencyMsRecent.push(safeMs);
+  if (stats.actionLatencyMsRecent.length > ACTION_LATENCY_SAMPLE_MAX) {
+    stats.actionLatencyMsRecent.splice(0, stats.actionLatencyMsRecent.length - ACTION_LATENCY_SAMPLE_MAX);
+  }
+}
+
+function percentile(values: number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return sorted[idx] ?? 0;
+}
 
 function computeLevelsSignature(state: GameState): string {
   if (!state.levels?.length) return "none";
@@ -237,6 +254,7 @@ export function getRuntimeStats(): {
   backpressureDrops: number;
   backpressureDisconnects: number;
   idleRoomTtlMs: number;
+  actionLatencyMs: { sampleSize: number; p50: number; p95: number; p99: number };
 } {
   let connectionCount = 0;
   for (const room of rooms.values()) connectionCount += room.conns.size;
@@ -250,6 +268,12 @@ export function getRuntimeStats(): {
     backpressureDrops: stats.backpressureDrops,
     backpressureDisconnects: stats.backpressureDisconnects,
     idleRoomTtlMs: IDLE_ROOM_TTL_MS,
+    actionLatencyMs: {
+      sampleSize: stats.actionLatencyMsRecent.length,
+      p50: percentile(stats.actionLatencyMsRecent, 50),
+      p95: percentile(stats.actionLatencyMsRecent, 95),
+      p99: percentile(stats.actionLatencyMsRecent, 99),
+    },
   };
 }
 
@@ -445,57 +469,62 @@ export function hasControllerConnection(room: Room, playerId: string): boolean {
 }
 
 export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
+  const startedAt = Date.now();
   stats.actionsHandled += 1;
   room.stateSeq += 1;
   room.lastActivityAt = Date.now();
   const action = raw as ClientAction | { type?: string };
   const privilegedActionTypes = new Set(["startGame", "setConfig", "tableKickPlayer"]);
-  if (action?.type && privilegedActionTypes.has(action.type) && !conn.trusted) {
-    stats.actionErrors += 1;
-    return "Saknar behörighet för denna åtgärd.";
-  }
-
-  if (action?.type === "leaveGame") {
-    const leaving = removePlayerFromRoomState(room.state, conn.playerId);
-    if (!leaving) return null;
-    room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
-    return null;
-  }
-
-  if (action?.type === "tableKickPlayer") {
-    if (conn.role !== "table") return "Endast bordet kan ta bort en spelare";
-    const targetId = (action as { targetPlayerId?: unknown }).targetPlayerId;
-    if (typeof targetId !== "string" || targetId.length === 0) return "Ogiltig spelare";
-    const leaving = removePlayerFromRoomState(room.state, targetId);
-    if (!leaving) return "Spelaren finns inte";
-    room.state.log.push({ at: Date.now(), message: `${leaving.name} togs bort från spelet (bordet).` });
-    for (const c of [...room.conns]) {
-      if (c.role === "controller" && c.playerId === targetId) {
-        try {
-          c.ws.close();
-        } catch {
-          // ignore
-        }
-        room.conns.delete(c);
-      }
+  try {
+    if (action?.type && privilegedActionTypes.has(action.type) && !conn.trusted) {
+      stats.actionErrors += 1;
+      return "Saknar behörighet för denna åtgärd.";
     }
-    return null;
-  }
 
-  if (room.state.phase === "lobby" && action?.type === "startGame") {
-    const seed = Math.floor(Math.random() * 1_000_000_000);
-    const res = startGame(room.state, conn.playerId, seed);
-    if (res.error) return res.error;
+    if (action?.type === "leaveGame") {
+      const leaving = removePlayerFromRoomState(room.state, conn.playerId);
+      if (!leaving) return null;
+      room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
+      return null;
+    }
+
+    if (action?.type === "tableKickPlayer") {
+      if (conn.role !== "table") return "Endast bordet kan ta bort en spelare";
+      const targetId = (action as { targetPlayerId?: unknown }).targetPlayerId;
+      if (typeof targetId !== "string" || targetId.length === 0) return "Ogiltig spelare";
+      const leaving = removePlayerFromRoomState(room.state, targetId);
+      if (!leaving) return "Spelaren finns inte";
+      room.state.log.push({ at: Date.now(), message: `${leaving.name} togs bort från spelet (bordet).` });
+      for (const c of [...room.conns]) {
+        if (c.role === "controller" && c.playerId === targetId) {
+          try {
+            c.ws.close();
+          } catch {
+            // ignore
+          }
+          room.conns.delete(c);
+        }
+      }
+      return null;
+    }
+
+    if (room.state.phase === "lobby" && action?.type === "startGame") {
+      const seed = Math.floor(Math.random() * 1_000_000_000);
+      const res = startGame(room.state, conn.playerId, seed);
+      if (res.error) return res.error;
+      room.state = res.state;
+      return null;
+    }
+
+    const res = applyAction(room.state, action as ClientAction);
+    if (res.error) {
+      stats.actionErrors += 1;
+      return res.error;
+    }
     room.state = res.state;
     return null;
+  } finally {
+    observeActionLatency(Date.now() - startedAt);
   }
-
-  const res = applyAction(room.state, action as ClientAction);
-  if (res.error) {
-    stats.actionErrors += 1;
-    return res.error;
-  }
-  room.state = res.state;
-  return null;
 }
 

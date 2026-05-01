@@ -1,6 +1,11 @@
 import Fastify from "fastify";
 import { WebSocketServer, type WebSocket } from "ws";
-import { clientMessageSchema, type ServerMessage } from "./protocol.js";
+import {
+  clientMessageSchema,
+  CURRENT_PROTOCOL_VERSION,
+  MIN_SUPPORTED_CLIENT_PROTOCOL,
+  type ServerMessage,
+} from "./protocol.js";
 import { createLogger } from "./logger.js";
 import {
   broadcastState,
@@ -23,11 +28,11 @@ import {
   touchRoom,
 } from "./rooms.js";
 import { loadRoomSnapshot, saveRoomSnapshot } from "./roomPersistence.js";
+import type { PersistedRoom } from "./rooms.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 /** 0.0.0.0 = lyssna på alla nätverksgränssnitt så mobiler på LAN kan ansluta. Sätt HOST=127.0.0.1 om du bara vill lokalt. */
 const HOST = process.env.HOST ?? "0.0.0.0";
-const SERVER_PROTOCOL_VERSION = 1;
 const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 const ROOM_SNAPSHOT_PATH = process.env.ROOM_SNAPSHOT_PATH ?? "./.data/rooms-snapshot.json";
 const ROOM_SNAPSHOT_INTERVAL_MS = Number(process.env.ROOM_SNAPSHOT_INTERVAL_MS ?? 10_000);
@@ -43,12 +48,45 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
 const log = createLogger("ws");
 const persistLog = createLogger("persist");
 const securityLog = createLogger("security");
+const startupLog = createLogger("startup");
+
+const runtimeCounters = {
+  wsMessagesRejectedTooLarge: 0,
+  wsHelloRateLimited: 0,
+  wsOriginBlocked: 0,
+  wsBadAuthToken: 0,
+  wsProtocolMismatch: 0,
+  snapshotLoadDurationMs: 0,
+  snapshotLoadFailures: 0,
+  snapshotSaveDurationMs: 0,
+  snapshotSaveFailures: 0,
+};
 
 const app = Fastify({ logger: false });
 
-app.get("/health", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION }));
-app.get("/ready", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION, runtime: getRuntimeStats() }));
-app.get("/metrics", async () => getRuntimeStats());
+app.get("/health", async () => ({ ok: true, protocolVersion: CURRENT_PROTOCOL_VERSION }));
+app.get("/ready", async () => ({ ok: true, protocolVersion: CURRENT_PROTOCOL_VERSION, runtime: getRuntimeStats() }));
+app.get("/metrics", async () => ({
+  ...getRuntimeStats(),
+  security: {
+    wsMessagesRejectedTooLarge: runtimeCounters.wsMessagesRejectedTooLarge,
+    wsHelloRateLimited: runtimeCounters.wsHelloRateLimited,
+    wsOriginBlocked: runtimeCounters.wsOriginBlocked,
+    wsBadAuthToken: runtimeCounters.wsBadAuthToken,
+    wsProtocolMismatch: runtimeCounters.wsProtocolMismatch,
+  },
+  persistence: {
+    snapshotLoadDurationMs: runtimeCounters.snapshotLoadDurationMs,
+    snapshotLoadFailures: runtimeCounters.snapshotLoadFailures,
+    snapshotSaveDurationMs: runtimeCounters.snapshotSaveDurationMs,
+    snapshotSaveFailures: runtimeCounters.snapshotSaveFailures,
+  },
+  protocol: {
+    current: CURRENT_PROTOCOL_VERSION,
+    minSupportedClient: MIN_SUPPORTED_CLIENT_PROTOCOL,
+  },
+  uptimeSec: Math.floor(process.uptime()),
+}));
 function hasValidAdminToken(req: { headers: Record<string, unknown> }): boolean {
   if (!ADMIN_TOKEN) return false;
   const raw = String(req.headers["x-admin-token"] ?? "");
@@ -70,7 +108,16 @@ app.post("/admin/rooms/:code/close", async (req, reply) => {
   return { ok: true, code };
 });
 
-const restored = restorePersistedRooms(await loadRoomSnapshot(ROOM_SNAPSHOT_PATH));
+const snapshotLoadStartedAt = Date.now();
+let loadedSnapshotRooms: PersistedRoom[] = [];
+try {
+  loadedSnapshotRooms = await loadRoomSnapshot(ROOM_SNAPSHOT_PATH);
+} catch (e) {
+  runtimeCounters.snapshotLoadFailures += 1;
+  startupLog.warn("room snapshot load failed", e);
+}
+runtimeCounters.snapshotLoadDurationMs = Date.now() - snapshotLoadStartedAt;
+const restored = restorePersistedRooms(loadedSnapshotRooms);
 if (restored > 0) {
   persistLog.info(`Restored ${restored} room snapshots from ${ROOM_SNAPSHOT_PATH}`);
 }
@@ -90,7 +137,15 @@ setInterval(() => {
 
 async function flushRoomSnapshot(): Promise<void> {
   const rooms = listPersistedRooms();
-  await saveRoomSnapshot(ROOM_SNAPSHOT_PATH, rooms);
+  const startedAt = Date.now();
+  try {
+    await saveRoomSnapshot(ROOM_SNAPSHOT_PATH, rooms);
+    runtimeCounters.snapshotSaveDurationMs = Date.now() - startedAt;
+  } catch (e) {
+    runtimeCounters.snapshotSaveFailures += 1;
+    runtimeCounters.snapshotSaveDurationMs = Date.now() - startedAt;
+    throw e;
+  }
 }
 
 setInterval(() => {
@@ -129,6 +184,7 @@ wss.on("connection", (ws, req) => {
   if (ALLOWED_ORIGINS.length > 0) {
     const origin = String(req.headers.origin ?? "");
     if (!ALLOWED_ORIGINS.includes(origin)) {
+      runtimeCounters.wsOriginBlocked += 1;
       securityLog.warn("ws blocked by origin policy", { origin });
       ws.close();
       return;
@@ -173,6 +229,7 @@ wss.on("connection", (ws, req) => {
   ws.on("message", (data) => {
     try {
       if (wsDataSize(data) > MAX_WS_MESSAGE_BYTES) {
+        runtimeCounters.wsMessagesRejectedTooLarge += 1;
         sendError(ws, "Meddelandet är för stort.");
         ws.close();
         return;
@@ -189,22 +246,28 @@ wss.on("connection", (ws, req) => {
         } else {
           bucket.count += 1;
           if (bucket.count > HELLO_RATE_LIMIT_PER_MIN) {
+            runtimeCounters.wsHelloRateLimited += 1;
             securityLog.warn("hello rate limited", { remoteIp, count: bucket.count });
             sendError(ws, "För många anslutningsförsök. Vänta en stund och prova igen.");
             ws.close();
             return;
           }
         }
-        if (typeof msg.protocolVersion === "number" && msg.protocolVersion !== SERVER_PROTOCOL_VERSION) {
+        if (
+          typeof msg.protocolVersion === "number" &&
+          (msg.protocolVersion > CURRENT_PROTOCOL_VERSION || msg.protocolVersion < MIN_SUPPORTED_CLIENT_PROTOCOL)
+        ) {
+          runtimeCounters.wsProtocolMismatch += 1;
           sendError(
             ws,
-            `Inkompatibel klient/server-version (client=${msg.protocolVersion}, server=${SERVER_PROTOCOL_VERSION}). Uppdatera sidan.`,
+            `Inkompatibel klient/server-version (client=${msg.protocolVersion}, server=${CURRENT_PROTOCOL_VERSION}, min=${MIN_SUPPORTED_CLIENT_PROTOCOL}). Uppdatera sidan.`,
           );
           ws.close();
           return;
         }
         const trusted = SERVER_AUTH_TOKEN.length === 0 || msg.authToken === SERVER_AUTH_TOKEN;
         if (!trusted) {
+          runtimeCounters.wsBadAuthToken += 1;
           securityLog.warn("hello rejected: bad auth token", { remoteIp });
           sendError(ws, "Ogiltig auth-token.");
           ws.close();
@@ -241,7 +304,7 @@ wss.on("connection", (ws, req) => {
           type: "helloAck",
           roomCode: res.room.code,
           playerId: res.conn.playerId,
-          protocolVersion: SERVER_PROTOCOL_VERSION,
+          protocolVersion: CURRENT_PROTOCOL_VERSION,
         };
         ws.send(JSON.stringify(ack));
         sendStateSnapshot(res.conn, res.room);

@@ -13,6 +13,9 @@
     "dev:server": "npm run -w server dev",
     "dev:web": "npm run -w web dev",
     "smoke:server": "npm run -w server smoke",
+    "e2e:server": "npm run -w server e2e",
+    "migrate:check:server": "npm run -w server migration:check",
+    "load:check:server": "npm run -w server load:check",
     "optimize:images": "node scripts/optimize-images.mjs",
     "optimize:images:force": "node scripts/optimize-images.mjs --force",
     "optimize:images:check": "node scripts/optimize-images.mjs --check"
