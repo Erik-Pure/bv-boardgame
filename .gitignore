@@ -24,3 +24,6 @@ pnpm-debug.log*
 
 # Vite / tooling
 *.local
+
+# Server runtime snapshots
+apps/server/.data/
