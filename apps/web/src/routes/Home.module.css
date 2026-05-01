@@ -37,6 +37,60 @@
   height: auto;
 }
 
+.authCard {
+  margin-top: 22px;
+  margin-bottom: 26px;
+  padding: 14px 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.authTitle {
+  margin: 0 0 8px;
+}
+
+.authSubtle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.authFields {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.authInput {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.authActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.googleLink {
+  color: #cbd5e1;
+  text-decoration: underline;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.authError {
+  margin: 10px 0 0;
+  color: #fda4af;
+  font-size: 13px;
+}
+
 @keyframes logoGlowSpin {
   from {
     transform: translate(-50%, -50%) rotate(0deg);

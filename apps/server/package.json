@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "smoke": "node scripts/smoke-check.mjs",
+    "auth:smoke": "node scripts/auth-smoke.mjs",
     "e2e": "node scripts/e2e-check.mjs",
     "migration:check": "node scripts/migration-check.mjs",
     "load:check": "node scripts/load-check.mjs"

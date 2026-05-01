@@ -29,6 +29,7 @@ import {
 } from "./rooms.js";
 import { loadRoomSnapshot, saveRoomSnapshot } from "./roomPersistence.js";
 import type { PersistedRoom } from "./rooms.js";
+import { AuthService, resolveAuthConfigFromEnv } from "./auth/service.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 /** 0.0.0.0 = lyssna på alla nätverksgränssnitt så mobiler på LAN kan ansluta. Sätt HOST=127.0.0.1 om du bara vill lokalt. */
@@ -40,6 +41,7 @@ const DISCONNECTED_PLAYER_GRACE_MS = Number(process.env.DISCONNECTED_PLAYER_GRAC
 const HELLO_RATE_LIMIT_PER_MIN = Number(process.env.HELLO_RATE_LIMIT_PER_MIN ?? 40);
 const SERVER_AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN?.trim() || "";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN?.trim() || "";
+const AUTH_REQUIRE_HOST_LOGIN = (process.env.AUTH_REQUIRE_HOST_LOGIN ?? "false").toLowerCase() === "true";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((x) => x.trim())
@@ -63,6 +65,102 @@ const runtimeCounters = {
 };
 
 const app = Fastify({ logger: false });
+const authService = new AuthService(resolveAuthConfigFromEnv());
+
+function parseCookies(rawCookie: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of rawCookie.split(";")) {
+    const [k, ...rest] = part.split("=");
+    const key = k?.trim();
+    if (!key) continue;
+    out[key] = decodeURIComponent(rest.join("=").trim());
+  }
+  return out;
+}
+
+function getSessionIdFromCookieHeader(rawCookie: string | undefined): string {
+  if (!rawCookie) return "";
+  const cookies = parseCookies(rawCookie);
+  return cookies[authService.cookieName()] ?? "";
+}
+
+function serializeSessionCookie(value: string, maxAgeSeconds: number): string {
+  const secure = (process.env.NODE_ENV ?? "").toLowerCase() === "production";
+  const parts = [
+    `${authService.cookieName()}=${encodeURIComponent(value)}`,
+    "Path=/",
+    "HttpOnly",
+    secure ? "SameSite=None" : "SameSite=Lax",
+    `Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
+  ];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+app.post("/auth/otp/request", async (req, reply) => {
+  const body = (req.body ?? {}) as { email?: unknown };
+  const email = String(body.email ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return reply.code(400).send({ ok: false, error: "Ogiltig e-post" });
+  }
+  await authService.requestOtp(email);
+  return { ok: true };
+});
+
+app.post("/auth/otp/verify", async (req, reply) => {
+  const body = (req.body ?? {}) as { email?: unknown; code?: unknown };
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const code = String(body.code ?? "").trim();
+  if (!email || !code) return reply.code(400).send({ ok: false, error: "email och code krävs" });
+  const verified = await authService.verifyOtp(email, code);
+  if (!verified) return reply.code(401).send({ ok: false, error: "Fel eller utgången kod" });
+  reply.header("Set-Cookie", serializeSessionCookie(verified.sessionId, 30 * 24 * 60 * 60));
+  return {
+    ok: true,
+    user: { id: verified.user.id, email: verified.user.email, displayName: verified.user.displayName },
+  };
+});
+
+app.get("/auth/google/start", async (req, reply) => {
+  const redirectTo = String((req.query as { redirectTo?: string } | undefined)?.redirectTo ?? "").trim() || undefined;
+  const state = await authService.createGoogleState(redirectTo);
+  return reply.redirect(authService.googleAuthUrl(state));
+});
+
+app.get("/auth/google/callback", async (req, reply) => {
+  const q = (req.query ?? {}) as { code?: string; state?: string };
+  const code = String(q.code ?? "");
+  const state = String(q.state ?? "");
+  if (!code || !state) return reply.code(400).send({ ok: false, error: "missing code/state" });
+  const done = await authService.handleGoogleCallback({ code, state });
+  if (!done) return reply.code(401).send({ ok: false, error: "google auth failed" });
+  reply.header("Set-Cookie", serializeSessionCookie(done.sessionId, 30 * 24 * 60 * 60));
+  return reply.redirect("/");
+});
+
+app.get("/auth/me", async (req) => {
+  const sessionId = getSessionIdFromCookieHeader(String(req.headers.cookie ?? ""));
+  const session = await authService.getSession(sessionId);
+  if (!session) return { ok: true, authenticated: false };
+  const entitlement = await authService.resolveEntitlement(session.userId);
+  return {
+    ok: true,
+    authenticated: true,
+    user: {
+      id: session.userId,
+      email: session.email,
+      displayName: session.displayName,
+    },
+    entitlement,
+  };
+});
+
+app.post("/auth/logout", async (req, reply) => {
+  const sessionId = getSessionIdFromCookieHeader(String(req.headers.cookie ?? ""));
+  await authService.logout(sessionId);
+  reply.header("Set-Cookie", serializeSessionCookie("", 0));
+  return { ok: true };
+});
 
 app.get("/health", async () => ({ ok: true, protocolVersion: CURRENT_PROTOCOL_VERSION }));
 app.get("/ready", async () => ({ ok: true, protocolVersion: CURRENT_PROTOCOL_VERSION, runtime: getRuntimeStats() }));
@@ -226,7 +324,7 @@ wss.on("connection", (ws, req) => {
     return 0;
   }
 
-  ws.on("message", (data) => {
+  ws.on("message", async (data) => {
     try {
       if (wsDataSize(data) > MAX_WS_MESSAGE_BYTES) {
         runtimeCounters.wsMessagesRejectedTooLarge += 1;
@@ -238,6 +336,13 @@ wss.on("connection", (ws, req) => {
 
       if (msg.type === "hello") {
         if (joined) return;
+        const sessionId = getSessionIdFromCookieHeader(String(req.headers.cookie ?? ""));
+        const session = await authService.getSession(sessionId);
+        if (AUTH_REQUIRE_HOST_LOGIN && msg.as === "table" && !session) {
+          sendError(ws, "Host behöver vara inloggad.");
+          ws.close();
+          return;
+        }
         const remoteIp = req.socket.remoteAddress ?? "unknown";
         const now = Date.now();
         const bucket = helloRateByIp.get(remoteIp);

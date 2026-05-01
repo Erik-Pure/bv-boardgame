@@ -20,6 +20,10 @@ export default defineConfig({
         ws: true,
         rewrite: (path) => path.replace(/^\/bv-ws\/?/, "/") || "/",
       },
+      "/auth": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+      },
     },
   },
 });
