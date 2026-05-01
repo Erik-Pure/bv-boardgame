@@ -37,6 +37,15 @@ export interface PersistedRoom {
   stateSeq: number;
 }
 
+export interface AdminRoomSummary {
+  code: string;
+  phase: GameState["phase"];
+  players: number;
+  connections: number;
+  lastActivityAt: number;
+  stateSeq: number;
+}
+
 const rooms = new Map<string, Room>();
 const stats = {
   actionsHandled: 0,
@@ -85,6 +94,32 @@ export function listPersistedRooms(): PersistedRoom[] {
     lastActivityAt: room.lastActivityAt,
     stateSeq: room.stateSeq,
   }));
+}
+
+export function listRoomSummaries(): AdminRoomSummary[] {
+  return [...rooms.values()].map((room) => ({
+    code: room.code,
+    phase: room.state.phase,
+    players: room.state.players.length,
+    connections: room.conns.size,
+    lastActivityAt: room.lastActivityAt,
+    stateSeq: room.stateSeq,
+  }));
+}
+
+export function closeRoomByCode(code: string, reason = "stängd av admin"): boolean {
+  const room = rooms.get(code.trim().toUpperCase());
+  if (!room) return false;
+  room.state.log.push({ at: Date.now(), message: `Lobby stängdes (${reason}).` });
+  for (const conn of room.conns) {
+    try {
+      conn.ws.close();
+    } catch {
+      // ignore
+    }
+  }
+  rooms.delete(room.code);
+  return true;
 }
 
 export function restorePersistedRooms(entries: PersistedRoom[]): number {

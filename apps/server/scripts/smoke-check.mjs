@@ -8,6 +8,7 @@ const WS_URL = process.env.WS_URL ?? `ws://127.0.0.1:${PORT}`;
 const EXPECTED_PROTOCOL_VERSION = Number(process.env.PROTOCOL_VERSION ?? 1);
 const ROOM_CODE = process.env.SMOKE_ROOM_CODE ?? "SMOKE1";
 const AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN ?? "";
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
 
 async function expectJsonOk(url, label) {
   const res = await fetch(url, { method: "GET" });
@@ -85,6 +86,17 @@ async function main() {
   await expectJsonOk(`${BASE_URL}/health`, "health");
   await expectJsonOk(`${BASE_URL}/ready`, "ready");
   await wsHelloCheck();
+  if (ADMIN_TOKEN) {
+    const adminRes = await fetch(`${BASE_URL}/admin/rooms`, {
+      method: "GET",
+      headers: { "x-admin-token": ADMIN_TOKEN },
+    });
+    if (!adminRes.ok) throw new Error(`/admin/rooms failed: HTTP ${adminRes.status}`);
+    const adminJson = await adminRes.json();
+    if (!adminJson?.ok || !Array.isArray(adminJson.rooms)) {
+      throw new Error("/admin/rooms failed: invalid payload");
+    }
+  }
   await delay(20);
   console.log("smoke-check ok");
 }

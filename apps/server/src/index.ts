@@ -4,6 +4,7 @@ import { clientMessageSchema, type ServerMessage } from "./protocol.js";
 import { createLogger } from "./logger.js";
 import {
   broadcastState,
+  closeRoomByCode,
   forceRemovePlayer,
   getRuntimeStats,
   getRoom,
@@ -11,6 +12,7 @@ import {
   handleAction,
   hasControllerConnection,
   joinRoom,
+  listRoomSummaries,
   listPersistedRooms,
   pruneIdleRooms,
   removeConn,
@@ -32,6 +34,7 @@ const ROOM_SNAPSHOT_INTERVAL_MS = Number(process.env.ROOM_SNAPSHOT_INTERVAL_MS ?
 const DISCONNECTED_PLAYER_GRACE_MS = Number(process.env.DISCONNECTED_PLAYER_GRACE_MS ?? 45_000);
 const HELLO_RATE_LIMIT_PER_MIN = Number(process.env.HELLO_RATE_LIMIT_PER_MIN ?? 40);
 const SERVER_AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN?.trim() || "";
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN?.trim() || "";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((x) => x.trim())
@@ -46,6 +49,26 @@ const app = Fastify({ logger: false });
 app.get("/health", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION }));
 app.get("/ready", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION, runtime: getRuntimeStats() }));
 app.get("/metrics", async () => getRuntimeStats());
+function hasValidAdminToken(req: { headers: Record<string, unknown> }): boolean {
+  if (!ADMIN_TOKEN) return false;
+  const raw = String(req.headers["x-admin-token"] ?? "");
+  return raw.length > 0 && raw === ADMIN_TOKEN;
+}
+
+app.get("/admin/rooms", async (req, reply) => {
+  if (!hasValidAdminToken(req)) return reply.code(401).send({ ok: false, error: "unauthorized" });
+  return { ok: true, rooms: listRoomSummaries() };
+});
+
+app.post("/admin/rooms/:code/close", async (req, reply) => {
+  if (!hasValidAdminToken(req)) return reply.code(401).send({ ok: false, error: "unauthorized" });
+  const code = String((req.params as { code?: string }).code ?? "").trim().toUpperCase();
+  if (!code) return reply.code(400).send({ ok: false, error: "missing room code" });
+  const closed = closeRoomByCode(code, "stängd av admin-endpoint");
+  if (!closed) return reply.code(404).send({ ok: false, error: "room not found" });
+  securityLog.warn("room closed via admin endpoint", { code });
+  return { ok: true, code };
+});
 
 const restored = restorePersistedRooms(await loadRoomSnapshot(ROOM_SNAPSHOT_PATH));
 if (restored > 0) {

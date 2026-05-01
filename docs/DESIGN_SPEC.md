@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.45 |
+| Version | 0.46 |
 | Senast uppdaterad | 2026-05-01 |
 
 ---
@@ -90,6 +90,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Idle-room städning:** rum utan aktiva anslutningar hålls kvar kort för reconnect men städas automatiskt efter TTL (nuvarande: ca 10 min inaktivitet).
 - **Recoverability (nuvarande implementation):** servern tar periodiska snapshots av aktiva rum till disk och kan återställa dessa vid restart (`ROOM_SNAPSHOT_PATH`, `ROOM_SNAPSHOT_INTERVAL_MS`).
 - **Autentisering av WS-klienter (baseline):** om `SERVER_AUTH_TOKEN` är satt måste klient skicka `authToken` i `hello`; annars nekas anslutningen.
+- **Admin/drift API (utan UI):** servern kan exponera token-skyddade admin-endpoints med `ADMIN_TOKEN` i headern `x-admin-token` (ex. lista rum och stäng rum kontrollerat).
 - **Lokalt:** `npm run dev` — Vite på **5173**, WebSocket i dev proxas via **`/bv-ws`** till servern (se `apps/web/vite.config.ts`).
 - **Deploy:** webben sker via **Vercel** (kopplat till GitHub; push triggar bygge) eller manuellt med **Vercel CLI** (`npx vercel --prod` från repo-roten efter `npx vercel login` / ev. `npx vercel link`). Spelservern: **CapRover CLI** med `npm run deploy:caprover` / `npm run deploy:caprover:staging` (läser **`.env`** via `dotenv-cli`; se `.env.example`).
 
@@ -399,6 +400,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **State-distribution:** nya anslutningar får full **snapshot** (`state`), och löpande uppdateringar kan skickas som **delta** (`stateDelta`) för lägre payload och mindre serialiseringskostnad. Broadcast till ett rum koalesceras i korta tidsfönster vid snabba actions.
 - **Protokollsignalering:** servern skickar `protocolVersion` i `helloAck` (för kompatibilitetskontroller) och exponerar readiness på `GET /ready`.
 - **Privilegierade actions:** känsliga åtgärder (`startGame`, `setConfig`, `tableKickPlayer`) kräver trusted anslutning (auth-token när servern kör i token-läge).
+- **Admin-endpoints (P1 baseline):** `GET /admin/rooms` (översikt), `POST /admin/rooms/:code/close` (driftstängning). Avsett för drift/ops, inte spelar-UI.
 - Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
 
 **Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
@@ -518,4 +520,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.43 | 2026-04-30 | Serverstabilitet: snapshot+delta för state-distribution, `actionId`-idempotency för retries/dubletter, samt automatisk städning av inaktiva tomma rum (TTL) |
 | 0.44 | 2026-05-01 | Drift/recoverability: periodiska rumssnapshots till disk med restore vid restart; `protocolVersion` i `helloAck`; readiness-endpoint `/ready` dokumenterad |
 | 0.45 | 2026-05-01 | Baseline-auth för WebSocket (`SERVER_AUTH_TOKEN`/`authToken`) samt trusted-krav för privilegierade actions (`startGame`, `setConfig`, `tableKickPlayer`) |
+| 0.46 | 2026-05-01 | P1 driftstöd: token-skyddade admin-endpoints (`/admin/rooms`, `/admin/rooms/:code/close`) dokumenterade, utan separat admin-UI |
 
