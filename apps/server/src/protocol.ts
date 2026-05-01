@@ -48,7 +48,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 export type ServerMessage =
-  | { type: "helloAck"; playerId: string; roomCode: string }
+  | { type: "helloAck"; playerId: string; roomCode: string; protocolVersion?: number }
   | { type: "state"; state: unknown; seq?: number }
   | { type: "stateDelta"; seq: number; patch: unknown }
   | { type: "error"; message: string };

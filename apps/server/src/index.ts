@@ -8,24 +8,38 @@ import {
   getOrCreateRoom,
   handleAction,
   joinRoom,
+  listPersistedRooms,
   pruneIdleRooms,
   removeConn,
+  restorePersistedRooms,
   scheduleBroadcastState,
   sendStateSnapshot,
   sendError,
   touchRoom,
 } from "./rooms.js";
+import { loadRoomSnapshot, saveRoomSnapshot } from "./roomPersistence.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 /** 0.0.0.0 = lyssna på alla nätverksgränssnitt så mobiler på LAN kan ansluta. Sätt HOST=127.0.0.1 om du bara vill lokalt. */
 const HOST = process.env.HOST ?? "0.0.0.0";
+const SERVER_PROTOCOL_VERSION = 1;
+const MAX_WS_MESSAGE_BYTES = 64 * 1024;
+const ROOM_SNAPSHOT_PATH = process.env.ROOM_SNAPSHOT_PATH ?? "./.data/rooms-snapshot.json";
+const ROOM_SNAPSHOT_INTERVAL_MS = Number(process.env.ROOM_SNAPSHOT_INTERVAL_MS ?? 10_000);
 
 const log = createLogger("ws");
+const persistLog = createLogger("persist");
 
 const app = Fastify({ logger: false });
 
-app.get("/health", async () => ({ ok: true }));
+app.get("/health", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION }));
+app.get("/ready", async () => ({ ok: true, protocolVersion: SERVER_PROTOCOL_VERSION, runtime: getRuntimeStats() }));
 app.get("/metrics", async () => getRuntimeStats());
+
+const restored = restorePersistedRooms(await loadRoomSnapshot(ROOM_SNAPSHOT_PATH));
+if (restored > 0) {
+  persistLog.info(`Restored ${restored} room snapshots from ${ROOM_SNAPSHOT_PATH}`);
+}
 
 await app.listen({ port: PORT, host: HOST });
 
@@ -33,6 +47,23 @@ const wss = new WebSocketServer({ server: app.server });
 setInterval(() => {
   pruneIdleRooms();
 }, 60_000).unref?.();
+
+async function flushRoomSnapshot(): Promise<void> {
+  const rooms = listPersistedRooms();
+  await saveRoomSnapshot(ROOM_SNAPSHOT_PATH, rooms);
+}
+
+setInterval(() => {
+  void flushRoomSnapshot().catch((e) => {
+    persistLog.warn("room snapshot save failed", e);
+  });
+}, Math.max(1000, ROOM_SNAPSHOT_INTERVAL_MS)).unref?.();
+
+for (const sig of ["SIGTERM", "SIGINT"] as const) {
+  process.once(sig, () => {
+    void flushRoomSnapshot().finally(() => process.exit(0));
+  });
+}
 
 /** Stäng halvöppna klienter (t.ex. mobil i bakgrund) så att onclose triggas och de kan återansluta. */
 type TrackedWs = WebSocket & { isAlive?: boolean };
@@ -79,8 +110,25 @@ wss.on("connection", (ws) => {
     }
   }
 
+  function wsDataSize(data: unknown): number {
+    if (typeof data === "string") return Buffer.byteLength(data);
+    if (data instanceof Buffer) return data.byteLength;
+    if (data instanceof ArrayBuffer) return data.byteLength;
+    if (Array.isArray(data)) {
+      let total = 0;
+      for (const part of data) total += wsDataSize(part);
+      return total;
+    }
+    return 0;
+  }
+
   ws.on("message", (data) => {
     try {
+      if (wsDataSize(data) > MAX_WS_MESSAGE_BYTES) {
+        sendError(ws, "Meddelandet är för stort.");
+        ws.close();
+        return;
+      }
       const msg = clientMessageSchema.parse(JSON.parse(String(data)));
 
       if (msg.type === "hello") {
@@ -107,6 +155,7 @@ wss.on("connection", (ws) => {
           type: "helloAck",
           roomCode: res.room.code,
           playerId: res.conn.playerId,
+          protocolVersion: SERVER_PROTOCOL_VERSION,
         };
         ws.send(JSON.stringify(ack));
         sendStateSnapshot(res.conn, res.room);

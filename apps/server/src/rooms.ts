@@ -29,6 +29,13 @@ export interface Room {
   levelsSignature: string;
 }
 
+export interface PersistedRoom {
+  code: string;
+  state: GameState;
+  lastActivityAt: number;
+  stateSeq: number;
+}
+
 const rooms = new Map<string, Room>();
 const stats = {
   actionsHandled: 0,
@@ -64,6 +71,37 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   };
   rooms.set(roomCode, room);
   return { room, created: true };
+}
+
+export function listPersistedRooms(): PersistedRoom[] {
+  return [...rooms.values()].map((room) => ({
+    code: room.code,
+    state: room.state,
+    lastActivityAt: room.lastActivityAt,
+    stateSeq: room.stateSeq,
+  }));
+}
+
+export function restorePersistedRooms(entries: PersistedRoom[]): number {
+  let restored = 0;
+  for (const entry of entries) {
+    if (!entry?.code || !entry.state) continue;
+    const code = entry.code.trim().toUpperCase();
+    if (!code) continue;
+    const state = entry.state;
+    const room: Room = {
+      code,
+      state,
+      conns: new Set(),
+      broadcastQueued: false,
+      lastActivityAt: Number.isFinite(entry.lastActivityAt) ? entry.lastActivityAt : Date.now(),
+      stateSeq: Number.isFinite(entry.stateSeq) ? Math.max(0, Math.floor(entry.stateSeq)) : 0,
+      levelsSignature: computeLevelsSignature(state),
+    };
+    rooms.set(code, room);
+    restored += 1;
+  }
+  return restored;
 }
 
 export function removeConn(conn: ClientConn): void {
