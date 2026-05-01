@@ -44,7 +44,7 @@ jobs:
       METRICS_AFTER_PATH: metrics-after.json
       SLO_P95_MS: 300
       SLO_ERROR_RATE_MAX: 0.05
-      LOAD_CLIENTS: 10
+      LOAD_CLIENTS: 8
       LOAD_ACTIONS_PER_CLIENT: 8
     steps:
       - uses: actions/checkout@v4

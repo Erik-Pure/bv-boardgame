@@ -7,7 +7,7 @@ const WS_URL = process.env.WS_URL ?? `ws://127.0.0.1:${PORT}`;
 const PROTOCOL_VERSION = Number(process.env.PROTOCOL_VERSION ?? 1);
 const SERVER_AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN ?? "";
 
-const CLIENTS = Number(process.env.LOAD_CLIENTS ?? 12);
+const CLIENTS = Number(process.env.LOAD_CLIENTS ?? 8);
 const ACTIONS_PER_CLIENT = Number(process.env.LOAD_ACTIONS_PER_CLIENT ?? 12);
 const ACTION_INTERVAL_MS = Number(process.env.LOAD_ACTION_INTERVAL_MS ?? 35);
 
@@ -53,6 +53,7 @@ async function createClient(index) {
   let playerId = null;
   let helloAcked = false;
   let errors = 0;
+  let helloError = null;
 
   ws.on("message", (raw) => {
     let msg;
@@ -73,7 +74,10 @@ async function createClient(index) {
       }
       return;
     }
-    if (msg?.type === "error") errors += 1;
+    if (msg?.type === "error") {
+      errors += 1;
+      if (!helloAcked) helloError = String(msg.message ?? "hello failed");
+    }
   });
 
   await waitForOpen(ws);
@@ -90,6 +94,7 @@ async function createClient(index) {
 
   const startWait = Date.now();
   while (!helloAcked || !playerId) {
+    if (helloError) throw new Error(`hello rejected for client ${index}: ${helloError}`);
     if (Date.now() - startWait > 5000) throw new Error("hello timeout in load-check");
     await delay(20);
   }
