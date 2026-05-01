@@ -12,6 +12,7 @@
     "dev": "npm run -w @bv/game-core build && concurrently -n server,web -c magenta,green \"npm run -w server dev\" \"npm run -w web dev\"",
     "dev:server": "npm run -w server dev",
     "dev:web": "npm run -w web dev",
+    "smoke:server": "npm run -w server smoke",
     "optimize:images": "node scripts/optimize-images.mjs",
     "optimize:images:force": "node scripts/optimize-images.mjs --force",
     "optimize:images:check": "node scripts/optimize-images.mjs --check"

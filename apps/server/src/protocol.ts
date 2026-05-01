@@ -3,6 +3,8 @@ import { CONFIG_NUMERIC } from "@bv/game-core";
 
 export const clientHelloSchema = z.object({
   type: z.literal("hello"),
+  protocolVersion: z.number().int().positive().optional(),
+  authToken: z.string().min(1).max(256).optional(),
   roomCode: z.string().min(2).max(12),
   playerName: z.string().min(1).max(24),
   as: z.enum(["table", "controller"]),

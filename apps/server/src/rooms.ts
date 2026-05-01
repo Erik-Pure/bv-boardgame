@@ -17,6 +17,7 @@ export interface ClientConn {
   role: ClientRole;
   roomCode: string;
   playerId: string;
+  trusted: boolean;
 }
 
 export interface Room {
@@ -71,6 +72,10 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   };
   rooms.set(roomCode, room);
   return { room, created: true };
+}
+
+export function getRoom(code: string): Room | undefined {
+  return rooms.get(code.trim().toUpperCase());
 }
 
 export function listPersistedRooms(): PersistedRoom[] {
@@ -233,6 +238,7 @@ export function joinRoom(params: {
   roomCode: string;
   playerName: string;
   role: ClientRole;
+  trusted?: boolean;
   requestedPlayerId?: string;
   config?: {
     turnSeconds?: number;
@@ -334,6 +340,7 @@ export function joinRoom(params: {
     role: params.role,
     roomCode: room.code,
     playerId,
+    trusted: !!params.trusted,
   };
   room.conns.add(conn);
   room.lastActivityAt = Date.now();
@@ -376,11 +383,42 @@ function removePlayerFromRoomState(state: GameState, playerId: string): GameStat
   return leaving;
 }
 
+export function forceRemovePlayer(room: Room, playerId: string, reason: string): boolean {
+  const leaving = removePlayerFromRoomState(room.state, playerId);
+  if (!leaving) return false;
+  room.stateSeq += 1;
+  room.lastActivityAt = Date.now();
+  room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet (${reason}).` });
+  for (const c of [...room.conns]) {
+    if (c.role === "controller" && c.playerId === playerId) {
+      try {
+        c.ws.close();
+      } catch {
+        // ignore
+      }
+      room.conns.delete(c);
+    }
+  }
+  return true;
+}
+
+export function hasControllerConnection(room: Room, playerId: string): boolean {
+  for (const c of room.conns) {
+    if (c.role === "controller" && c.playerId === playerId) return true;
+  }
+  return false;
+}
+
 export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
   stats.actionsHandled += 1;
   room.stateSeq += 1;
   room.lastActivityAt = Date.now();
   const action = raw as ClientAction | { type?: string };
+  const privilegedActionTypes = new Set(["startGame", "setConfig", "tableKickPlayer"]);
+  if (action?.type && privilegedActionTypes.has(action.type) && !conn.trusted) {
+    stats.actionErrors += 1;
+    return "Saknar behörighet för denna åtgärd.";
+  }
 
   if (action?.type === "leaveGame") {
     const leaving = removePlayerFromRoomState(room.state, conn.playerId);

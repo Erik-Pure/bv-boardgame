@@ -4,9 +4,12 @@ import { clientMessageSchema, type ServerMessage } from "./protocol.js";
 import { createLogger } from "./logger.js";
 import {
   broadcastState,
+  forceRemovePlayer,
   getRuntimeStats,
+  getRoom,
   getOrCreateRoom,
   handleAction,
+  hasControllerConnection,
   joinRoom,
   listPersistedRooms,
   pruneIdleRooms,
@@ -26,9 +29,17 @@ const SERVER_PROTOCOL_VERSION = 1;
 const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 const ROOM_SNAPSHOT_PATH = process.env.ROOM_SNAPSHOT_PATH ?? "./.data/rooms-snapshot.json";
 const ROOM_SNAPSHOT_INTERVAL_MS = Number(process.env.ROOM_SNAPSHOT_INTERVAL_MS ?? 10_000);
+const DISCONNECTED_PLAYER_GRACE_MS = Number(process.env.DISCONNECTED_PLAYER_GRACE_MS ?? 45_000);
+const HELLO_RATE_LIMIT_PER_MIN = Number(process.env.HELLO_RATE_LIMIT_PER_MIN ?? 40);
+const SERVER_AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN?.trim() || "";
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean);
 
 const log = createLogger("ws");
 const persistLog = createLogger("persist");
+const securityLog = createLogger("security");
 
 const app = Fastify({ logger: false });
 
@@ -44,8 +55,14 @@ if (restored > 0) {
 await app.listen({ port: PORT, host: HOST });
 
 const wss = new WebSocketServer({ server: app.server });
+const pendingDisconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const helloRateByIp = new Map<string, { windowStartMs: number; count: number }>();
 setInterval(() => {
   pruneIdleRooms();
+  const now = Date.now();
+  for (const [ip, bucket] of helloRateByIp) {
+    if (now - bucket.windowStartMs >= 60_000) helloRateByIp.delete(ip);
+  }
 }, 60_000).unref?.();
 
 async function flushRoomSnapshot(): Promise<void> {
@@ -85,7 +102,15 @@ setInterval(() => {
   }
 }, PING_INTERVAL_MS).unref?.();
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  if (ALLOWED_ORIGINS.length > 0) {
+    const origin = String(req.headers.origin ?? "");
+    if (!ALLOWED_ORIGINS.includes(origin)) {
+      securityLog.warn("ws blocked by origin policy", { origin });
+      ws.close();
+      return;
+    }
+  }
   const tracked = ws as TrackedWs;
   tracked.isAlive = true;
   ws.on("pong", () => {
@@ -133,11 +158,41 @@ wss.on("connection", (ws) => {
 
       if (msg.type === "hello") {
         if (joined) return;
+        const remoteIp = req.socket.remoteAddress ?? "unknown";
+        const now = Date.now();
+        const bucket = helloRateByIp.get(remoteIp);
+        if (!bucket || now - bucket.windowStartMs >= 60_000) {
+          helloRateByIp.set(remoteIp, { windowStartMs: now, count: 1 });
+        } else {
+          bucket.count += 1;
+          if (bucket.count > HELLO_RATE_LIMIT_PER_MIN) {
+            securityLog.warn("hello rate limited", { remoteIp, count: bucket.count });
+            sendError(ws, "För många anslutningsförsök. Vänta en stund och prova igen.");
+            ws.close();
+            return;
+          }
+        }
+        if (typeof msg.protocolVersion === "number" && msg.protocolVersion !== SERVER_PROTOCOL_VERSION) {
+          sendError(
+            ws,
+            `Inkompatibel klient/server-version (client=${msg.protocolVersion}, server=${SERVER_PROTOCOL_VERSION}). Uppdatera sidan.`,
+          );
+          ws.close();
+          return;
+        }
+        const trusted = SERVER_AUTH_TOKEN.length === 0 || msg.authToken === SERVER_AUTH_TOKEN;
+        if (!trusted) {
+          securityLog.warn("hello rejected: bad auth token", { remoteIp });
+          sendError(ws, "Ogiltig auth-token.");
+          ws.close();
+          return;
+        }
         const res = joinRoom({
           ws,
           roomCode: msg.roomCode,
           playerName: msg.playerName,
           role: msg.as,
+          trusted,
           requestedPlayerId: msg.playerId,
           config: msg.config,
         });
@@ -151,6 +206,14 @@ wss.on("connection", (ws) => {
           playerId: res.conn.playerId,
           conn: res.conn,
         };
+        if (joined && msg.as === "controller") {
+          const reconnectKey = `${joined.roomCode}:${joined.playerId}`;
+          const timer = pendingDisconnectTimers.get(reconnectKey);
+          if (timer != null) {
+            clearTimeout(timer);
+            pendingDisconnectTimers.delete(reconnectKey);
+          }
+        }
         const ack: ServerMessage = {
           type: "helloAck",
           roomCode: res.room.code,
@@ -205,7 +268,26 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     if (!joined) return;
-    removeConn(joined.conn);
+    const closedConn = joined;
+    if (closedConn.conn.role === "controller") {
+      const timerKey = `${closedConn.roomCode}:${closedConn.playerId}`;
+      const existing = pendingDisconnectTimers.get(timerKey);
+      if (existing != null) {
+        clearTimeout(existing);
+        pendingDisconnectTimers.delete(timerKey);
+      }
+      const tid = setTimeout(() => {
+        pendingDisconnectTimers.delete(timerKey);
+        const room = getRoom(closedConn.roomCode);
+        if (!room) return;
+        if (room.state.phase !== "playing") return;
+        if (hasControllerConnection(room, closedConn.playerId)) return;
+        if (!forceRemovePlayer(room, closedConn.playerId, "frånkopplad")) return;
+        scheduleBroadcastState(room);
+      }, Math.max(5000, DISCONNECTED_PLAYER_GRACE_MS));
+      pendingDisconnectTimers.set(timerKey, tid);
+    }
+    removeConn(closedConn.conn);
   });
 });
 

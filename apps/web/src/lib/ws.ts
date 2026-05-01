@@ -2,6 +2,7 @@ import { createLogger } from "./logger";
 import type { GameConfig } from "@bv/game-core";
 
 const log = createLogger("ws");
+const CLIENT_PROTOCOL_VERSION = 1;
 
 export type WsStatus = "disconnected" | "connecting" | "connected";
 
@@ -38,6 +39,19 @@ function rememberPlayerId(roomCode: string, playerId: string): void {
   } catch {
     // ignore
   }
+}
+
+function wsAuthToken(): string | undefined {
+  try {
+    const u = new URL(window.location.href);
+    const qp = u.searchParams.get("authToken");
+    if (qp && qp.trim().length > 0) return decodeURIComponent(qp.trim());
+  } catch {
+    // ignore
+  }
+  const fromEnv = import.meta.env.VITE_SERVER_AUTH_TOKEN as string | undefined;
+  if (fromEnv && fromEnv.trim().length > 0) return fromEnv.trim();
+  return undefined;
 }
 
 export function wsUrl(): string {
@@ -88,6 +102,7 @@ export function createClient(params: {
   const url = wsUrl();
   params.onStatus("connecting");
   const ws = new WebSocket(url);
+  const authToken = wsAuthToken();
   const rememberedId = params.as === "controller" ? getRememberedPlayerId(params.roomCode) : null;
 
   const connectTimeoutMs = params.connectTimeoutMs ?? 15000;
@@ -137,6 +152,8 @@ export function createClient(params: {
     ws.send(
       JSON.stringify({
         type: "hello",
+        protocolVersion: CLIENT_PROTOCOL_VERSION,
+        authToken,
         roomCode: params.roomCode,
         playerName: params.playerName,
         as: params.as,
@@ -164,6 +181,14 @@ export function createClient(params: {
       const msg = JSON.parse(String(ev.data)) as ServerMessage;
       log.debug("recv", msg.type);
       if (msg.type === "helloAck") {
+        if (typeof msg.protocolVersion === "number" && msg.protocolVersion !== CLIENT_PROTOCOL_VERSION) {
+          ws.close();
+          params.onMessage({
+            type: "error",
+            message: `Klient/server-version matchar inte (client=${CLIENT_PROTOCOL_VERSION}, server=${msg.protocolVersion}). Uppdatera sidan.`,
+          });
+          return;
+        }
         if (!helloAcked) {
           helloAcked = true;
           clearHandshakeTimeout();
