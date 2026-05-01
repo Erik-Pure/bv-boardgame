@@ -1064,6 +1064,19 @@ export function PlayView() {
               if (sipBonus > 0) {
                 return (
                   <div className={u.stack10}>
+                    {isAttacker &&
+                    !pending.teamBattleRequired &&
+                    !pending.assistId &&
+                    !isFinalBossMonsterId(pending.monsterId as MonsterId) &&
+                    helpCandidates.length > 0 ? (
+                      <ArcadeButton
+                        variant="gray"
+                        fullWidth
+                        onClick={() => send({ type: "combatRequestHelp", playerId: me.id })}
+                      >
+                        {sv.play.combatHelpRequest}
+                      </ArcadeButton>
+                    ) : null}
                     <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
                       {sv.play.combatSipWeaponPrompt(me.equipment.weapon?.name ?? "Vapnet", sipBonus)}
                     </div>
