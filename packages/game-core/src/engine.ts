@@ -184,7 +184,8 @@ function appendTableItemPlayReveal(
 }
 
 function clearTableItemPlay(next: GameState): void {
-  next.tableItemPlayReveals = undefined;
+  // OBS: undefined-fält försvinner i JSON och kan då inte "rensa" klientens tidigare värde vid stateDelta-merge.
+  next.tableItemPlayReveals = [];
 }
 
 /** Bräd-tv: lägg till föremål i solfjäder under strid (följer med pending tills striden är slut). */
@@ -1445,6 +1446,8 @@ function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance =
 
 function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
   if (state.phase !== "playing") return;
+  // Solfjädern ska inte leva kvar när vi går vidare i turn flow.
+  clearTableItemPlay(state);
   const cp = currentPlayer(state);
   if (!cp || cp.id !== activePlayerId) {
     advanceTurn(state);
@@ -1738,6 +1741,8 @@ function autoPassReactorsWithoutPlayableItems(
 }
 
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
+  // Ny tile-upplösning/strid ska börja med tom solfjäder.
+  clearTableItemPlay(state);
   const level = state.levels[p.levelIndex];
   if (!level) return;
   const tile = level.tiles[p.tileIndex];
@@ -3512,6 +3517,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const replaceOffer = pending.equipmentReplaceOffer;
     const handled = handleCardConfirm({ state: next, pending, rng, log });
     if (handled.handled) {
+      if (handled.startCombat) clearTableItemPlay(next);
       next.pending = handled.startCombat ?? null;
       if (!next.pending && replaceOffer && next.phase === "playing") {
         next.pending = {
@@ -3567,6 +3573,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (optRes.handled) {
       if (optRes.error) return { state, events: [], error: optRes.error };
       if (optRes.startCombat) {
+        clearTableItemPlay(next);
         next.pending = optRes.startCombat;
         return { state: next, events: ["state"] };
       }
