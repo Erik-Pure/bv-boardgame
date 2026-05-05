@@ -263,7 +263,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
       <>
         <p style={{ margin: 0 }}>
           Betala med
-          <TutorialInlineIcon src="/icons/pant-icon.svg" color="#facc15" />
+          <TutorialInlineIcon src="/icons/pant-icon.svg" color="#cccccc" />
           Pant eller drick
           <TutorialInlineIcon src="/icons/klunk-icon.svg" color="#fb7185" />
           Klunkar för att gå upp i nivå.
@@ -280,12 +280,12 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
             rowGap: 8,
           }}
         >
-          <li>Slutbossen: Besegra bossen på sista nivån för att vinna. Bossen är tuff och har 3 liv.</li>
-          <li>Sista kvar: Om alla andra åker ut vinner du direkt.</li>
+          <li>Slutbossen: Besegra bossen på sista nivån för att vinna spelet. Bossen är tuff och har 3 liv.</li>
+          <li>Sist kvar: Om alla andra åker ut vinner du spelet.</li>
           <li>
             Eliminering: Om dina
             <TutorialInlineIcon src="/icons/heart-icon.svg" color="#f472b6" />
-            HP når noll är du ute ur leken.
+            HP når noll är du ute ur spelet. Du kan välja att starta om från börjaneller ge upp.
           </li>
         </ul>
       </>
@@ -3430,6 +3430,7 @@ export function PlayView() {
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
+              position: "relative",
             }}
           >
             <div
@@ -3449,6 +3450,7 @@ export function PlayView() {
             </div>
             <div
               ref={tutorialBodyScrollRef}
+              className={styles.tutorialBodyScrollArea}
               style={{
                 width: "100%",
                 flex: "1 1 auto",
@@ -3456,6 +3458,7 @@ export function PlayView() {
                 overflowY: tutorialBodyNeedsScroll ? "auto" : "hidden",
                 overflowX: "hidden",
                 boxSizing: "border-box",
+                paddingBottom: 132,
               }}
             >
               <div
@@ -3507,7 +3510,7 @@ export function PlayView() {
                     lineHeight: 1.5,
                     color: "rgba(248, 250, 252, 0.95)",
                     textAlign: "center",
-                    overflowX: "hidden",
+                    overflow: "hidden",
                     overflowWrap: "anywhere",
                     wordBreak: "break-word",
                     paddingInline: 6,
@@ -3518,20 +3521,38 @@ export function PlayView() {
                 </div>
               </div>
             </div>
-            <div className={`${u.textCenter} ${u.o85} ${u.fs12}`} style={{ marginTop: 6, flexShrink: 0 }}>
-              {mobileTutorialStep + 1} / {MOBILE_TUTORIAL_STEPS.length}
-            </div>
             <div
               style={{
-                width: "100%",
-                flexShrink: 0,
-                marginTop: 6,
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
+                position: "absolute",
+                left: 10,
+                right: 10,
+                bottom: 10,
+                zIndex: 2,
+                width: "auto",
+                paddingTop: 10,
+                paddingBottom: 6,
+                paddingInline: 6,
+                borderTop: tutorialBodyNeedsScroll ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(255,255,255,0.06)",
+                background: tutorialBodyNeedsScroll
+                  ? "linear-gradient(180deg, rgba(12,18,40,0.12) 0%, rgba(12,18,40,0.22) 100%)"
+                  : "linear-gradient(180deg, rgba(12,18,40,0.08) 0%, rgba(12,18,40,0.16) 100%)",
+                backdropFilter: "blur(6px) saturate(112%)",
+                WebkitBackdropFilter: "blur(6px) saturate(112%)",
+                borderBottomLeftRadius: 12,
+                borderBottomRightRadius: 12,
                 boxSizing: "border-box",
               }}
             >
+              <div className={`${u.textCenter} ${u.o85} ${u.fs12}`} style={{ marginBottom: 8 }}>
+                {mobileTutorialStep + 1} / {MOBILE_TUTORIAL_STEPS.length}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
               {mobileTutorialStep > 0 ? (
                 <ArcadeButton variant="gray" fullWidth onClick={() => setMobileTutorialStep((s) => Math.max(0, s - 1))}>
                   Tillbaka
@@ -3554,6 +3575,7 @@ export function PlayView() {
                   Kör igång
                 </ArcadeButton>
               )}
+              </div>
             </div>
           </div>
         </div>

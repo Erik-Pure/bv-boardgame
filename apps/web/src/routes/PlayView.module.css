@@ -782,6 +782,17 @@
   display: none !important;
 }
 
+/* Tutorial: scrollbar ska inte synas i brödtextytan. */
+.tutorialBodyScrollArea {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tutorialBodyScrollArea::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 @keyframes sheetRollFlashOverlay {
   0% {
     opacity: 0;
