@@ -18,6 +18,7 @@ import {
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
   writeBoardPreventSleepEnabled,
+  writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
 import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
 import { ArcadeButton } from "../components/ArcadeButton";
@@ -53,7 +54,13 @@ import {
   TABLE_BOSS_OVERLAY_BG,
   TABLE_BOSS_OVERLAY_PULSE,
 } from "../components/table/tableConstants";
-import { PLAYER_MARKER_TOKEN_H, PLAYER_MARKER_TOKEN_W, PLAYER_MARKER_VIEWBOX, playerMarkerStyleVars, playerMarkerSvgMarkupFor } from "../lib/playerMarkerSvg";
+import {
+  PLAYER_MARKER_TOKEN_H,
+  PLAYER_MARKER_TOKEN_W,
+  PLAYER_MARKER_VIEWBOX,
+  playerMarkerStyleVars,
+  playerMarkerSvgMarkupFor,
+} from "../lib/playerMarkerSvg";
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
 import { readLobbyConfigDraft } from "../lib/lobbyConfigDraft";
@@ -145,6 +152,40 @@ type TableToast = {
   leaving?: boolean;
 };
 type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
+type MoveAnim = {
+  fromLevelIndex: number;
+  fromTileIndex: number;
+  toLevelIndex: number;
+  toTileIndex: number;
+  dir?: "cw" | "ccw";
+  durationMs: number;
+  startedAt: number;
+  key: string;
+};
+
+function ringPathIndices(fromTileIndex: number, toTileIndex: number, ringTileCount: number, dir?: "cw" | "ccw"): number[] {
+  const n = Math.max(1, ringTileCount);
+  const from = ((fromTileIndex % n) + n) % n;
+  const to = ((toTileIndex % n) + n) % n;
+  if (from === to) return [from];
+  const cwSteps = (to - from + n) % n;
+  const ccwSteps = (from - to + n) % n;
+  const useCw = dir ? dir === "cw" : cwSteps <= ccwSteps;
+  const steps = useCw ? cwSteps : ccwSteps;
+  const delta = useCw ? 1 : -1;
+  const out: number[] = [from];
+  for (let i = 1; i <= steps; i++) out.push(((from + i * delta) % n + n) % n);
+  return out;
+}
+
+function pendingOwnerIdForMoveGate(state: GameState | null): string | null {
+  const p = state?.pending;
+  if (!p) return null;
+  if (p.type === "combat") return p.attackerId;
+  if (p.type === "merchant") return p.playerId;
+  if (p.type === "card") return p.playerId;
+  return null;
+}
 
 function parseRolledDieFromCardText(text: string): number | null {
   const m = /Tärning:\s*(\d+)/i.exec(text);
@@ -720,6 +761,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
 }
 
 function TableViewBody() {
+  const MOVE_TOKEN_ANIM_MS = 1_500;
   const navigate = useNavigate();
   const overlayContentScale = useTableOverlayContentScale();
   const [sp] = useSearchParams();
@@ -940,7 +982,7 @@ function TableViewBody() {
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
 
-  const showTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
+  const baseShowTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
 
   const moveTargets = useMemo(() => {
     if (state?.pending?.type !== "moveChoice") return null;
@@ -965,6 +1007,9 @@ function TableViewBody() {
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const boardPlayers = state?.players ?? [];
   const prevTurnPlayerIdRef = useRef<string | null>(null);
+  const prevPlayerTilesRef = useRef<Map<string, { levelIndex: number; tileIndex: number }>>(new Map());
+  const [moveAnimByPlayer, setMoveAnimByPlayer] = useState<Map<string, MoveAnim>>(new Map());
+  const pendingMoveChoiceByPlayerRef = useRef<Map<string, Map<string, "cw" | "ccw">>>(new Map());
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
   const [showCenterTurnReminder, setShowCenterTurnReminder] = useState(false);
   const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
@@ -989,6 +1034,77 @@ function TableViewBody() {
     }
     prevShowMoveTurnHudRef.current = showMoveTurnCornerHud;
   }, [cur, showMoveTurnCornerHud]);
+  const [animNowMs, setAnimNowMs] = useState(0);
+  useEffect(() => {
+    if (state?.pending?.type !== "moveChoice") return;
+    const byTarget = new Map<string, "cw" | "ccw">();
+    for (const o of state.pending.options) {
+      byTarget.set(`${o.target.levelIndex}-${o.target.tileIndex}`, o.dir);
+    }
+    pendingMoveChoiceByPlayerRef.current.set(state.pending.playerId, byTarget);
+  }, [state?.pending]);
+  useEffect(() => {
+    const prev = prevPlayerTilesRef.current;
+    const next = new Map<string, { levelIndex: number; tileIndex: number }>();
+    const now = Date.now();
+    const detectedMoves: Array<{
+      playerId: string;
+      fromLevelIndex: number;
+      fromTileIndex: number;
+      toLevelIndex: number;
+      toTileIndex: number;
+    }> = [];
+    for (const p of state?.players ?? []) {
+      next.set(p.id, { levelIndex: p.levelIndex, tileIndex: p.tileIndex });
+      const before = prev.get(p.id);
+      if (!before) continue;
+      if (before.levelIndex === p.levelIndex && before.tileIndex === p.tileIndex) continue;
+      detectedMoves.push({
+        playerId: p.id,
+        fromLevelIndex: before.levelIndex,
+        fromTileIndex: before.tileIndex,
+        toLevelIndex: p.levelIndex,
+        toTileIndex: p.tileIndex,
+      });
+    }
+    prevPlayerTilesRef.current = next;
+    setMoveAnimByPlayer((prevMap) => {
+      const nextMap = new Map(prevMap);
+      for (const move of detectedMoves) {
+        const pendingTargets = pendingMoveChoiceByPlayerRef.current.get(move.playerId);
+        const chosenDir = pendingTargets?.get(`${move.toLevelIndex}-${move.toTileIndex}`);
+        const sameLevel = move.fromLevelIndex === move.toLevelIndex;
+        let durationMs = MOVE_TOKEN_ANIM_MS;
+        if (sameLevel) {
+          const ringTileCount = state?.levels?.[move.toLevelIndex]?.tiles?.length ?? 0;
+          const steps = Math.max(1, ringPathIndices(move.fromTileIndex, move.toTileIndex, ringTileCount, chosenDir).length - 1);
+          // Dynamisk fart: längre förflyttning (högre tärning) tar längre tid.
+          durationMs = Math.round(clamp(280 + steps * 170, 480, 1_900));
+        }
+        nextMap.set(move.playerId, {
+          fromLevelIndex: move.fromLevelIndex,
+          fromTileIndex: move.fromTileIndex,
+          toLevelIndex: move.toLevelIndex,
+          toTileIndex: move.toTileIndex,
+          dir: chosenDir,
+          durationMs,
+          startedAt: now,
+          key: `${move.playerId}-${now}`,
+        });
+        pendingMoveChoiceByPlayerRef.current.delete(move.playerId);
+      }
+      // Rensa ut gamla animationer så mappen inte växer.
+      for (const [playerId, anim] of nextMap.entries()) {
+        if (now - anim.startedAt > anim.durationMs + 800) nextMap.delete(playerId);
+      }
+      return nextMap;
+    });
+  }, [state?.players, MOVE_TOKEN_ANIM_MS]);
+  useEffect(() => {
+    if (moveAnimByPlayer.size === 0) return;
+    const t = window.setInterval(() => setAnimNowMs(Date.now()), 16);
+    return () => window.clearInterval(t);
+  }, [moveAnimByPlayer.size]);
   useEffect(() => {
     if (!cur?.id) {
       prevTurnPlayerIdRef.current = null;
@@ -1032,6 +1148,14 @@ function TableViewBody() {
     playingTurn && currentTurnAfflictions.length > 0
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
       : TABLE_TURN_BANNER_RESERVE_PX;
+  const pendingOwnerId = pendingOwnerIdForMoveGate(state);
+  const pendingOwnerAnim = pendingOwnerId ? moveAnimByPlayer.get(pendingOwnerId) : null;
+  const deferTilePendingOverlays =
+    boardPerf.tokenMoveAnimationsEnabled &&
+    !!pendingOwnerAnim &&
+    animNowMs - pendingOwnerAnim.startedAt >= 0 &&
+    animNowMs - pendingOwnerAnim.startedAt < pendingOwnerAnim.durationMs;
+  const showTableCombatBoardPanel = (!deferTilePendingOverlays && baseShowTableCombatBoardPanel) || showMonsterCombatOutcomeOnCard;
 
   const bannerReserveStyle = {
     "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
@@ -1265,10 +1389,72 @@ function TableViewBody() {
                               const initial = (p.name?.trim()?.[0] ?? "?").toUpperCase();
                               const tw = PLAYER_MARKER_TOKEN_W;
                               const th = PLAYER_MARKER_TOKEN_H;
+                              const anim = moveAnimByPlayer.get(p.id);
+                              const animAgeMs = anim ? animNowMs - anim.startedAt : Number.POSITIVE_INFINITY;
+                              const animationDurationMs = anim?.durationMs ?? MOVE_TOKEN_ANIM_MS;
+                              const shouldAnimateMove =
+                                boardPerf.tokenMoveAnimationsEnabled &&
+                                state?.pending?.type !== "moveChoice" &&
+                                !!anim &&
+                                animAgeMs <= animationDurationMs + 500 &&
+                                anim.toLevelIndex === li &&
+                                anim.toTileIndex === i;
+
+                              // Nuvarande (mål)position i SVG-koordinater
+                              const toTx = cx - tw / 2;
+                              const toTy = cy - th / 2;
+
+                              // Starta vid föregående ruta om den finns, annars direkt på mål.
+                              const rawT = shouldAnimateMove ? Math.max(0, Math.min(1, animAgeMs / animationDurationMs)) : 1;
+                              const easedT = rawT * rawT * (3 - 2 * rawT); // smoothstep (ease-in-out)
+                              let fromTx = toTx;
+                              let fromTy = toTy;
+                              if (shouldAnimateMove && anim) {
+                                const sameLevel = anim.fromLevelIndex === anim.toLevelIndex && anim.toLevelIndex === li;
+                                if (sameLevel) {
+                                  const nTiles = stackLevels[li]?.tiles?.length ?? 0;
+                                  const pathTiles = ringPathIndices(anim.fromTileIndex, anim.toTileIndex, nTiles, anim.dir);
+                                  const pathPoints = pathTiles.map((tileIdx) => {
+                                    const rp = ringPosRect(ringCols, ringRows, tileIdx);
+                                    const px = boardPad + rp.col * tileSize;
+                                    const py = boardPad + rp.row * tileSize;
+                                    const pw = tileSize - 12;
+                                    const ph = tileSize - 12;
+                                    const centerX = px + 6 + pw / 2 + off.dx - tw / 2;
+                                    const centerY = py + 6 + ph / 2 + off.dy - th / 2;
+                                    return { x: centerX, y: centerY };
+                                  });
+                                  const segCount = Math.max(1, pathPoints.length - 1);
+                                  const segFloat = Math.min(segCount, easedT * segCount);
+                                  const segIndex = Math.min(segCount - 1, Math.floor(segFloat));
+                                  const segT = Math.max(0, Math.min(1, segFloat - segIndex));
+                                  const a = pathPoints[segIndex] ?? pathPoints[0];
+                                  const b = pathPoints[segIndex + 1] ?? a;
+                                  fromTx = a.x + (b.x - a.x) * segT;
+                                  fromTy = a.y + (b.y - a.y) * segT;
+                                } else {
+                                  const prevRing = ringPosRect(ringCols, ringRows, anim.fromTileIndex);
+                                  const prevX = boardPad + prevRing.col * tileSize;
+                                  const prevY = boardPad + prevRing.row * tileSize;
+                                  const prevW = tileSize - 12;
+                                  const prevH = tileSize - 12;
+                                  const prevInnerCx = prevX + 6 + prevW / 2;
+                                  const prevInnerCy = prevY + 6 + prevH / 2;
+                                  const startTx = prevInnerCx + off.dx - tw / 2;
+                                  const startTy = prevInnerCy + off.dy - th / 2;
+                                  fromTx = startTx + (toTx - startTx) * easedT;
+                                  fromTy = startTy + (toTy - startTy) * easedT;
+                                }
+                              }
+                              const curTx = fromTx;
+                              const curTy = fromTy;
                               return (
-                                <g key={p.id} filter="url(#playerTokenShadow)">
+                                <g
+                                  key={p.id}
+                                  filter="url(#playerTokenShadow)"
+                                >
                                   <g
-                                    transform={`translate(${cx - tw / 2}, ${cy - th / 2})`}
+                                    transform={`translate(${curTx}, ${curTy})`}
                                     style={playerMarkerStyleVars(p.color)}
                                   >
                                     <svg
@@ -1397,7 +1583,7 @@ function TableViewBody() {
               </div>
             </div>
           ) : null}
-          {state?.phase === "playing" && state.pending?.type === "merchant" ? (() => {
+          {state?.phase === "playing" && state.pending?.type === "merchant" && !deferTilePendingOverlays ? (() => {
             const shopPlayer = playersById.get(state.pending.playerId);
             if (!shopPlayer) return null;
             const animDots = boardPerf.boardAnimationsEnabled;
@@ -1593,7 +1779,7 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {pendingCard && tableCardModalReady && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
+      {pendingCard && tableCardModalReady && !deferTilePendingOverlays && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
         <TableEventRollHeroOverlay
           card={pendingCard}
           contentScale={overlayContentScale}
@@ -1602,7 +1788,11 @@ function TableViewBody() {
         />
       ) : null}
 
-      {state?.pending?.type === "card" && tableCardModalReady && !showMonsterCombatOutcomeOnCard && !showTableRollEventCard && (
+      {state?.pending?.type === "card" &&
+        tableCardModalReady &&
+        !deferTilePendingOverlays &&
+        !showMonsterCombatOutcomeOnCard &&
+        !showTableRollEventCard && (
         <CardFlipModalShell
           zIndex={44}
           maxWidth={720}
@@ -1742,6 +1932,17 @@ function TableViewBody() {
                 }}
               />
               <span>{sv.table.settingsBoardAnimations}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={boardPerf.tokenMoveAnimationsEnabled}
+                onChange={(e) => {
+                  writeTokenMoveAnimationsEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{sv.table.settingsTokenMoveAnimations}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input

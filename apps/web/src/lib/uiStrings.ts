@@ -472,6 +472,7 @@ export const sv = {
     settingsTitle: "Inställningar (bräde)",
     settingsBoardPan: "Panorering på brädet (drag och mushjul)",
     settingsBoardAnimations: "Animationer på brädet (mjuk kamera, tärningssnurr m.m.)",
+    settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
     settingsClose: "Stäng",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */
     merchantShopping: (playerName: string) => `${playerName} handlar`,
