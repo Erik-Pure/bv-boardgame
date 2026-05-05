@@ -37,7 +37,9 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 const ROOM_SNAPSHOT_PATH = process.env.ROOM_SNAPSHOT_PATH ?? "./.data/rooms-snapshot.json";
 const ROOM_SNAPSHOT_INTERVAL_MS = Number(process.env.ROOM_SNAPSHOT_INTERVAL_MS ?? 10_000);
-const DISCONNECTED_PLAYER_GRACE_MS = Number(process.env.DISCONNECTED_PLAYER_GRACE_MS ?? 45_000);
+// Generös grace för mobil/LAN-partyn: med många spelare kan det dröja länge innan nästa tur.
+// Öka vid behov med miljövariabel DISCONNECTED_PLAYER_GRACE_MS (millisekunder).
+const DISCONNECTED_PLAYER_GRACE_MS = Number(process.env.DISCONNECTED_PLAYER_GRACE_MS ?? 900_000);
 const HELLO_RATE_LIMIT_PER_MIN = Number(process.env.HELLO_RATE_LIMIT_PER_MIN ?? 40);
 const SERVER_AUTH_TOKEN = process.env.SERVER_AUTH_TOKEN?.trim() || "";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN?.trim() || "";

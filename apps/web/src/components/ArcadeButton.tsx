@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import styles from "./ArcadeButton.module.css";
 
 export function ArcadeButton(
@@ -6,6 +6,7 @@ export function ArcadeButton(
     variant?: "blue" | "pink" | "gray" | "merchant";
     size?: "lg" | "md" | "sm";
     fullWidth?: boolean;
+    innerStyle?: CSSProperties;
     children: ReactNode;
   },
 ) {
@@ -13,6 +14,7 @@ export function ArcadeButton(
     variant = "blue",
     size = "md",
     fullWidth = false,
+    innerStyle,
     className,
     children,
     ...rest
@@ -30,7 +32,7 @@ export function ArcadeButton(
 
   return (
     <button className={cls} {...rest}>
-      <span className={styles.inner}>
+      <span className={styles.inner} style={innerStyle}>
         <span className={styles.label}>{children}</span>
       </span>
     </button>

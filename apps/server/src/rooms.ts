@@ -46,6 +46,10 @@ export interface AdminRoomSummary {
   stateSeq: number;
 }
 
+function normalizePlayerName(name: string): string {
+  return name.trim().toLocaleLowerCase("sv-SE");
+}
+
 const rooms = new Map<string, Room>();
 const stats = {
   actionsHandled: 0,
@@ -364,11 +368,23 @@ export function joinRoom(params: {
     room.state.players.some((p) => p.id === params.requestedPlayerId)
       ? params.requestedPlayerId
       : null;
-  const playerId = existingPlayerId ?? uuidv4();
+  let reconnectPlayerIdByName: string | null = null;
+  if (!existingPlayerId && params.role === "controller") {
+    const wanted = normalizePlayerName(params.playerName);
+    const candidates = room.state.players.filter((p) => normalizePlayerName(p.name) === wanted);
+    if (candidates.length === 1) {
+      const candidateId = candidates[0]?.id;
+      const alreadyConnected = [...room.conns].some(
+        (c) => c.role === "controller" && c.playerId === candidateId && c.ws.readyState === c.ws.OPEN,
+      );
+      if (!alreadyConnected) reconnectPlayerIdByName = candidateId ?? null;
+    }
+  }
+  const playerId = existingPlayerId ?? reconnectPlayerIdByName ?? uuidv4();
 
   // Bord-vyn är spectator: den ska inte bli en spelare.
   if (params.role === "controller") {
-    if (!existingPlayerId) {
+    if (!existingPlayerId && !reconnectPlayerIdByName) {
       const isFirstPlayer = room.state.players.length === 0;
       const addRes = lobbyAddPlayer(room.state, {
         id: playerId,
@@ -409,6 +425,8 @@ export function joinRoom(params: {
 function removePlayerFromRoomState(state: GameState, playerId: string): GameState["players"][number] | null {
   const leaving = state.players.find((p) => p.id === playerId);
   if (!leaving) return null;
+  const removedTurnIndex = state.turnOrder.indexOf(playerId);
+  const hadActiveTurn = removedTurnIndex >= 0 && removedTurnIndex === state.currentTurnIndex;
   state.players = state.players.filter((p) => p.id !== playerId);
   state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
   state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
@@ -419,6 +437,14 @@ function removePlayerFromRoomState(state: GameState, playerId: string): GameStat
   if (state.turnOrder.length === 0) {
     state.currentTurnIndex = 0;
   } else {
+    // If someone before current turn is removed, shift index left so same active player keeps turn.
+    if (removedTurnIndex >= 0 && removedTurnIndex < state.currentTurnIndex) {
+      state.currentTurnIndex -= 1;
+    }
+    // If active player disconnects/leaves, keep index so next player in order takes turn.
+    if (hadActiveTurn && state.currentTurnIndex >= state.turnOrder.length) {
+      state.currentTurnIndex = 0;
+    }
     state.currentTurnIndex = Math.max(0, Math.min(state.currentTurnIndex, state.turnOrder.length - 1));
   }
 

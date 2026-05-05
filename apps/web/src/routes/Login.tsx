@@ -119,7 +119,7 @@ export function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Host-inloggning</h1>
+        <h1 className={styles.title}>Logga in</h1>
         {authLoading ? (
           <p className={styles.subtle}>Läser inloggningsstatus…</p>
         ) : authState?.authenticated ? (

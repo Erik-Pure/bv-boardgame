@@ -100,6 +100,20 @@ export function burkhjälmIIEffectiveDamageNegate(p: Player): number {
   return burkhjälmIIEffectiveDamageNegateFrom(p.klunkar ?? 0, p.equipment.helmet);
 }
 
+/** Effektiv bonus-HP från Legendarisk Burkhjälm (+5 först vid 15+ klunkar). */
+export function burkhjälmIIEffectiveBonusHpFrom(
+  klunkar: number,
+  helmet: Player["equipment"]["helmet"] | undefined,
+): number {
+  if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return helmet?.bonusHp ?? 0;
+  if (klunkar < BEER_HELM2_MIN_KLUNKAR) return 0;
+  return Math.max(0, helmet.bonusHp ?? 0);
+}
+
+export function burkhjälmIIEffectiveBonusHp(p: Player): number {
+  return burkhjälmIIEffectiveBonusHpFrom(p.klunkar ?? 0, p.equipment.helmet);
+}
+
 export function armorDamageNegateExcludingBeerCanSet(p: Player): number {
   const a = p.equipment.armor;
   if (!a) return 0;

@@ -618,6 +618,8 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       const key = `${base}#${idx}`;
       currentKeys.add(key);
       if (prevSipNoticeKeysRef.current.has(key)) continue;
+      /** Mobil-modalbesked (t.ex. duell-förlust): ingen klunkCount — ska inte bli "straffklunk" på brädet (loggen har redan / är korrekt). */
+      if (n.title || n.body || n.noticeKind != null) continue;
       const recipientName = playersById.get(n.recipientId)?.name ?? "Spelare";
       const count = Math.max(1, Math.floor(n.klunkCount ?? 1));
       incoming.push({
@@ -959,10 +961,12 @@ function TableViewBody() {
   const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
   const moveTurnCornerLabel =
     cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
+  const centerTurnReminderText = cur ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const boardPlayers = state?.players ?? [];
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
+  const [showCenterTurnReminder, setShowCenterTurnReminder] = useState(false);
   const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
   const prevShowMoveTurnHudRef = useRef(false);
   const lastShownMoveHudRef = useRef<{ id: string; label: string } | null>(null);
@@ -1003,6 +1007,15 @@ function TableViewBody() {
     }
     prevTurnPlayerIdRef.current = cur.id;
   }, [cur?.id, playersById]);
+  useEffect(() => {
+    if (!playingTurn || !cur?.id) {
+      setShowCenterTurnReminder(false);
+      return;
+    }
+    setShowCenterTurnReminder(false);
+    const t = window.setTimeout(() => setShowCenterTurnReminder(true), 20_000);
+    return () => window.clearTimeout(t);
+  }, [playingTurn, cur?.id]);
   const itemPlayFanCards = useMemo(() => {
     if (!state) return [];
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
@@ -1454,6 +1467,12 @@ function TableViewBody() {
             </>
           }
         />
+
+        {playingTurn && showCenterTurnReminder ? (
+          <div className={tableStyles.centerTurnReminder} aria-live="polite">
+            <div className={tableStyles.centerTurnReminderText}>{centerTurnReminderText}</div>
+          </div>
+        ) : null}
 
         <aside
           className={tableStyles.tableSidebarAside}

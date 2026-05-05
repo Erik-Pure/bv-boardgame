@@ -26,6 +26,7 @@ import {
   type Player,
   type ShopItem,
   type SipNoticeKind,
+  type TileType,
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
@@ -72,6 +73,7 @@ import {
   resolveCombatWinViewer,
 } from "../lib/combatUi";
 import { sv, wsStatusLabel, capitalizeWord, equipmentSlotSv, tileTypeSv } from "../lib/uiStrings";
+import { moveChoiceTileVisual } from "../lib/moveChoiceTileVisual";
 
 function findMe(state: GameState | null, myId: string | null) {
   if (!state || !myId) return null;
@@ -1383,22 +1385,34 @@ export function PlayView() {
             <DiceCube3D value={diceFaceValue} size={76} />
           </div>
           <div className={u.grid2Equal10}>
-            {pending.options.map((o) => (
-              <ArcadeButton
-                key={o.dir}
-                variant="blue"
-                fullWidth
-                onClick={() => send({ type: "chooseMove", playerId: me.id, dir: o.dir })}
-              >
-                <MoveOptionLabel
-                  state={state}
-                  meId={me.id}
-                  levelIndex={o.target.levelIndex}
-                  tileIndex={o.target.tileIndex}
-                  tileType={o.tileType}
-                />
-              </ArcadeButton>
-            ))}
+            {pending.options.map((o) => {
+              const v = moveChoiceTileVisual(o.tileType);
+              return (
+                <ArcadeButton
+                  key={o.dir}
+                  variant="blue"
+                  fullWidth
+                  innerStyle={
+                    {
+                      "--btn-bg": v.buttonBg,
+                      "--btn-border": v.buttonBorder,
+                      "--btn-focus": v.buttonFocus,
+                      "--btn-shadow": v.buttonShadow,
+                      "--btn-shadow-pressed": v.buttonShadowPressed,
+                    } as CSSProperties
+                  }
+                  onClick={() => send({ type: "chooseMove", playerId: me.id, dir: o.dir })}
+                >
+                  <MoveOptionLabel
+                    state={state}
+                    meId={me.id}
+                    levelIndex={o.target.levelIndex}
+                    tileIndex={o.target.tileIndex}
+                    tileType={o.tileType}
+                  />
+                </ArcadeButton>
+              );
+            })}
           </div>
         </div>
       );
@@ -4400,7 +4414,7 @@ function MoveOptionLabel(props: {
   meId: string;
   levelIndex: number;
   tileIndex: number;
-  tileType: string;
+  tileType: TileType;
 }) {
   const hasOtherPlayer = props.state.players.some(
     (p) =>
@@ -4408,6 +4422,7 @@ function MoveOptionLabel(props: {
       p.levelIndex === props.levelIndex &&
       p.tileIndex === props.tileIndex,
   );
+  const tileVisual = moveChoiceTileVisual(props.tileType);
   const tileLabel = titleCaseTileType(props.tileType);
   const primary = hasOtherPlayer ? `${sv.play.moveChoiceBvbLabel} / ${tileLabel}` : tileLabel;
   const showDoorPant = props.tileType === "door" && !hasOtherPlayer;
@@ -4422,41 +4437,66 @@ function MoveOptionLabel(props: {
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 4,
+          gap: 10,
           flexWrap: "wrap",
           lineHeight: 1.15,
         }}
       >
-        <span>{primary}</span>
-        {showDoorPant && doorGoldCost != null ? (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 3,
-              fontWeight: 900,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {"("}
-            {doorGoldCost}
-            <img
-              src="/icons/pant-icon.svg"
-              alt=""
-              width={15}
-              height={15}
-              draggable={false}
+        <span
+          className={styles.moveChoiceTileIconBadge}
+          aria-hidden
+        >
+          <img
+            src={tileVisual.src}
+            alt=""
+            width={tileVisual.monochrome ? 22 : 26}
+            height={tileVisual.monochrome ? 22 : 26}
+            draggable={false}
+            className={[styles.moveChoiceTileIconImg, tileVisual.monochrome ? styles.moveChoiceTileIconImgMono : ""]
+              .filter(Boolean)
+              .join(" ")}
+          />
+        </span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>{primary}</span>
+          {showDoorPant && doorGoldCost != null ? (
+            <span
               style={{
-                display: "block",
-                objectFit: "contain",
-                flexShrink: 0,
-                filter: "brightness(0) invert(1)",
-                opacity: 0.95,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+                fontWeight: 900,
+                fontVariantNumeric: "tabular-nums",
               }}
-            />
-            {")"}
-          </span>
-        ) : null}
+            >
+              {"("}
+              {doorGoldCost}
+              <img
+                src="/icons/pant-icon.svg"
+                alt=""
+                width={15}
+                height={15}
+                draggable={false}
+                style={{
+                  display: "block",
+                  objectFit: "contain",
+                  flexShrink: 0,
+                  filter: "brightness(0) invert(1)",
+                  opacity: 0.95,
+                }}
+              />
+              {")"}
+            </span>
+          ) : null}
+        </span>
       </span>
     </span>
   );

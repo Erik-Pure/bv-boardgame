@@ -453,6 +453,14 @@ function maxHpFor(state: GameState, p: Player): number {
   return playerMaxHpFromBase(state.config.maxHp, p);
 }
 
+function syncDynamicMaxHp(state: GameState): void {
+  for (const p of state.players) {
+    const nextMaxHp = maxHpFor(state, p);
+    if (p.maxHp !== nextMaxHp) p.maxHp = nextMaxHp;
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+  }
+}
+
 /** Sätter utrustning från affär/skatt-byte (samma fält som `merchantBuy`). */
 function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number): void {
   if (item.slot === "weapon") {
@@ -1955,6 +1963,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const rng = createRng((base ^ actionMix) >>> 0);
   const next = cloneState(state);
   normalizeConfig(next);
+  // Keep dynamic equipment thresholds (e.g. Legendarisk Burkhjälm at 15+ klunkar) in sync.
+  syncDynamicMaxHp(next);
   const events: string[] = [];
 
   if (next.phase === "lobby") {
