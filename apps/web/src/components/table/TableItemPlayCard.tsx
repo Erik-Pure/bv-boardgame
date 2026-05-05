@@ -1,30 +1,41 @@
 import type { ItemPlayModifierBadge } from "../../lib/tableItemPlayModifier";
+import type { CSSProperties } from "react";
 import styles from "./TableItemPlayCard.module.css";
 
 type Props = {
   title: string;
   /** Spelare som spelade kortet — under bilden (ev. med pil till mål) */
   actorName: string;
+  actorColor?: string;
   imageSrc: string;
   /** Annan spelare kortet riktades mot; visas efter pil när satt */
   targetPlayerName?: string;
+  targetPlayerColor?: string;
   modifierBadge: ItemPlayModifierBadge | null;
 };
 
 /** Föremålskort för bräd-tv (grå ram). */
 export function TableItemPlayCard(props: Props) {
-  const { title, actorName, imageSrc, targetPlayerName, modifierBadge } = props;
+  const { title, actorName, actorColor, imageSrc, targetPlayerName, targetPlayerColor, modifierBadge } = props;
   const showTarget =
     typeof targetPlayerName === "string" &&
     targetPlayerName.trim().length > 0 &&
     targetPlayerName.trim() !== actorName.trim();
+  const actorStyle = actorColor ? ({ color: actorColor } as CSSProperties) : undefined;
+  const targetStyle = targetPlayerColor ? ({ color: targetPlayerColor } as CSSProperties) : undefined;
   return (
     <div className={styles.card}>
       <div className={styles.inner}>
         <div className={styles.titleRow}>
-          <div className={styles.title}>{title}</div>
           {modifierBadge ? (
-            <div className={styles.modifierBadge}>
+            <div
+              className={[
+                styles.modifierBadge,
+                modifierBadge.isNegative ? styles.modifierBadgeNegative : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
               <img
                 src={modifierBadge.iconSrc}
                 alt=""
@@ -36,6 +47,7 @@ export function TableItemPlayCard(props: Props) {
               <span className={styles.modifierValue}>{modifierBadge.value}</span>
             </div>
           ) : null}
+          <div className={styles.title}>{title}</div>
         </div>
         <div className={styles.imageFrame}>
           <img src={imageSrc} alt="" draggable={false} className={styles.coverImg} />
@@ -48,13 +60,17 @@ export function TableItemPlayCard(props: Props) {
               : `${actorName} spelade kortet`
           }
         >
-          <span>{actorName}</span>
+          <span className={styles.playerName} style={actorStyle}>
+            {actorName}
+          </span>
           {showTarget ? (
             <>
               <span aria-hidden className={styles.arrow}>
                 →
               </span>
-              <span>{targetPlayerName?.trim()}</span>
+              <span className={styles.playerName} style={targetStyle}>
+                {targetPlayerName?.trim()}
+              </span>
             </>
           ) : null}
         </div>

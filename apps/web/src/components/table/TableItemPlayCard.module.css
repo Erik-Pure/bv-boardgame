@@ -22,8 +22,8 @@
 .titleRow {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 10px;
   margin-bottom: 10px;
   min-width: 0;
@@ -32,6 +32,7 @@
 .title {
   min-width: 0;
   flex: 1 1 auto;
+  order: 2;
   font-family: "Permanent Marker", var(--heading), sans-serif;
   font-weight: 900;
   font-size: clamp(var(--type-md), 3.5vmin, 18px);
@@ -50,6 +51,13 @@
   border-radius: 999px;
   border: 1px solid rgba(167, 139, 250, 0.65);
   background: rgba(67, 56, 202, 0.22);
+  order: 1;
+}
+
+.modifierBadgeNegative {
+  border-color: rgba(248, 113, 113, 0.95);
+  background: rgba(127, 29, 29, 0.32);
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.28) inset;
 }
 
 .modifierIcon {
@@ -63,6 +71,10 @@
   line-height: 1;
   color: #e9d5ff;
   font-variant-numeric: tabular-nums;
+}
+
+.modifierBadgeNegative .modifierValue {
+  color: #fecaca;
 }
 
 .imageFrame {
@@ -92,7 +104,8 @@
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 0;
-  font-size: clamp(var(--type-2xs), 2.8vmin, var(--type-md));
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(var(--type-sm), 3.8vmin, var(--type-xl));
   font-weight: 800;
   line-height: var(--leading-snug);
   color: rgba(248, 250, 252, 0.95);
@@ -100,6 +113,14 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   word-break: break-word;
   flex-shrink: 0;
+}
+
+.playerName {
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.72),
+    0 0 4px rgba(0, 0, 0, 0.5);
 }
 
 .arrow {

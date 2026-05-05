@@ -43,8 +43,10 @@ export function TableCombatReactionFan(props: Props) {
               <TableItemPlayCard
                 title={card.title}
                 actorName={card.actorName}
+                actorColor={card.actorColor}
                 imageSrc={card.imageSrc}
                 targetPlayerName={card.targetPlayerName}
+                targetPlayerColor={card.targetPlayerColor}
                 modifierBadge={card.modifierBadge}
               />
             </div>

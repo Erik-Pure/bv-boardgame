@@ -5,6 +5,7 @@
 export type ItemPlayModifierBadge = {
   iconSrc: string;
   value: string;
+  isNegative?: boolean;
 };
 
 export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadge | null {
@@ -29,7 +30,7 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
   };
   if (itemId in attack) {
     const n = attack[itemId]!;
-    return { iconSrc: ICON.combat, value: n > 0 ? `+${n}` : String(n) };
+    return { iconSrc: ICON.combat, value: n > 0 ? `+${n}` : String(n), isNegative: n < 0 };
   }
 
   switch (itemId) {
@@ -44,7 +45,7 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
     case "sip_card":
       return { iconSrc: ICON.klunk, value: "+1" };
     case "lengraddad":
-      return { iconSrc: ICON.combat, value: "-2" };
+      return { iconSrc: ICON.combat, value: "-2", isNegative: true };
     case "beard_back":
       return { iconSrc: ICON.combat, value: "×2" };
     case "beer_bro":
@@ -52,7 +53,7 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
     case "split_the_g":
       return { iconSrc: ICON.pant, value: "½" };
     case "sleep_potion":
-      return { iconSrc: "/icons/thumbdown-icon.svg", value: "1" };
+      return { iconSrc: "/icons/thumbdown-icon.svg", value: "1", isNegative: true };
     case "early_night":
       return { iconSrc: ICON.monster, value: "↷" };
     case "six_sense":

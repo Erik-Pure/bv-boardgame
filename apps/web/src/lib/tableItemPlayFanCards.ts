@@ -10,7 +10,9 @@ export type TableFanCardModel = {
   title: string;
   imageSrc: string;
   actorName: string;
+  actorColor?: string;
   targetPlayerName?: string;
+  targetPlayerColor?: string;
   modifierBadge: ItemPlayModifierBadge | null;
 };
 
@@ -25,20 +27,27 @@ type PlayLike = Pick<
 > & { playSeq: number };
 
 function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel[] {
-  const actorName = state.players.find((p) => p.id === play.actorId)?.name?.trim() || "—";
+  const actor = state.players.find((p) => p.id === play.actorId);
+  const actorName = actor?.name?.trim() || "—";
+  const actorColor = actor?.color;
   const tgt = play.targetPlayerId
     ? state.players.find((p) => p.id === play.targetPlayerId)
     : undefined;
   const targetPlayerName =
     play.targetPlayerId && play.targetPlayerId !== play.actorId ? tgt?.name?.trim() : undefined;
+  const targetPlayerColor =
+    play.targetPlayerId && play.targetPlayerId !== play.actorId ? tgt?.color : undefined;
   const victimName = tgt?.name?.trim() || "—";
+  const victimColor = tgt?.color;
 
   const main: TableFanCardModel = {
     key: `${play.playSeq}-main-${play.itemId}`,
     title: itemDisplayTitle(play.itemId),
     imageSrc: itemImageSrc(play.itemId),
     actorName,
+    actorColor,
     targetPlayerName,
+    targetPlayerColor,
     modifierBadge: tableItemPlayModifierBadge(play.itemId),
   };
 
@@ -49,6 +58,7 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
       title: itemDisplayTitle(play.sideInventoryItemId),
       imageSrc: itemImageSrc(play.sideInventoryItemId),
       actorName: victimName,
+      actorColor: victimColor,
       targetPlayerName: undefined,
       modifierBadge: tableItemPlayModifierBadge(play.sideInventoryItemId),
     });
@@ -58,6 +68,7 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
       title: play.sideEquipmentName,
       imageSrc: equipmentCatalogImageSrc(play.sideEquipmentName, play.sideEquipmentSlot),
       actorName: victimName,
+      actorColor: victimColor,
       targetPlayerName: undefined,
       modifierBadge: null,
     });
