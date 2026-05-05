@@ -111,6 +111,197 @@ const POSITIVE_HELP_ITEM_IDS = [
   "get_lucky",
 ] as const;
 
+type MobileTutorialStep = {
+  title: string;
+  body: ReactNode;
+  imageSrc: string;
+};
+
+function TutorialInlineIcon(props: { src: string; color: string; gap?: string }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        width: 15,
+        height: 15,
+        verticalAlign: "middle",
+        margin: props.gap ?? "0 3px",
+        background: props.color,
+        WebkitMaskImage: `url(${props.src})`,
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskImage: `url(${props.src})`,
+        maskRepeat: "no-repeat",
+        maskPosition: "center",
+        maskSize: "contain",
+      }}
+    />
+  );
+}
+
+const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
+  {
+    title: "Rörelse och föremål",
+    body: (
+      <>
+        <p style={{ margin: 0 }}>
+          Slå rörelsetärningen och flytta så många rutor som tärningen visar åt vald riktning.
+        </p>
+        <p style={{ margin: "8px 0 0" }}>
+        Du kan även spela föremål från din hand för att rusta upp dig.
+        </p>
+      </>
+    ),
+    imageSrc: "/icons/combat-icon.svg",
+  },
+  {
+    title: "Hantera rutan",
+    body: (
+      <>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 0,
+            listStyle: "none",
+            textAlign: "left",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+            display: "grid",
+            rowGap: 8,
+          }}
+        >
+          <li>
+            <TutorialInlineIcon src="/icons/event-icon.svg" color="#60a5fa" gap="0 5px 0 0" />
+            Händelse: Slumpmässiga händelser som kan hjälpa eller förstöra för dig.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/reward-icon.svg" color="#facc15" gap="0 5px 0 0" />
+            Skatt: Hitta ny utrustning och föremål.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/heart-icon.svg" color="#f472b6" gap="0 5px 0 0" />
+            Vila: Återhämta dig och få tillbaka 3 HP.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/panta-icon.svg" color="#fb923c" gap="0 5px 0 0" />
+            Panta burkar: Handla i butiken för din insamlade Pant.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/monster-icon.svg" color="#ef4444" gap="0 5px 0 0" />
+            Dålig batch: Gör dig redo för strid!
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#f472b6" gap="0 5px 0 0" />
+            BvB: Bryggare mot bryggare, bäst av 3. Vinnaren väljer ett byte från förloraren.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/lvlup.svg" color="#818cf8" gap="0 5px 0 0" />
+            Nivå upp: Betala med pant för att gå upp i nivå.
+          </li>
+        </ul>
+      </>
+    ),
+    imageSrc: "/icons/event-icon.svg",
+  },
+  {
+    title: "Dåliga batchar, mutor och sabotage",
+    body: (
+      <>
+        <ul
+          style={{
+            margin: "8px 0 0",
+            paddingLeft: 0,
+            listStyle: "none",
+            textAlign: "left",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+            display: "grid",
+            rowGap: 8,
+          }}
+        >
+          <li>
+            <TutorialInlineIcon src="/icons/combat-icon.svg" color="#f87171" gap="0 5px 0 0" />
+            Styrkekollen: Ditt tärningskast + utrustning & föremål måste vara lika med eller högre än fiendens styrka.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/thumbup-icon.svg" color="#16a34a" gap="0 5px 0 0" />
+            Vinst: 
+            <TutorialInlineIcon src="/icons/pant-icon.svg" color="#ccc" />
+            Pant ,
+            <TutorialInlineIcon src="/icons/reward-icon.svg" color="#facc15" />
+            Skatter
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/thumbdown-icon.svg" color="#b4232c" gap="0 5px 0 0" />
+            Förlust:
+            <TutorialInlineIcon src="/icons/heart-icon.svg" color="#f472b6" />
+            HP ,
+            <TutorialInlineIcon src="/icons/klunk-icon.svg" color="#facc15" />
+            klunkar.
+          </li>
+          <li>
+            <TutorialInlineIcon src="/icons/skull-icon.svg" color="#ef4444" gap="0 5px 0 0" />
+            Kritisk miss: En 1:a på tärningen är alltid en förlust!</li>
+          <li>
+          <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#cccccc" gap="0 5px 0 0" />
+            Socialt spel: Medspelare kan hjälpa eller sabotera. Du kan be om hjälp mot betalning (
+            <TutorialInlineIcon src="/icons/pant-icon.svg" color="#ccc" />
+            Pant/
+            <TutorialInlineIcon src="/icons/reward-icon.svg" color="#facc15" />
+            Skatter) – de kan välja att acceptera eller avstå.
+          </li>
+        </ul>
+      </>
+    ),
+    imageSrc: "/icons/monster-icon.svg",
+  },
+  {
+    title: "Nivåer, Bossen och Vinst",
+    body: (
+      <>
+        <p style={{ margin: 0 }}>
+          Betala med
+          <TutorialInlineIcon src="/icons/pant-icon.svg" color="#facc15" />
+          Pant eller drick
+          <TutorialInlineIcon src="/icons/klunk-icon.svg" color="#fb7185" />
+          Klunkar för att gå upp i nivå.
+        </p>
+        <ul
+          style={{
+            margin: "8px 0 0",
+            paddingLeft: 0,
+            listStyle: "none",
+            textAlign: "left",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+            display: "grid",
+            rowGap: 8,
+          }}
+        >
+          <li>Slutbossen: Besegra bossen på sista nivån för att vinna. Bossen är tuff och har 3 liv.</li>
+          <li>Sista kvar: Om alla andra åker ut vinner du direkt.</li>
+          <li>
+            Eliminering: Om dina
+            <TutorialInlineIcon src="/icons/heart-icon.svg" color="#f472b6" />
+            HP når noll är du ute ur leken.
+          </li>
+        </ul>
+      </>
+    ),
+    imageSrc: "/icons/skull-icon.svg",
+  },
+];
+
+function responsibleReminderAckKey(room: string): string {
+  return `bv:responsibleReminderAck:${room}`;
+}
+
+function mobileTutorialAckKey(room: string): string {
+  return `bv:mobileTutorialAck:${room}`;
+}
+
 type MerchantEquipmentSlot = "weapon" | "armor" | "helmet" | "accessory";
 
 function isShopItemEquipment(it: ShopItem): it is ShopItem & { slot: MerchantEquipmentSlot } {
@@ -248,6 +439,11 @@ export function PlayView() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   /** Mobil: ansvarsfullt spelande — en gång per rum & flik efter bekräftelse. */
   const [showResponsibleReminder, setShowResponsibleReminder] = useState(false);
+  /** Kort mobilguide efter ansvarsfullhets-rutan, en gång per rum/flik. */
+  const [showMobileTutorial, setShowMobileTutorial] = useState(false);
+  const [mobileTutorialStep, setMobileTutorialStep] = useState(0);
+  const [tutorialBodyNeedsScroll, setTutorialBodyNeedsScroll] = useState(false);
+  const tutorialBodyScrollRef = useRef<HTMLDivElement | null>(null);
   const [interactionPanelCollapsed, setInteractionPanelCollapsed] = useState(false);
   const [rainbowEffectsEnabled, setRainbowEffectsEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -308,15 +504,26 @@ export function PlayView() {
 
   useEffect(() => {
     setShowResponsibleReminder(false);
+    setShowMobileTutorial(false);
+    setMobileTutorialStep(0);
   }, [room]);
 
   const dismissResponsibleReminder = useCallback(() => {
     try {
-      window.sessionStorage.setItem(`bv:responsibleReminderAck:${room}`, "1");
+      window.sessionStorage.setItem(responsibleReminderAckKey(room), "1");
     } catch {
       // ignore
     }
     setShowResponsibleReminder(false);
+  }, [room]);
+
+  const dismissMobileTutorial = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(mobileTutorialAckKey(room), "1");
+    } catch {
+      // ignore
+    }
+    setShowMobileTutorial(false);
   }, [room]);
 
   useEffect(() => {
@@ -330,12 +537,41 @@ export function PlayView() {
     if (typeof window === "undefined") return;
     if (!window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches) return;
     try {
-      if (window.sessionStorage.getItem(`bv:responsibleReminderAck:${room}`) === "1") return;
+      if (window.sessionStorage.getItem(responsibleReminderAckKey(room)) === "1") return;
     } catch {
       return;
     }
     setShowResponsibleReminder(true);
   }, [status, state, myId, room, showResponsibleReminder]);
+  useEffect(() => {
+    if (status !== "connected") {
+      setShowMobileTutorial(false);
+      return;
+    }
+    if (showResponsibleReminder || showMobileTutorial) return;
+    if (!state || !myId) return;
+    if (!state.players.some((p) => p.id === myId)) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches) return;
+    try {
+      if (window.sessionStorage.getItem(mobileTutorialAckKey(room)) === "1") return;
+    } catch {
+      return;
+    }
+    setMobileTutorialStep(0);
+    setShowMobileTutorial(true);
+  }, [status, state, myId, room, showResponsibleReminder, showMobileTutorial]);
+  useLayoutEffect(() => {
+    if (!showMobileTutorial) return;
+    const measure = () => {
+      const el = tutorialBodyScrollRef.current;
+      if (!el) return;
+      setTutorialBodyNeedsScroll(el.scrollHeight > el.clientHeight + 2);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [showMobileTutorial, mobileTutorialStep]);
 
   /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
   useEffect(() => {
@@ -2123,6 +2359,8 @@ export function PlayView() {
       </div>
     ) : null;
 
+  const tutorialStep = MOBILE_TUTORIAL_STEPS[Math.max(0, Math.min(mobileTutorialStep, MOBILE_TUTORIAL_STEPS.length - 1))];
+
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
@@ -3163,6 +3401,163 @@ export function PlayView() {
           </div>
         </Modal>
       )}
+      {showMobileTutorial && tutorialStep ? (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 129,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 14,
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            style={{
+              width: "min(calc(100vw - 28px), 980px)",
+              height: "min(calc(100vh - 28px), 940px)",
+              maxHeight: "calc(100vh - 28px)",
+              borderRadius: 16,
+              border: "1px solid #ffffff22",
+              background: "#0b1226",
+              color: "#fff",
+              padding: 10,
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                fontWeight: 400,
+                fontSize: "clamp(21px, 5.2vw, 30px)",
+                letterSpacing: "0.03em",
+                lineHeight: 1.12,
+                color: "#fef9c3",
+                textShadow: "0 2px 14px rgba(0,0,0,0.75), 0 0 20px rgba(250, 204, 21, 0.24)",
+                marginBottom: 2,
+              }}
+            >
+              Snabbguide
+            </div>
+            <div
+              ref={tutorialBodyScrollRef}
+              style={{
+                width: "100%",
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: tutorialBodyNeedsScroll ? "auto" : "hidden",
+                overflowX: "hidden",
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  display: "grid",
+                  gap: 8,
+                  alignContent: "start",
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.35)",
+                    background: "rgba(2, 6, 23, 0.55)",
+                    padding: 10,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <img
+                    src={tutorialStep.imageSrc}
+                    alt=""
+                    draggable={false}
+                    style={{ width: "100%", height: 170, objectFit: "contain", display: "block", marginBlock: 12 }}
+                  />
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    textAlign: "center",
+                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+                    fontSize: "clamp(20px, 5vw, 28px)",
+                    letterSpacing: "0.02em",
+                    color: "#fef08a",
+                    lineHeight: 1.1,
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                    paddingInline: 6,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {tutorialStep.title}
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    fontSize: 15,
+                    lineHeight: 1.5,
+                    color: "rgba(248, 250, 252, 0.95)",
+                    textAlign: "center",
+                    overflowX: "hidden",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                    paddingInline: 6,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {tutorialStep.body}
+                </div>
+              </div>
+            </div>
+            <div className={`${u.textCenter} ${u.o85} ${u.fs12}`} style={{ marginTop: 6, flexShrink: 0 }}>
+              {mobileTutorialStep + 1} / {MOBILE_TUTORIAL_STEPS.length}
+            </div>
+            <div
+              style={{
+                width: "100%",
+                flexShrink: 0,
+                marginTop: 6,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                boxSizing: "border-box",
+              }}
+            >
+              {mobileTutorialStep > 0 ? (
+                <ArcadeButton variant="gray" fullWidth onClick={() => setMobileTutorialStep((s) => Math.max(0, s - 1))}>
+                  Tillbaka
+                </ArcadeButton>
+              ) : (
+                <ArcadeButton variant="gray" fullWidth onClick={dismissMobileTutorial}>
+                  Hoppa över
+                </ArcadeButton>
+              )}
+              {mobileTutorialStep < MOBILE_TUTORIAL_STEPS.length - 1 ? (
+                <ArcadeButton
+                  variant="pink"
+                  fullWidth
+                  onClick={() => setMobileTutorialStep((s) => Math.min(MOBILE_TUTORIAL_STEPS.length - 1, s + 1))}
+                >
+                  Nästa
+                </ArcadeButton>
+              ) : (
+                <ArcadeButton variant="pink" fullWidth onClick={dismissMobileTutorial}>
+                  Kör igång
+                </ArcadeButton>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showSettings && (
         <Modal cardCoverId={lobbyCardCoverId} title={sv.play.settingsTitle} onClose={() => setShowSettings(false)} instantFront>
@@ -4297,6 +4692,8 @@ function Modal(props: {
   /** Extra stilar på kortpanelen (t.ex. mer luft uppe/nere). */
   panelStyle?: CSSProperties;
   cardCoverId?: string | null;
+  /** Låt innehållet fylla panelens höjd (för layouts med footer i botten). */
+  contentFill?: boolean;
 }) {
   const showClose = props.hideClose !== true;
   const z = props.zIndex ?? 120;
@@ -4318,6 +4715,12 @@ function Modal(props: {
           padding: 14,
           textAlign: centered ? "center" : "left",
           color: "#ffffff",
+          ...(props.contentFill
+            ? {
+                display: "flex",
+                flexDirection: "column" as const,
+              }
+            : {}),
           ...props.panelStyle,
         }}
         onMouseDown={(e) => e.stopPropagation()}
@@ -4377,6 +4780,13 @@ function Modal(props: {
               gap: 14,
               maxWidth: 440,
               margin: "0 auto",
+              ...(props.contentFill
+                ? {
+                    width: "100%",
+                    flex: 1,
+                    minHeight: 0,
+                  }
+                : {}),
             }}
           >
             {props.children}
