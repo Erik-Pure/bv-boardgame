@@ -143,7 +143,7 @@ function TutorialInlineIcon(props: { src: string; color: string; gap?: string })
 
 const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
   {
-    title: "Rörelse och föremål",
+    title: "Slå och välj väg",
     body: (
       <>
         <p style={{ margin: 0 }}>
