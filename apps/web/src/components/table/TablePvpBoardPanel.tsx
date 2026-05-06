@@ -82,7 +82,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
   }) {
     const rollMod = props2.roll ? props2.roll.total - props2.roll.die : 0;
     const previewMod = props2.previewAttackMod;
-    const showPreviewMod = !props2.roll && !props2.showRolling && previewMod !== 0;
+    const showPreviewMod = !props2.roll && previewMod !== 0;
     const hasRollMod = props2.roll ? rollMod !== 0 : false;
     const modValue = props2.roll ? rollMod : previewMod;
     const hasMod = props2.roll ? hasRollMod : showPreviewMod;
@@ -99,13 +99,22 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           {props2.player.name}
         </div>
         {props2.showRolling ? (
-          <div className={styles.flexCenter}>
+          <div className={styles.flexCenterGap10}>
+            {hasMod ? (
+              <div
+                className={`${styles.rollMod} ${modValue > 0 ? styles.rollModPos : styles.rollModNeg}`}
+              >
+                {modLabel}
+              </div>
+            ) : null}
+            <div className={styles.flexCenter}>
             <DiceCube3D
               key={props2.revealSpinKey ?? "pvp-reveal-spin"}
               idleSpin
               spinning={props2.diceSpinning}
               size={52}
             />
+            </div>
           </div>
         ) : props2.roll ? (
           <div className={styles.flexCenterGap10}>

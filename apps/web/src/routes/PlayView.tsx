@@ -428,9 +428,12 @@ export function PlayView() {
   const [sheetFlashGen, setSheetFlashGen] = useState(0);
   const [sheetFlash, setSheetFlash] = useState(false);
   const [sheetTurnAnim, setSheetTurnAnim] = useState<"in" | "out" | null>(null);
+  const [showMyTurnOverlay, setShowMyTurnOverlay] = useState(false);
   const bottomSheetMeasureRef = useRef<HTMLDivElement | null>(null);
   const turnSwapTimerRef = useRef<number | null>(null);
   const prevIsMyTurnRef = useRef(false);
+  const prevMyTurnOverlayRef = useRef(false);
+  const myTurnOverlayTimerRef = useRef<number | null>(null);
   const [bottomSheetAnimatedHeight, setBottomSheetAnimatedHeight] = useState<number | null>(null);
   const [bottomSheetHeightInstant, setBottomSheetHeightInstant] = useState(false);
   const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
@@ -1757,9 +1760,11 @@ export function PlayView() {
 
     if (pending?.type === "door" && myPending) {
       const monsterScaleNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
+      const doorPantCost = Number.isFinite(pending.costs?.gold) ? Math.max(0, Math.round(pending.costs.gold)) : 0;
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o9}`}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
+          <div className={`${u.textCenter} ${u.fs14} ${u.o92} ${u.lineHeight145}`}>{sv.play.payPant(doorPantCost)}</div>
           {monsterScaleNote ? (
             <div className={`${u.textCenter} ${u.o88} ${u.fs13} ${u.lineHeight145}`}>{monsterScaleNote}</div>
           ) : null}
@@ -1768,9 +1773,9 @@ export function PlayView() {
               variant="blue"
               fullWidth
               onClick={() => send({ type: "useDoor", playerId: me.id, method: "gold" })}
-              disabled={me.gold < pending.costs.gold}
+              disabled={me.gold < doorPantCost}
             >
-              {sv.play.payPant(pending.costs.gold)}
+              {sv.play.payPant(doorPantCost)}
             </ArcadeButton>
             <ArcadeButton
               variant="gray"
@@ -1828,6 +1833,7 @@ export function PlayView() {
     }
 
     if (pending?.type === "levelUpOffer" && myPending) {
+      const offerPantCost = Number.isFinite(pending.costs?.gold) ? Math.max(0, Math.round(pending.costs.gold)) : 0;
       return (
         <div className={u.stack12}>
           <div className={u.levelUpTitle}>
@@ -1836,6 +1842,7 @@ export function PlayView() {
           <div className={`${u.textCenter} ${u.fs14} ${u.o9} ${u.lineHeight15}`}>
             {sv.play.levelUpOfferPrompt(pending.targetLevelIndex + 1)}
           </div>
+          <div className={`${u.textCenter} ${u.fs14} ${u.o92} ${u.lineHeight145}`}>{sv.play.payPant(offerPantCost)}</div>
           <div className={u.stack10}>
             <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "now" })}>
               {sv.play.levelUpNow}
@@ -2369,6 +2376,39 @@ export function PlayView() {
       }
     };
   }, [isMyTurn, state?.phase, bottomSheetVisible]);
+
+  useEffect(() => {
+    const isPlaying = state?.phase === "playing";
+    const curr = !!isMyTurn && isPlaying;
+    const prev = prevMyTurnOverlayRef.current;
+    prevMyTurnOverlayRef.current = curr;
+
+    if (myTurnOverlayTimerRef.current != null) {
+      window.clearTimeout(myTurnOverlayTimerRef.current);
+      myTurnOverlayTimerRef.current = null;
+    }
+
+    if (!curr) {
+      setShowMyTurnOverlay(false);
+      return;
+    }
+    if (prev === curr) return;
+    if (showResponsibleReminder || showMobileTutorial) return;
+    if (typeof window !== "undefined" && !window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches) return;
+
+    setShowMyTurnOverlay(true);
+    myTurnOverlayTimerRef.current = window.setTimeout(() => {
+      setShowMyTurnOverlay(false);
+      myTurnOverlayTimerRef.current = null;
+    }, 2200);
+
+    return () => {
+      if (myTurnOverlayTimerRef.current != null) {
+        window.clearTimeout(myTurnOverlayTimerRef.current);
+        myTurnOverlayTimerRef.current = null;
+      }
+    };
+  }, [isMyTurn, state?.phase, showResponsibleReminder, showMobileTutorial]);
 
   useLayoutEffect(() => {
     if (!bottomSheetVisible) {
@@ -3318,6 +3358,12 @@ export function PlayView() {
           </div>
         </div>
       )}
+
+      {showMyTurnOverlay ? (
+        <div className={styles.myTurnOverlay} aria-live="polite">
+          <div className={styles.myTurnOverlayText}>Din tur</div>
+        </div>
+      ) : null}
 
       {showResponsibleReminder && (
         <Modal
