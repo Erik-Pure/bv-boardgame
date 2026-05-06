@@ -802,14 +802,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px;
+  padding:
+    max(14px, env(safe-area-inset-top, 0px))
+    max(14px, env(safe-area-inset-right, 0px))
+    max(14px, env(safe-area-inset-bottom, 0px))
+    max(14px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
 }
 
 .tutorialPanel {
-  width: min(calc(100vw - 28px), 980px);
-  height: min(calc(100vh - 28px), 940px);
-  max-height: calc(100vh - 28px);
+  width: min(calc(100dvw - 28px), 980px);
+  height: min(calc(100dvh - 28px), 940px);
+  max-height: calc(100dvh - 28px);
   border-radius: 16px;
   border: 1px solid #ffffff22;
   background: #0b1226;
