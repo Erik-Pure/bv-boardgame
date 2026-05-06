@@ -261,6 +261,7 @@ export const sv = {
     settingsRainbowEffects: "Regnbågseffekt",
     settingsLobbyStatus: "Anslutning",
     settingsTurnStatus: "Turstatus",
+    settingsOpenTutorial: "Läs spelregler",
     settingsLeaveGame: "Lämna spelet",
     /** Mobil efter join: ansvarsfullt spelande / alkohol (obligatorisk bekräftelse). */
     responsibleReminderTitle: "En viktig påminnelse",

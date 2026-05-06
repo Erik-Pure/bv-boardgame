@@ -3475,6 +3475,18 @@ export function PlayView() {
               variant="gray"
               fullWidth
               onClick={() => {
+                setMobileTutorialStep(0);
+                setShowMobileTutorial(true);
+                setShowSettings(false);
+              }}
+            >
+              {sv.play.settingsOpenTutorial}
+            </ArcadeButton>
+
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => {
                 setShowLeaveConfirm(true);
               }}
             >
