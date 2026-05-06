@@ -793,6 +793,176 @@
   height: 0;
 }
 
+/* Tutorial overlay (mobil): flytta inline styles till klasser. */
+.tutorialOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 129;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+.tutorialPanel {
+  width: min(calc(100vw - 28px), 980px);
+  height: min(calc(100vh - 28px), 940px);
+  max-height: calc(100vh - 28px);
+  border-radius: 16px;
+  border: 1px solid #ffffff22;
+  background: #0b1226;
+  color: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.tutorialHeader {
+  text-align: center;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(21px, 5.2vw, 30px);
+  letter-spacing: 0.03em;
+  line-height: 1.12;
+  color: #fef9c3;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75), 0 0 20px rgba(250, 204, 21, 0.24);
+  margin-bottom: 2px;
+}
+
+.tutorialBodyScroll {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: var(--tutorial-body-overflow, hidden);
+  overflow-x: hidden;
+  box-sizing: border-box;
+  padding-bottom: 132px;
+}
+
+.tutorialBodyGrid {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.tutorialImageCard {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(2, 6, 23, 0.55);
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.tutorialImage {
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+  display: block;
+  margin-block: 12px;
+}
+
+.tutorialStepTitle {
+  width: 100%;
+  text-align: center;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(20px, 5vw, 28px);
+  letter-spacing: 0.02em;
+  color: #fef08a;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding-inline: 6px;
+  box-sizing: border-box;
+}
+
+.tutorialStepBody {
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(248, 250, 252, 0.95);
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding-inline: 6px;
+  box-sizing: border-box;
+}
+
+.tutorialFooter {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: auto;
+  padding-top: 10px;
+  padding-bottom: 6px;
+  padding-inline: 6px;
+  border-top: var(--tutorial-footer-border, 1px solid rgba(255, 255, 255, 0.06));
+  background: var(
+    --tutorial-footer-bg,
+    linear-gradient(180deg, rgba(12, 18, 40, 0.08) 0%, rgba(12, 18, 40, 0.16) 100%)
+  );
+  backdrop-filter: blur(6px) saturate(112%);
+  -webkit-backdrop-filter: blur(6px) saturate(112%);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  box-sizing: border-box;
+}
+
+.tutorialFooterPage {
+  margin-bottom: 8px;
+}
+
+.tutorialFooterButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tutorialInlineIcon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  vertical-align: middle;
+  margin: var(--ti-gap, 0 3px);
+  background: var(--ti-color, #fff);
+  -webkit-mask-image: var(--ti-mask-image);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: var(--ti-mask-image);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.tutorialPara {
+  margin: 0;
+}
+
+.tutorialParaSpaced {
+  margin: 8px 0 0;
+}
+
+.tutorialList {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: grid;
+  row-gap: 8px;
+}
+
 @keyframes sheetRollFlashOverlay {
   0% {
     opacity: 0;

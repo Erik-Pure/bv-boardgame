@@ -121,22 +121,14 @@ function TutorialInlineIcon(props: { src: string; color: string; gap?: string })
   return (
     <span
       aria-hidden
-      style={{
-        display: "inline-flex",
-        width: 15,
-        height: 15,
-        verticalAlign: "middle",
-        margin: props.gap ?? "0 3px",
-        background: props.color,
-        WebkitMaskImage: `url(${props.src})`,
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        WebkitMaskSize: "contain",
-        maskImage: `url(${props.src})`,
-        maskRepeat: "no-repeat",
-        maskPosition: "center",
-        maskSize: "contain",
-      }}
+      className={styles.tutorialInlineIcon}
+      style={
+        {
+          ["--ti-gap" as string]: props.gap ?? "0 3px",
+          ["--ti-color" as string]: props.color,
+          ["--ti-mask-image" as string]: `url(${props.src})`,
+        } as CSSProperties
+      }
     />
   );
 }
@@ -146,10 +138,10 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
     title: "Slå och välj väg",
     body: (
       <>
-        <p style={{ margin: 0 }}>
+        <p className={styles.tutorialPara}>
           Slå rörelsetärningen och flytta så många rutor som tärningen visar åt vald riktning.
         </p>
-        <p style={{ margin: "8px 0 0" }}>
+        <p className={styles.tutorialParaSpaced}>
         Du kan även spela föremål från din hand för att rusta upp dig.
         </p>
       </>
@@ -160,18 +152,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
     title: "Hantera rutan",
     body: (
       <>
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 0,
-            listStyle: "none",
-            textAlign: "left",
-            overflowWrap: "anywhere",
-            wordBreak: "break-word",
-            display: "grid",
-            rowGap: 8,
-          }}
-        >
+        <ul className={styles.tutorialList}>
           <li>
             <TutorialInlineIcon src="/icons/event-icon.svg" color="#60a5fa" gap="0 5px 0 0" />
             Händelse: Slumpmässiga händelser som kan hjälpa eller förstöra för dig.
@@ -209,18 +190,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
     title: "Dåliga batchar, mutor och sabotage",
     body: (
       <>
-        <ul
-          style={{
-            margin: "8px 0 0",
-            paddingLeft: 0,
-            listStyle: "none",
-            textAlign: "left",
-            overflowWrap: "anywhere",
-            wordBreak: "break-word",
-            display: "grid",
-            rowGap: 8,
-          }}
-        >
+        <ul className={styles.tutorialList} style={{ marginTop: 8 }}>
           <li>
             <TutorialInlineIcon src="/icons/combat-icon.svg" color="#f87171" gap="0 5px 0 0" />
             Styrkekollen: Ditt tärningskast + utrustning & föremål måste vara lika med eller högre än fiendens styrka.
@@ -261,25 +231,14 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
     title: "Nivåer, Bossen och Vinst",
     body: (
       <>
-        <p style={{ margin: 0 }}>
+        <p className={styles.tutorialPara}>
           Betala med
           <TutorialInlineIcon src="/icons/pant-icon.svg" color="#cccccc" />
           Pant eller drick
           <TutorialInlineIcon src="/icons/klunk-icon.svg" color="#fb7185" />
           Klunkar för att gå upp i nivå.
         </p>
-        <ul
-          style={{
-            margin: "8px 0 0",
-            paddingLeft: 0,
-            listStyle: "none",
-            textAlign: "left",
-            overflowWrap: "anywhere",
-            wordBreak: "break-word",
-            display: "grid",
-            rowGap: 8,
-          }}
-        >
+        <ul className={styles.tutorialList} style={{ marginTop: 8 }}>
           <li>Slutbossen: Besegra bossen på sista nivån för att vinna spelet. Bossen är tuff och har 3 liv.</li>
           <li>Sist kvar: Om alla andra åker ut vinner du spelet.</li>
           <li>
@@ -3404,155 +3363,63 @@ export function PlayView() {
       {showMobileTutorial && tutorialStep ? (
         <div
           onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 129,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 14,
-            boxSizing: "border-box",
-          }}
+          className={styles.tutorialOverlay}
         >
           <div
-            style={{
-              width: "min(calc(100vw - 28px), 980px)",
-              height: "min(calc(100vh - 28px), 940px)",
-              maxHeight: "calc(100vh - 28px)",
-              borderRadius: 16,
-              border: "1px solid #ffffff22",
-              background: "#0b1226",
-              color: "#fff",
-              padding: 10,
-              boxSizing: "border-box",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              position: "relative",
-            }}
+            className={styles.tutorialPanel}
           >
             <div
-              style={{
-                textAlign: "center",
-                fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                fontWeight: 400,
-                fontSize: "clamp(21px, 5.2vw, 30px)",
-                letterSpacing: "0.03em",
-                lineHeight: 1.12,
-                color: "#fef9c3",
-                textShadow: "0 2px 14px rgba(0,0,0,0.75), 0 0 20px rgba(250, 204, 21, 0.24)",
-                marginBottom: 2,
-              }}
+              className={styles.tutorialHeader}
             >
               Snabbguide
             </div>
             <div
               ref={tutorialBodyScrollRef}
-              className={styles.tutorialBodyScrollArea}
-              style={{
-                width: "100%",
-                flex: "1 1 auto",
-                minHeight: 0,
-                overflowY: tutorialBodyNeedsScroll ? "auto" : "hidden",
-                overflowX: "hidden",
-                boxSizing: "border-box",
-                paddingBottom: 132,
-              }}
+              className={[styles.tutorialBodyScrollArea, styles.tutorialBodyScroll].join(" ")}
+              style={
+                {
+                  ["--tutorial-body-overflow" as string]: tutorialBodyNeedsScroll ? "auto" : "hidden",
+                } as CSSProperties
+              }
             >
               <div
-                style={{
-                  width: "100%",
-                  display: "grid",
-                  gap: 8,
-                  alignContent: "start",
-                }}
+                className={styles.tutorialBodyGrid}
               >
                 <div
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.35)",
-                    background: "rgba(2, 6, 23, 0.55)",
-                    padding: 10,
-                    boxSizing: "border-box",
-                  }}
+                  className={styles.tutorialImageCard}
                 >
                   <img
                     src={tutorialStep.imageSrc}
                     alt=""
                     draggable={false}
-                    style={{ width: "100%", height: 170, objectFit: "contain", display: "block", marginBlock: 12 }}
+                    className={styles.tutorialImage}
                   />
                 </div>
-                <div
-                  style={{
-                    width: "100%",
-                    textAlign: "center",
-                    fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                    fontSize: "clamp(20px, 5vw, 28px)",
-                    letterSpacing: "0.02em",
-                    color: "#fef08a",
-                    lineHeight: 1.1,
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                    paddingInline: 6,
-                    boxSizing: "border-box",
-                  }}
-                >
+                <div className={styles.tutorialStepTitle}>
                   {tutorialStep.title}
                 </div>
-                <div
-                  style={{
-                    width: "100%",
-                    fontSize: 15,
-                    lineHeight: 1.5,
-                    color: "rgba(248, 250, 252, 0.95)",
-                    textAlign: "center",
-                    overflow: "hidden",
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                    paddingInline: 6,
-                    boxSizing: "border-box",
-                  }}
-                >
+                <div className={styles.tutorialStepBody}>
                   {tutorialStep.body}
                 </div>
               </div>
             </div>
             <div
-              style={{
-                position: "absolute",
-                left: 10,
-                right: 10,
-                bottom: 10,
-                zIndex: 2,
-                width: "auto",
-                paddingTop: 10,
-                paddingBottom: 6,
-                paddingInline: 6,
-                borderTop: tutorialBodyNeedsScroll ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(255,255,255,0.06)",
-                background: tutorialBodyNeedsScroll
-                  ? "linear-gradient(180deg, rgba(12,18,40,0.12) 0%, rgba(12,18,40,0.22) 100%)"
-                  : "linear-gradient(180deg, rgba(12,18,40,0.08) 0%, rgba(12,18,40,0.16) 100%)",
-                backdropFilter: "blur(6px) saturate(112%)",
-                WebkitBackdropFilter: "blur(6px) saturate(112%)",
-                borderBottomLeftRadius: 12,
-                borderBottomRightRadius: 12,
-                boxSizing: "border-box",
-              }}
+              className={styles.tutorialFooter}
+              style={
+                {
+                  ["--tutorial-footer-border" as string]: tutorialBodyNeedsScroll
+                    ? "1px solid rgba(255,255,255,0.1)"
+                    : "1px solid rgba(255,255,255,0.06)",
+                  ["--tutorial-footer-bg" as string]: tutorialBodyNeedsScroll
+                    ? "linear-gradient(180deg, rgba(12,18,40,0.12) 0%, rgba(12,18,40,0.22) 100%)"
+                    : "linear-gradient(180deg, rgba(12,18,40,0.08) 0%, rgba(12,18,40,0.16) 100%)",
+                } as CSSProperties
+              }
             >
-              <div className={`${u.textCenter} ${u.o85} ${u.fs12}`} style={{ marginBottom: 8 }}>
+              <div className={`${u.textCenter} ${u.o85} ${u.fs12} ${styles.tutorialFooterPage}`}>
                 {mobileTutorialStep + 1} / {MOBILE_TUTORIAL_STEPS.length}
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 8,
-                }}
-              >
+              <div className={styles.tutorialFooterButtons}>
               {mobileTutorialStep > 0 ? (
                 <ArcadeButton variant="gray" fullWidth onClick={() => setMobileTutorialStep((s) => Math.max(0, s - 1))}>
                   Tillbaka

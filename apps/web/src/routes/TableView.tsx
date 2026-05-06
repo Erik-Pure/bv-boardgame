@@ -1258,7 +1258,7 @@ function TableViewBody() {
                       })}
                     </defs>
                     {floorBg ? (
-                      <g style={{ filter: lit ? undefined : "brightness(0.38) saturate(0.5)" }}>
+                      <g className={lit ? tableStyles.boardTilesLit : tableStyles.boardTilesDimmed}>
                         <image
                           href={floorBg}
                           x={0}
@@ -1281,7 +1281,7 @@ function TableViewBody() {
                     >
                       {sv.table.floorN(li + 1)}
                     </text>
-                    <g style={{ filter: lit ? undefined : "brightness(0.38) saturate(0.5)" }}>
+                    <g className={lit ? tableStyles.boardTilesLit : tableStyles.boardTilesDimmed}>
                       {level.tiles.map((t, i) => {
                         const { col, row } = ringPosRect(ringCols, ringRows, i);
                         const x = boardPad + col * tileSize;
@@ -1856,7 +1856,6 @@ function TableViewBody() {
                 .join(" ")}
               style={
                 {
-                  background: "#000000",
                   "--turn-banner-min-h": currentTurnAfflictions.length > 0 ? "98px" : "78px",
                 } as CSSProperties
               }
@@ -1877,7 +1876,7 @@ function TableViewBody() {
                       " ",
                     )}
                     style={{
-                      background: active ? p.color : "rgba(255,255,255,0.04)",
+                      ["--turn-player-bg" as string]: active ? p.color : "rgba(255,255,255,0.04)",
                       ["--turn-active-player-color" as string]: p.color,
                     }}
                     title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
