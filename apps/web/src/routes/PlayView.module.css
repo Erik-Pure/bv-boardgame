@@ -963,6 +963,10 @@
   row-gap: 8px;
 }
 
+.tutorialListSpaced {
+  margin-top: 8px;
+}
+
 @keyframes sheetRollFlashOverlay {
   0% {
     opacity: 0;

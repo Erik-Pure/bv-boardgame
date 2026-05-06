@@ -190,7 +190,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
     title: "Dåliga batchar, mutor och sabotage",
     body: (
       <>
-        <ul className={styles.tutorialList} style={{ marginTop: 8 }}>
+        <ul className={`${styles.tutorialList} ${styles.tutorialListSpaced}`}>
           <li>
             <TutorialInlineIcon src="/icons/combat-icon.svg" color="#f87171" gap="0 5px 0 0" />
             Styrkekollen: Ditt tärningskast + utrustning & föremål måste vara lika med eller högre än fiendens styrka.
@@ -238,7 +238,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
           <TutorialInlineIcon src="/icons/klunk-icon.svg" color="#fb7185" />
           Klunkar för att gå upp i nivå.
         </p>
-        <ul className={styles.tutorialList} style={{ marginTop: 8 }}>
+        <ul className={`${styles.tutorialList} ${styles.tutorialListSpaced}`}>
           <li>Slutbossen: Besegra bossen på sista nivån för att vinna spelet. Bossen är tuff och har 3 liv.</li>
           <li>Sist kvar: Om alla andra åker ut vinner du spelet.</li>
           <li>
