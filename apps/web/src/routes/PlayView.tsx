@@ -146,7 +146,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
         </p>
       </>
     ),
-    imageSrc: "/icons/combat-icon.svg",
+    imageSrc: "/tutorial/tut4.png",
   },
   {
     title: "Hantera rutan",
@@ -184,7 +184,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
         </ul>
       </>
     ),
-    imageSrc: "/icons/event-icon.svg",
+    imageSrc: "/tutorial/tut3.png",
   },
   {
     title: "Dåliga batchar, mutor och sabotage",
@@ -225,7 +225,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
         </ul>
       </>
     ),
-    imageSrc: "/icons/monster-icon.svg",
+    imageSrc: "/tutorial/tut2.png",
   },
   {
     title: "Nivåer, Bossen och Vinst",
@@ -249,7 +249,7 @@ const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
         </ul>
       </>
     ),
-    imageSrc: "/icons/skull-icon.svg",
+    imageSrc: "/tutorial/tut1.png",
   },
 ];
 
