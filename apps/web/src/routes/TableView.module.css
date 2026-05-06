@@ -1018,6 +1018,14 @@
   gap: 6px;
   padding: 22px 22px calc(34px + env(safe-area-inset-bottom, 0px)) 22px;
   background: radial-gradient(circle at 100% 100%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.64) 34%, rgba(0, 0, 0, 0) 74%);
+  /* Maska bort ev. rektangulär compositing-kant i vissa prod/GPU-lägen. */
+  -webkit-mask-image: radial-gradient(circle at 100% 100%, #000 0%, #000 72%, transparent 100%);
+  mask-image: radial-gradient(circle at 100% 100%, #000 0%, #000 72%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  isolation: isolate;
 }
 
 .moveTurnCornerHudTurnIn {
