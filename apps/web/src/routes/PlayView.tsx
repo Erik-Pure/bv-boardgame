@@ -3491,7 +3491,7 @@ export function PlayView() {
                               ? beerCanSetPiecesEquippedCount(me)
                               : undefined
                           }
-                          effectBadgeKlunkar={me.klunkar ?? 0}
+                          effectBadgeLevelIndex={me.levelIndex ?? 0}
                           effectBadgePlayer={me}
                           lootFlash={equipFlash.helmet}
                           lootFlashKey={equipFlashKey.helmet}
@@ -4076,7 +4076,7 @@ export function PlayView() {
                       ? beerCanSetPiecesEquippedCount(me)
                       : undefined
                   }
-                  playerKlunkar={slot === "helmet" ? (me.klunkar ?? 0) : undefined}
+                  playerLevelIndex={slot === "helmet" ? (me.levelIndex ?? 0) : undefined}
                   player={me}
                 />
               ) : undefined
@@ -4311,8 +4311,8 @@ function EquipButton(props: {
   burkSetEquippedCount?: number;
   /** Vapenbricka: pant för Burksvärd m.fl. (samma trösklar som i strid). */
   effectBadgeGold?: number;
-  /** Hjälmbricka: klunkar för Legendarisk Burkhjälm (sköld-badge först vid 15+). */
-  effectBadgeKlunkar?: number;
+  /** Hjälmbricka: nivåindex för Legendarisk Burkhjälm (sköld-badge först från nivå 4). */
+  effectBadgeLevelIndex?: number;
   /** För hjälmbonus som följer spelarens klunkar (t.ex. Ölfylld rymdhjälm). */
   effectBadgePlayer?: Player;
   lootFlash: StatFlash | null;
@@ -4389,7 +4389,7 @@ function EquipButton(props: {
             piece={props.equippedPiece}
             playerGold={props.slot === "weapon" ? props.effectBadgeGold : undefined}
             burkSetEquippedCount={props.burkSetEquippedCount}
-            playerKlunkar={props.slot === "helmet" ? props.effectBadgeKlunkar : undefined}
+            playerLevelIndex={props.slot === "helmet" ? props.effectBadgeLevelIndex : undefined}
             player={props.effectBadgePlayer}
           />
         </div>
@@ -4812,14 +4812,14 @@ function EquipmentModalEffectBadge(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
   burkSetEquippedCount?: number;
-  playerKlunkar?: number;
+  playerLevelIndex?: number;
   player?: Player;
 }) {
   const badges = equipmentInventoryEffectBadges(
     props.piece,
     props.playerGold,
     props.burkSetEquippedCount,
-    props.playerKlunkar,
+    props.playerLevelIndex,
     props.player,
   );
   if (badges.length === 0) return null;
@@ -4995,14 +4995,14 @@ function EquipmentInventoryEffectBadges(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
   burkSetEquippedCount?: number;
-  playerKlunkar?: number;
+  playerLevelIndex?: number;
   player?: Player;
 }) {
   const badges = equipmentInventoryEffectBadges(
     props.piece,
     props.playerGold,
     props.burkSetEquippedCount,
-    props.playerKlunkar,
+    props.playerLevelIndex,
     props.player,
   );
   if (badges.length === 0) return null;

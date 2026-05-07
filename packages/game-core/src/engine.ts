@@ -405,7 +405,7 @@ function logMonsterScaleAfterAscend(state: GameState, p: Player): void {
 }
 
 const XP_PER_KLUNK = 10;
-const BREWER_LEVEL_XP_THRESHOLDS = [120, 320, 650, 960, 1320] as const;
+const BREWER_LEVEL_XP_THRESHOLDS = [120, 300, 620, 980, 1380] as const;
 
 function xpThresholdForBrewerLevel(level: number): number {
   const lvl = Math.max(0, Math.floor(level));
@@ -2005,7 +2005,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   const rng = createRng((base ^ actionMix) >>> 0);
   const next = cloneState(state);
   normalizeConfig(next);
-  // Keep dynamic equipment thresholds (e.g. Legendarisk Burkhjälm at 15+ klunkar) in sync.
+  // Keep dynamic equipment thresholds (e.g. Legendarisk Burkhjälm from nivå 4) in sync.
   syncDynamicMaxHp(next);
   const events: string[] = [];
 

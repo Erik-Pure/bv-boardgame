@@ -64,7 +64,7 @@ export {
 export {
   BEER_CAN_HELM1_NAME,
   BEER_CAN_RUSTNING_NAME,
-  BEER_HELM2_MIN_KLUNKAR,
+  BEER_HELM2_MIN_LEVEL,
   beerCanSetPiecesEquippedCount,
   burkhjälmIIEffectiveDamageNegateFrom,
   helmetAttackBonus,

@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.49 |
+| Version | 0.50 |
 | Senast uppdaterad | 2026-05-07 |
 
 ---
@@ -324,7 +324,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. Under bilden visas en **kompakt effektlista** (samma princip som Panta burkar / kortkatalog) **och** valfri **`rulesText`** per katalogpost (smaktext / särregler, t.ex. **Solbrillor**, **Svart bälte**, burk-setet). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
 
-**Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **+5 HP** och **−4 skada per träff** när spelaren har minst **15 klunkar**, annars ingen reduktion.
+**Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **+5 HP** och **−4 skada per träff** från **nivå 4**, annars ingen reduktion.
 
 **Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
 
@@ -359,10 +359,10 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Bryggnivå** beräknas från spelarens **XP** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
 - **XP-trösklar (nuvarande balans):**
   - level 1 vid **120 XP**
-  - level 2 vid **320 XP**
-  - level 3 vid **650 XP**
-  - level 4 vid **900 XP**
-  - level 5 vid **1200 XP**
+  - level 2 vid **300 XP**
+  - level 3 vid **620 XP**
+  - level 4 vid **980 XP**
+  - level 5 vid **1380 XP**
 - Efter sista explicita tröskeln fortsätter skalan linjärt med samma differens som mellan de två sista nivåerna.
 - Visas i **mobil-header** som progress mot nästa visad bryggnivå och som nivåsiffra i nivå-ringen.
 - **Resultatlista** när partiet är **slut** ska visa **bryggnivå** per spelare (för jämförelse utöver klunkar, pant och HP).
@@ -538,4 +538,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.47 | 2026-05-01 | P1 komplett: operativt lager i CI (metrics artifacts, dashboard, threshold alerts), E2E release-gate, snapshot/protokoll-migreringsstrategi samt load/SLO-gating |
 | 0.48 | 2026-05-07 | Synkad med aktuell implementation: nivå-ruta/dörrflöde utfasat, uppstigning via XP-baserat level-up offer utan pantkostnad, bryggnivå från XP med 4-stegs-mappning (L1↔intern L4), uppdaterad §7.3/§13.1 samt mobilcopy för nivåmodal/straffklunk-XP |
 | 0.49 | 2026-05-07 | Uppdaterade XP-trösklar för bryggnivå (120/320/650/900/1200), progressionstext i §13.1 samt tydlig modal-prioritering i mobil där nivå-upp-flöde går före straffklunk-notis |
+| 0.50 | 2026-05-07 | Bryggnivåtrösklar justerade till 120/300/620/980/1380 samt Legendarisk Burkhjälm ändrad från klunkkrav till nivåkrav (aktiv från nivå 4) i regler/copy |
 

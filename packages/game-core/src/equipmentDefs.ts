@@ -154,7 +154,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 25,
     bonusHp: 5,
     damageNegate: 4,
-    rulesText: "Ger +5 HP och −4 skada per träff när du har minst 15 klunkar.",
+    rulesText: "Ger +5 HP och −4 skada per träff från nivå 4.",
   },
   {
     id: "eh_beer_filled_helmet",

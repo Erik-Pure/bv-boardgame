@@ -53,7 +53,7 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     else if (it.id === "eh_beer_cap_helm_1") parts.push("Burk-set hjälm: +1 / +2 / +3 attack (1–3 delar)");
     else parts.push("Burk-set sköld: +1 / +2 / +3 skada bort (1–3 delar)");
   } else if (it.id === "eh_beer_cap_helm_2" && typeof it.damageNegate === "number" && it.damageNegate > 0) {
-    parts.push(`Skada −${it.damageNegate} (aktiv från 15 klunkar)`);
+    parts.push(`Skada −${it.damageNegate} (aktiv från nivå 4)`);
   } else if (typeof it.damageNegate === "number") {
     const v = it.damageNegate;
     parts.push(v >= 0 ? `Skada −${v}` : `Skada +${Math.abs(v)}`);

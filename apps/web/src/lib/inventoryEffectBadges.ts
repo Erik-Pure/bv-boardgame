@@ -2,7 +2,7 @@ import type { EquipmentShopItem } from "@bv/game-core";
 import {
   BEER_CAN_HELM1_NAME,
   BEER_CAN_RUSTNING_NAME,
-  BEER_HELM2_MIN_KLUNKAR,
+  BEER_HELM2_MIN_LEVEL,
   burkhjälmIIEffectiveDamageNegateFrom,
   CANMAN_DRAWS_INITIAL,
   EQUIPMENT_CATALOG,
@@ -25,6 +25,7 @@ export const ITEM_EFFECT_BADGE_ICONS = {
   klunk: "/icons/klunk-icon.svg",
   pant: "/icons/pant-icon.svg",
   bvb: "/icons/bvb-icon.svg",
+  level: "/icons/lvlup.svg",
 } as const;
 
 export type EffectBadgeData = {
@@ -50,7 +51,7 @@ export function equipmentInventoryEffectBadges(
   piece?: Player["equipment"][EquipmentSlot],
   playerGold?: number,
   burkSetEquippedCount?: number,
-  playerKlunkar?: number,
+  playerLevelIndex?: number,
   player?: Player,
 ): EffectBadgeData[] {
   if (!piece) return [];
@@ -130,14 +131,14 @@ export function equipmentInventoryEffectBadges(
         : 0;
   const negateAllOnce = "negateAllOnce" in piece && !!piece.negateAllOnce;
   if (isLegendariskBurkhjälmName(piece.name)) {
-    const k = typeof playerKlunkar === "number" ? playerKlunkar : 0;
-    const eff = burkhjälmIIEffectiveDamageNegateFrom(k, piece as Player["equipment"]["helmet"]);
+    const li = typeof playerLevelIndex === "number" ? playerLevelIndex : 0;
+    const eff = burkhjälmIIEffectiveDamageNegateFrom(li, piece as Player["equipment"]["helmet"]);
     if (negateAllOnce) {
       badges.push({ icon: "armor", label: eff > 0 ? `+${eff}+ALL` : "+ALL" });
     } else if (eff > 0) {
       badges.push({ icon: "armor", label: `+${eff}` });
     } else if (damageNegateRaw > 0) {
-      badges.push({ icon: "klunk", label: String(BEER_HELM2_MIN_KLUNKAR) });
+      badges.push({ icon: "level", label: String(BEER_HELM2_MIN_LEVEL) });
     }
   } else if (damageNegateRaw < 0) {
     badges.push({ icon: "armor", label: String(damageNegateRaw), labelTone: "danger" });

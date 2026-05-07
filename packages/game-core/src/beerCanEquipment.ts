@@ -9,8 +9,8 @@ export const BEER_CAN_HELM2_NAME = "Legendarisk Burkhjälm";
 /** Tidigare visningsnamn (sparade spel). */
 export const BEER_CAN_HELM2_LEGACY_NAME = "Burkhjälm II";
 
-/** Legendarisk Burkhjälm ger ingen skadereduktion under denna klunk-gräns. */
-export const BEER_HELM2_MIN_KLUNKAR = 15;
+/** Legendarisk Burkhjälm aktiveras först från våning/nivå 4. */
+export const BEER_HELM2_MIN_LEVEL = 4;
 
 export function isBeerCanShieldName(name: string | undefined): boolean {
   return !!name && (BEER_CAN_SHIELD_NAMES as readonly string[]).includes(name);
@@ -87,32 +87,32 @@ export function helmetAttackBonus(p: Player): number {
   return bonus + beerCanBurkhjälmSetCombatBonus(p);
 }
 
-/** Effektiv skadereduktion från hjälmen (0 under {@link BEER_HELM2_MIN_KLUNKAR} klunkar). */
+/** Effektiv skadereduktion från hjälmen (0 under {@link BEER_HELM2_MIN_LEVEL}). */
 export function burkhjälmIIEffectiveDamageNegateFrom(
-  klunkar: number,
+  levelIndex: number,
   helmet: Player["equipment"]["helmet"] | undefined,
 ): number {
   if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return 0;
-  if (klunkar < BEER_HELM2_MIN_KLUNKAR) return 0;
+  if (Math.floor(levelIndex) + 1 < BEER_HELM2_MIN_LEVEL) return 0;
   return Math.max(0, helmet.damageNegate ?? 0);
 }
 
 export function burkhjälmIIEffectiveDamageNegate(p: Player): number {
-  return burkhjälmIIEffectiveDamageNegateFrom(p.klunkar ?? 0, p.equipment.helmet);
+  return burkhjälmIIEffectiveDamageNegateFrom(p.levelIndex ?? 0, p.equipment.helmet);
 }
 
-/** Effektiv bonus-HP från Legendarisk Burkhjälm (+5 först vid 15+ klunkar). */
+/** Effektiv bonus-HP från Legendarisk Burkhjälm (+5 först från nivå 4). */
 export function burkhjälmIIEffectiveBonusHpFrom(
-  klunkar: number,
+  levelIndex: number,
   helmet: Player["equipment"]["helmet"] | undefined,
 ): number {
   if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return helmet?.bonusHp ?? 0;
-  if (klunkar < BEER_HELM2_MIN_KLUNKAR) return 0;
+  if (Math.floor(levelIndex) + 1 < BEER_HELM2_MIN_LEVEL) return 0;
   return Math.max(0, helmet.bonusHp ?? 0);
 }
 
 export function burkhjälmIIEffectiveBonusHp(p: Player): number {
-  return burkhjälmIIEffectiveBonusHpFrom(p.klunkar ?? 0, p.equipment.helmet);
+  return burkhjälmIIEffectiveBonusHpFrom(p.levelIndex ?? 0, p.equipment.helmet);
 }
 
 export function armorDamageNegateExcludingBeerCanSet(p: Player): number {
