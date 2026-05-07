@@ -28,8 +28,8 @@ const MONSTER_ICON_TINT = "#ef4444";
 const MONSTER_HEADER_ICON_SIZE = 24;
 
 /** ~55% av tidigare badge — lite större än exakt hälften. */
-const THUMB_BADGE_SIZE = 22;
-const THUMB_ICON_SIZE = 11;
+const THUMB_BADGE_SIZE = 20;
+const THUMB_ICON_SIZE = 10;
 
 const STAT_ICON_TINT: Record<"pant" | "reward" | "xp" | "klunk" | "heart", string> = {
   pant: "#d1d5db",
@@ -67,16 +67,16 @@ function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; 
   const label = emDash ? "—" : value === 0 ? "-" : String(value);
   const compact = !emDash && label.length >= 3;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: compact ? 4 : 6 }}>
-      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={compact ? 20 : 22} />
+    <div style={{ display: "flex", alignItems: "center", gap: compact ? 3 : 5 }}>
+      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={compact ? 17 : 19} />
       <span
         style={{
           fontWeight: 900,
-          fontSize: compact ? 17 : 20,
+          fontSize: compact ? 15 : 17,
           lineHeight: 1,
           color: "#fff",
           fontVariantNumeric: "tabular-nums",
-          minWidth: compact ? "0.9em" : "1.1em",
+          minWidth: compact ? "0.85em" : "1em",
           display: "inline-block",
           textAlign: "center",
         }}
@@ -173,8 +173,8 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
       style={{
         position: "relative",
         minWidth: 0,
-        marginTop: 14,
-        padding: "12px 14px 10px",
+        marginTop: 12,
+        padding: "11px 10px 9px",
         borderRadius: 14,
         border: `2px solid ${border}`,
         background: bg,
