@@ -4,14 +4,14 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.47 |
-| Senast uppdaterad | 2026-05-01 |
+| Version | 0.49 |
+| Senast uppdaterad | 2026-05-07 |
 
 ---
 
 ## 1. Produktvision
 
-Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, **flera våningsplan** med dörrar däremellan, **pant och affärer**, utrustning, monsterdueller, **BvB-dueller** (**bryggare mot bryggare** — spelare mot spelare, se §9.2) och **straffklunkar** som räknas och kan modifiera kort/händelser.
+Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skärm/webbläsare (**pan, zoom, fokus på aktiv spelare och möjliga målrutor**), **telefoner som handkontroller**, slumpad tile-bana med **olika ruttyper**, **flera våningsplan** med XP-styrd uppstigning, **pant och affärer**, utrustning, monsterdueller, **BvB-dueller** (**bryggare mot bryggare** — spelare mot spelare, se §9.2) och **straffklunkar** som räknas och kan modifiera kort/händelser.
 
 **Varumärke och ton:** spelet är tänkt att vara **kopplat till Bryggverket**, ölbryggeri i **Umeå** (copy, visuell identitet och referenser till verkliga sorter). **Avtal och tydlighet kring varumärkesanvändning** behövs innan publik lansering.
 
@@ -39,6 +39,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 **Interaktionspanel (mobil, små skärmar):** panelen kan växla till **kompaktläge** via en liten toggle-knapp precis ovanför panelen. I kompaktläge döljs informationscopy i panelen, medan **interaktionsknapparna fortfarande visas och är klickbara**.
 
 **Interaktionspanelens stabilitet:** korta överlagrade lägen som **straffklunk / Skål!** ska inte trigga om panelens slide-up-animation eller höjd-tween från föregående innehåll. När panelens primära innehållstyp byter (t.ex. strid/handling → straffklunk-ack) ska första layouten efter bytet vara **instant** så panelen inte “hackar”.
+
+**Modal-prioritering i mobil (`/play`):** om **nivå upp** (`levelUpOffer`) och **straffklunk-notis** skulle konkurrera samtidigt för samma spelare ska **nivå upp prioriteras**. Straffklunk-notisen köas/visas först efter att nivå upp-flödet är klart, så knapplager och overlays inte hamnar omlott.
 
 **Föremålsmodal (mobil):** när ett föremål kräver målval (t.ex. **Sömnmedel**) används samma modal med den vanliga **Stäng**-knappen. Målvalssteget ska **inte** lägga till en extra **Tillbaka**-knapp; avbryt sker via Stäng.
 
@@ -149,7 +151,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 ---
 
-## 7. Spelplan, nivåer och dörrar
+## 7. Spelplan och nivåflöde
 
 ### 7.1 Tiles och slump
 
@@ -163,19 +165,18 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 
 ### 7.2 Nivåer (våningsplan)
 
-- Spelet använder **konfigurerbart antal våningsplan** (nuvarande spann 2–5, default 3), med dörrar uppåt enligt §7.3 och **boss endast på sista våningen**.
+- Spelet använder **konfigurerbart antal våningsplan** (nuvarande spann 2–5, default 3), med uppstigning enligt §7.3 och **boss endast på sista våningen**.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
 - **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
 
-### 7.3 Dörrar mellan nivåer
+### 7.3 Uppstigning mellan våningsplan
 
-- Mellan varje våningsplan finns en **dörr-tile** som låter spelaren **gå upp till nästa brädesnivå** (nästa `levelIndex`; visningsmässigt “Nivå 2” osv.).
-- **Krav — minst ett av följande:**
-  - **Pant:** betala engångskostnad i pant (stiger per målplan; implementation: `levelUpCostsForTargetLevel` i `game-core`).
-  - **Klunkspår (krav utan förbrukning):** klunkarna fungerar som **bryggarerfarenhet** — de **dras inte av** vid uppstigning. Spelaren får gå upp via klunkspår om **antingen** totalsumman klunkar når tabellens **`sips`-tröskel** för målplanen **eller** spelarens **bryggnivå** (§13.1) är **≥ målbrädesnivåns siffra** (samma som visat i header: t.ex. bryggnivå 2 räcker för första uppstigningen även om rå klunk-siffra understiger `sips`, så UI och regler hänger ihop).
-- **Efter avslutad tur:** om klunkspårets krav är uppfyllt kan spelet erbjuda **direkt uppstigning** innan turen går vidare; spelaren kan **stanna** och i stället ta **dörr-rutan** på brädet senare (pant eller klunkspår). **Nivåvals-modal (mobil):** kort rubrik i *Permanent Marker* (“Gå upp till nästa nivå?”) och kort brödtext om utmaning; inga långa duplicerade förklaringar om monster-+ per våning i samma modal (den informationen finns i regler/UI annorstädes).
+- **Nivå-rutan är borttagen** från brädet. Uppstigning sker i stället via **level-up offer** kopplat till spelarens XP-baserade bryggnivå (§13.1).
+- När kravet nås kan spelaren få ett val att **stiga nu** eller **stanna kvar en tur till**.
+- Uppstigning kostar i nuvarande balans **ingen pant**.
+- Mobilflöde: informationskort (modal) för nivåbytet + valknappar i nedersta interaktionspanelen.
 - **Monster på våningen:** extra **styrkekrav** (`need`) är **+1 per brädesnivå** på planet (våning 1 → +0, våning 2 → +1, våning 3 → +2). Extra **HP-skada vid monsterförlust** skalar på samma sätt men **endast för standardmonster** (inte team battle och inte slutboss). Skalningen är lokal per plan, inte global efter “högsta spelaren”.
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
@@ -188,7 +189,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | **Händelse (slump)** | Drar från en **händelsepool** (bra, dålig eller neutral): pant, skada, klunkar, flytta, stjäl kort, etc. |
 | **Affär / köpman** | Öppnar **handel** (i spelet: **Panta burkar**): spendera **pant** på items, hälsa, engångs-boosts eller sällsynt loot. Sortiment och priser följer **`EQUIPMENT_CATALOG`** (se §10.2). |
 | **Strid** | **Slumpat monster**; samma grundmekanik som §9.1 (tärning + vapen mot fiende). |
-| **Dörr / nivåbyte** | Se §7.3. |
+| **Dörr / nivåbyte** | Utfasad i nuvarande build (historisk ruttyp). |
 | **Boss** | Slutboss på **sista våningen** (tredje planet, `levelIndex` 2). |
 | **Vila / bryggeri** | Lätt positiv effekt: t.ex. återhämtning, ta bort en debuff, eller billigare “ölstop” utan strid. |
 | **Skatt / gömma** | Vid landning: **slumpat** innehåll från skattleken (pant och/eller `randomItem` — kan bli föremål eller, om ledig utrustningsslot finns, utrustning). **Tom gömma** kan inträffa **slumpmässigt**; samma skattruta kan **besökas flera gånger** av olika eller samma spelare (ingen permanent “tömd”-flagga per ruta). |
@@ -355,10 +356,18 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 ### 13.1 Bryggnivå (progression i UI)
 
-- **Bryggnivå** beräknas från spelarens **totala klunkar** mot **stigande trösklar**: **8 → 16 → 24 → 35 → 40 → 50 → 60**, därefter **+10 klunkar** per ytterligare nivå från **70** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
-- Visas i **mobil-header** som progress mot nästa tröskel och **siffra** för aktuell bryggnivå.
+- **Bryggnivå** beräknas från spelarens **XP** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
+- **XP-trösklar (nuvarande balans):**
+  - level 1 vid **120 XP**
+  - level 2 vid **320 XP**
+  - level 3 vid **650 XP**
+  - level 4 vid **900 XP**
+  - level 5 vid **1200 XP**
+- Efter sista explicita tröskeln fortsätter skalan linjärt med samma differens som mellan de två sista nivåerna.
+- Visas i **mobil-header** som progress mot nästa visad bryggnivå och som nivåsiffra i nivå-ringen.
 - **Resultatlista** när partiet är **slut** ska visa **bryggnivå** per spelare (för jämförelse utöver klunkar, pant och HP).
-- **Koppling till dörr / uppstigning:** klunkspåret för att byta brädesnivå (§7.3) tar hänsyn till bryggnivån så att spelaren inte ser **bryggnivå 2** i headern utan att kunna **låsa upp** motsvarande uppstigning med klunkspår. (Monster-+ per våning i strid är **separat** från bryggnivå — se §7.3.)
+- **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
+- **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
 
 ---
 
@@ -428,7 +437,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 **MVP**
 
 - Lobby med kod, upp till 6 spelare, konfigurerbar turtid.
-- Slumpad bana, **tre** våningsplan (ringar med dörrar uppåt), dörrar med **pant- eller klunkspår** (§7.3) + **bryggnivå** (§13.1), **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
+- Slumpad bana, **tre** våningsplan, uppstigning via **XP-baserat level-up offer** (§7.3) + **bryggnivå** (§13.1), **ruttyper** enligt §7.4 (minst händelse, affär, strid + tom/säker).
 - **Storskärm:** pan, zoom, **auto-fokus anpassad till viewport** och **målrutor vid rörelseval** (§2.1); tur-rad under meny.
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
@@ -448,7 +457,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 ## 18. Öppna punkter (att fylla i under utveckling)
 
-- Finjustering av **pant- och `sips`-tabell** per målplan om balans kräver (bryggnivå-kopplingen för klunkspår är redan låst i implementation).
+- Finjustering av **XP-kurva** och mappning till visad bryggnivå vid behov (utan att bryta UI- och gating-synk mellan §7.3 och §13.1).
 - **Vem bär** den gyllene ölen vid bossdöd i variantläget (dropp till sista slaget vs slump vs alla kan tävla om upplockning).
 - **Vilken målruta** som räknas som “start/slut” när båda finns — per ban-seed eller lobby-val.
 - **Timeout-tur:** exakt auto-beteende vid 60 s (eller inställt värde).
@@ -527,4 +536,6 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.45 | 2026-05-01 | Baseline-auth för WebSocket (`SERVER_AUTH_TOKEN`/`authToken`) samt trusted-krav för privilegierade actions (`startGame`, `setConfig`, `tableKickPlayer`) |
 | 0.46 | 2026-05-01 | P1 driftstöd: token-skyddade admin-endpoints (`/admin/rooms`, `/admin/rooms/:code/close`) dokumenterade, utan separat admin-UI |
 | 0.47 | 2026-05-01 | P1 komplett: operativt lager i CI (metrics artifacts, dashboard, threshold alerts), E2E release-gate, snapshot/protokoll-migreringsstrategi samt load/SLO-gating |
+| 0.48 | 2026-05-07 | Synkad med aktuell implementation: nivå-ruta/dörrflöde utfasat, uppstigning via XP-baserat level-up offer utan pantkostnad, bryggnivå från XP med 4-stegs-mappning (L1↔intern L4), uppdaterad §7.3/§13.1 samt mobilcopy för nivåmodal/straffklunk-XP |
+| 0.49 | 2026-05-07 | Uppdaterade XP-trösklar för bryggnivå (120/320/650/900/1200), progressionstext i §13.1 samt tydlig modal-prioritering i mobil där nivå-upp-flöde går före straffklunk-notis |
 
