@@ -29,7 +29,7 @@ const BURK_TIER_SHIELD_NEGATE = [1, 2, 3] as const;
 /** Antal utrustade burk-set-delar (rustning, Burkhjälm eller leg. Burkhjälm, burksköld). Högst 3. */
 export function beerCanSetPiecesEquippedCount(p: Player): number {
   let n = 0;
-  if (p.equipment.armor?.name === BEER_CAN_RUSTNING_NAME) n++;
+  if (p.equipment.armor?.name === BEER_CAN_RUSTNING_NAME && p.gold > 0) n++;
   if (p.equipment.helmet?.name === BEER_CAN_HELM1_NAME) n++;
   if (isLegendariskBurkhjälmName(p.equipment.helmet?.name)) n++;
   if (isBeerCanShieldName(p.equipment.accessory?.name)) n++;
@@ -56,6 +56,7 @@ export function beerCanTrioDamageNegate(p: Player): number {
 /** Extra max HP när Burkrustning är utrustad: +2 / +4 / +10 beroende på antal set-delar. */
 export function beerCanBurkrustningBonusMaxHp(p: Player): number {
   if (p.equipment.armor?.name !== BEER_CAN_RUSTNING_NAME) return 0;
+  if (p.gold <= 0) return 0;
   const n = burkSetTierIndex(p);
   if (n < 1) return 0;
   return BURK_TIER_EXTRA_MAX_HP[n - 1];

@@ -98,6 +98,8 @@ export function applyEffects(params: {
   effects: Effect[];
   rng: () => number;
   out?: EffectApplyOut;
+  /** True: damage-effekter från kort ignorerar rustningsreducering och går direkt på HP. */
+  ignoreArmorOnDamage?: boolean;
 }): EffectApplyOut {
   const out: EffectApplyOut = params.out ?? {};
   for (const e of params.effects) {
@@ -151,13 +153,20 @@ export function applyEffects(params: {
       out.heal = (out.heal ?? 0) + (params.player.hp - before);
     } else if (e.type === "damage") {
       const before = params.player.hp;
-      const res = applyDamage({
-        state: params.state,
-        player: params.player,
-        amount: e.amount,
-      });
+      let prevented = 0;
+      if (params.ignoreArmorOnDamage) {
+        const dmg = Math.max(0, Math.floor(e.amount));
+        params.player.hp = Math.max(0, params.player.hp - dmg);
+      } else {
+        const res = applyDamage({
+          state: params.state,
+          player: params.player,
+          amount: e.amount,
+        });
+        prevented = res.prevented;
+      }
       out.damage = (out.damage ?? 0) + (before - params.player.hp);
-      out.prevented = (out.prevented ?? 0) + res.prevented;
+      out.prevented = (out.prevented ?? 0) + prevented;
     }
   }
   return out;

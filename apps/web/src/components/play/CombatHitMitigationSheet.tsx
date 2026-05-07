@@ -21,8 +21,21 @@ export function CombatHitMitigationSheet(props: {
   const total = pending.previewTotal ?? 0;
   const need = pending.previewNeed ?? 0;
   const broDie = pending.previewBroDie;
-  const reduce = pending.monsterId === "kapten_interrobang" ? 3 : 2;
-  const full = pending.monsterId === "kapten_interrobang" ? 5 : 4;
+  const isInterrobang = pending.monsterId === "kapten_interrobang";
+  const isTransporter = pending.monsterId === "transporter";
+  const reduce = isInterrobang ? 3 : isTransporter ? 999 : 2;
+  const full = isInterrobang ? 5 : isTransporter ? 3 : 4;
+  const detailText = isInterrobang
+    ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."
+    : isTransporter
+      ? "Betala 10 pant för att ta 0 skada, eller ta full skada."
+      : sv.play.hitChoiceDetail(reduce, full);
+  const primaryLabel = isInterrobang
+    ? "Betala 5 pant (−3 skada)"
+    : isTransporter
+      ? "Betala 10 pant (0 skada)"
+      : sv.play.takeSipReduce(reduce);
+  const secondaryLabel = isInterrobang || isTransporter ? "Ta full skada (ingen betalning)" : sv.play.fullDamageNoSip(full);
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <div className={sheetDiceBlockClass}>
@@ -45,7 +58,7 @@ export function CombatHitMitigationSheet(props: {
       <div style={{ textAlign: "center", opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>
         {sv.play.hitChoiceIntro(pending.enemyName)}
         <br />
-        <span style={{ opacity: 0.88 }}>{sv.play.hitChoiceDetail(reduce, full)}</span>
+        <span style={{ opacity: 0.88 }}>{detailText}</span>
       </div>
       {isAttacker ? (
         <div style={{ display: "grid", gap: 8 }}>
@@ -54,14 +67,14 @@ export function CombatHitMitigationSheet(props: {
             fullWidth
             onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "sip" })}
           >
-            {sv.play.takeSipReduce(reduce)}
+            {primaryLabel}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "no_sip" })}
           >
-            {sv.play.fullDamageNoSip(full)}
+            {secondaryLabel}
           </ArcadeButton>
         </div>
       ) : (

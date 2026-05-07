@@ -99,11 +99,14 @@ export function GameRules() {
         />
       </picture>
       <h1 style={{ margin: "0 0 10px", fontSize: "clamp(1.7rem, 5.2vw, 2.3rem)", fontWeight: 900, color: "#fff", textAlign: "center" }}>
-        Spelets regler
+        Spelregler
       </h1>
-      <p style={{ margin: "0 0 20px", opacity: 0.9, fontSize: 16 }}>
-        Här är samma upplägg som i snabbguiden: slå och välj väg, hantera rutan, klara strider och nå bossrundan. Målet är att
-        vinna genom att besegra slutbossen eller vara sista bryggaren kvar.
+      <p style={{ margin: "0 0 12px", opacity: 0.92, fontSize: 16 }}>
+        I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka
+        upp dina misslyckanden, så blir du en visare bryggmästare.
+      </p>
+      <p style={{ margin: "0 0 20px", opacity: 0.92, fontSize: 16 }}>
+        Man lär sig av sina misstag – men man lär sig snabbare av framgång.
       </p>
       <p style={{ margin: "0 0 20px", opacity: 0.72, fontSize: 14 }}>
         Vill du se alla kort med bild? Öppna{" "}
@@ -113,86 +116,97 @@ export function GameRules() {
         .
       </p>
 
-      {sectionTitle("🎲 Slå och välj väg")}
+      {sectionTitle("🎲 1. Spelets gång")}
       {tutorialImage("/tutorial/tut4.png", "Snabbguide: slå och välj väg")}
       <p>
         På din tur slår du rörelsetärningen och väljer riktning. Du flyttar exakt så många steg som tärningen visar.
       </p>
       <p style={{ marginTop: 12 }}>
-        Under turen kan du också spela föremål från handen för att förbättra dina odds inför det som väntar på rutan du landar
-        på.
+        <strong>Förberedelser:</strong> Du kan spela föremål från handen för att förbättra dina odds inför rutan du landar på.
       </p>
-      <p style={{ marginTop: 14 }}>
-        När du senare vill gå upp i nivå kostar det Pant {inlineIcon("/icons/pant-icon.svg", "#d1d5db")} eller Klunkar{" "}
-        {inlineIcon("/icons/klunk-icon.svg", "#facc15")}:
-      </p>
-      <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
-        <li>
-          <strong>Nivå 2:</strong> Kostar 20 Pant eller 8 Klunkar.
-        </li>
-        <li>
-          <strong>Nivå 3:</strong> Kostar 30 Pant eller 16 Klunkar.
-        </li>
-      </ul>
 
-      {sectionTitle("🧭 Hantera rutan")}
+      {sectionTitle("📈 2. Erfarenhet (XP) & Nivåer")}
+      <p>
+        Du klättrar i nivå genom att samla Erfarenhetspoäng (XP).
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Vinst i strid (Räddad batch):</strong> Att besegra en dålig batch ger en rejäl dos XP (se respektive kort).
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Förlust i strid (Straffklunkar):</strong> Om du förlorar tvingas du dricka straffklunkar. Varje klunk ger XP,
+        så även motgångar för dig framåt.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        XP-systemet är progressivt: varje nytt nivåsteg kräver mer XP än det förra.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        När du når en ny nivå möts du av budskapet:
+      </p>
+      <p style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.32)", background: "rgba(15,23,42,0.45)" }}>
+        "Dina erfarenheter – från räddade batcher till den bittra läxan i glaset – har gett resultat. Du är nu tillräckligt
+        härdad för att lämna nybörjarträsket bakom dig och låsa upp nästa nivå. Vågar du anta utmaningen och höja
+        svårighetsgraden, eller har du redan fått nog?"
+      </p>
+
+      {sectionTitle("🧭 3. Hantera rutan")}
       {tutorialImage("/tutorial/tut3.png", "Snabbguide: hantera rutan")}
-      <p>När du landar på en ruta aktiveras dess effekt. Vanliga ruttyper är:</p>
+      <p>När du landar på en ruta aktiveras dess effekt:</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
           {inlineIcon("/icons/event-icon.svg", "#60a5fa")}
-          <strong>Händelse:</strong> Slumpmässig effekt som kan hjälpa eller stjälpa.
+          <strong>Händelse:</strong> Slumpmässiga möten som kan hjälpa eller stjälpa din resa.
         </li>
         <li>
           {inlineIcon("/icons/reward-icon.svg", "#facc15")}
-          <strong>Skatt:</strong> Möjlighet till ny utrustning/föremål.
+          <strong>Skatt:</strong> Möjlighet till ny utrustning eller kraftfulla föremål.
         </li>
         <li>
           {inlineIcon("/icons/heart-icon.svg", "#f472b6")}
-          <strong>Vila:</strong> Återhämtning av HP.
+          <strong>Vila:</strong> Återhämtning av HP så att du orkar fortsätta brygga.
         </li>
         <li>
           {inlineIcon("/icons/panta-icon.svg", "#fb923c")}
-          <strong>Panta burkar:</strong> Butik där du använder Pant.
+          <strong>Panta burkar:</strong> Butik där du använder din Pant för att köpa utrustning och sabotage.
         </li>
         <li>
           {inlineIcon("/icons/monster-icon.svg", "#ef4444")}
           {inlineIcon("/icons/bvb-icon.svg", "#d1d5db")}
-          <strong>Dålig batch / BvB:</strong> Strid mot monster eller annan spelare.
+          <strong>Dålig batch / BvB:</strong> Strid mot monster eller utmana en medspelare.
         </li>
       </ul>
 
-      {sectionTitle("⚔️ Dåliga batchar, mutor och sabotage")}
+      {sectionTitle("⚔️ 4. Strider, mutor och sabotage")}
       {tutorialImage("/tutorial/tut2.png", "Snabbguide: dåliga batchar, mutor och sabotage")}
       <p>
         I strid jämförs din total (tärning + utrustning + eventuella föremål) med fiendens styrka.
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Vinst:</strong> Belöningar som pant {inlineIcon("/icons/pant-icon.svg", "#d1d5db")} / skatter{" "}
-        {inlineIcon("/icons/reward-icon.svg", "#facc15")}. <strong>Förlust:</strong> HP-förlust{" "}
-        {inlineIcon("/icons/heart-icon.svg", "#f472b6")} och ibland straffklunkar{" "}
-        {inlineIcon("/icons/klunk-icon.svg", "#facc15")}.
+        <strong>Vinst:</strong> Du får XP {inlineIcon("/icons/lvlup.svg", "#60a5fa")}, pant{" "}
+        {inlineIcon("/icons/pant-icon.svg", "#d1d5db")} och skatter {inlineIcon("/icons/reward-icon.svg", "#facc15")}.
       </p>
       <p style={{ marginTop: 12 }}>
-        Medspelare kan ofta påverka strider genom att hjälpa eller sabotera. Ibland sker det mot betalning i pant/skatter.
+        <strong>Förlust:</strong> Du tappar HP {inlineIcon("/icons/heart-icon.svg", "#f472b6")} och dricker straffklunkar{" "}
+        {inlineIcon("/icons/klunk-icon.svg", "#facc15")} (som i sin tur ger XP).
       </p>
       <p style={{ marginTop: 12 }}>
         <strong>Kritisk miss:</strong> En etta på tärningen {inlineIcon("/icons/skull-icon.svg", "#ef4444")} är alltid en
         förlust.
       </p>
-
-      {sectionTitle("🏆 Nivåer, bossen och vinst")}
-      {tutorialImage("/tutorial/tut1.png", "Snabbguide: nivåer, bossen och vinst")}
-      <p>
-        När en spelare når hög nivå startar slutskedet där målet är att klara bossrundan. Där avgörs ofta matchen.
+      <p style={{ marginTop: 12 }}>
+        <strong>Interaktion:</strong> Medspelare kan ofta påverka strider genom att hjälpa eller sabotera, ibland mot betalning
+        i pant.
       </p>
-      <p style={{ marginTop: 12 }}>Spelet kan avslutas på två sätt:</p>
+
+      {sectionTitle("🏆 5. Vinstvillkor")}
+      {tutorialImage("/tutorial/tut1.png", "Snabbguide: nivåer, bossen och vinst")}
+      <p>När en spelare når högsta nivåskiktet startar slutskedet.</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
           <strong>Seger:</strong> Den spelare som först besegrar slutbossen (som har {FINAL_BOSS_LIFE_TOTAL} liv) vinner.
         </li>
         <li>
-          <strong>Sist kvar:</strong> Om alla andra spelare slagits ut eller gett upp vinner sista bryggaren.
+          <strong>Sist kvar:</strong> Om alla andra spelare förlorat sitt HP eller gett upp vinner den sista kvarvarande
+          bryggaren.
         </li>
       </ul>
     </div>

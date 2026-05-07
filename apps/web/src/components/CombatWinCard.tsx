@@ -6,9 +6,11 @@ import { sv } from "../lib/uiStrings";
 
 const PANT_ICON = "/icons/pant-icon.svg";
 const REWARD_ICON = "/icons/reward-icon.svg";
+const XP_ICON = "/icons/lvlup.svg";
 
 const PANT_TINT = "#d1d5db";
 const REWARD_TINT = "#fbb040";
+const XP_TINT = "#60a5fa";
 
 function MaskedIcon({ src, color, size = 26 }: { src: string; color: string; size?: number }) {
   return (
@@ -138,6 +140,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
           {data.rewardItems > 0 ? (
             <RewardLine iconSrc={REWARD_ICON} tint={REWARD_TINT} value={data.rewardItems} showPlus />
           ) : null}
+          {data.rewardXp > 0 ? <RewardLine iconSrc={XP_ICON} tint={XP_TINT} value={data.rewardXp} showPlus /> : null}
         </div>
         {data.randomOtherSipRecipientName ? (
           <p

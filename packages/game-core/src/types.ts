@@ -38,6 +38,7 @@ export type ItemId =
   | "get_lucky"
   | "manopositiv"
   | "shortcut"
+  | "taproom_key"
   | "six_sense"
   | "rigged_game";
 
@@ -208,6 +209,7 @@ export interface CombatWinSummary {
   need: number;
   rewardGold: number;
   rewardItems: number;
+  rewardXp: number;
   teammateName?: string;
   /** Enhörning m.fl.: namn på spelare som fick straffklunk vid vinst. */
   randomOtherSipRecipientName?: string;
@@ -395,6 +397,7 @@ export type Pending =
       /** Fasta rewards vid vinst för detta monster. */
       rewardGold?: number;
       rewardItems?: number;
+      rewardXp?: number;
       /** När phase === "rollPreview": resultat av slaget; effekter/kort efter combatRollAck. */
       previewDie?: number;
       /** Angriparens t6 räknades dubbelt i total (Skägget rakt bak). */
@@ -407,6 +410,8 @@ export type Pending =
       previewTotal?: number;
       previewNeed?: number;
       previewWon?: boolean;
+      /** True när slaget är automatisk förlust p.g.a. etta (om inte fyrklöver/liknande ignorerar regeln). */
+      previewCritFailOnOne?: boolean;
       /** Pip-vapen: spelaren tog valfri straffklunk före slaget (för bräd-tv + förlustsummering). */
       previewUsedSipWeaponBonus?: boolean;
       /** Attackbonus från den valfria klunken (2/3). */
@@ -587,7 +592,7 @@ export type ClientAction =
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
-  /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = +1 klunk och +sipAttackBonus på slaget). */
+  /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = betala vapenkostnad och få +sipAttackBonus på slaget). */
   | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
   | { type: "skipMonsterEncounter"; playerId: string }
   | { type: "combatIntroAck"; playerId: string }

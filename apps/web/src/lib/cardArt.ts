@@ -39,6 +39,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "item/bro": "BBQ NEIPA, Bryggverket & Rökstugan",
   "item/not-my-round": "Enkelpipa, Bryggverket",
   "item/shortcut": "Vermont marching juice, Bryggverket & Malmö Brewing Co",
+  "item/rigged-game": "Lillprinsen, Bryggverket",
   "item/getlucky": "Get Lucky, Bryggverket",
   "item/hops": "Kaakao kaakao, Bryggverket & Mabrouk Chocolate",
   "item/8-bit-beer": "41337, Bryggverket",
@@ -162,6 +163,7 @@ export function artImageSrc(artKey?: string): string {
       "rigged-game": "riggedgame",
     };
     const key = key0;
+    if (key === "taproom-key") return "/equipment/accessory/taproom-nyckelring.webp";
     const mapped = itemArtMap[key];
     if (mapped) return `/items/${mapped}.webp`;
     const underscored = key.replace(/-/g, "_");

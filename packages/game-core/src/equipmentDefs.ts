@@ -40,7 +40,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     powerAtGold20: 3,
     powerAtGold30: 4,
     powerDynamicMax: 4,
-    rulesText: "Ju mer pant du burit, desto vassare blir klingan — upp till en maxgräns.",
+    rulesText: "Ju mer pant du burit, desto vassare blir klingan — upp till en maxgräns. Du tappar 1 pant per strid.",
   },
   {
     id: "ew_padel",
@@ -75,7 +75,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 15,
     power: 2,
     sipAttackBonus: 1,
-    rulesText: "Ta en straffklunk före tärningsslaget för +1 attack.",
+    rulesText: "Betala 4 pant före tärningsslaget för +1 attack.",
   },
   {
     id: "ew_singlepipe",
@@ -84,7 +84,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 11,
     power: 1,
     sipAttackBonus: 1,
-    rulesText: "Ta en straffklunk före tärningsslaget för +1 attack.",
+    rulesText: "Betala 2 pant före tärningsslaget för +1 attack.",
   },
   {
     id: "eh_cap_front",
@@ -209,14 +209,6 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Ingen ser vad du har: andra kan inte stjäla dina prylar eller pant med stöld-effekter, och du skyddas vid BvB-byte.",
   },
   {
-    id: "ex_tapkey",
-    slot: "accessory",
-    name: "Taproom nyckel",
-    price: 7,
-    levelUpDiscountGold: 10,
-    rulesText: "VIP till nästa våning: det kostar mindre att gå upp en nivå.",
-  },
-  {
     id: "ex_ring",
     slot: "accessory",
     name: "Ring",
@@ -311,7 +303,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 0,
     rulesText:
-      "Burkset bonus: +2 / +4 / +10 max HP",
+      "Burkset bonus: +2 / +4 / +10 max HP. Du tappar 1 pant när du tar skada; vid 0 pant är bonusen inaktiv.",
   },
 ];
 

@@ -39,7 +39,9 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     parts.push(it.combatBonus > 0 ? `Attack +${it.combatBonus}` : `Attack ${it.combatBonus}`);
   }
   if (typeof it.sipAttackBonus === "number") {
-    parts.push(`Strid mot monster: valfri straffklunk före slag för +${it.sipAttackBonus} attack`);
+    const cost = it.name === "Dubbelpipa" ? 4 : it.name === "Enkelpipa" ? 2 : 0;
+    if (cost > 0) parts.push(`Strid mot monster: valfri betalning ${cost} pant före slag för +${it.sipAttackBonus} attack`);
+    else parts.push(`Strid mot monster: valfri bonus före slag för +${it.sipAttackBonus} attack`);
   }
   if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
   if (typeof it.healHpPerTurn === "number" && it.healHpPerTurn > 0) {

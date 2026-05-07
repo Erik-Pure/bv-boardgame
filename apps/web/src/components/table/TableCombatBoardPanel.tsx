@@ -398,6 +398,7 @@ function TableCombatBoardPanelInner(props: {
     combatStrength: need,
     winGold: pending.rewardGold ?? 0,
     winItems: pending.rewardItems ?? 0,
+    winXp: pending.rewardXp ?? 0,
     lossDamage: pending.baseDamage,
     lossKlunks: combatLossKlunksForDisplay(pending),
     specialRules: pending.enemyIntroText?.trim() || undefined,

@@ -91,6 +91,9 @@ export function createMonsterCombatPending(
   const teamBattleRequired = !!monster.teamBattleRequired;
   const reactors = teamBattleRequired ? [] : combatReactorsFor(state, attacker.id);
   const difficultyMod = startLevelDifficultyNeedMod(state.config.difficulty, attacker.levelIndex);
+  const need = monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex) + difficultyMod;
+  const floorXpMultiplier = 1 + Math.max(0, attacker.levelIndex) * 0.5;
+  const rewardXp = Math.max(1, Math.round(monster.rewardXp * floorXpMultiplier));
   return {
     type: "combat",
     attackerId: attacker.id,
@@ -98,7 +101,7 @@ export function createMonsterCombatPending(
     tileIndex: attacker.tileIndex,
     monsterId: monster.id,
     enemyName: monster.name,
-    need: monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex) + difficultyMod,
+    need,
     needMod: 0,
     baseDamage: monster.baseDamage + (isStandardMonsterId(monster.id) ? monsterNeedBonusForBoardLevel(attacker.levelIndex) : 0),
     lossSipsOnLose: monster.lossSipsOnLose,
@@ -108,6 +111,7 @@ export function createMonsterCombatPending(
     teamBattleBonusGold: monster.teamBattleBonusGold ?? 0,
     rewardGold: monster.rewardGold,
     rewardItems: monster.rewardItems,
+    rewardXp,
     reactors,
     reacted: {},
     enemyArtKey: monster.artKey,
@@ -137,9 +141,26 @@ export function enterMonsterCombatFromTile(
       text: formatMonsterText(monster),
       artKey: monster.artKey,
       choices: [
-        { id: "sip_leave", label: "Ta en klunk (den försvinner)" },
+        { id: "sip_leave", label: "Ta en klunk och betala 5 pant (den försvinner)" },
         { id: "fight", label: "Slåss" },
       ],
+    });
+    return;
+  }
+  if (monster.id === "demonkrigare") {
+    const choices: Array<{ id: string; label: string }> = [];
+    if (player.gold >= 10) {
+      choices.push({ id: "pay_skip", label: "Betala 10 pant och undvik striden" });
+    }
+    choices.push({ id: "fight", label: "Slåss" });
+    showCard(state, {
+      playerId: player.id,
+      kind: "combat",
+      cardId: `monster:${monster.id}`,
+      title: monster.name,
+      text: formatMonsterText(monster),
+      artKey: monster.artKey,
+      choices,
     });
     return;
   }
@@ -212,8 +233,18 @@ export function resolveEventCardOnLand(params: {
   }
   if (card.id === "event_round_on_me") {
     for (const pl of state.players) pl.hp = Math.min(pl.maxHp, pl.hp + 1);
+    const others = state.players.filter((x) => x.id !== p.id);
+    for (const other of others) other.gold += 1;
+    p.gold = Math.max(0, p.gold - others.length);
     log(state, `Händelse: ${card.title}`);
-    showCard(state, { playerId: p.id, kind: "event", cardId: card.id, title: card.title, text: card.text, artKey: card.artKey });
+    showCard(state, {
+      playerId: p.id,
+      kind: "event",
+      cardId: card.id,
+      title: card.title,
+      text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
+      artKey: card.artKey,
+    });
     return;
   }
   if (card.id === "event_loser_wins") {
@@ -287,7 +318,7 @@ export function resolveEventCardOnLand(params: {
 
   // Default: apply effects immediately
   const effectOut: EffectApplyOut = {};
-  applyEffects({ state, player: p, effects: card.effects ?? [], rng, out: effectOut });
+  applyEffects({ state, player: p, effects: card.effects ?? [], rng, out: effectOut, ignoreArmorOnDamage: true });
   const grantedText = appendTextForGrantedItem(effectOut);
   const shouldReplaceBodyWithGrantedText = card.id === "event_find_item_random" && grantedText.length > 0;
   log(state, `Händelse: ${card.title}`);
@@ -328,9 +359,26 @@ export function handleCardOption(params: {
     const monster = MONSTERS.find((m) => m.id === "belgisk_munk");
     if (!monster) return { handled: true, error: "Ogiltigt monster" };
     if (choiceId === "sip_leave") {
+      if (p.gold < 5) return { handled: true, error: "Du behöver 5 pant för att hedra den belgiska munken." };
+      p.gold -= 5;
       p.klunkar += 1;
       pushSipNotice(state, p.id, monster.name);
-      log(state, `${p.name} tar en klunk. ${monster.name} försvinner.`);
+      log(state, `${p.name} tar en klunk och betalar 5 pant i ${monster.name}s ära. ${monster.name} försvinner.`);
+      return { handled: true, completeCard: true };
+    }
+    if (choiceId === "fight") {
+      log(state, `${p.name} väljer att slåss mot ${monster.name}.`);
+      return { handled: true, startCombat: createMonsterCombatPending(state, p, monster) };
+    }
+    return { handled: true, error: "Ogiltigt val" };
+  }
+  if (pending.kind === "combat" && pending.cardId === "monster:demonkrigare") {
+    const monster = MONSTERS.find((m) => m.id === "demonkrigare");
+    if (!monster) return { handled: true, error: "Ogiltigt monster" };
+    if (choiceId === "pay_skip") {
+      if (p.gold < 10) return { handled: true, error: "Du behöver 10 pant för att undvika striden." };
+      p.gold -= 10;
+      log(state, `${p.name} betalar 10 pant och undviker striden mot ${monster.name}.`);
       return { handled: true, completeCard: true };
     }
     if (choiceId === "fight") {
@@ -376,6 +424,7 @@ export function handleCardOption(params: {
       player: target,
       effects: [{ type: "damage", amount: 1, source: "syndabock" }],
       rng,
+      ignoreArmorOnDamage: true,
     });
     p.klunkar += 1;
     state.pending = {
@@ -405,7 +454,7 @@ export function handleCardOption(params: {
   }
   if (pending.kind === "event" && pending.cardId === "event_fastnatipant" && choiceId === "roll") {
     const die = rollDie(rng, 6);
-    const delta = die <= 2 ? -2 : die <= 4 ? -5 : 10;
+    const delta = die <= 2 ? -5 : die <= 4 ? -10 : 10;
     const beforeGold = p.gold;
     p.gold = Math.max(0, p.gold + delta);
     state.pending = {
@@ -436,16 +485,11 @@ export function handleCardOption(params: {
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_dubbelinget") {
-    if (choiceId === "keep") {
-      state.pending = { ...pending, choices: undefined, text: `${pending.text}\nVal: Behåll nuvarande pant.` };
-      log(state, `${p.name} spelar säkert i Dubbelt eller inget.`);
-      return { handled: true };
-    }
     if (choiceId === "roll") {
       const die = rollDie(rng, 6);
-      const delta = die <= 3 ? -6 : 12;
       const beforeGold = p.gold;
-      p.gold = Math.max(0, p.gold + delta);
+      if (die <= 3) p.gold = 0;
+      else p.gold += 12;
       state.pending = {
         ...pending,
         choices: undefined,
@@ -460,7 +504,7 @@ export function handleCardOption(params: {
   if (pending.kind === "event" && pending.cardId === "event_snurraflaskan" && choiceId === "roll") {
     const die = rollDie(rng, 6);
     const effectOut: EffectApplyOut = {};
-    if (die === 1) applyEffects({ state, player: p, effects: [{ type: "damage", amount: 2, source: "snurraflaskan" }], rng, out: effectOut });
+    if (die === 1) applyEffects({ state, player: p, effects: [{ type: "damage", amount: 2, source: "snurraflaskan" }], rng, out: effectOut, ignoreArmorOnDamage: true });
     else if (die <= 3) applyEffects({ state, player: p, effects: [{ type: "klunkar", amount: 1 }], rng, out: effectOut });
     else if (die <= 5) applyEffects({ state, player: p, effects: [{ type: "gold", amount: 3 }], rng, out: effectOut });
     else applyEffects({ state, player: p, effects: [{ type: "randomItem" }], rng, out: effectOut });
@@ -531,7 +575,14 @@ export function handleCardOption(params: {
   if (!choice) return { handled: true, error: "Ogiltigt val" };
 
   const effectOut: EffectApplyOut = {};
-  applyEffects({ state, player: p, effects: choice.effects ?? [], rng, out: effectOut });
+  applyEffects({
+    state,
+    player: p,
+    effects: choice.effects ?? [],
+    rng,
+    out: effectOut,
+    ignoreArmorOnDamage: pending.kind === "event",
+  });
   log(state, `${p.name} väljer: ${choice.label}.`);
 
   state.pending = {

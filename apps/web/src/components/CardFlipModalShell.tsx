@@ -164,6 +164,14 @@ export function CardFlipModalShell(props: {
   simpleEntrance?: boolean;
   /** Bord/TV: skala innehåll (inte hela dimningen) för läsbarhet på avstånd. */
   contentScale?: number;
+  /** Backdrop kan ligga på annan z-index än innehållet (t.ex. under bottom sheet). */
+  backdropZIndex?: number;
+  /** Innehållets z-index (default = `zIndex`). */
+  contentZIndex?: number;
+  /** Extra klass på backdroppen. */
+  backdropClassName?: string;
+  /** Extra stilar på backdroppen. */
+  backdropStyle?: CSSProperties;
 }) {
   const stackAbove = props.aboveScene != null;
   const cs = props.contentScale;
@@ -236,18 +244,31 @@ export function CardFlipModalShell(props: {
   );
 
   return (
-    <div
-      className={[styles.overlay, props.bossPulsingBackdrop ? styles.overlayBoss : "", props.className]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        zIndex: props.zIndex,
-        ...props.style,
-        ...(stackAbove && !useScaleWrapper ? flexStackStyle : {}),
-      }}
-      onMouseDown={props.onBackdropMouseDown}
-    >
-      {useScaleWrapper ? <div style={scaledBlockStyle}>{inner}</div> : inner}
-    </div>
+    <>
+      <div
+        className={[
+          styles.overlayBackdrop,
+          props.bossPulsingBackdrop ? styles.overlayBoss : "",
+          props.backdropClassName ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          zIndex: props.backdropZIndex ?? props.zIndex,
+          ...props.backdropStyle,
+        }}
+        onMouseDown={props.onBackdropMouseDown}
+      />
+      <div
+        className={[styles.overlayContent, props.className].filter(Boolean).join(" ")}
+        style={{
+          zIndex: props.contentZIndex ?? props.zIndex,
+          ...props.style,
+          ...(stackAbove && !useScaleWrapper ? flexStackStyle : {}),
+        }}
+      >
+        {useScaleWrapper ? <div style={scaledBlockStyle}>{inner}</div> : inner}
+      </div>
+    </>
   );
 }

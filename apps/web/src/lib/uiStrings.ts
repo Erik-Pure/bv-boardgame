@@ -109,7 +109,7 @@ export const sv = {
     waitTeamSecondRoll: "Väntar på lagkamratens tärning.",
     chooseBeerBroPartner: "Välj spelare som slår med angriparen (egen t6 + vapen):",
     attackerViewingEncounter: (name: string) => `${name} tittar på mötet…`,
-    skipMonsterEncounter: "Undvik dålig batch",
+    skipMonsterEncounter: "Undvik dålig batch (−2 pant)",
     theAttacker: "angriparen",
     yourD6: "Din t6",
     beerBroD6: "Ölkompis t6",
@@ -156,7 +156,7 @@ export const sv = {
     itemSuffixTripwire: " (−1 spelarattack)",
     itemSuffixDoubleHops: " (+2 spelarattack)",
     itemSuffixBeerBomb: " (+3 spelarattack)",
-    itemSuffixManopositiv: " (+4 spelarattack, −4 pant)",
+    itemSuffixManopositiv: " (+4 spelarattack, −10 pant)",
     itemSuffixHangover: " (−3 spelarattack)",
     itemSuffixMonsterHype: " (−2 attack)",
     itemSuffixYeast: " (−1 attack)",
@@ -213,10 +213,10 @@ export const sv = {
       `Som bryggmästare kan du stiga till nivå ${levelDisplay}. Gör du det?`,
     levelUpProgressTitle: (brewerLevel: number) => `Bryggnivå ${brewerLevel}`,
     levelUpProgressAria: (brewerLevel: number) =>
-      `Bryggnivå ${brewerLevel}, klunkar mot nästa bryggnivå.`,
+      `Bryggnivå ${brewerLevel}, XP mot nästa bryggnivå.`,
     levelUpOfferTitle: "Gå upp till nästa nivå?",
     levelUpOfferPrompt: (_levelDisplay: number) =>
-      "Dina framgångar vid glaset har gett resultat. Som en sann ölkännare har du nu bemästrat grunderna och låst upp nästa nivå. Vågar du anta utmaningen och höja svårighetsgraden direkt?",
+      "Från räddade batcher till botten av glaset; du har sett allt. Som en sann bryggmästare har du nu bemästrat hantverket och låst upp nästa nivå. Vågar du anta utmaningen och höja svårighetsgraden?",
     levelUpOfferHint: "",
     /**
      * `boardLevelIndex` = målvåning 0-baserad (samma som `levelIndex` efter uppstigning).
@@ -228,7 +228,7 @@ export const sv = {
       return `På nästa våning blir dåliga batchar starkare och gör mer i skada.`;
     },
     levelUpNow: "Stig till nästa nivå nu",
-    levelUpStayForTile: "Stanna kvar (ta nivå-rutan senare)",
+    levelUpStayForTile: "Stanna kvar (en tur till)",
     merchantReplaceBody: (slot: string, currentName: string, newName: string) =>
       `Du har redan ${currentName} som ${slot}. Vill du byta mot ${newName}? Den gamla utrustningen ersätts.`,
     merchantReplaceConfirm: "Ja, byt ut",
@@ -357,10 +357,10 @@ export const sv = {
     combatWinRoll: (roll: number, need: number) => `Slag: ${roll} (krävdes ${need})`,
     combatWinRandomOtherSip: (recipient: string) =>
       `${recipient} får en straffklunk — slumpad annan spelare.`,
-    combatSipWeaponPrompt: (weaponName: string, bonus: number) =>
-      `${weaponName}: vill du ta en straffklunk för +${bonus} attack på detta slag?`,
-    combatSipWeaponRollWith: (bonus: number) => `Ta straffklunk (+${bonus} attack)`,
-    combatSipWeaponRollWithout: "Slå utan straffklunk",
+    combatSipWeaponPrompt: (weaponName: string, bonus: number, cost: number) =>
+      `${weaponName}: vill du betala ${cost} pant för +${bonus} attack på detta slag?`,
+    combatSipWeaponRollWith: (bonus: number, cost: number) => `Betala ${cost} pant (+${bonus} attack)`,
+    combatSipWeaponRollWithout: "Slå utan bonus",
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
@@ -400,10 +400,10 @@ export const sv = {
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
     /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */
-    diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} med straffklunk (valfritt)`,
-    diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} med straffklunk (valfritt)`,
-    /** Bräd-tv: efter slag om valfri straffklunk med pip-vapen faktiskt togs — bara siffra + etikett vid tärningen. */
-    diceModifierSipTakenSub: "med straffklunk",
+    diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} mot pantkostnad (valfritt)`,
+    diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} mot pantkostnad (valfritt)`,
+    /** Bräd-tv: efter slag om valfri pip-vapenbonus faktiskt togs — bara siffra + etikett vid tärningen. */
+    diceModifierSipTakenSub: "mot pantkostnad",
     pvpSubtitle: "Bryggare mot bryggare",
     pvpDuel: "Duell",
     pvpRound: (n: number) => `Rond ${n}`,
@@ -543,26 +543,30 @@ export const sv = {
     },
     get_lucky: {
       title: "Get Lucky",
-      text: "+4 attack i strid. Vid förlust tar du dubbel HP-skada.",
+      text: "Betala 5 pant: +4 attack i strid. Vid förlust tar du dubbel HP-skada.",
     },
     manopositiv: {
       title: "Manopositiv",
-      text: "+4 attack i strid, men du förlorar 4 pant när kortet spelas.",
+      text: "Betala 10 pant för +4 attack i strid.",
     },
     shortcut: {
       title: "Genväg",
-      text: "På din tur: betala panten för nästa våning (samma som nivå-rutan) och gå upp en våning. Gäller bara pant, inte klunkkrav.",
+      text: "På din tur: betala panten för nästa våning och gå upp en våning.",
+    },
+    taproom_key: {
+      title: "Taproom-nyckel",
+      text: "På din tur: gå upp en våning för 10 pant mindre än Genväg-kostnaden.",
     },
     six_sense: {
       title: "Ett sjätte ölsinne",
-      text: "Välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
+      text: "Betala 5 pant och välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
     },
     rigged_game: {
       title: "Riggat spel",
-      text: "Ta en slumpmässig utrustning från en annan spelare.",
+      text: "Betala 5 pant och ta en slumpmässig utrustning från en annan spelare.",
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
-    spill_intentional: { title: "Spilla med flit", text: "Förstör slumpmässigt föremål eller utrustning för en spelare." },
+    spill_intentional: { title: "Spilla med flit", text: "Betala 2 pant och förstör slumpmässigt föremål eller utrustning för en spelare." },
     early_night: { title: "Vaska", text: "Skippa dålig batch." },
 
   },
@@ -577,6 +581,7 @@ export const sv = {
     ack: "Okej",
     /** Bekräftelse efter duell-förlust-notis (annat tonläge än övriga anpassade notices). */
     duelAck: "Okej",
+    xpGain: (count: number) => `+${Math.max(1, Math.floor(count)) * 10} XP`,
     fallbackFrom: "en annan spelare",
   },
   cardModal: {

@@ -68,6 +68,18 @@ const COMBAT_REACTION_PLAYABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "spill_intentional",
   "get_lucky",
 ]);
+const ITEM_PLAY_GOLD_COST: Partial<Record<ItemId, number>> = {
+  six_sense: 5,
+  get_lucky: 5,
+  manopositiv: 10,
+  beard_back: 5,
+  rigged_game: 5,
+  spill_intentional: 2,
+};
+
+function itemPlayGoldCost(itemId: ItemId): number {
+  return Math.max(0, Math.floor(ITEM_PLAY_GOLD_COST[itemId] ?? 0));
+}
 const PLAYER_COLORS = [
   "#c41e3a",
   "#2563eb",
@@ -392,47 +404,55 @@ function logMonsterScaleAfterAscend(state: GameState, p: Player): void {
   );
 }
 
-/** Minsta antal klunkar för bryggnivå 2, 3, … (därefter +10 per tröskel från 70). */
-const BREWER_KLUNK_THRESHOLDS = [8, 16, 24, 35, 40, 50, 60] as const;
+const XP_PER_KLUNK = 10;
+const BREWER_LEVEL_XP_THRESHOLDS = [120, 320, 650, 960, 1320] as const;
 
-function brewerKlunkThreshold(thresholdIndex: number): number {
-  if (thresholdIndex < BREWER_KLUNK_THRESHOLDS.length) {
-    return BREWER_KLUNK_THRESHOLDS[thresholdIndex]!;
-  }
-  return 70 + (thresholdIndex - BREWER_KLUNK_THRESHOLDS.length) * 10;
+function xpThresholdForBrewerLevel(level: number): number {
+  const lvl = Math.max(0, Math.floor(level));
+  if (lvl <= 0) return 0;
+  if (lvl <= BREWER_LEVEL_XP_THRESHOLDS.length) return BREWER_LEVEL_XP_THRESHOLDS[lvl - 1] ?? 0;
+  const lastKnown = BREWER_LEVEL_XP_THRESHOLDS[BREWER_LEVEL_XP_THRESHOLDS.length - 1] ?? 0;
+  const prevKnown = BREWER_LEVEL_XP_THRESHOLDS[BREWER_LEVEL_XP_THRESHOLDS.length - 2] ?? lastKnown;
+  const tailStep = Math.max(1, lastKnown - prevKnown);
+  return lastKnown + (lvl - BREWER_LEVEL_XP_THRESHOLDS.length) * tailStep;
 }
 
-function brewerLevelFromKlunkar(klunkar: number): number {
-  const k = Math.max(0, Math.floor(klunkar));
-  let level = 1;
-  for (let i = 0; i < 10_000; i++) {
-    const th = brewerKlunkThreshold(i);
-    if (k < th) return level;
-    level++;
+function brewerLevelFromXp(xp: number): number {
+  const totalXp = Math.max(0, Math.floor(xp));
+  let level = 0;
+  for (let i = 0; i < BREWER_LEVEL_XP_THRESHOLDS.length; i++) {
+    const threshold = BREWER_LEVEL_XP_THRESHOLDS[i] ?? 0;
+    if (totalXp < threshold) break;
+    level = i + 1;
   }
-  return level;
+  if (level < BREWER_LEVEL_XP_THRESHOLDS.length) return level;
+  const lastKnown = BREWER_LEVEL_XP_THRESHOLDS[BREWER_LEVEL_XP_THRESHOLDS.length - 1] ?? 0;
+  const prevKnown = BREWER_LEVEL_XP_THRESHOLDS[BREWER_LEVEL_XP_THRESHOLDS.length - 2] ?? lastKnown;
+  const tailStep = Math.max(1, lastKnown - prevKnown);
+  return BREWER_LEVEL_XP_THRESHOLDS.length + Math.floor((totalXp - lastKnown) / tailStep);
 }
 
-/** Bryggnivå från totala klunkar (stigande trösklar). */
+/** Bryggnivåindex från XP (0-baserad, där UI visar +1). */
 export function brewerLevel(p: Player): number {
-  return brewerLevelFromKlunkar(p.klunkar);
+  return brewerLevelFromXp(p.xp);
 }
 
-/** 0–1: klunkar inom nuvarande bryggnivå mot nästa tröskel. */
-export function brewerKlunkProgressRatio(klunkar: number): number {
-  const k = Math.max(0, Math.floor(klunkar));
-  const level = brewerLevelFromKlunkar(k);
-  const prev = level <= 1 ? 0 : brewerKlunkThreshold(level - 2);
-  const next = brewerKlunkThreshold(level - 1);
-  if (next <= prev) return 1;
-  return Math.max(0, Math.min(1, (k - prev) / (next - prev)));
+/** 0–1 progression inom aktuell bryggnivå enligt explicita XP-trösklar. */
+export function brewerKlunkProgressRatio(xp: number): number {
+  const totalXp = Math.max(0, Math.floor(xp));
+  const lvl = brewerLevelFromXp(totalXp);
+  const atLevelStart = xpThresholdForBrewerLevel(lvl);
+  const atLevelEnd = xpThresholdForBrewerLevel(lvl + 1);
+  const stepNeed = Math.max(1, atLevelEnd - atLevelStart);
+  if (stepNeed <= 0) return 1;
+  return Math.max(0, Math.min(1, (totalXp - atLevelStart) / stepNeed));
 }
 
 export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: number; sips: number } {
   const step = Math.max(0, targetLevelIndex - 1);
   return {
-    /** Pant: 20 för första uppstigningen, 30 för nästa (och vidare). */
-    gold: step === 0 ? 20 : 30,
+    /** Pantkostnad: avstängd (nivå upp kostar 0). */
+    gold: 0,
     /** Klunkar: dubbelt mot tidigare 5 + step*3. */
     sips: 10 + step * 6,
   };
@@ -443,10 +463,23 @@ export function levelUpCostsForTargetLevel(targetLevelIndex: number): { gold: nu
  * eller bryggnivå (samma trösklar som UI) ≥ målvåningens visningsnivå (target+1).
  * Första våningen: 10 klunkar _eller_ bryggnivå 2 (8+ klunkar) — i linje med headern.
  */
-export function canAscendByKlunkRequirement(p: Player, targetLevelIndex: number): boolean {
-  const costs = levelUpCostsForTargetLevel(targetLevelIndex);
-  if (p.klunkar >= costs.sips) return true;
-  return brewerLevel(p) >= targetLevelIndex + 1;
+export function canAscendByKlunkRequirement(_p: Player, _targetLevelIndex: number): boolean {
+  return false;
+}
+
+function grantXp(p: Player, amount: number): number {
+  const add = Math.max(0, Math.floor(amount));
+  if (add <= 0) return 0;
+  p.xp += add;
+  return add;
+}
+
+function grantKlunkWithXp(p: Player, amount: number): number {
+  const add = Math.max(0, Math.floor(amount));
+  if (add <= 0) return 0;
+  p.klunkar += add;
+  grantXp(p, add * XP_PER_KLUNK);
+  return add;
 }
 
 function maxHpFor(state: GameState, p: Player): number {
@@ -581,7 +614,7 @@ function applyPerCombatAccessoryRewards(state: GameState, participantId: string)
   const goldGain = acc.gainGoldPerCombat ?? 0;
   const klunkGain = acc.gainKlunkPerCombat ?? 0;
   if (goldGain > 0) p.gold += goldGain;
-  if (klunkGain > 0) p.klunkar += klunkGain;
+  if (klunkGain > 0) grantKlunkWithXp(p, klunkGain);
   if (goldGain > 0 || klunkGain > 0) {
     log(
       state,
@@ -589,6 +622,16 @@ function applyPerCombatAccessoryRewards(state: GameState, participantId: string)
         goldGain > 0 && klunkGain > 0 ? " och " : ""
       }${klunkGain > 0 ? `+${klunkGain} klunk` : ""}.`,
     );
+  }
+}
+
+function applyPerCombatWeaponEconomy(state: GameState, participant: Player): void {
+  const weaponName = participant.equipment.weapon?.name;
+  if (weaponName !== "Burksvärd") return;
+  const before = participant.gold;
+  participant.gold = Math.max(0, participant.gold - 1);
+  if (before !== participant.gold) {
+    log(state, `${participant.name} tappar 1 pant från Burksvärdets stridskostnad.`);
   }
 }
 
@@ -839,6 +882,9 @@ function computeMonsterDamage(
   } else if (monsterId === "kapten_interrobang") {
     const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 3) : base;
+  } else if (monsterId === "transporter") {
+    const base = def?.baseDamage ?? 3;
+    raw = sipMitigation === true ? 0 : base;
   } else if (monsterId === "sura_bar") {
     const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 2) : base;
@@ -946,7 +992,7 @@ function applySlutbossLossPartyEffects(
     for (const pl of state.players) {
       if (pl.eliminated) continue;
       const gain = penaltySipTotalForPlayer(pl, 1);
-      pl.klunkar += gain;
+      grantKlunkWithXp(pl, gain);
       pushSipNotice(state, pl.id, enemyName, gain);
     }
     logFn(state, "Alla spelare tar 1 klunk (Öldomaren).");
@@ -1064,19 +1110,16 @@ function applyCombatLoss(
   const lossSips = (def?.lossSipsOnLose ?? 0) + MONSTER_LOSS_SIP_FLAT;
   /** En körad per mottagare — annars visar straffklunk-modalen bara första posten (fel antal vid team battle +1). */
   const totalLossSips = lossSips + (ctx.teamBattleRequired ? 1 : 0);
-  const mitigationKlunk =
-    (monsterId === "kapten_interrobang" || monsterId === "sura_bar") && ctx.sipMitigation ? 1 : 0;
+  const mitigationKlunk = monsterId === "sura_bar" && ctx.sipMitigation ? 1 : 0;
   const primaryLossApplied = penaltySipTotalForPlayer(p, totalLossSips);
-  p.klunkar += primaryLossApplied;
-  if (mitigationKlunk) p.klunkar += mitigationKlunk;
-  /** Straffklunk-modal: inkludera klunken från pip-vapen före slaget i visat antal. */
-  const sipNoticeKlunks =
-    primaryLossApplied + mitigationKlunk + (ctx.weaponSipBeforeRoll ? 1 : 0);
+  grantKlunkWithXp(p, primaryLossApplied);
+  if (mitigationKlunk) grantKlunkWithXp(p, mitigationKlunk);
+  const sipNoticeKlunks = primaryLossApplied + mitigationKlunk;
   pushSipNotice(next, p.id, ctx.enemyName, sipNoticeKlunks);
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
-      bro.klunkar += penaltySipTotalForPlayer(bro, totalLossSips);
+      grantKlunkWithXp(bro, penaltySipTotalForPlayer(bro, totalLossSips));
       pushSipNotice(next, bro.id, ctx.enemyName, totalLossSips);
     }
   }
@@ -1121,6 +1164,11 @@ function applyCombatLoss(
     p.skipTurnReasons.push("normal");
     log(next, `${p.name} får solen i ögonen efter förlusten och står över nästa tur.`);
   }
+  if (monsterId === "enhorningsryttare") {
+    const pantLoss = Math.min(10, p.gold);
+    p.gold -= pantLoss;
+    log(next, `${p.name} tappar ${pantLoss} pant efter förlusten mot Enhörningsryttare.`);
+  }
 
   applySlutbossLossPartyEffects(next, monsterId, ctx.enemyName, rng, log);
 
@@ -1147,7 +1195,7 @@ function applyCombatLoss(
       need,
       damage: damageTaken,
       klunkGained,
-      straffKlunkFromWeaponSip: ctx.weaponSipBeforeRoll ? 1 : undefined,
+      straffKlunkFromWeaponSip: undefined,
       assistRollNote:
         assistRoll !== null ? `Ölkompis-slag inkluderat: +${assistRoll}.` : undefined,
       redirectNote: redirectedTargetName
@@ -1198,6 +1246,10 @@ function finalizeCombatAfterRollPreview(
     next.pending = null;
     return;
   }
+
+  applyPerCombatWeaponEconomy(next, p);
+  const assistMateForWeaponCost = assistId ? (next.players.find((x) => x.id === assistId) ?? null) : null;
+  if (assistMateForWeaponCost) applyPerCombatWeaponEconomy(next, assistMateForWeaponCost);
 
   if (previewWon) {
     if (tile.type === "boss") {
@@ -1267,7 +1319,15 @@ function finalizeCombatAfterRollPreview(
     if (brokenWeaponName) {
       log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
     }
-    p.xp += tile.type === "boss" ? 8 : 2;
+    const fallbackRewardXp =
+      pending.monsterId && pending.monsterId !== "boss"
+        ? (MONSTERS.find((m) => m.id === (pending.monsterId as MonsterId))?.rewardXp ?? 0)
+        : 0;
+    const rewardXp = Math.max(0, Math.floor(pending.rewardXp ?? fallbackRewardXp));
+    grantXp(p, rewardXp);
+    if (teamBattleRequired && assistMate) {
+      grantXp(assistMate, rewardXp);
+    }
     p.maxHp = maxHpFor(next, p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
     let attackerItemCount = rewardItems;
@@ -1328,7 +1388,7 @@ function finalizeCombatAfterRollPreview(
           if (candidates.length === 0) break;
           const victim = pick(rng, candidates);
           const sipGain = penaltySipTotalForPlayer(victim, 1);
-          victim.klunkar += sipGain;
+          grantKlunkWithXp(victim, sipGain);
           pushSipNotice(next, victim.id, p.name, sipGain);
           randomOtherSipRecipientName = victim.name;
         }
@@ -1369,6 +1429,7 @@ function finalizeCombatAfterRollPreview(
           need,
           rewardGold,
           rewardItems,
+          rewardXp,
           teammateName: assistName ?? undefined,
           randomOtherSipRecipientName,
         },
@@ -1384,7 +1445,7 @@ function finalizeCombatAfterRollPreview(
     }
   } else {
     const monsterId = pending.monsterId as MonsterId;
-    if (monsterId === "kapten_interrobang" || monsterId === "sura_bar") {
+    if (monsterId === "kapten_interrobang" || monsterId === "sura_bar" || monsterId === "transporter") {
       next.pending = { ...pending, phase: "chooseHitMitigation" };
       return;
     }
@@ -1426,10 +1487,10 @@ function canOfferLevelUp(state: GameState, p: Player): {
   const targetLevelIndex = p.levelIndex + 1;
   if (targetLevelIndex >= state.levels.length) return null;
   const baseCosts = levelUpCostsForTargetLevel(targetLevelIndex);
-  const discount = p.equipment.accessory?.levelUpDiscountGold ?? 0;
-  const costs = { ...baseCosts, gold: Math.max(0, baseCosts.gold - Math.max(0, discount)) };
-  /** Nivåval efter tur: klunkantal eller bryggnivå (samma som UI). Dörren kan fortfarande öppnas med pant. */
-  if (!canAscendByKlunkRequirement(p, targetLevelIndex)) return null;
+  const costs = baseCosts;
+  // Mappad bryggnivå: L1 nås vid gamla L4, L2 vid gamla L8, …
+  const requiredBrewerLevel = targetLevelIndex;
+  if (brewerLevel(p) < requiredBrewerLevel) return null;
   return { targetLevelIndex, costs };
 }
 
@@ -1446,7 +1507,7 @@ function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance =
   };
   log(
     state,
-    `${p.name} har tillräckligt med klunkar för nivå ${offer.targetLevelIndex + 1} och kan välja att stiga direkt.`,
+    `${p.name} har nått bryggnivå ${brewerLevel(p)} och kan stiga till nivå ${offer.targetLevelIndex + 1}.`,
   );
   logMonsterScalePreviewForAscend(state, p, offer.targetLevelIndex, "offer");
   return true;
@@ -1635,6 +1696,18 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
 
 /** Exakt fyra varor visas: Helande brygd + tre slumpade från hela utrustningskatalogen. Köp per besök tills spelaren lämnar. */
 const MERCHANT_SHELF_SLOTS = 4;
+const MERCHANT_PRICE_MULTIPLIER = 1.1;
+const SKIP_MONSTER_ENCOUNTER_GOLD_COST = 2;
+
+function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
+  const levelNumber = Math.max(1, Math.floor(targetLevelIndex) + 1);
+  return Math.max(0, levelNumber * 10);
+}
+
+function merchantAdjustedPrice(item: ShopItem): number {
+  if (item.slot === "heal") return item.price;
+  return Math.max(1, Math.ceil(item.price * MERCHANT_PRICE_MULTIPLIER));
+}
 
 function rollMerchantItems(rng: () => number): ShopItem[] {
   const items: ShopItem[] = [
@@ -1649,7 +1722,8 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
   const catalog = [...EQUIPMENT_CATALOG];
   shuffleArrayInPlace(catalog, rng);
   for (const it of catalog.slice(0, 3)) {
-    items.push(catalogEquipmentToMerchantShopItem(it, it.id));
+    const shopItem = catalogEquipmentToMerchantShopItem(it, it.id);
+    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem) });
   }
   shuffleArrayInPlace(items, rng);
   return items.slice(0, MERCHANT_SHELF_SLOTS);
@@ -1707,7 +1781,8 @@ function playerHasCombatReactionPlayableItem(
 ): boolean {
   return (player.inventory ?? []).some((it) => {
     if (!COMBAT_REACTION_PLAYABLE_ITEM_IDS.has(it.itemId)) return false;
-    if (it.itemId === "manopositiv" && player.gold < 4) return false;
+    const cost = itemPlayGoldCost(it.itemId);
+    if (cost > 0 && player.gold < cost) return false;
     if (it.itemId === "beer_bro" && pending.assistId) return false;
     return true;
   });
@@ -1819,7 +1894,6 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       });
       const grantedText = appendTextForGrantedItem(effectOut);
       const shouldReplaceBodyWithGrantedText = card.id === "treasure_item_random" && grantedText.length > 0;
-      p.xp += 1;
       log(state, `${p.name} hittar skatt: +${out.gold ?? 0} pant.`);
       showCard(state, {
         playerId: p.id,
@@ -1892,41 +1966,9 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       log(state, `${p.name} kommer till Panta burkar.`);
       return;
     }
-    case "door": {
-      const target = tile.doorTargetLevelIndex ?? p.levelIndex + 1;
-      const baseCosts = levelUpCostsForTargetLevel(target);
-      const discount = p.equipment.accessory?.levelUpDiscountGold ?? 0;
-      const costs = { ...baseCosts, gold: Math.max(0, baseCosts.gold - Math.max(0, discount)) };
-      const canGold = p.gold >= costs.gold;
-      const canSips = canAscendByKlunkRequirement(p, target);
-      if (!canGold && !canSips) {
-        log(
-          state,
-          `${p.name} når inte nästa nivå — behöver ${costs.gold} pant eller ${costs.sips}+ klunkar.`,
-        );
-        showCard(state, {
-          playerId: p.id,
-          kind: "event",
-          cardId: "door_locked",
-          title: "Nivån är stängd",
-          text: `Som bryggmästare behöver du ${costs.gold} pant eller minst ${costs.sips} klunkar för att stiga till nästa våning.`,
-          artKey: "tile/levelup",
-        });
-        break;
-      }
-      state.pending = {
-        type: "door",
-        playerId: p.id,
-        targetLevelIndex: target,
-        costs,
-      };
-      log(
-        state,
-        `${p.name} kan stiga till nivå ${target + 1} som bryggmästare (${costs.gold} pant eller ${costs.sips}+ klunkar).`,
-      );
-      logMonsterScalePreviewForAscend(state, p, target, "door");
-      return;
-    }
+    case "door":
+      log(state, `${p.name} hittar en gammal nivå-ruta men den är avstängd i detta läge.`);
+      break;
     default:
       break;
   }
@@ -2055,6 +2097,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.eliminated = false;
       victim.levelIndex = 0;
       victim.tileIndex = 0;
+      victim.xp = 0;
       victim.gold = next.config.startPant;
       victim.klunkar = 0;
       victim.equipment = {};
@@ -2111,7 +2154,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (p.equipment.accessory?.canSkipMonsterEncounter !== true) {
       return { state, events: [], error: "Du kan inte undvika dåliga batcher utan rätt accessoar" };
     }
-    log(next, `${p.name} undviker batchmötet (${pending.enemyName}).`);
+    if (p.gold < SKIP_MONSTER_ENCOUNTER_GOLD_COST) {
+      return { state, events: [], error: `Du behöver ${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant för att undvika batchmötet.` };
+    }
+    p.gold -= SKIP_MONSTER_ENCOUNTER_GOLD_COST;
+    log(next, `${p.name} undviker batchmötet (${pending.enemyName}) och betalar ${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant.`);
     next.pending = null;
     endTurnOrOfferLevelUp(next, p.id);
     return { state: next, events: ["state"] };
@@ -2412,7 +2459,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
-      target.klunkar += 1;
+      grantKlunkWithXp(target, 1);
       pushSipNotice(next, target.id, user.name);
       log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`);
       inv.splice(idx, 1);
@@ -2681,8 +2728,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      if (user.gold < 4) {
-        return { state, events: [], error: "Du behöver 4 pant för att spela Manopositiv" };
+      const playCost = itemPlayGoldCost("manopositiv");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Manopositiv` };
       }
       let targetId: string;
       if (isPvpPreRound && pending.type === "pvp") {
@@ -2694,19 +2742,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 4;
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
-        log(next, `${user.name} spelar Manopositiv: +4 attack i BvB-ronden (−4 pant).`);
+        log(next, `${user.name} spelar Manopositiv: +4 attack i BvB-ronden (−${playCost} pant).`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
         combatPending.attackMods ??= {};
         combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 4;
-        log(next, `${user.name} spelar Manopositiv: +4 attack i striden (−4 pant).`);
+        log(next, `${user.name} spelar Manopositiv: +4 attack i striden (−${playCost} pant).`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
           combatPending.reacted[user.id] = "intervened";
         }
       }
-      user.gold -= 4;
+      user.gold -= playCost;
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -2720,6 +2768,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "beard_back") {
+      const playCost = itemPlayGoldCost("beard_back");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Skägget rakt bak` };
+      }
       const inCombatReaction =
         next.pending?.type === "combat" &&
         next.pending.phase === "reactions" &&
@@ -2736,7 +2788,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Kan bara användas när du ska slå i strid" };
       }
       user.nextCombatAttackDiceDouble = true;
-      log(next, `${user.name} använder Skägget rakt bak: nästa stridsslag räknas dubbelt.`);
+      user.gold -= playCost;
+      log(next, `${user.name} använder Skägget rakt bak: nästa stridsslag räknas dubbelt (−${playCost} pant).`);
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -2845,9 +2898,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (targetLevelIndex >= next.levels.length) {
         return { state, events: [], error: "Du är redan på den översta våningen." };
       }
-      const baseCosts = levelUpCostsForTargetLevel(targetLevelIndex);
-      const discount = user.equipment.accessory?.levelUpDiscountGold ?? 0;
-      const goldCost = Math.max(0, baseCosts.gold - Math.max(0, discount));
+      const goldCost = shortcutItemGoldCostForTargetLevel(targetLevelIndex);
       if (user.gold < goldCost) {
         return {
           state,
@@ -2873,6 +2924,62 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       user.inventory = inv;
       logMonsterScaleAfterAscend(next, user);
       notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, inCombatTableFan);
+      endTurnOrOfferLevelUp(next, user.id);
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "taproom_key") {
+      if (inCombatItemWindow || inPvpPreRoundItems) {
+        return { state, events: [], error: "Taproom-nyckel kan inte användas under strid eller BvB-förberedelse." };
+      }
+      if (!isYourTurn) {
+        return { state, events: [], error: "Inte din tur" };
+      }
+      const pe = next.pending;
+      if (
+        pe != null &&
+        !(
+          (pe.type === "moveChoice" && pe.playerId === user.id) ||
+          (pe.type === "merchant" && pe.playerId === user.id)
+        )
+      ) {
+        return {
+          state,
+          events: [],
+          error: "Taproom-nyckel kan inte användas nu — avsluta pågående val först.",
+        };
+      }
+      const targetLevelIndex = user.levelIndex + 1;
+      if (targetLevelIndex >= next.levels.length) {
+        return { state, events: [], error: "Du är redan på den översta våningen." };
+      }
+      const shortcutCost = shortcutItemGoldCostForTargetLevel(targetLevelIndex);
+      const taproomKeyCost = Math.max(0, shortcutCost - 10);
+      if (user.gold < taproomKeyCost) {
+        return {
+          state,
+          events: [],
+          error: `Du behöver ${taproomKeyCost} pant för att använda Taproom-nyckel.`,
+        };
+      }
+      logMonsterScalePreviewForAscend(next, user, targetLevelIndex, "door");
+      user.gold -= taproomKeyCost;
+      user.levelIndex = targetLevelIndex;
+      user.tileIndex = 0;
+      if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
+        next.pending = null;
+      }
+      if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
+        next.pending = null;
+      }
+      log(
+        next,
+        `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att stiga till nivå ${user.levelIndex + 1}.`,
+      );
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      logMonsterScaleAfterAscend(next, user);
+      notifyItemPlayForTableAfterUse(next, "taproom_key", user.id, undefined, inCombatTableFan);
       endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
     }
@@ -2988,6 +3095,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "rigged_game") {
+      const playCost = itemPlayGoldCost("rigged_game");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Riggat spel` };
+      }
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
@@ -3011,7 +3122,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.maxHp = maxHpFor(next, user);
         if (user.hp > user.maxHp) user.hp = user.maxHp;
       }
-      log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name}.`);
+      user.gold -= playCost;
+      log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name} (−${playCost} pant).`);
       if (shouldSendDirectTargetNotices) {
         pushPlayerNotice(
           next,
@@ -3111,6 +3223,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "spill_intentional") {
+      const playCost = itemPlayGoldCost("spill_intentional");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Spilla med flit` };
+      }
       const combatFallbackTargetId =
         next.pending?.type === "combat" && next.pending.phase === "reactions"
           ? next.pending.attackerId
@@ -3155,6 +3271,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           );
         }
       }
+      user.gold -= playCost;
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -3178,6 +3295,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "get_lucky") {
+      const playCost = itemPlayGoldCost("get_lucky");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Get Lucky` };
+      }
       const pending = next.pending;
       const isHelpCardPhase = pending?.type === "combat" && pending.phase === "helpAwaitCard";
       if (!pending || pending.type !== "combat" || (pending.phase !== "reactions" && !isHelpCardPhase)) {
@@ -3201,7 +3322,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 4;
       pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), targetId]));
       const target = next.players.find((p) => p.id === targetId);
-      log(next, `${user.name} spelar Get Lucky på ${target?.name ?? "spelaren"}: +4 attack men dubbel HP-skada vid förlust.`);
+      user.gold -= playCost;
+      log(
+        next,
+        `${user.name} spelar Get Lucky på ${target?.name ?? "spelaren"}: +4 attack men dubbel HP-skada vid förlust (−${playCost} pant).`,
+      );
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
       inv.splice(idx, 1);
@@ -3216,6 +3341,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "six_sense") {
+      const playCost = itemPlayGoldCost("six_sense");
+      if (user.gold < playCost) {
+        return { state, events: [], error: `Du behöver ${playCost} pant för att spela Ett sjätte ölsinne` };
+      }
       const face = action.chosenDieFace;
       if (typeof face !== "number" || face < 1 || face > 6 || face !== Math.floor(face)) {
         return { state, events: [], error: "Välj tärningsvärde 1–6." };
@@ -3240,7 +3369,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Föremålet kan inte användas nu." };
       }
       user.nextForcedDieFace = face as Player["nextForcedDieFace"];
-      log(next, `${user.name} använder Ett sjätte ölsinne — nästa tärning visar ${face}.`);
+      user.gold -= playCost;
+      log(next, `${user.name} använder Ett sjätte ölsinne — nästa tärning visar ${face} (−${playCost} pant).`);
       inv.splice(idx, 1);
       user.inventory = inv;
       markCombatReactorUsedItemIfNeeded(next, user.id);
@@ -3282,9 +3412,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (reactors.length > 0 && !allDone && !reactionsTimedOut) {
       return { state, events: [], error: "Väntar på att reaktionsfönstret stänger eller att alla gör inget." };
     }
-    if (reactors.length > 0 && !allDone && reactionsTimedOut) {
-      log(next, "Reaktionsfönstret tog slut — striden fortsätter.");
-    }
     const tile = next.levels[pending.levelIndex]?.tiles?.[pending.tileIndex];
     if (!tile || (tile.type !== "combat" && tile.type !== "boss")) {
       next.pending = null;
@@ -3306,19 +3433,27 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     let sipBoost = 0;
     const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
     if (sipBonus > 0) {
+      const weaponPantCost = roller.equipment.weapon?.name === "Dubbelpipa" ? 4 : roller.equipment.weapon?.name === "Enkelpipa" ? 2 : 0;
       if (typeof action.useSipWeaponBonus !== "boolean") {
         return {
           state,
           events: [],
-          error: "Välj om du vill ta en straffklunk för extra vapenstyrka innan du slår.",
+          error: "Välj om du vill betala pant för extra vapenstyrka innan du slår.",
         };
       }
       if (action.useSipWeaponBonus) {
-        roller.klunkar += 1;
+        if (roller.gold < weaponPantCost) {
+          return {
+            state,
+            events: [],
+            error: `Du behöver ${weaponPantCost} pant för att använda ${roller.equipment.weapon?.name ?? "vapnet"}-bonusen.`,
+          };
+        }
+        roller.gold -= weaponPantCost;
         sipBoost = sipBonus;
         log(
           next,
-          `${roller.name} tar en straffklunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
+          `${roller.name} betalar ${weaponPantCost} pant med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
         );
       }
     }
@@ -3386,6 +3521,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       teamBattleBonusGold: pending.teamBattleBonusGold,
       rewardGold: pending.rewardGold,
       rewardItems: pending.rewardItems,
+      rewardXp: pending.rewardXp,
       assistId: pending.assistId,
       helpCandidateIds: pending.helpCandidateIds,
       helpSelectedHelperId: pending.helpSelectedHelperId,
@@ -3408,6 +3544,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       previewTotal: pr,
       previewNeed: need,
       previewWon: !critFailOnOne && pr >= need,
+      previewCritFailOnOne: critFailOnOne || undefined,
       previewUsedSipWeaponBonus: sipBonus > 0 && action.useSipWeaponBonus === true,
       previewSipWeaponBonusValue: sipBoost > 0 ? sipBonus : undefined,
     };
@@ -3442,12 +3579,27 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       next.pending = null;
       return { state: next, events: ["state"] };
     }
-    const sipMitigation = action.choice === "sip";
+    const monsterId = pending.monsterId as MonsterId;
+    const chooseMitigation = action.choice === "sip";
+    if (monsterId === "kapten_interrobang" && chooseMitigation) {
+      if (p.gold < 5) return { state, events: [], error: "Du behöver 5 pant för att mildra Kapten Interrobangs träff." };
+      p.gold -= 5;
+    }
+    if (monsterId === "transporter" && chooseMitigation) {
+      if (p.gold < 10) return { state, events: [], error: "Du behöver 10 pant för att undvika skadan från Transporter." };
+      p.gold -= 10;
+    }
     log(
       next,
-      sipMitigation
-        ? `${p.name} dricker en klunk för att mildra träffen från ${pending.enemyName}.`
-        : `${p.name} tar hela skadan från ${pending.enemyName} (ingen klunk).`,
+      chooseMitigation
+        ? monsterId === "kapten_interrobang"
+          ? `${p.name} betalar 5 pant för att mildra träffen från ${pending.enemyName}.`
+          : monsterId === "transporter"
+            ? `${p.name} betalar 10 pant och undviker skadan från ${pending.enemyName}.`
+            : `${p.name} dricker en klunk för att mildra träffen från ${pending.enemyName}.`
+        : monsterId === "kapten_interrobang" || monsterId === "transporter"
+          ? `${p.name} tar hela skadan från ${pending.enemyName} (ingen betalning).`
+          : `${p.name} tar hela skadan från ${pending.enemyName} (ingen klunk).`,
     );
     next.pending = null;
     const attackerIgnoresCritFailOnOneMit = p.equipment.accessory?.ignoreCombatCritFailOnOne === true;
@@ -3476,7 +3628,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         assistId: pending.assistId,
         teamBattleRequired: pending.teamBattleRequired,
         enemyName: pending.enemyName,
-        sipMitigation,
+        sipMitigation: chooseMitigation,
         critFailOnOne: critFailOnOneMit,
         weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
         getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
@@ -3933,35 +4085,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   }
 
   if (action.type === "useDoor" && next.pending?.type === "door") {
-    if (action.playerId !== next.pending.playerId) {
-      return { state, events: [], error: "Inte din tur att välja nivå" };
-    }
-    const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
-    const costs = next.pending.costs;
-    if (action.method === "gold") {
-      if (p.gold < costs.gold) return { state, events: [], error: "För lite pant" };
-      p.gold -= costs.gold;
-      p.levelIndex = next.pending.targetLevelIndex;
-      p.tileIndex = 0;
-      log(next, `${p.name} betalar ${costs.gold} pant och stiger till nivå ${p.levelIndex + 1} som bryggmästare.`);
-    } else if (action.method === "sips") {
-      if (!canAscendByKlunkRequirement(p, next.pending.targetLevelIndex)) {
-        return { state, events: [], error: "För få klunkar / för låg bryggnivå" };
-      }
-      // Requirement-based: does not consume sips.
-      p.levelIndex = next.pending.targetLevelIndex;
-      p.tileIndex = 0;
-      log(next, `${p.name} har ${p.klunkar} klunkar och stiger till nivå ${p.levelIndex + 1} som bryggmästare.`);
-    } else {
-      log(next, `${p.name} stannar.`);
-    }
-    if (action.method === "gold" || action.method === "sips") {
-      logMonsterScaleAfterAscend(next, p);
-    }
-    next.pending = null;
-    endTurnOrOfferLevelUp(next, p.id);
-    return { state: next, events: ["state"] };
+    return { state, events: [], error: "Nivå-rutor är avstängda. Nivå upp sker via särskilda kort/händelser." };
   }
 
   if (action.type === "levelUpDecision" && next.pending?.type === "levelUpOffer") {
@@ -3972,31 +4096,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
     if (action.choice === "stay") {
-      log(next, `${p.name} stannar kvar och kan gå upp via nivå-rutan senare.`);
+      log(next, `${p.name} stannar kvar på sin nuvarande våning.`);
       next.pending = null;
       if (pending.deferTurnAdvance) advanceTurn(next);
       return { state: next, events: ["state"] };
     }
-    const costs = pending.costs;
-    const canBySips = canAscendByKlunkRequirement(p, pending.targetLevelIndex);
-    const canByGold = p.gold >= costs.gold;
-    if (!canBySips && !canByGold) {
-      return { state, events: [], error: "Du uppfyller inte längre kraven för nivå upp" };
-    }
-    if (canBySips) {
-      // Requirement-based path: klunkar förbrukas inte.
-      p.levelIndex = pending.targetLevelIndex;
-      p.tileIndex = 0;
-      log(next, `${p.name} använder sin bryggarerfarenhet och stiger till nivå ${p.levelIndex + 1}.`);
-    } else {
-      p.gold -= costs.gold;
-      p.levelIndex = pending.targetLevelIndex;
-      p.tileIndex = 0;
-      log(
-        next,
-        `${p.name} använder sin bryggarerfarenhet och ${costs.gold} pant för att stiga till nivå ${p.levelIndex + 1}.`,
-      );
-    }
+    p.levelIndex = pending.targetLevelIndex;
+    p.tileIndex = 0;
+    log(
+      next,
+      `${p.name} stiger till nivå ${p.levelIndex + 1}.`,
+    );
     logMonsterScaleAfterAscend(next, p);
     next.pending = null;
     advanceTurn(next);
@@ -4027,7 +4137,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       );
     } else if (action.choice === "sip") {
       const gain = penaltySipTotalForPlayer(loser, 1);
-      loser.klunkar += gain;
+      grantKlunkWithXp(loser, gain);
       pushSipNotice(next, loser.id, winner.name, gain);
       log(next, `${winner.name} ger ${loser.name} en straffklunk (+1 klunk).`);
     } else if (action.choice === "damage") {

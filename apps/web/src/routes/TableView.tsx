@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
+  brewerLevel,
   type GameState,
   type Player,
   type TileType,
@@ -597,6 +598,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
   const rewardToastKeyRef = useRef<string | null>(null);
   const prevSipNoticeKeysRef = useRef<Set<string>>(new Set());
   const eventSipToastKeyRef = useRef<string | null>(null);
+  const prevBrewerLevelsRef = useRef<Map<string, number> | null>(null);
 
   useEffect(() => {
     if (!state) {
@@ -605,6 +607,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       rewardToastKeyRef.current = null;
       prevSipNoticeKeysRef.current = new Set();
       eventSipToastKeyRef.current = null;
+      prevBrewerLevelsRef.current = null;
       setTableToasts([]);
       return;
     }
@@ -677,6 +680,38 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
   }, [state, playersById]);
+
+  useEffect(() => {
+    if (!state || state.phase !== "playing") {
+      prevBrewerLevelsRef.current = null;
+      return;
+    }
+    const currLevels = new Map<string, number>();
+    for (const p of state.players) {
+      currLevels.set(p.id, Math.max(1, brewerLevel(p)));
+    }
+    const prev = prevBrewerLevelsRef.current;
+    prevBrewerLevelsRef.current = currLevels;
+    if (!prev) return;
+    const now = Date.now();
+    const leveled = state.players
+      .map((p) => ({
+        player: p,
+        prev: prev.get(p.id) ?? Math.max(1, brewerLevel(p)),
+        curr: currLevels.get(p.id) ?? Math.max(1, brewerLevel(p)),
+      }))
+      .filter((x) => x.curr > x.prev);
+    if (leveled.length === 0) return;
+    const incoming: TableToast[] = leveled.map((x, idx) => ({
+      id: `levelup:${x.player.id}:${x.curr}:${now}:${idx}`,
+      text: `${x.player.name} når bryggnivå ${x.curr}!`,
+      category: "reward",
+      iconKinds: ["xp"],
+      createdAt: now,
+      expiresAt: now + TABLE_TOAST_TTL_MS,
+    }));
+    setTableToasts((prevToasts) => [...prevToasts, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
+  }, [state]);
 
   useEffect(() => {
     if (!state) return;

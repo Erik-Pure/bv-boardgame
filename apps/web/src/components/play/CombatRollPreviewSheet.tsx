@@ -21,11 +21,7 @@ export function CombatRollPreviewSheet(props: {
   const total = pending.previewTotal ?? 0;
   const need = pending.previewNeed ?? 0;
   const broDie = pending.previewBroDie;
-  const effAtt = pending.previewAttackDiceDoubled ? die * 2 : die;
-  const effBro = broDie != null ? (pending.previewBroAttackDiceDoubled ? broDie * 2 : broDie) : null;
-  const baseDiceTotal = effAtt + (effBro ?? 0);
-  const bonus = total - baseDiceTotal;
-  const bonusText = bonus === 0 ? "" : bonus > 0 ? ` (+${bonus})` : ` (${bonus})`;
+  const isCritFailOnOne = pending.previewCritFailOnOne === true;
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <div className={sheetDiceBlockClass}>
@@ -52,14 +48,32 @@ export function CombatRollPreviewSheet(props: {
               flexWrap: "wrap",
             }}
           >
-            <span>{`Attack totalt ${total}${bonusText} mot`}</span>
-            <img
-              src="/icons/combat-icon.svg"
-              alt=""
-              aria-hidden
-              style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
-            />
-            <span>{need}</span>
+            {isCritFailOnOne ? (
+              <span>1: Kritisk miss! du förlorar</span>
+            ) : (
+              <>
+                <span>Attack totalt </span>
+                <span
+                  style={{
+                    fontWeight: 900,
+                    fontSize: "1.28em",
+                    lineHeight: 1,
+                    letterSpacing: "-0.01em",
+                    textShadow: "0 1px 8px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  {total}
+                </span>
+                <span>mot</span>
+                <img
+                  src="/icons/combat-icon.svg"
+                  alt=""
+                  aria-hidden
+                  style={{ width: 16, height: 16, display: "block", filter: "brightness(0) invert(1)" }}
+                />
+                <span>{need}</span>
+              </>
+            )}
           </span>
         </div>
         {pending.previewAttackDiceDoubled || pending.previewBroAttackDiceDoubled ? (

@@ -18,9 +18,13 @@
       "id": "event_spill",
       "kind": "event",
       "title": "Spill!",
-      "text": "Du halkar i ett spill. Ta 2 skada.",
+      "text": "Du halkar i ett spill. Ta 2 skada och tappa 2 pant.",
       "artKey": "event/spill",
       "effects": [
+        {
+          "type": "gold",
+          "amount": -2
+        },
         {
           "type": "damage",
           "amount": 2,
@@ -253,7 +257,7 @@
       "id": "event_round_on_me",
       "kind": "event",
       "title": "Jag bjuder på rundan!",
-      "text": "Du känner dig generös. Alla (inklusive du) läker 1 HP.",
+      "text": "Du känner dig generös. Alla (inklusive du) läker 1 HP. Du betalar ut 1 pant till varje annan spelare.",
       "artKey": "event/round",
       "effects": []
     },
@@ -394,7 +398,7 @@
       "id": "item_beard_back",
       "kind": "item",
       "title": "Skägget rakt bak",
-      "text": "Dubbla ditt tärningsslag vid strid.",
+      "text": "Betala 5 pant: dubbla ditt tärningsslag vid strid.",
       "artKey": "item/beard-back",
       "effects": []
     },
@@ -434,12 +438,12 @@
       "id": "event_faulty_brewery",
       "kind": "event",
       "title": "Fel på bryggverket",
-      "text": "Bryggverket havererar. Betala 5 pant.",
+      "text": "Bryggverket havererar. Betala 10 pant.",
       "artKey": "event/faulty-brewery",
       "effects": [
         {
           "type": "gold",
-          "amount": -5
+          "amount": -10
         }
       ]
     },
@@ -506,15 +510,10 @@
       "id": "event_dubbelinget",
       "kind": "event",
       "title": "Dubbelt eller inget",
-      "text": "Välj: behåll nuvarande pant, eller Slå tärningen. 1-3 = förlora 6 pant, 4-6 = få 12 pant.",
+      "text": "Slå tärningen. 1-3 = förlora all pant, 4-6 = få 12 pant.",
       "artKey": "event/dubbelinget",
       "effects": [],
       "choices": [
-        {
-          "id": "keep",
-          "label": "Behåll nuvarande pant",
-          "effects": []
-        },
         {
           "id": "roll",
           "label": "Slå tärning",
@@ -556,7 +555,7 @@
       "id": "event_fastnatipant",
       "kind": "event",
       "title": "Fastnat i pantmaskinen",
-      "text": "Slå tärningen: 1-2 tappa 2 pant, 3-4 tappa 5 pant, 5-6 få 10 pant.",
+      "text": "Slå tärningen: 1-2 tappa 5 pant, 3-4 tappa 10 pant, 5-6 få 10 pant.",
       "artKey": "event/fastnatipant",
       "effects": [],
       "choices": [
@@ -633,7 +632,7 @@
       "id": "item_spill_intentional",
       "kind": "item",
       "title": "Spilla med flit",
-      "text": "Använd på en annan spelare: förstör slumpmässigt ett föremål eller utrustning.",
+      "text": "Betala 2 pant och använd på en annan spelare: förstör slumpmässigt ett föremål eller utrustning.",
       "artKey": "item/spill-intentional",
       "effects": []
     },
@@ -649,7 +648,7 @@
       "id": "item_get_lucky",
       "kind": "item",
       "title": "Get Lucky",
-      "text": "+4 på vald spelares attack. Vid förlust tar du dubbel HP-skada.",
+      "text": "Betala 5 pant: +4 på vald spelares attack. Vid förlust tar du dubbel HP-skada.",
       "artKey": "item/getlucky",
       "effects": []
     },
@@ -657,7 +656,7 @@
       "id": "item_manopositiv",
       "kind": "item",
       "title": "Manopositiv",
-      "text": "Stridsreaktion: +4 på vald spelares attack. Du förlorar 4 pant när kortet spelas.",
+      "text": "Stridsreaktion: betala 10 pant för +4 på vald spelares attack.",
       "artKey": "item/manopositiv",
       "effects": []
     },
@@ -670,10 +669,18 @@
       "effects": []
     },
     {
+      "id": "item_taproom_key",
+      "kind": "item",
+      "title": "Taproom-nyckel",
+      "text": "Använd på din tur: gå upp en nivå för 10 pant mindre än Genväg-kostnaden.",
+      "artKey": "item/taproom-key",
+      "effects": []
+    },
+    {
       "id": "item_six_sense",
       "kind": "item",
       "title": "Ett sjätte ölsinne",
-      "text": "Välj vilken siffra tärningen ska visa vid ditt nästa tärningsslag.",
+      "text": "Betala 5 pant och välj vilken siffra tärningen ska visa vid ditt nästa tärningsslag.",
       "artKey": "item/six-sense",
       "effects": []
     },
@@ -681,7 +688,7 @@
       "id": "item_rigged_game",
       "kind": "item",
       "title": "Riggat spel",
-      "text": "Använd på en annan spelare: ta en slumpmässig utrustning.",
+      "text": "Betala 5 pant och använd på en annan spelare: ta en slumpmässig utrustning.",
       "artKey": "item/rigged-game",
       "effects": []
     }
@@ -745,6 +752,7 @@
       "item_tripwire",
       "item_pretzel_snack",
       "item_shortcut",
+      "item_taproom_key",
       "item_coin_purse",
       "item_double_hops",
       "item_beer_bomb",

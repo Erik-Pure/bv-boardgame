@@ -165,6 +165,7 @@ export function itemInventoryEffectBadge(
     pretzel_snack: { icon: "heart", label: "+2" },
     coin_purse: { icon: "pant", label: "+4" },
     shortcut: { icon: "pant", label: "↑" },
+    taproom_key: { icon: "pant", label: "↑" },
     weak_beer: { icon: "attack", label: "−2", labelTone: "danger" },
     light_beer: { icon: "attack", label: "+1" },
     folk_beer: { icon: "attack", label: "+2" },

@@ -10,6 +10,7 @@ export function itemImageSrc(itemId: string): string {
     tripwire: "/items/tripwire.webp",
     pretzel_snack: "/items/brezel.webp",
     shortcut: "/items/shortcut.webp",
+    taproom_key: "/equipment/accessory/taproom-nyckelring.webp",
     coin_purse: "/items/coin-purse.webp",
     double_hops: "/items/double-hops.webp",
     beer_bomb: "/items/beer-bomb.webp",

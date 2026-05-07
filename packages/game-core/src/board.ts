@@ -45,7 +45,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
       event: 6,
       combat: 5,
       merchant: 1,
-      door: 1,
+      door: 0,
       rest: 1,
       treasure: 2,
       boss: 0,
@@ -57,7 +57,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
       event: 4,
       combat: 7,
       merchant: 1,
-      door: 1,
+      door: 0,
       rest: 1,
       treasure: 2,
       boss: 0,
@@ -148,12 +148,6 @@ export function generateLevels(
           makeTile(id, ty, {
             combatValue,
             bossName,
-          }),
-        );
-      } else if (ty === "door") {
-        tiles.push(
-          makeTile(id, "door", {
-            doorTargetLevelIndex: li + 1,
           }),
         );
       } else {

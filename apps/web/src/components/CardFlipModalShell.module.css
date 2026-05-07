@@ -1,7 +1,12 @@
-.overlay {
+.overlayBackdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
+}
+
+.overlayContent {
+  position: fixed;
+  inset: 0;
   display: grid;
   place-items: center;
   padding: 16;

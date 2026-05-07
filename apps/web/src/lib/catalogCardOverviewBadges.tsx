@@ -95,6 +95,20 @@ export function cardDefOverviewBadges(card: CardDef): EffectBadgeData[] {
     const b = itemInventoryEffectBadge(raw, null);
     if (b) pushUnique(badges, b, seen);
   }
+  if (card.kind === "item") {
+    const itemPantCost: Record<string, number> = {
+      item_six_sense: 5,
+      item_get_lucky: 5,
+      item_manopositiv: 10,
+      item_beard_back: 5,
+      item_rigged_game: 5,
+      item_spill_intentional: 2,
+    };
+    const cost = itemPantCost[card.id] ?? 0;
+    if (cost > 0) {
+      pushUnique(badges, { icon: "pant", label: `-${cost}`, labelTone: "danger" }, seen);
+    }
+  }
   if (badges.length === 0 && card.kind === "combat") pushUnique(badges, { icon: "monster", label: "PvE" }, seen);
   if (badges.length === 0 && card.kind === "treasure") pushUnique(badges, { icon: "pant", label: "?" }, seen);
   if (badges.length === 0 && card.kind === "rest") pushUnique(badges, { icon: "heart", label: "+" }, seen);

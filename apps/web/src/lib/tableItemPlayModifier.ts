@@ -42,6 +42,8 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
       return { iconSrc: ICON.pant, value: "+4" };
     case "shortcut":
       return { iconSrc: ICON.pant, value: "↑" };
+    case "taproom_key":
+      return { iconSrc: ICON.pant, value: "↑" };
     case "sip_card":
       return { iconSrc: ICON.klunk, value: "+1" };
     case "lengraddad":

@@ -13,6 +13,7 @@ const ICON = {
   thumbDown: "/icons/thumbdown-icon.svg",
   pant: "/icons/pant-icon.svg",
   reward: "/icons/reward-icon.svg",
+  xp: "/icons/lvlup.svg",
   klunk: "/icons/klunk-icon.svg",
   heart: "/icons/heart-icon.svg",
 };
@@ -30,9 +31,10 @@ const MONSTER_HEADER_ICON_SIZE = 24;
 const THUMB_BADGE_SIZE = 22;
 const THUMB_ICON_SIZE = 11;
 
-const STAT_ICON_TINT: Record<"pant" | "reward" | "klunk" | "heart", string> = {
+const STAT_ICON_TINT: Record<"pant" | "reward" | "xp" | "klunk" | "heart", string> = {
   pant: "#d1d5db",
   reward: "#fbb040",
+  xp: "#60a5fa",
   klunk: "#fbb040",
   heart: "#ee5aa6",
 };
@@ -63,17 +65,18 @@ function MaskedStatIcon({ src, color, size = 22 }: { src: string; color: string;
 function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; value: number; emDash?: boolean }) {
   const src = ICON[kind];
   const label = emDash ? "—" : value === 0 ? "-" : String(value);
+  const compact = !emDash && label.length >= 3;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} />
+    <div style={{ display: "flex", alignItems: "center", gap: compact ? 4 : 6 }}>
+      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={compact ? 20 : 22} />
       <span
         style={{
           fontWeight: 900,
-          fontSize: 20,
+          fontSize: compact ? 17 : 20,
           lineHeight: 1,
           color: "#fff",
           fontVariantNumeric: "tabular-nums",
-          minWidth: "1.1em",
+          minWidth: compact ? "0.9em" : "1.1em",
           display: "inline-block",
           textAlign: "center",
         }}
@@ -90,6 +93,7 @@ export type MonsterEncounterCardProps = {
   combatStrength: number;
   winGold: number;
   winItems: number;
+  winXp: number;
   lossDamage: number;
   lossKlunks: number;
   /** Specialregler; standard vinst/förlust visas med ikoner ovan. */
@@ -112,7 +116,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
     typeof bossLives === "number" && bossLives >= 0 && Number.isFinite(bossLives);
   const heartsTotal = FINAL_BOSS_LIFE_TOTAL;
   const heartsFilled = Math.max(0, Math.min(heartsTotal, Math.floor(bossLives!)));
-  const hasWin = props.bossWinLootAsDash || props.winGold > 0 || props.winItems > 0;
+  const hasWin = props.bossWinLootAsDash || props.winGold > 0 || props.winItems > 0 || props.winXp > 0;
   const hasLoss = props.lossDamage > 0 || props.lossKlunks > 0;
   const rulesForDisplay = monsterSpecialRulesForDisplay(props.specialRules);
 
@@ -150,8 +154,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
   );
 
   const outcomeColumnStyle = {
-    flex: "1 1 50%",
-    width: "50%",
+    flex: "1 1 0%",
     minWidth: 0,
     display: "flex" as const,
     alignItems: "center" as const,
@@ -164,8 +167,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
     thumbSrc: string,
     thumbBadgeBg: string,
     thumbNudgeY: number,
-    leftCell: ReactNode,
-    rightCell: ReactNode,
+    cells: ReactNode[],
   ) => (
     <div
       style={{
@@ -181,8 +183,11 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
     >
       {badge(thumbSrc, thumbBadgeBg, thumbNudgeY)}
       <div style={{ display: "flex", flexDirection: "row", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
-        <div style={outcomeColumnStyle}>{leftCell}</div>
-        <div style={outcomeColumnStyle}>{rightCell}</div>
+        {cells.map((cell, idx) => (
+          <div key={idx} style={outcomeColumnStyle}>
+            {cell}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -326,7 +331,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: hasWin && hasLoss ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr)",
+            gridTemplateColumns: hasWin && hasLoss ? "minmax(0, 3fr) minmax(0, 2fr)" : "minmax(0,1fr)",
             gap: 10,
             alignItems: "stretch",
           }}
@@ -338,8 +343,11 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
                 ICON.thumbUp,
                 THUMB_BADGE_WIN_BG,
                 -1.5,
-                <StatChip kind="pant" value={props.winGold} emDash={props.bossWinLootAsDash} />,
-                <StatChip kind="reward" value={props.winItems} emDash={props.bossWinLootAsDash} />,
+                [
+                  <StatChip key="pant" kind="pant" value={props.winGold} emDash={props.bossWinLootAsDash} />,
+                  <StatChip key="reward" kind="reward" value={props.winItems} emDash={props.bossWinLootAsDash} />,
+                  <StatChip key="xp" kind="xp" value={props.winXp} emDash={props.bossWinLootAsDash} />,
+                ],
               )
             : null}
           {hasLoss
@@ -349,8 +357,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
                 ICON.thumbDown,
                 THUMB_BADGE_LOSS_BG,
                 1.5,
-                <StatChip kind="heart" value={props.lossDamage} />,
-                <StatChip kind="klunk" value={props.lossKlunks} />,
+                [<StatChip key="heart" kind="heart" value={props.lossDamage} />, <StatChip key="klunk" kind="klunk" value={props.lossKlunks} />],
               )
             : null}
         </div>

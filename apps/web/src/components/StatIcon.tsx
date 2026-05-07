@@ -5,6 +5,7 @@ export const STAT_ICON_SRC = {
   hp: "/icons/hp.svg",
   pant: "/icons/pant.svg",
   klunk: "/icons/klunk.svg",
+  xp: "/icons/lvlup.svg",
 } as const;
 
 export type StatIconKind = keyof typeof STAT_ICON_SRC;

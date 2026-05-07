@@ -9,7 +9,7 @@ const SKULL_ELIMINATED_FILTER =
 export function EndedScoreboardPlayerLine(props: { player: Player; isWinner: boolean }) {
   const p = props.player;
   const eliminated = p.eliminated === true;
-  const brewLv = brewerLevel(p);
+  const brewLv = Math.max(1, brewerLevel(p));
   return (
     <>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>

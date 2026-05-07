@@ -45,7 +45,7 @@
   inset: 0;
   z-index: 138;
   display: grid;
-  place-items: center;
+  place-items: start center;
   pointer-events: none;
   padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)) 16px;
   box-sizing: border-box;
@@ -57,13 +57,45 @@
   font-weight: 400;
   line-height: 1.02;
   letter-spacing: 0.03em;
-  color: #fef08a;
+  color: #ffffff;
+  -webkit-text-stroke: 3px rgba(0, 0, 0, 0.96);
+  paint-order: stroke fill;
   text-transform: uppercase;
   text-align: center;
   text-shadow:
     0 4px 18px rgba(0, 0, 0, 0.78),
-    0 0 26px rgba(250, 204, 21, 0.3);
-  animation: myTurnOverlayInOut 3200ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    0 0 28px rgba(255, 255, 255, 0.25);
+  margin-top: clamp(36px, 12vh, 120px);
+  animation: myTurnOverlayInOut 3000ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.levelUpOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 139;
+  display: grid;
+  place-items: start center;
+  pointer-events: none;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)) 16px;
+  box-sizing: border-box;
+}
+
+.levelUpOverlayText {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(2rem, 10vw, 4.2rem);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  color: #bfdbfe;
+  margin-top: clamp(24px, 10vh, 108px);
+  -webkit-text-stroke: 3px rgba(0, 0, 0, 0.96);
+  paint-order: stroke fill;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.82),
+    0 0 36px rgba(96, 165, 250, 0.45);
+  animation: levelUpOverlayInOut 3400ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 @keyframes myTurnOverlayInOut {
@@ -88,6 +120,32 @@
 @media (prefers-reduced-motion: reduce) {
   .myTurnOverlayText {
     animation: none;
+  }
+  .levelUpOverlayText {
+    animation: none;
+  }
+}
+
+@keyframes levelUpOverlayInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+    filter: saturate(1.2);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+    filter: saturate(1.35);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.02);
+    filter: saturate(1);
   }
 }
 
@@ -131,8 +189,14 @@
   justify-content: flex-start;
   gap: 12px;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
   /* top sätts inline = headerTopPad (under namn + ev. stats) */
+}
+
+.playerEquipmentShell::-webkit-scrollbar {
+  display: none;
 }
 
 .headerPlayersBtn {
@@ -212,29 +276,100 @@
   padding: 2px 4px;
 }
 
-.levelRingOuter {
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
+.levelRingCellWrap {
+  position: relative;
   display: grid;
   place-items: center;
-  background: conic-gradient(from 0deg, #f59e0b, #22d3ee, #60a5fa, #a78bfa, #f59e0b);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  overflow: visible;
+}
+
+.levelXpGainPrompt {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.65);
+  background: rgba(15, 23, 42, 0.94);
+  color: #fde047;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 20;
+  animation: levelXpGainPromptPop 1.7s ease-out both;
+}
+
+@keyframes levelXpGainPromptPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+.levelRingOuter {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
 }
 
 .levelRingInner {
-  width: 35px;
-  height: 35px;
+  position: relative;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  background: rgba(8, 12, 28, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  border: none;
   display: grid;
   place-items: center;
   align-content: center;
   line-height: 1;
 }
 
+.levelRingProgress {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(148, 163, 184, 0.22);
+  z-index: 1;
+}
+
+.levelRingFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .levelRingValue {
+  position: relative;
+  z-index: 3;
   font-size: 14px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -656,6 +791,21 @@
   z-index: 1;
 }
 
+/**
+ * Inuti ArcadeButton `.label` (pink/blue): gradient + text-fill transparent — nästlade spans blir utan gradient och syns knappt.
+ * Återställ solid ljus text för parentes + belöningssiffror i hjälp-kontraktsknappar.
+ */
+.contractOutcomeSuffix {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  background-image: none !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  opacity: 1 !important;
+}
+
 .equipmentGridWrap {
   width: 100%;
   min-width: 0;
@@ -750,6 +900,59 @@
   /* Luft under tärning (även utan caption) så den inte känns klistrad mot knappar */
   padding-bottom: 4px;
   margin-bottom: 10px;
+}
+
+.sheetDiceRowWithModifier {
+  position: relative;
+  width: 100%;
+  min-height: 86px;
+  display: grid;
+  place-items: center;
+}
+
+.sheetDiceCenter {
+  display: grid;
+  place-items: center;
+}
+
+.sheetDiceModifierSlot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(calc(-100% - 50px), -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.sheetDiceModifierBig {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.55rem, 8.4vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(248, 250, 252, 0.9);
+  min-width: 56px;
+  text-align: right;
+  opacity: 0.9;
+  text-shadow:
+    0 1px 5px rgba(0, 0, 0, 0.5),
+    0 0 10px rgba(0, 0, 0, 0.28);
+}
+
+.sheetDiceAttackDoubledHint {
+  font-family: var(--sans), system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  color: #fef08a;
+  text-shadow:
+    0 1px 8px rgba(0, 0, 0, 0.75),
+    0 0 14px rgba(250, 204, 21, 0.32);
+  white-space: nowrap;
 }
 
 .sheetDiceCaption {

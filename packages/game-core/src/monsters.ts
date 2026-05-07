@@ -46,6 +46,8 @@ export interface MonsterDef {
   rewardGold: number;
   /** Fixed item reward on win. */
   rewardItems: number;
+  /** XP reward on win. */
+  rewardXp: number;
   /** Placeholder key for future art */
   artKey: string;
   /** Vid vinst: slumpa mottagare (annan levande spelare, ej angripare/medhjälpare) och ge straffklunk per enhet. */
@@ -63,7 +65,9 @@ export function monsterLossKlunkTotal(m: Pick<MonsterDef, "lossSipsOnLose" | "te
   return (m.lossSipsOnLose ?? 0) + (m.teamBattleRequired ? 1 : 0) + MONSTER_LOSS_SIP_FLAT;
 }
 
-export const MONSTERS: MonsterDef[] = [
+type MonsterDefInput = Omit<MonsterDef, "rewardXp"> & { rewardXp?: number };
+
+const MONSTER_DEFS: MonsterDefInput[] = [
   {
     id: "skum_banan",
     name: "Skum banan",
@@ -72,6 +76,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "Om klockan är efter 20:30: gör den 1 extra skada (jämfört med sin ordinarie attack).",
     rewardGold: 4,
     rewardItems: 1,
+    rewardXp: 30,
     artKey: "monster/skum-banan",
   },
   {
@@ -82,6 +87,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "Om du har fler än 5 klunkar: ta 3 skada i stället.",
     rewardGold: 3,
     rewardItems: 0,
+    rewardXp: 20,
     artKey: "monster/folke-bengtsson",
   },
   {
@@ -93,6 +99,7 @@ export const MONSTERS: MonsterDef[] = [
       "Om du slår 1: den svingar och missar dig men träffar en slumpmässig annan spelare i stället.",
     rewardGold: 5,
     rewardItems: 2,
+    rewardXp: 50,
     artKey: "monster/rabarbapappa",
   },
   {
@@ -104,6 +111,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
+    rewardXp: 40,
     artKey: "monster/brottningsmatch",
   },
   {
@@ -114,6 +122,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "Vid skada: tappa slumpmässig utrusning",
     rewardGold: 3,
     rewardItems: 0,
+    rewardXp: 20,
     artKey: "monster/keg-lifter",
   },
   {
@@ -125,6 +134,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 7,
     rewardItems: 2,
+    rewardXp: 60,
     artKey: "monster/stoorn",
   },
   {
@@ -136,16 +146,18 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 2,
+    rewardXp: 30,
     artKey: "monster/megasouruz",
   },
   {
     id: "belgisk_munk",
     name: "Belgisk munk",
-    strength: 2,
-    baseDamage: 1,
-    rulesText: "Ta en klunk i dess ära så försvinner den",
+    strength: 4,
+    baseDamage: 2,
+    rulesText: "Ta en klunk och betala 5 pant i dess ära så försvinner den.",
     rewardGold: 3,
-    rewardItems: 1,
+    rewardItems: 2,
+    rewardXp: 45,
     artKey: "monster/belgisk-munk",
   },
   {
@@ -154,9 +166,10 @@ export const MONSTERS: MonsterDef[] = [
     strength: 4,
     baseDamage: 5,
     rulesText:
-      "Vid förlust: ta en klunk för att minska skada med 3",
+      "Vid förlust: betala 5 pant för att minska skada med 3.",
     rewardGold: 5,
     rewardItems: 2,
+    rewardXp: 50,
     artKey: "monster/kapten-interrobang",
   },
   {
@@ -168,6 +181,7 @@ export const MONSTERS: MonsterDef[] = [
       "Vid skada: Ta en klunk för att minska skadan med 2 — eller ta full skada utan att dricka.",
     rewardGold: 5,
     rewardItems: 2,
+    rewardXp: 50,
     artKey: "monster/sura-bar",
   },
   {
@@ -178,6 +192,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "",
     rewardGold: 4,
     rewardItems: 1,
+    rewardXp: 40,
     artKey: "monster/barsfisk",
   },
   {
@@ -189,17 +204,19 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 3,
     rewardItems: 1,
+    rewardXp: 20,
     artKey: "monster/humlan",
   },
   {
     id: "bottling_bot",
     name: "Rally robot",
-    strength: 3,
-    baseDamage: 2,
+    strength: 4,
+    baseDamage: 3,
     rulesText: "",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
+    rewardXp: 40,
     artKey: "monster/bottling-bot",
   },
   {
@@ -211,6 +228,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 8,
     rewardItems: 2,
+    rewardXp: 60,
     artKey: "monster/store-narcissius",
   },
   {
@@ -222,6 +240,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 8,
     rewardItems: 2,
+    rewardXp: 50,
     artKey: "monster/oldomaren",
   },
   {
@@ -233,6 +252,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 8,
     rewardItems: 2,
+    rewardXp: 60,
     artKey: "monster/onda-bryggverket",
   },
   /** Team battle — inte slutboss; gamla boss-karaktärer återinförda som svåra möten på vanliga stridsrutor. */
@@ -247,6 +267,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleBonusGold: 2,
     rewardGold: 8,
     rewardItems: 3,
+    rewardXp: 80,
     artKey: "monster/pimp",
   },
   {
@@ -260,6 +281,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleBonusGold: 3,
     rewardGold: 9,
     rewardItems: 2,
+    rewardXp: 90,
     artKey: "monster/fermentation-hydra",
   },
   {
@@ -273,6 +295,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleBonusGold: 4,
     rewardGold: 10,
     rewardItems: 4,
+    rewardXp: 100,
     artKey: "monster/taproom-titan",
   },
   {
@@ -284,6 +307,7 @@ export const MONSTERS: MonsterDef[] = [
     lossSipsOnLose: 1,
     rewardGold: 2,
     rewardItems: 1,
+    rewardXp: 30,
     artKey: "monster/unicorn",
     winRandomOtherSips: 1,
   },
@@ -292,10 +316,11 @@ export const MONSTERS: MonsterDef[] = [
     name: "Enhörningsryttare",
     strength: 6,
     baseDamage: 4,
-    rulesText: "",
+    rulesText: "Vid förlust: tappa 10 pant.",
     lossSipsOnLose: 1,
     rewardGold: 5,
     rewardItems: 2,
+    rewardXp: 75,
     artKey: "monster/enhorningsryttare",
   },
   {
@@ -306,6 +331,7 @@ export const MONSTERS: MonsterDef[] = [
     rulesText: "",
     rewardGold: 6,
     rewardItems: 2,
+    rewardXp: 40,
     artKey: "monster/fargglada_gubbar",
   },
   {
@@ -313,9 +339,10 @@ export const MONSTERS: MonsterDef[] = [
     name: "Transporter",
     strength: 4,
     baseDamage: 3,
-    rulesText: "",
+    rulesText: "Vid förlust: betala 10 pant för att ta 0 skada.",
     rewardGold: 5,
     rewardItems: 2,
+    rewardXp: 40,
     artKey: "monster/transporter",
   },
   {
@@ -327,6 +354,7 @@ export const MONSTERS: MonsterDef[] = [
     teamBattleRequired: true,
     rewardGold: 5,
     rewardItems: 1,
+    rewardXp: 70,
     artKey: "monster/cowboys",
   },
   {
@@ -334,35 +362,43 @@ export const MONSTERS: MonsterDef[] = [
     name: "Demonkrigare",
     strength: 5,
     baseDamage: 3,
-    rulesText: "Vid förlust: en annan spelare får +3 HP.",
+    rulesText: "Betala 10 pant för att undvika striden. Vid förlust: en annan spelare får +3 HP.",
     lossSipsOnLose: 1,
     rewardGold: 6,
     rewardItems: 2,
+    rewardXp: 66,
     artKey: "monster/demonkrigare",
   },
   {
     id: "busiga_buskar",
     name: "Busiga buskar",
-    strength: 2,
-    baseDamage: 1,
+    strength: 3,
+    baseDamage: 2,
     rulesText: "Vid förlust: ge upp till 5 pant till spelaren som har minst pant.",
     lossSipsOnLose: 1,
     rewardGold: 4,
     rewardItems: 1,
+    rewardXp: 30,
     artKey: "monster/busigabuskar",
   },
   {
     id: "solen",
     name: "Solen",
-    strength: 2,
-    baseDamage: 2,
+    strength: 3,
+    baseDamage: 1,
     rulesText: "Vid förlust: du får sol i ögonen och står över nästa tur.",
     lossSipsOnLose: 1,
     rewardGold: 2,
     rewardItems: 2,
+    rewardXp: 25,
     artKey: "monster/solen",
   },
 ];
+
+export const MONSTERS: MonsterDef[] = MONSTER_DEFS.map((m) => ({
+  ...m,
+  rewardXp: m.rewardXp ?? m.strength * 10,
+}));
 
 /** Högsta brädsnivå (våning) någon spelare befinner sig på — t.ex. statistik eller lobby. */
 export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]): number {

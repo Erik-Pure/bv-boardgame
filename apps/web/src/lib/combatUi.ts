@@ -52,6 +52,7 @@ export function parseLegacyCombatWinText(text: string, viewerName?: string): Com
     need,
     rewardGold: gold,
     rewardItems: items,
+    rewardXp: 0,
   };
 }
 
@@ -105,6 +106,7 @@ export function monsterEncounterCardPropsFromCombatPending(
     combatStrength: need,
     winGold: p.rewardGold ?? 0,
     winItems: p.rewardItems ?? 0,
+    winXp: p.rewardXp ?? 0,
     lossDamage: p.baseDamage,
     lossKlunks: combatLossKlunksForDisplay(p),
     specialRules: p.enemyIntroText?.trim() || undefined,
