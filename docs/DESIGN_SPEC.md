@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.50 |
-| Senast uppdaterad | 2026-05-07 |
+| Version | 0.51 |
+| Senast uppdaterad | 2026-05-08 |
 
 ---
 
@@ -52,6 +52,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Automatiskt fokus:** när turen byter spelare (och vid t.ex. val av rörelse) ska vyn **centrera och zooma** så att **den aktiva pjäsen och relevanta målrutor** ryms i **den faktiska spelytan** (rektangulär viewport — inte bara kvadratisk brädes-SVG). Pan ska vara **konsekvent med zoom** (centrering skalar med aktuell `scale`).
 - **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **svart bakgrund** (kompakt höjd).
 - **Turindikator (detaljer):** i remsan visas en **spelarrad med alla spelare** (namn + HP/pant/klunk). Aktiv spelare markeras med **spelarens färg**. Raden är centrerad när den får plats och kan annars scrolla horisontellt.
+- **Turindikator (status):** sömnstatus ska också synas i spelarraden längst ner i bordsvyn; spelare som står över tur p.g.a. normal sömn markeras med **`(Zzz)`** efter namnet.
 - **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna. På desktop finns även en toggle **“Inaktivera sömnläge”** till vänster om status (wake lock när webbläsaren stödjer det).
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
@@ -328,6 +329,8 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
 
+**Badge-läsbarhet (mobil):** på smalare telefoner ska badges i inventory/utrustningsöversikten (ikon + tal) skala ner (padding, ikon och text) för att undvika trängsel/klippning.
+
 **Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst).
 
 **Föremålsbrickor (mobil, Safari / WebKit):** inventory-rutorna för **föremål** ska använda **lagerindelad layout** (t.ex. CSS grid med gemensam **“stack”**-cell): **bilden** i ett **eget** lager med `overflow: hidden` och avrundade hörn, **antal** (stack) och **effekt-badge** (ikon + siffra/text) i ett **overlay-lager** ovanpå med `z-index`. Syfte: undvika att **`object-fit: cover`** + **`height: 100%`** på `<img>` klipper bort **nederkant** på badge/siffror (känt iOS Safari när yttre knapp har `overflow: hidden`). Utrustningsfyran kan följa **samma mönster** så små märken längst ner inte klipps.
@@ -344,6 +347,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - **Hardcore mode:** om aktivt tillåts ingen omstart; spelaren elimineras vid 0 HP.
 - **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1.
 - **Respawn-plats:** definiera i implementation (t.ex. starttile på aktuell nivå eller alltid nivå 1 — dokumentera här när fastställt).
+- **Livförsäkring (tillbehör):** om spelaren dör och har **Livförsäkring** utrustad kan den i *stupad bryggare*-läget välja att betala **20 pant** för att fortsätta med **fullt liv** (om pant räcker).
 
 ---
 
@@ -539,4 +543,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.48 | 2026-05-07 | Synkad med aktuell implementation: nivå-ruta/dörrflöde utfasat, uppstigning via XP-baserat level-up offer utan pantkostnad, bryggnivå från XP med 4-stegs-mappning (L1↔intern L4), uppdaterad §7.3/§13.1 samt mobilcopy för nivåmodal/straffklunk-XP |
 | 0.49 | 2026-05-07 | Uppdaterade XP-trösklar för bryggnivå (120/320/650/900/1200), progressionstext i §13.1 samt tydlig modal-prioritering i mobil där nivå-upp-flöde går före straffklunk-notis |
 | 0.50 | 2026-05-07 | Bryggnivåtrösklar justerade till 120/300/620/980/1380 samt Legendarisk Burkhjälm ändrad från klunkkrav till nivåkrav (aktiv från nivå 4) i regler/copy |
+| 0.51 | 2026-05-08 | Livförsäkring dokumenterad i dödsflödet (betala 20 pant för fullt liv), turindikatorn i `/table` visar `(Zzz)` i spelarraden, samt mobil-badges i inventory/utrustning nedskalade för små skärmar |
 
