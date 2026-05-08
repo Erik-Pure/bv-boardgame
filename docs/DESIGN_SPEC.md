@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.51 |
+| Version | 0.52 |
 | Senast uppdaterad | 2026-05-08 |
 
 ---
@@ -171,6 +171,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
 - **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
+- **Slumpade föremål på sista planet:** **Genväg** och **Taproom-nyckel** ingår inte i slump-poolen när mottagaren står på **sista brädnivån** (ingen nästa våning att stiga till); se §10.1.
 
 ### 7.3 Uppstigning mellan våningsplan
 
@@ -305,7 +306,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 - **Get Lucky** (`get_lucky`): stridsreaktion som kan spelas på **den som slåss** (angripare eller medkämpe), även av en annan spelare som ingriper. Målet får **+4 attack** i striden; om målet sedan förlorar tar just den spelaren **dubbel HP-skada**.
 - **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/BvB-fönster och ingripande); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
-- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot.
+- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot. När spelaren är på **sista brädnivån** dras varken **Genväg** eller **Taproom-nyckel** ur slump-poolen (de är meningslösa utan nästa våning). **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
 ---
@@ -484,7 +485,7 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 - **Monster `need`:** +`levelIndex` på styrkekrav på den våningen (lokalt per plan).
 - **Monster förlust-skada (HP):** +`levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
-- **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool).
+- **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool); slumpat item följer samma **sista-nivå-filter** som `randomItem` (§10.1).
 - **Reaktionsfönster i PvE:** spelare kan spela **flera reaktionskort** innan de slutmarkerar med “gör inget”.
 
 ---
@@ -544,4 +545,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.49 | 2026-05-07 | Uppdaterade XP-trösklar för bryggnivå (120/320/650/900/1200), progressionstext i §13.1 samt tydlig modal-prioritering i mobil där nivå-upp-flöde går före straffklunk-notis |
 | 0.50 | 2026-05-07 | Bryggnivåtrösklar justerade till 120/300/620/980/1380 samt Legendarisk Burkhjälm ändrad från klunkkrav till nivåkrav (aktiv från nivå 4) i regler/copy |
 | 0.51 | 2026-05-08 | Livförsäkring dokumenterad i dödsflödet (betala 20 pant för fullt liv), turindikatorn i `/table` visar `(Zzz)` i spelarraden, samt mobil-badges i inventory/utrustning nedskalade för små skärmar |
+| 0.52 | 2026-05-08 | §7.2/§10.1/§19: på **sista brädnivån** ingår inte **Genväg** eller **Taproom-nyckel** i slump-pool för skatt/händelse/strids-item (`randomItem` / blandad monsterbelöning); handel och fasta korteffekter opåverkade |
 
