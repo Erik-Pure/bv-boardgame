@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.52 |
+| Version | 0.53 |
 | Senast uppdaterad | 2026-05-08 |
 
 ---
@@ -43,6 +43,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 **Modal-prioritering i mobil (`/play`):** om **nivå upp** (`levelUpOffer`) och **straffklunk-notis** skulle konkurrera samtidigt för samma spelare ska **nivå upp prioriteras**. Straffklunk-notisen köas/visas först efter att nivå upp-flödet är klart, så knapplager och overlays inte hamnar omlott.
 
 **Föremålsmodal (mobil):** när ett föremål kräver målval (t.ex. **Sömnmedel**) används samma modal med den vanliga **Stäng**-knappen. Målvalssteget ska **inte** lägga till en extra **Tillbaka**-knapp; avbryt sker via Stäng.
+
+**Vald rad på mörk knapp (mobil):** när spelaren väljer bland alternativ som visas som **mörka pill-knappar** (t.ex. **Välj mål** / spelarnamn innan **Använd**, eller val av tärningsyta för **Ett sjätte ölsinne**) ska alla alternativ i listan ha **samma mörka grundstil**; den **aktiva** raden ska ha **tydlig guldtonad ram** och **guldtonad text** så valet inte förväxlas med ljusa sekundärknappar (**Stäng** m.m.).
 
 **Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
 
@@ -546,4 +548,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.50 | 2026-05-07 | Bryggnivåtrösklar justerade till 120/300/620/980/1380 samt Legendarisk Burkhjälm ändrad från klunkkrav till nivåkrav (aktiv från nivå 4) i regler/copy |
 | 0.51 | 2026-05-08 | Livförsäkring dokumenterad i dödsflödet (betala 20 pant för fullt liv), turindikatorn i `/table` visar `(Zzz)` i spelarraden, samt mobil-badges i inventory/utrustning nedskalade för små skärmar |
 | 0.52 | 2026-05-08 | §7.2/§10.1/§19: på **sista brädnivån** ingår inte **Genväg** eller **Taproom-nyckel** i slump-pool för skatt/händelse/strids-item (`randomItem` / blandad monsterbelöning); handel och fasta korteffekter opåverkade |
+| 0.53 | 2026-05-08 | §2: **vald rad** på mörka interaktionsknappar — **guldram + guldtext** vid målval i föremålsmodal och vid tärningsyte-val (**Ett sjätte ölsinne**); implementation: `ArcadeButton` med `selected` på mörk variant |
 
