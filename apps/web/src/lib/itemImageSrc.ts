@@ -29,6 +29,9 @@ export function itemImageSrc(itemId: string): string {
     manopositiv: "/items/manopositiv.webp",
     six_sense: "/items/sixsense.webp",
     rigged_game: "/items/riggedgame.webp",
+    bribes: "/items/bribes.webp",
+    paidassasin: "/items/paidassasin.webp",
+    charity: "/items/charity.webp",
   };
   return m[itemId] ?? "/card-placeholder.png";
 }

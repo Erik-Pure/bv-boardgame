@@ -77,21 +77,30 @@ export function parseLegacyCombatLoseText(text: string, viewerName?: string): Co
 }
 
 /** Klunk vid förlust för kort-UI; fyller i från monsterlista om pending saknar `lossSipsOnLose` (gamla sparade states). */
-export function combatLossKlunksForDisplay(p: Extract<Pending, { type: "combat" }>): number {
+export function combatLossKlunksForDisplay(
+  p: Extract<Pending, { type: "combat" }>,
+  opts?: { monsterLossSipReduction?: number },
+): number {
   const extraTeam = p.teamBattleRequired ? 1 : 0;
+  let base: number;
   if (p.monsterId && p.monsterId !== "boss") {
     const def = MONSTERS.find((m) => m.id === p.monsterId);
     if (def) {
-      return monsterLossKlunkTotal(def);
+      base = monsterLossKlunkTotal(def);
+    } else {
+      base = (p.lossSipsOnLose ?? 0) + extraTeam + MONSTER_LOSS_SIP_FLAT;
     }
+  } else {
+    base = (p.lossSipsOnLose ?? 0) + extraTeam + MONSTER_LOSS_SIP_FLAT;
   }
-  return (p.lossSipsOnLose ?? 0) + extraTeam + MONSTER_LOSS_SIP_FLAT;
+  const red = Math.max(0, Math.floor(opts?.monsterLossSipReduction ?? 0));
+  return Math.max(0, base - red);
 }
 
 /** Props till `MonsterEncounterCard` från pågående strid (t.ex. team battle före medkämpeval). */
 export function monsterEncounterCardPropsFromCombatPending(
   p: Extract<Pending, { type: "combat" }>,
-  opts?: { finalBossLivesRemaining?: number | null },
+  opts?: { finalBossLivesRemaining?: number | null; monsterLossSipReduction?: number },
 ): MonsterEncounterCardProps {
   const need = p.need + (p.needMod ?? 0);
   const id = p.monsterId as MonsterId;
@@ -108,7 +117,9 @@ export function monsterEncounterCardPropsFromCombatPending(
     winItems: p.rewardItems ?? 0,
     winXp: p.rewardXp ?? 0,
     lossDamage: p.baseDamage,
-    lossKlunks: combatLossKlunksForDisplay(p),
+    lossKlunks: combatLossKlunksForDisplay(p, {
+      monsterLossSipReduction: opts?.monsterLossSipReduction,
+    }),
     specialRules: p.enemyIntroText?.trim() || undefined,
     bossLivesRemaining: isBoss ? bossLives : undefined,
     bossWinLootAsDash: isBoss,

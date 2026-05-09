@@ -276,6 +276,10 @@ function TableCombatBoardPanelInner(props: {
         tableCardEntranceAnimation={TABLE_BOARD_MODAL_CARD_ANIMATION}
         monster={monsterEncounterCardPropsFromCombatPending(pending, {
           finalBossLivesRemaining: state.finalBossLivesRemaining,
+          monsterLossSipReduction: Math.max(
+            0,
+            Math.floor(att?.equipment.weapon?.monsterLossSipReduction ?? 0),
+          ),
         })}
       />
     );
@@ -400,7 +404,12 @@ function TableCombatBoardPanelInner(props: {
     winItems: pending.rewardItems ?? 0,
     winXp: pending.rewardXp ?? 0,
     lossDamage: pending.baseDamage,
-    lossKlunks: combatLossKlunksForDisplay(pending),
+    lossKlunks: combatLossKlunksForDisplay(pending, {
+      monsterLossSipReduction: Math.max(
+        0,
+        Math.floor(attacker?.equipment.weapon?.monsterLossSipReduction ?? 0),
+      ),
+    }),
     specialRules: pending.enemyIntroText?.trim() || undefined,
     bossLivesRemaining: isFinalBossCombat ? (state.finalBossLivesRemaining ?? 3) : undefined,
     bossWinLootAsDash: isFinalBossCombat,

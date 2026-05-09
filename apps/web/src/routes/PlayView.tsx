@@ -18,6 +18,8 @@ import {
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
   levelUpCostsForTargetLevel,
+  penaltySipTotalForPlayer,
+  previewHpAfterFlatDamage,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -776,6 +778,8 @@ export function PlayView() {
     if (itemId === "beard_back") return 5;
     if (itemId === "rigged_game") return 5;
     if (itemId === "spill_intentional") return 2;
+    if (itemId === "bribes") return 10;
+    if (itemId === "paidassasin") return 15;
     return 0;
   };
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
@@ -784,16 +788,49 @@ export function PlayView() {
       if (!me || !state) return false;
       if (inCombatReactions || inPvpPreRoundItems) return false;
       if (!isMyTurn) return false;
+      const levelsLen = state.levels?.length ?? 0;
+      const lastIdx = levelsLen > 0 ? levelsLen - 1 : 0;
       const tli = me.levelIndex + 1;
-      if (tli >= (state.levels?.length ?? 0)) return false;
-      const goldCost =
-        itemId === "taproom_key"
-          ? (() => {
-              const shortcutCost = shortcutItemGoldCostForTargetLevel(tli);
-              return Math.max(0, shortcutCost - 10);
-            })()
-          : shortcutItemGoldCostForTargetLevel(tli);
+      const onFinalFloor = levelsLen > 0 && me.levelIndex >= lastIdx;
+      let goldCost: number;
+      if (onFinalFloor) {
+        const bossIdx = state.levels[lastIdx]?.tiles?.findIndex((x) => x.type === "boss") ?? -1;
+        if (bossIdx < 0 || me.tileIndex === bossIdx) return false;
+        goldCost =
+          itemId === "taproom_key"
+            ? Math.max(0, shortcutItemGoldCostForTargetLevel(me.levelIndex) - 10)
+            : shortcutItemGoldCostForTargetLevel(me.levelIndex);
+      } else {
+        if (tli >= levelsLen) return false;
+        goldCost =
+          itemId === "taproom_key"
+            ? (() => {
+                const shortcutCost = shortcutItemGoldCostForTargetLevel(tli);
+                return Math.max(0, shortcutCost - 10);
+              })()
+            : shortcutItemGoldCostForTargetLevel(tli);
+      }
       if (me.gold < goldCost) return false;
+      const pe = state.pending;
+      if (
+        pe != null &&
+        !(
+          (pe.type === "moveChoice" && pe.playerId === me.id) ||
+          (pe.type === "merchant" && pe.playerId === me.id)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    }
+    if (itemId === "charity") {
+      if (!me || !state) return false;
+      if (inCombatReactions || inPvpPreRoundItems || inPvpAwaitingRolls) return false;
+      if (!isMyTurn) return false;
+      const missingHp = Math.max(0, me.maxHp - me.hp);
+      if (missingHp <= 0) return false;
+      const donation = Math.min(missingHp, me.gold);
+      if (donation <= 0) return false;
       const pe = state.pending;
       if (
         pe != null &&
@@ -812,8 +849,11 @@ export function PlayView() {
     if (itemId === "not_my_round" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "spill_intentional" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemPlayGoldCost(itemId) > 0 && (!me || me.gold < itemPlayGoldCost(itemId))) return false;
+    /** BvB: spel som inte är karttursberoende — måste ligga efter pant-check. */
+    if (itemId === "spill_intentional" && (inPvpPreRoundItems || pvpRollSheet)) return true;
     if (itemId === "get_lucky" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "beard_back" && inCombatReactions) return isCombatFighterNow;
+    if (itemId === "beard_back" && inPvpPreRoundItems) return true;
     if (itemId === "beard_back" && inPvpAwaitingRolls) return true;
     if (itemId === "beard_back") return false;
     if (itemId === "six_sense") {
@@ -861,8 +901,28 @@ export function PlayView() {
     const base = itemMeta(itemId);
     const isLevelJumpItem = String(itemId) === "shortcut" || String(itemId) === "taproom_key";
     if (!isLevelJumpItem || !me || !state) return base;
+    const levelsLen = state.levels?.length ?? 0;
+    const lastIdx = levelsLen > 0 ? levelsLen - 1 : 0;
     const targetLevelIndex = me.levelIndex + 1;
-    if (targetLevelIndex >= (state.levels?.length ?? 0)) {
+    const onFinalFloor = levelsLen > 0 && me.levelIndex >= lastIdx;
+    if (onFinalFloor) {
+      const bossIdx = state.levels[lastIdx]?.tiles?.findIndex((x) => x.type === "boss") ?? -1;
+      if (bossIdx < 0) {
+        return {
+          ...base,
+          text: `${base.text}\nIngen bossruta på sista våningen.`,
+        };
+      }
+      const goldCost =
+        String(itemId) === "taproom_key"
+          ? Math.max(0, shortcutItemGoldCostForTargetLevel(me.levelIndex) - 10)
+          : shortcutItemGoldCostForTargetLevel(me.levelIndex);
+      return {
+        ...base,
+        text: `${base.text}\nNuvarande kostnad: ${goldCost} pant (gå direkt till slutbossens ruta).`,
+      };
+    }
+    if (targetLevelIndex >= levelsLen) {
       return {
         ...base,
         text: `${base.text}\nDu är redan på översta våningen.`,
@@ -2251,6 +2311,20 @@ export function PlayView() {
       const availableSlots = (["weapon", "armor", "helmet", "accessory"] as const).filter((slot) => !!items[slot]);
       const theftProtected = loser?.equipment.accessory?.preventTheft === true;
       const showEquipmentLoot = !theftProtected && availableSlots.length > 0;
+      const pantSteal = loser ? Math.min(5, loser.gold) : 0;
+      const penaltyKlunkTotal = loser ? penaltySipTotalForPlayer(loser, 1) : 0;
+      const dmgPreview = loser
+        ? previewHpAfterFlatDamage({ player: loser, amount: 2, isBossHit: false })
+        : { hpAfter: 0, blockedByNegateAllOnce: false };
+      const damageButtonLabel = loser
+        ? sv.play.pvpLootDealDamageLine(loser.hp, dmgPreview.hpAfter, dmgPreview.blockedByNegateAllOnce)
+        : sv.play.pvpDeal2Damage;
+      const truncatePvpLootEquipName = (name: string, maxLen = 36): string => {
+        const t = name.trim();
+        if (t.length <= maxLen) return t;
+        const ell = "...";
+        return `${t.slice(0, Math.max(0, maxLen - ell.length)).trimEnd()}${ell}`;
+      };
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpChooseLoot}</div>
@@ -2260,33 +2334,38 @@ export function PlayView() {
               fullWidth
               onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "gold" })}
             >
-              {sv.play.takePantMax5}
+              {sv.play.pvpLootTakePant(pantSteal)}
             </ArcadeButton>
             <ArcadeButton
               variant="pink"
               fullWidth
               onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "sip" })}
             >
-              {sv.play.givePenaltyKlunk}
+              {sv.play.pvpLootPenaltyKlunk(Math.max(0, penaltyKlunkTotal))}
             </ArcadeButton>
             <ArcadeButton
               variant="gray"
               fullWidth
               onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "damage" })}
             >
-              {sv.play.pvpDeal2Damage}
+              {damageButtonLabel}
             </ArcadeButton>
             {showEquipmentLoot ? (
-              availableSlots.map((slot) => (
-                <ArcadeButton
-                  key={slot}
-                  variant="gray"
-                  fullWidth
-                  onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: slot })}
-                >
-                  {sv.play.takeSlot(capitalizeWord(equipmentSlotSv(slot)))}
-                </ArcadeButton>
-              ))
+              availableSlots.map((slot) => {
+                const rawName = (items[slot]?.name ?? slot).trim();
+                const shownName = truncatePvpLootEquipName(rawName);
+                return (
+                  <ArcadeButton
+                    key={slot}
+                    variant="gray"
+                    fullWidth
+                    title={rawName.length > shownName.length ? rawName : undefined}
+                    onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: slot })}
+                  >
+                    {sv.play.pvpLootTakeEquipment(capitalizeWord(equipmentSlotSv(slot)), shownName)}
+                  </ArcadeButton>
+                );
+              })
             ) : theftProtected ? (
               <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{sv.play.pvpLootTheftProtectedHint}</div>
             ) : (
@@ -2423,14 +2502,24 @@ export function PlayView() {
     const healingTargetItem = inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack";
     const canUse = isItemPlayableNow(inst.itemId, meta.target);
     const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
+    const pvpDuelOpponentId =
+      state.pending?.type === "pvp" &&
+      (state.pending.phase === "preRoundItems" || state.pending.phase === "awaitingRolls") &&
+      (state.pending.attackerId === me.id || state.pending.defenderId === me.id)
+        ? state.pending.attackerId === me.id
+          ? state.pending.defenderId
+          : state.pending.attackerId
+        : null;
     const candidates =
       broPick && combatAttackerId
         ? state.players.filter((p) => p.id !== combatAttackerId)
-        : meta.target === "other"
-          ? state.players.filter((p) => p.id !== me.id)
-          : meta.target === "self_or_other"
-            ? state.players
-          : [];
+        : meta.target === "other" && pvpDuelOpponentId
+          ? state.players.filter((p) => p.id === pvpDuelOpponentId)
+          : meta.target === "other"
+            ? state.players.filter((p) => p.id !== me.id)
+            : meta.target === "self_or_other"
+              ? state.players
+              : [];
     const chosen = needsTarget ? (itemTargetId ?? (healingTargetItem ? me.id : null)) : null;
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
     const showTargetPicker = needsTarget && itemUseTargetPhase;
@@ -3198,6 +3287,13 @@ export function PlayView() {
             }
             monster={monsterEncounterCardPropsFromCombatPending(pending, {
               finalBossLivesRemaining: state.finalBossLivesRemaining,
+              monsterLossSipReduction: Math.max(
+                0,
+                Math.floor(
+                  state.players.find((pl) => pl.id === pending.attackerId)?.equipment.weapon
+                    ?.monsterLossSipReduction ?? 0,
+                ),
+              ),
             })}
           />
         )}
@@ -3212,7 +3308,12 @@ export function PlayView() {
           rewardItems={myEnemyIntroPending.rewardItems}
           rewardXp={myEnemyIntroPending.rewardXp}
           baseDamage={myEnemyIntroPending.baseDamage}
-          lossKlunks={combatLossKlunksForDisplay(myEnemyIntroPending)}
+          lossKlunks={combatLossKlunksForDisplay(myEnemyIntroPending, {
+            monsterLossSipReduction: Math.max(
+              0,
+              Math.floor(me?.equipment.weapon?.monsterLossSipReduction ?? 0),
+            ),
+          })}
           specialRules={myEnemyIntroPending.enemyIntroText?.trim() || undefined}
           showCard={myEnemyIntroPending.monsterId !== "boss"}
           bossLivesRemaining={
@@ -3397,7 +3498,6 @@ export function PlayView() {
               boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
             }}
           >
-            <EndedSpotlightCarousel players={state.players} />
             <h2 style={{ marginTop: 0, textAlign: "center", fontFamily: "var(--heading)", fontWeight: 500 }}>
               {sv.play.gameOver}
             </h2>
@@ -3405,6 +3505,7 @@ export function PlayView() {
               {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
             </p>
             <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
+            <EndedSpotlightCarousel players={state.players} />
             <div style={{ marginTop: 20, width: "100%" }}>
               <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
                 {sv.play.gameOverLeaveToHome}
@@ -3525,6 +3626,17 @@ export function PlayView() {
                                   type="button"
                                   onClick={() => {
                                     setItemTargetId(null);
+                                    if (
+                                      pending?.type === "pvp" &&
+                                      (pending.phase === "preRoundItems" || pending.phase === "awaitingRolls") &&
+                                      me &&
+                                      (pending.attackerId === me.id || pending.defenderId === me.id) &&
+                                      info.itemId === "spill_intentional"
+                                    ) {
+                                      setItemTargetId(
+                                        pending.attackerId === me.id ? pending.defenderId : pending.attackerId,
+                                      );
+                                    }
                                     setItemDetail({ instanceId: info.firstInstanceId });
                                   }}
                                   aria-label={itemMetaForView(itemId).title}
@@ -3766,12 +3878,12 @@ export function PlayView() {
         </div>
       ) : null}
       {showLevelUpOverlay != null ? (
-        <div className={styles.levelUpOverlay} aria-live="polite">
-          <div className={styles.levelUpOverlayText}>
-            Level up!
-            <br />
-            Bryggnivå {showLevelUpOverlay}
-          </div>
+        <div
+          className={styles.levelUpOverlay}
+          aria-live="polite"
+          aria-label={`Level up! Bryggnivå ${showLevelUpOverlay}`}
+        >
+          <div className={styles.levelUpOverlayText}>Level up!</div>
         </div>
       ) : null}
 
@@ -4550,8 +4662,10 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   manopositiv: "combat",
   beard_back: "self",
   hangover: "combat",
+  paidassasin: "combat",
   pretzel_snack: "self_or_other",
   coin_purse: "self",
+  charity: "self",
   shortcut: "self",
   taproom_key: "self",
   six_sense: "self",
@@ -4565,6 +4679,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   not_my_round: "other",
   spill_intentional: "other",
   early_night: "combat",
+  bribes: "combat",
   get_lucky: "combat",
 };
 
@@ -4578,6 +4693,7 @@ const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([
   "beer_bomb",
   "manopositiv",
   "hangover",
+  "paidassasin",
   "monster_hype",
   "yeast_sabotage",
   "beer_bro",
@@ -4592,9 +4708,12 @@ const COMBAT_INTERVENE_EVIL_ITEM_IDS = new Set<string>([
   "weak_beer",
   "tripwire",
   "hangover",
+  "paidassasin",
   "monster_hype",
+  "lengraddad",
   "not_my_round",
   "spill_intentional",
+  "yeast_sabotage",
 ]);
 const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "light_beer",
@@ -4603,7 +4722,6 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "beer_bomb",
   "manopositiv",
   "get_lucky",
-  "yeast_sabotage",
   "beer_bro",
 ]);
 /** Spelbara kort som primärt är debuff/sabotage ska få röd ton i inventory. */
@@ -4611,12 +4729,14 @@ const PLAYABLE_DEBUFF_ITEM_IDS = new Set<string>([
   "weak_beer",
   "tripwire",
   "hangover",
+  "paidassasin",
   "monster_hype",
   "lengraddad",
   "not_my_round",
   "spill_intentional",
   "rigged_game",
   "sleep_potion",
+  "yeast_sabotage",
 ]);
 const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
   "weak_beer",
@@ -4628,8 +4748,12 @@ const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
   "manopositiv",
   "hangover",
   "monster_hype",
+  "yeast_sabotage",
+  "spill_intentional",
   "beard_back",
   "six_sense",
+  "paidassasin",
+  "lengraddad",
 ]);
 
 /** Effektrader för modal: samma sammandrag som i affären när prylen finns i katalogen (annars fallback). */
@@ -4919,6 +5043,8 @@ function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
     beard_back: 5,
     rigged_game: 5,
     spill_intentional: 2,
+    bribes: 10,
+    paidassasin: 15,
   };
   const cost = itemCost[itemId] ?? 0;
   if (cost <= 0) return null;

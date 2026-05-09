@@ -1,6 +1,6 @@
 export const CONFIG_NUMERIC = {
   turnSeconds: { min: 30, max: 120, default: 60 },
-  reactionSeconds: { min: 0, max: 30, default: 10 },
+  reactionSeconds: { min: 0, max: 30, default: 5 },
   maxHp: { min: 6, max: 30, default: 10 },
   startPant: { min: 0, max: 50, default: 5 },
 } as const;

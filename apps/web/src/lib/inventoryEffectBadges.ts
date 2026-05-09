@@ -104,6 +104,9 @@ export function equipmentInventoryEffectBadges(
         ? catalog.bonusHp
         : 0;
   if (bonusHpPiece > 0) badges.push({ icon: "heart", label: `+${bonusHpPiece}` });
+  else if (bonusHpPiece < 0) {
+    badges.push({ icon: "heart", label: String(bonusHpPiece), labelTone: "danger" });
+  }
   const healPerTurn =
     "healHpPerTurn" in piece
       ? ((piece as { healHpPerTurn?: number }).healHpPerTurn ?? 0)
@@ -121,6 +124,13 @@ export function equipmentInventoryEffectBadges(
       label: formatSigned(pvpDieBonus),
       labelTone: pvpDieBonus < 0 ? "danger" : undefined,
     });
+  }
+  const monsterLossSipRed =
+    "monsterLossSipReduction" in piece && typeof (piece as Weapon).monsterLossSipReduction === "number"
+      ? Math.max(0, Math.floor((piece as Weapon).monsterLossSipReduction ?? 0))
+      : 0;
+  if (monsterLossSipRed > 0) {
+    badges.push({ icon: "klunk", label: `−${monsterLossSipRed} förl` });
   }
   const damageNegateRaw =
     "damageNegate" in piece
@@ -164,6 +174,7 @@ export function itemInventoryEffectBadge(
     healing_potion: { icon: "heart", label: "+3" },
     pretzel_snack: { icon: "heart", label: "+2" },
     coin_purse: { icon: "pant", label: "+4" },
+    charity: { icon: "pant", label: "HP" },
     shortcut: { icon: "pant", label: "↑" },
     taproom_key: { icon: "pant", label: "↑" },
     weak_beer: { icon: "attack", label: "−2", labelTone: "danger" },
@@ -173,6 +184,7 @@ export function itemInventoryEffectBadge(
     double_hops: { icon: "attack", label: "+2" },
     beer_bomb: { icon: "attack", label: "+3" },
     hangover: { icon: "attack", label: "−3", labelTone: "danger" },
+    paidassasin: { icon: "attack", label: "−5", labelTone: "danger" },
     monster_hype: { icon: "attack", label: "−2", labelTone: "danger" },
     yeast_sabotage: { icon: "attack", label: "−1", labelTone: "danger" },
     get_lucky: { icon: "attack", label: "+4" },
@@ -181,6 +193,7 @@ export function itemInventoryEffectBadge(
     split_the_g: { icon: "pant", label: "½" },
     lengraddad: { icon: "attack", label: "−2", labelTone: "danger" },
     early_night: { icon: "monster", label: "skip" },
+    bribes: { icon: "monster", label: "skip" },
     beer_bro: { icon: "attack", label: "×2" },
     sleep_potion: { icon: "monster", label: "Zzz" },
     beard_back: { icon: "attack", label: "×2" },
@@ -209,6 +222,7 @@ export function shopItemToEquipmentPreviewPiece(
       powerDynamicMax: item.powerDynamicMax,
       randomOtherDamageOnWin: item.randomOtherDamageOnWin,
       breakOnWin: item.breakOnWin,
+      monsterLossSipReduction: item.monsterLossSipReduction,
     };
   }
   if (item.slot === "armor") {

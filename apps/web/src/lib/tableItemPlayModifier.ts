@@ -25,6 +25,7 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
     double_hops: 2,
     beer_bomb: 3,
     hangover: -3,
+    paidassasin: -5,
     monster_hype: -2,
     yeast_sabotage: -1,
   };
@@ -40,6 +41,8 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
       return { iconSrc: ICON.heart, value: "+2" };
     case "coin_purse":
       return { iconSrc: ICON.pant, value: "+4" };
+    case "charity":
+      return { iconSrc: ICON.pant, value: "♥" };
     case "shortcut":
       return { iconSrc: ICON.pant, value: "↑" };
     case "taproom_key":
@@ -57,6 +60,8 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
     case "sleep_potion":
       return { iconSrc: "/icons/thumbdown-icon.svg", value: "1", isNegative: true };
     case "early_night":
+      return { iconSrc: ICON.monster, value: "↷" };
+    case "bribes":
       return { iconSrc: ICON.monster, value: "↷" };
     case "six_sense":
       return { iconSrc: "/icons/bvb-icon.svg", value: "t6" };

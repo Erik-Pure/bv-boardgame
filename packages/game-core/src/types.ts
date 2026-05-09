@@ -40,7 +40,10 @@ export type ItemId =
   | "shortcut"
   | "taproom_key"
   | "six_sense"
-  | "rigged_game";
+  | "rigged_game"
+  | "bribes"
+  | "paidassasin"
+  | "charity";
 
 export interface ItemInstance {
   instanceId: string;
@@ -67,6 +70,8 @@ export interface Weapon {
   randomOtherDamageOnWin?: number;
   /** If true: weapon breaks and is removed after a win. */
   breakOnWin?: boolean;
+  /** Minskar bas-antalet straffklunkar vid förlust mot monster (per enhet, ej under 0 totalt före hjälm/tillbehör-extra). */
+  monsterLossSipReduction?: number;
 }
 
 export interface ArmorPiece {
@@ -177,6 +182,7 @@ export interface ShopItem {
   powerDynamicMax?: number;
   randomOtherDamageOnWin?: number;
   breakOnWin?: boolean;
+  monsterLossSipReduction?: number;
   /** rustning */
   bonusHp?: number;
   healHpPerTurn?: number;
@@ -321,6 +327,8 @@ export type Pending =
       roundItemReady?: Partial<Record<string, boolean>>;
       /** Per-rond attackmodifierare från spelade PvP-föremål. */
       pvpAttackMods?: Partial<Record<string, number>>;
+      /** Skakad öl i BvB: målet som fått −1; vid rondförlust → öl i ögat / hopptur (som mot monster). */
+      pvpYeastSabotageVictimId?: string;
       rolls?: Partial<
         Record<
           string,

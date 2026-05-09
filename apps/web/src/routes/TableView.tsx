@@ -1601,12 +1601,12 @@ function TableViewBody() {
           ) : state?.phase === "ended" ? (
             <div role="dialog" aria-label={sv.play.gameOver} className={tableStyles.modalBackdropEnded}>
               <div className={tableStyles.modalCardEnded}>
-                <EndedSpotlightCarousel players={state.players} />
                 <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
                 <p className={u.gameOverWinnerLine}>
                   {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
                 <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
+                <EndedSpotlightCarousel players={state.players} />
                 <div className={u.mt20w100}>
                   <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
                     {sv.play.gameOverLeaveToHome}

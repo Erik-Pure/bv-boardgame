@@ -42,6 +42,29 @@ export function consumeNegateAllOnce(state: GameState, p: Player, log?: (s: Game
   }
 }
 
+/** HP efter skada utan att mutera spelare (samma logik som {@link applyDamage}, utan guld-/rustningssidoeffekter). */
+export function previewHpAfterFlatDamage(params: {
+  player: Player;
+  amount: number;
+  isBossHit?: boolean;
+}): { hpAfter: number; blockedByNegateAllOnce: boolean } {
+  const { player: p, amount, isBossHit } = params;
+  const dmg = Math.max(0, Math.floor(amount));
+  if (dmg <= 0) return { hpAfter: p.hp, blockedByNegateAllOnce: false };
+
+  if (hasNegateAllOnce(p)) {
+    return { hpAfter: p.hp, blockedByNegateAllOnce: true };
+  }
+
+  const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
+  const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
+  const prevent = isBossHit
+    ? equipmentDamageNegate(p)
+    : Math.max(0, equipmentDamageNegate(p) - armorBossExtra - helmetBossExtra);
+  const final = Math.max(0, dmg - prevent);
+  return { hpAfter: Math.max(0, p.hp - final), blockedByNegateAllOnce: false };
+}
+
 export function applyDamage(params: {
   state: GameState;
   player: Player;

@@ -102,6 +102,8 @@ export function cardDefOverviewBadges(card: CardDef): EffectBadgeData[] {
       item_manopositiv: 10,
       item_beard_back: 5,
       item_rigged_game: 5,
+      item_bribes: 10,
+      item_paidassasin: 15,
       item_spill_intentional: 2,
     };
     const cost = itemPantCost[card.id] ?? 0;

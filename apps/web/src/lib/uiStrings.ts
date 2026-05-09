@@ -242,6 +242,18 @@ export const sv = {
     givePenaltyKlunk: "Straffklunk (+1)",
     pvpDeal2Damage: "Ge förloraren 2 skada",
     takeSlot: (slot: string) => `Ta ${slot}`,
+    /** BvB-byte: visar faktiskt borttaget pantbelopp (max 5). */
+    pvpLootTakePant: (amount: number) => `Ta pant (${amount})`,
+    /** BvB-byte: klunkar motståndaren får (inkl. hjälm/tillbehör-straffbonus). */
+    pvpLootPenaltyKlunk: (klunkar: number) =>
+      klunkar === 1 ? `Straffklunk (+1 klunk)` : `Straffklunk (+${klunkar} klunkar)`,
+    /** BvB-byte: 2 HP-skada med förhandsvisning av motståndarens HP. */
+    pvpLootDealDamageLine: (fromHp: number, toHp: number, blockedByNegateOnce: boolean): string => {
+      if (blockedByNegateOnce) return `Ge 2 skada (HP oförändrad — rustning/hjälm blockerar)`;
+      return `Ge 2 skada (HP ${fromHp}→${toHp})`;
+    },
+    /** BvB-byte: slot redan versaliserad, `itemName` trunkeras i anroparen vid behov. */
+    pvpLootTakeEquipment: (slotLabel: string, itemName: string) => `Ta ${slotLabel}: ${itemName}`,
     noItemsToSteal: "Inga föremål att ta.",
     /** Förloraren har t.ex. solbrillor (preventTheft): BvB-byte är bara pant, straffklunk eller skada. */
     pvpLootTheftProtectedHint:
@@ -320,45 +332,21 @@ export const sv = {
     scoreboardColKlunk: "Klunk",
     scoreboardColPant: "Pant",
     scoreboardColHp: "HP",
-    scoreboardBadgesAria: "Bäst i klassen — delad förstaplats visas för alla",
-    scoreboardBadgeMostKnockdowns: (names: string, n: number) => `Flest stupad bryggare: ${names} (${n})`,
-    scoreboardBadgeMostMonsterWins: (names: string, n: number) => `Flest monstersegrar: ${names} (${n})`,
-    scoreboardBadgeMostMonsterLosses: (names: string, n: number) => `Flest monsterförluster: ${names} (${n})`,
-    scoreboardBadgeMostPvpWins: (names: string, n: number) => `Flest BvB-segrar: ${names} (${n})`,
-    scoreboardBadgeMostPvpLosses: (names: string, n: number) => `Flest BvB-förluster: ${names} (${n})`,
-    scoreboardBadgeMostItemsPlayed: (names: string, n: number) => `Flest förbrukade föremål: ${names} (${n})`,
-    scoreboardBadgeMostCombatOnes: (names: string, n: number) => `Flest ettor i monsterstrid: ${names} (${n})`,
-    scoreboardBadgeMostPvpOnes: (names: string, n: number) => `Flest ettor i BvB: ${names} (${n})`,
-    scoreboardBadgeMostSabotage: (names: string, n: number) => `Mest sabotage-föremål: ${names} (${n})`,
-    scoreboardBadgeMostHelpedWins: (names: string, n: number) => `Flest hjälpsegrar: ${names} (${n})`,
-    scoreboardBadgeMaxDiceRoll: (names: string, n: number) => `Högsta tärningsslag (total): ${names} (${n})`,
     scoreboardBrewerLevelAria: (n: number) => `Bryggnivå ${n}`,
     winner: "Vinnare",
     /** Knapp i modalen när spelet är slut — går till startsidan. */
     gameOverLeaveToHome: "Avsluta spelet",
-    spotlightRegionAria: "Partihöjdpunkter från spelet",
-    spotlightPrev: "Föregående höjdpunkt",
-    spotlightNext: "Nästa höjdpunkt",
+    spotlightRegionAria: "Höjdpunkter",
     spotlightMostOnesTitle: "Flest ettor",
-    spotlightMostOnesBody: (names: string, n: number) => `${names} — ${n} ettor (monster + BvB)`,
     spotlightMostPantSpentTitle: "Mest spenderad pant",
-    spotlightMostPantSpentBody: (names: string, n: number) => `${names} — ${n} pant till avgifter och sinkholes`,
-    spotlightMostPvpWinsTitle: "Flest BvB-segrar",
-    spotlightMostPvpWinsBody: (names: string, n: number) => `${names} — ${n} vunna matcher`,
-    spotlightMostPvpMatchesTitle: "Flest spelade BvB",
-    spotlightMostPvpMatchesBody: (names: string, n: number) => `${names} — ${n} matcher totalt`,
+    spotlightMostPvpWinsTitle: "Flest BvB vinster",
+    spotlightMostPvpMatchesTitle: "Flest BvB",
     spotlightMostLossesTitle: "Mest förluster totalt",
-    spotlightMostLossesBody: (names: string, n: number) => `${names} — ${n} (monster + BvB)`,
     spotlightMostSabotageTitle: "Mest sabotage",
-    spotlightMostSabotageBody: (names: string, n: number) => `${names} — ${n} sabotage-föremål spelade`,
     spotlightMostHelpedTitle: "Hjälp till mest",
-    spotlightMostHelpedBody: (names: string, n: number) => `${names} — ${n} hjälpsegrar`,
-    spotlightMaxRollTitle: "Största slaget",
-    spotlightMaxRollBody: (names: string, n: number) => `${names} — högsta total ${n}`,
-    spotlightMostKnockdownsTitle: "Flest stup",
-    spotlightMostKnockdownsBody: (names: string, n: number) => `${names} — ${n}× stupad bryggare`,
-    spotlightMostMonsterWinsTitle: "Flest monstersegrar",
-    spotlightMostMonsterWinsBody: (names: string, n: number) => `${names} — ${n} segrar`,
+    spotlightMaxRollTitle: "Högsta tärningsslag",
+    spotlightMostKnockdownsTitle: "Dog mest",
+    spotlightMostMonsterWinsTitle: "Räddat flest batcher",
     debugLine: (parts: {
       ws: string;
       myId: string;
@@ -579,12 +567,12 @@ export const sv = {
     },
     beer_bro: {
       title: "Ölkompis",
-      text: "Stridsreaktion: en till spelare slår med angriparen — kombinerad attack. Gäller spelarnas slag, inte batchens styrka. Vid vinst får ölkompisen lika många skatter som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
+      text: "Kombinerad attack: En extra spelare hjälper till. Vid förlust skadas båda; vid vinst får hjälparen samma mängd skatt. Automatisk förlust sker endast om båda tärningarna visar 1.",
     },
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
     lengraddad: {
       title: "Lengräddad",
-      text: "Spela på en annan spelare: nästa strid får den spelaren −2 i attack.",
+      text: "Spela på en annan spelare: −2 attack — nästa monsterstrid (vid ingripande) eller målduellant under BvB-förberedelse.",
     },
     canman: {
       title: "Canman",
@@ -600,11 +588,11 @@ export const sv = {
     },
     shortcut: {
       title: "Genväg",
-      text: "På din tur: betala panten för nästa våning och gå upp en våning.",
+      text: "På din tur: betala för nästa våning och stig — eller på sista våningen betala samma nivåtaxa och hamna på slutbossens ruta.",
     },
     taproom_key: {
       title: "Taproom-nyckel",
-      text: "På din tur: gå upp en våning för 10 pant mindre än Genväg-kostnaden.",
+      text: "På din tur: stig en våning för 10 pant mindre än Genväg — eller på sista våningen gå till boss för samma rabatt mot Genvägs-priset på den nivån.",
     },
     six_sense: {
       title: "Ett sjätte ölsinne",
@@ -617,6 +605,15 @@ export const sv = {
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
     spill_intentional: { title: "Spilla med flit", text: "Betala 2 pant och förstör slumpmässigt föremål eller utrustning för en spelare." },
     early_night: { title: "Vaska", text: "Skippa dålig batch." },
+    bribes: { title: "Mutor", text: "Undvik en strid för 10 pant." },
+    paidassasin: {
+      title: "Hejduk",
+      text: "Betala 15 pant och sätt −5 attack på en spelare i strid eller i BvB-ronden.",
+    },
+    charity: {
+      title: "Skänk till välgörenhet",
+      text: "På din tur: skänk pant och fyll på lika många HP — högst din saknade hälsa och högst din pant (aldrig mer pant än liv du fyller på).",
+    },
 
   },
   sipNotice: {

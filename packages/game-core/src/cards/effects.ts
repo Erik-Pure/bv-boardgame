@@ -40,6 +40,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
       powerDynamicMax: eq.powerDynamicMax,
       randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
       breakOnWin: eq.breakOnWin,
+      monsterLossSipReduction: eq.monsterLossSipReduction,
     };
   } else if (slot === "armor") {
     player.equipment.armor = {

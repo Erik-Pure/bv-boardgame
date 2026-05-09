@@ -176,27 +176,6 @@
     contrast(104%);
 }
 
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.badgeChip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.55);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: rgba(226, 232, 240, 0.95);
-}
-
 .srOnly {
   position: absolute;
   width: 1px;

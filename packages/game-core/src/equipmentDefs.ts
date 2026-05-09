@@ -87,6 +87,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Betala 2 pant före tärningsslaget för +1 attack.",
   },
   {
+    id: "ew_powerwash",
+    slot: "weapon",
+    name: "Högtryckstvätt",
+    price: 10,
+    power: 1,
+    monsterLossSipReduction: 1,
+    rulesText: "Sprutar bort skammen lite — en straffklunk mindre om du förlorar mot en dålig batch.",
+  },
+  {
     id: "eh_cap_front",
     slot: "helmet",
     name: "Keps",
@@ -282,6 +291,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 2,
     rulesText: "Mjuk och tjock — bättre skydd mot träffar.",
+  },
+  {
+    id: "ea_longsleeve",
+    slot: "armor",
+    name: "Longsleeve",
+    price: 10,
+    bonusHp: -4,
+    combatBonus: 2,
+    rulesText: "Tajt passform och armarna fria — mer attack i monsterstrid, men färre max HP.",
   },
   {
     id: "ea_six_pack",

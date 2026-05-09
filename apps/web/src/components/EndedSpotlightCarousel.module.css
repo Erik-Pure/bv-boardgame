@@ -1,6 +1,7 @@
 .wrap {
   width: 100%;
-  margin-bottom: 18px;
+  margin-top: 20px;
+  margin-bottom: 4px;
 }
 
 .regionLabel {
@@ -15,7 +16,9 @@
 
 .viewport {
   position: relative;
-  min-height: 88px;
+  min-height: 140px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .card {
@@ -28,60 +31,97 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   text-align: center;
 }
 
 .cardFadeIn {
-  animation: spotlightFadeIn 0.55s ease-out;
+  animation: spotlightFadeIn 0.2s ease-out forwards;
+}
+
+.cardFadeOut {
+  animation: spotlightFadeOut 0.2s ease-in forwards;
 }
 
 @keyframes spotlightFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translate3d(16px, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes spotlightFadeOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-16px, 0, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cardFadeIn {
+  .cardFadeIn,
+  .cardFadeOut {
     animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 
 .title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 800;
-  color: rgba(253, 230, 138, 0.95);
+  font-size: clamp(1.35rem, 5vw, 1.95rem);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(253, 230, 138, 0.98);
   font-family: var(--heading, ui-sans-serif, system-ui);
+  text-wrap: balance;
 }
 
-.body {
+.names {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: clamp(17px, 4.4vw, 20px);
+  font-weight: 700;
   line-height: 1.35;
-  color: rgba(248, 250, 252, 0.92);
 }
 
-.controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+.namesSep {
+  color: rgba(148, 163, 184, 0.82);
+  font-weight: 600;
+}
+
+.nameColored {
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.85);
+}
+
+.nameFallback {
+  color: rgba(248, 250, 252, 0.96);
+}
+
+.value {
+  margin: 0;
+  font-size: clamp(1.65rem, 5.5vw, 2.2rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: rgba(248, 250, 252, 0.96);
 }
 
 .dotRow {
   display: flex;
   justify-content: center;
   gap: 5px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .dot {

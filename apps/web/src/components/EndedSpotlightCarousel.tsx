@@ -4,12 +4,15 @@ import {
   type EndedSpotlightKind,
   type Player,
 } from "@bv/game-core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { sv } from "../lib/uiStrings";
-import { ArcadeButton } from "./ArcadeButton";
 import styles from "./EndedSpotlightCarousel.module.css";
 
-const ROTATE_MS = 4500;
+/** Tid per höjdpuntskort innan ut-animation/triggning av nästa */
+const ROTATE_MS = 7500;
+
+/** Måste matcha `.cardFadeOut`-animationens varaktighet */
+const FADE_MS = 200;
 
 function shuffleStable<T>(items: T[], seed: string): T[] {
   const arr = [...items];
@@ -28,29 +31,33 @@ function shuffleStable<T>(items: T[], seed: string): T[] {
   return arr;
 }
 
-function spotlightTexts(kind: EndedSpotlightKind, names: string, value: number): { title: string; body: string } {
+function spotlightTitle(kind: EndedSpotlightKind): string {
   switch (kind) {
     case "mostOnesCombined":
-      return { title: sv.play.spotlightMostOnesTitle, body: sv.play.spotlightMostOnesBody(names, value) };
+      return sv.play.spotlightMostOnesTitle;
     case "mostPantSpent":
-      return { title: sv.play.spotlightMostPantSpentTitle, body: sv.play.spotlightMostPantSpentBody(names, value) };
+      return sv.play.spotlightMostPantSpentTitle;
     case "mostPvpWins":
-      return { title: sv.play.spotlightMostPvpWinsTitle, body: sv.play.spotlightMostPvpWinsBody(names, value) };
+      return sv.play.spotlightMostPvpWinsTitle;
     case "mostPvpMatches":
-      return { title: sv.play.spotlightMostPvpMatchesTitle, body: sv.play.spotlightMostPvpMatchesBody(names, value) };
+      return sv.play.spotlightMostPvpMatchesTitle;
     case "mostCombinedLosses":
-      return { title: sv.play.spotlightMostLossesTitle, body: sv.play.spotlightMostLossesBody(names, value) };
+      return sv.play.spotlightMostLossesTitle;
     case "mostSabotageItems":
-      return { title: sv.play.spotlightMostSabotageTitle, body: sv.play.spotlightMostSabotageBody(names, value) };
+      return sv.play.spotlightMostSabotageTitle;
     case "mostHelpedWins":
-      return { title: sv.play.spotlightMostHelpedTitle, body: sv.play.spotlightMostHelpedBody(names, value) };
+      return sv.play.spotlightMostHelpedTitle;
     case "maxDiceRollTotal":
-      return { title: sv.play.spotlightMaxRollTitle, body: sv.play.spotlightMaxRollBody(names, value) };
+      return sv.play.spotlightMaxRollTitle;
     case "mostKnockdowns":
-      return { title: sv.play.spotlightMostKnockdownsTitle, body: sv.play.spotlightMostKnockdownsBody(names, value) };
+      return sv.play.spotlightMostKnockdownsTitle;
     case "mostMonsterWins":
-      return { title: sv.play.spotlightMostMonsterWinsTitle, body: sv.play.spotlightMostMonsterWinsBody(names, value) };
+      return sv.play.spotlightMostMonsterWinsTitle;
   }
+}
+
+function spotlightAriaLabel(kind: EndedSpotlightKind, names: string, value: number): string {
+  return `${spotlightTitle(kind)}. ${names}. ${value}.`;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -69,14 +76,38 @@ function usePrefersReducedMotion(): boolean {
 function SpotlightCard(props: {
   spotlight: EndedSpotlight;
   nameById: Map<string, string>;
-  fadeIn?: boolean;
+  colorById: Map<string, string>;
+  /** Carousel: fade + lätt rörelse (in från höger, ut åt vänster); reduced eller ett kort: ingen animation */
+  slideMotion?: "enter" | "exit" | "static";
 }) {
-  const names = props.spotlight.playerIds.map((id) => props.nameById.get(id) ?? id).join(", ");
-  const { title, body } = spotlightTexts(props.spotlight.kind, names, props.spotlight.value);
+  const title = spotlightTitle(props.spotlight.kind);
+  const motion =
+    props.slideMotion === "exit" ? styles.cardFadeOut : props.slideMotion === "static" ? "" : styles.cardFadeIn;
   return (
-    <div className={[styles.card, props.fadeIn ? styles.cardFadeIn : ""].filter(Boolean).join(" ")}>
+    <div className={[styles.card, motion].filter(Boolean).join(" ")}>
       <h3 className={styles.title}>{title}</h3>
-      <p className={styles.body}>{body}</p>
+      <p className={styles.names}>
+        {props.spotlight.playerIds.map((id, i) => {
+          const label = props.nameById.get(id) ?? id;
+          const color = props.colorById.get(id);
+          return (
+            <Fragment key={id}>
+              {i > 0 ? (
+                <span className={styles.namesSep} aria-hidden>
+                  ,{" "}
+                </span>
+              ) : null}
+              <span
+                className={[styles.nameColored, color ? "" : styles.nameFallback].filter(Boolean).join(" ")}
+                style={color ? { color } : undefined}
+              >
+                {label}
+              </span>
+            </Fragment>
+          );
+        })}
+      </p>
+      <p className={styles.value}>{props.spotlight.value}</p>
     </div>
   );
 }
@@ -93,26 +124,44 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
   );
   const spotlights = useMemo(() => shuffleStable(computeEndedSpotlights(props.players), seed), [props.players, seed]);
   const nameById = useMemo(() => new Map(props.players.map((p) => [p.id, p.name] as const)), [props.players]);
+  const colorById = useMemo(() => new Map(props.players.map((p) => [p.id, p.color] as const)), [props.players]);
 
   const [idx, setIdx] = useState(0);
+  const [isExiting, setIsExiting] = useState(false);
+  const pendingIdxRef = useRef<number | null>(null);
+  const idxRef = useRef(0);
   const n = spotlights.length;
   const safeIdx = n > 0 ? idx % n : 0;
 
-  const goPrev = useCallback(() => {
-    setIdx((i) => (n <= 0 ? 0 : (i - 1 + n) % n));
-  }, [n]);
+  idxRef.current = safeIdx;
 
-  const goNext = useCallback(() => {
-    setIdx((i) => (n <= 0 ? 0 : (i + 1) % n));
-  }, [n]);
-
+  /** Efter ut-slide: byt kort och återgå till inläge */
   useEffect(() => {
-    if (reducedMotion || n <= 1) return;
-    const t = window.setInterval(() => {
-      setIdx((i) => (i + 1) % n);
+    if (!isExiting || pendingIdxRef.current === null) return;
+    const target = pendingIdxRef.current;
+    const t = window.setTimeout(() => {
+      pendingIdxRef.current = null;
+      setIdx(target);
+      setIsExiting(false);
+    }, FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [isExiting]);
+
+  /** Vila ROTATE_MS på synligt kort innan nästa ut-slide */
+  useEffect(() => {
+    if (reducedMotion || n <= 1 || isExiting) return;
+    const t = window.setTimeout(() => {
+      pendingIdxRef.current = (idxRef.current + 1) % n;
+      setIsExiting(true);
     }, ROTATE_MS);
-    return () => window.clearInterval(t);
-  }, [reducedMotion, n]);
+    return () => window.clearTimeout(t);
+  }, [reducedMotion, n, isExiting, safeIdx]);
+
+  function requestGoTo(nextIdx: number) {
+    if (n <= 1 || isExiting || nextIdx === safeIdx) return;
+    pendingIdxRef.current = nextIdx;
+    setIsExiting(true);
+  }
 
   if (n === 0) return null;
 
@@ -122,7 +171,7 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
         <p className={styles.regionLabel}>{sv.play.spotlightRegionAria}</p>
         <div className={styles.reducedGrid}>
           {spotlights.map((s) => (
-            <SpotlightCard key={s.kind} spotlight={s} nameById={nameById} fadeIn={false} />
+            <SpotlightCard key={s.kind} spotlight={s} nameById={nameById} colorById={colorById} slideMotion="static" />
           ))}
         </div>
       </section>
@@ -139,32 +188,27 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
           key={`${current.kind}-${safeIdx}`}
           spotlight={current}
           nameById={nameById}
-          fadeIn
+          colorById={colorById}
+          slideMotion={n <= 1 ? "static" : isExiting ? "exit" : "enter"}
         />
       </div>
       {n > 1 ? (
-        <>
-          <div className={styles.controls}>
-            <ArcadeButton type="button" variant="gray" size="sm" onClick={goPrev} aria-label={sv.play.spotlightPrev}>
-              ‹
-            </ArcadeButton>
-            <ArcadeButton type="button" variant="gray" size="sm" onClick={goNext} aria-label={sv.play.spotlightNext}>
-              ›
-            </ArcadeButton>
-          </div>
-          <div className={styles.dotRow}>
-            {spotlights.map((s, i) => (
-              <button
-                key={s.kind}
-                type="button"
-                className={[styles.dot, i === safeIdx ? styles.dotActive : ""].filter(Boolean).join(" ")}
-                aria-label={`${spotlightTexts(s.kind, s.playerIds.map((id) => nameById.get(id) ?? id).join(", "), s.value).title}`}
-                aria-current={i === safeIdx ? "step" : undefined}
-                onClick={() => setIdx(i)}
-              />
-            ))}
-          </div>
-        </>
+        <div className={styles.dotRow}>
+          {spotlights.map((s, i) => (
+            <button
+              key={s.kind}
+              type="button"
+              className={[styles.dot, i === safeIdx ? styles.dotActive : ""].filter(Boolean).join(" ")}
+              aria-label={spotlightAriaLabel(
+                s.kind,
+                s.playerIds.map((id) => nameById.get(id) ?? id).join(", "),
+                s.value,
+              )}
+              aria-current={i === safeIdx ? "step" : undefined}
+              onClick={() => requestGoTo(i)}
+            />
+          ))}
+        </div>
       ) : null}
     </section>
   );

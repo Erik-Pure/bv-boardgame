@@ -430,7 +430,7 @@
       "id": "item_beer_bro",
       "kind": "item",
       "title": "Ölkompis",
-      "text": "Stridsreaktion: extra spelare slår med angriparen — kombinerad attack. Gäller spelare, inte batchens styrka. Förlorar ni tar båda skada. Vid vinst får ölkompisen lika många skatter (föremål/utrustning) som angriparen. Automatisk förlust bara om båda tärningarna visar 1 (en ensam 1 räcker inte).",
+      "text": "Kombinerad attack: En extra spelare hjälper till. Vid förlust skadas båda; vid vinst får hjälparen samma mängd skatt. Automatisk förlust sker endast om båda tärningarna visar 1.",
       "artKey": "item/bro",
       "effects": []
     },
@@ -623,7 +623,7 @@
       "id": "item_lengraddad",
       "kind": "item",
       "title": "Lengräddad",
-      "text": "Använd på en annan spelare: nästa strid −2 i attack för den spelaren.",
+      "text": "Använd på en annan spelare: −2 attack för målet — nästa monsterstrid (reaktionsfas), eller den aktuella BvB-ronden om du spelar det under duellens förberedelse.",
       "artKey": "item/lengraddad",
       "effects": []
     },
@@ -631,7 +631,7 @@
       "id": "item_canman",
       "kind": "item",
       "title": "Canman",
-      "text": "I förrådet: +1 pant varje gång du slår rörelsetärningen, 10 gånger. Ingen knapp.",
+      "text": "+1 pant varje tur (10 rundor).",
       "artKey": "item/canman",
       "effects": []
     },
@@ -679,7 +679,7 @@
       "id": "item_shortcut",
       "kind": "item",
       "title": "Genväg",
-      "text": "Använd på din tur: gå upp en nivå, förutsatt att du har tillräckligt med pant.",
+      "text": "Använd på din tur: betala pant för att gå upp en nivå — eller på sista våningen teleporteras du direkt till slutbossens ruta för motsvarande kostnad som för den våningen.",
       "artKey": "item/shortcut",
       "effects": []
     },
@@ -687,7 +687,7 @@
       "id": "item_taproom_key",
       "kind": "item",
       "title": "Taproom-nyckel",
-      "text": "Använd på din tur: gå upp en nivå för 10 pant mindre än Genväg-kostnaden.",
+      "text": "Använd på din tur: gå upp en våning för 10 pant mindre än Genväg — eller på sista våningen gå direkt till slutbossens ruta för 10 pant mindre än Genvägs-priset för den våningen.",
       "artKey": "item/taproom-key",
       "effects": []
     },
@@ -705,6 +705,30 @@
       "title": "Riggat spel",
       "text": "Betala 5 pant och använd på en annan spelare: ta en slumpmässig utrustning.",
       "artKey": "item/rigged-game",
+      "effects": []
+    },
+    {
+      "id": "item_bribes",
+      "kind": "item",
+      "title": "Mutor",
+      "text": "Undvik en strid för 10 pant.",
+      "artKey": "item/bribes",
+      "effects": []
+    },
+    {
+      "id": "item_paidassasin",
+      "kind": "item",
+      "title": "Hejduk",
+      "text": "Betala 15 pant och använd på en annan spelare: −5 attack i striden eller i BvB-ronden.",
+      "artKey": "item/paidassasin",
+      "effects": []
+    },
+    {
+      "id": "item_charity",
+      "kind": "item",
+      "title": "Skänk till välgörenhet",
+      "text": "På din tur: varje skänkt pant ger 1 HP (upp till max HP). Du skänker högst lika många pant som HP du saknar, och aldrig mer pant än du fyller på.",
+      "artKey": "item/charity",
       "effects": []
     }
   ],
@@ -786,7 +810,10 @@
       "item_get_lucky",
       "item_manopositiv",
       "item_six_sense",
-      "item_rigged_game"
+      "item_rigged_game",
+      "item_bribes",
+      "item_paidassasin",
+      "item_charity"
     ]
   }
 }

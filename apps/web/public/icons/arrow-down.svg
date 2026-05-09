@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="42.68" height="55.934" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 42.68 55.934">
+  <defs>
+    <linearGradient id="d" x1="-47.174" y1="-12.58" x2="8.76" y2="-12.58" gradientTransform="translate(33.92 8.76) rotate(-90)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".22" stop-color="#fff" stop-opacity=".99"/>
+      <stop offset=".356" stop-color="#fff" stop-opacity=".957"/>
+      <stop offset=".469" stop-color="#fff" stop-opacity=".9"/>
+      <stop offset=".569" stop-color="#fff" stop-opacity=".819"/>
+      <stop offset=".661" stop-color="#fff" stop-opacity=".715"/>
+      <stop offset=".748" stop-color="#fff" stop-opacity=".586"/>
+      <stop offset=".829" stop-color="#fff" stop-opacity=".433"/>
+      <stop offset=".907" stop-color="#fff" stop-opacity=".256"/>
+      <stop offset=".979" stop-color="#fff" stop-opacity=".062"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g id="c" data-name="Layer 1">
+    <path d="M10.394,0v31.345H3.262c-2.9,0-4.353,3.506-2.302,5.557l18.078,18.078c1.271,1.271,3.332,1.271,4.604,0l18.078-18.078c2.051-2.051.598-5.557-2.302-5.557h-7.132V0" fill="url(#d)"/>
+  </g>
+</svg>

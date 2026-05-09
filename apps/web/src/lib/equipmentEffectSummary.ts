@@ -43,7 +43,12 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     if (cost > 0) parts.push(`Strid mot monster: valfri betalning ${cost} pant före slag för +${it.sipAttackBonus} attack`);
     else parts.push(`Strid mot monster: valfri bonus före slag för +${it.sipAttackBonus} attack`);
   }
-  if (typeof it.bonusHp === "number" && it.bonusHp > 0) parts.push(`+${it.bonusHp} max HP`);
+  if (typeof it.monsterLossSipReduction === "number" && it.monsterLossSipReduction > 0) {
+    parts.push(`Vid förlust mot monster: −${it.monsterLossSipReduction} straffklunk`);
+  }
+  if (typeof it.bonusHp === "number" && it.bonusHp !== 0) {
+    parts.push(it.bonusHp > 0 ? `+${it.bonusHp} max HP` : `${it.bonusHp} max HP`);
+  }
   if (typeof it.healHpPerTurn === "number" && it.healHpPerTurn > 0) {
     parts.push(`Per drag: +${it.healHpPerTurn} HP`);
   }

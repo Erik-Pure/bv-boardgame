@@ -29,6 +29,7 @@ const SABOTAGE_ITEM_IDS = new Set<ItemId>([
   "sleep_potion",
   "sip_card",
   "yeast_sabotage",
+  "paidassasin",
 ]);
 
 export function isSabotageItemId(itemId: ItemId): boolean {

@@ -65,6 +65,7 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
   "item_not_my_round",
   "item_spill_intentional",
   "item_rigged_game",
+  "item_paidassasin",
 ]);
 
 /** Kort-id:n som inte ska visas (mall/systemkort). Skatt döljs med `kind` — samma kort visas vid skattrutor i spelet. */

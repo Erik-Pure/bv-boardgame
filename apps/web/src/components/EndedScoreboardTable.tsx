@@ -1,10 +1,8 @@
 import {
   brewerKlunkProgressRatio,
   brewerLevel,
-  computeStatBadges,
   DEFAULT_PLAYER_SESSION_STATS,
   type Player,
-  type StatBadgeKind,
 } from "@bv/game-core";
 import { sv } from "../lib/uiStrings";
 import styles from "./EndedScoreboard.module.css";
@@ -45,37 +43,8 @@ function sortEndedPlayers(players: Player[], winnerId: string | null | undefined
   });
 }
 
-function badgeCaption(kind: StatBadgeKind, names: string, value: number): string {
-  switch (kind) {
-    case "mostKnockdowns":
-      return sv.play.scoreboardBadgeMostKnockdowns(names, value);
-    case "mostMonsterWins":
-      return sv.play.scoreboardBadgeMostMonsterWins(names, value);
-    case "mostMonsterLosses":
-      return sv.play.scoreboardBadgeMostMonsterLosses(names, value);
-    case "mostPvpWins":
-      return sv.play.scoreboardBadgeMostPvpWins(names, value);
-    case "mostPvpLosses":
-      return sv.play.scoreboardBadgeMostPvpLosses(names, value);
-    case "mostItemsPlayed":
-      return sv.play.scoreboardBadgeMostItemsPlayed(names, value);
-    case "mostCombatOnes":
-      return sv.play.scoreboardBadgeMostCombatOnes(names, value);
-    case "mostPvpOnes":
-      return sv.play.scoreboardBadgeMostPvpOnes(names, value);
-    case "mostSabotage":
-      return sv.play.scoreboardBadgeMostSabotage(names, value);
-    case "mostHelpedWins":
-      return sv.play.scoreboardBadgeMostHelpedWins(names, value);
-    case "maxDiceRoll":
-      return sv.play.scoreboardBadgeMaxDiceRoll(names, value);
-  }
-}
-
 export function EndedScoreboardTable(props: { players: Player[]; winnerId: string | null | undefined }) {
   const sorted = sortEndedPlayers(props.players, props.winnerId);
-  const nameById = new Map(props.players.map((p) => [p.id, p.name] as const));
-  const badges = computeStatBadges(props.players);
 
   return (
     <div className={styles.wrap}>
@@ -168,18 +137,6 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
           </tbody>
         </table>
       </div>
-      {badges.length ? (
-        <div className={styles.badges} aria-label={sv.play.scoreboardBadgesAria}>
-          {badges.map((b) => {
-            const names = b.playerIds.map((id) => nameById.get(id) ?? id).join(", ");
-            return (
-              <span key={b.kind} className={styles.badgeChip}>
-                {badgeCaption(b.kind, names, b.value)}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
     </div>
   );
 }
