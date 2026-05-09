@@ -1,0 +1,77 @@
+.levelRingCell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 2px 4px;
+}
+
+.levelRingOuter {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+}
+
+.levelRingInner {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  line-height: 1;
+}
+
+.levelRingProgress {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.15), 0 0 0 1px rgba(148, 163, 184, 0.22);
+  z-index: 1;
+}
+
+.levelRingFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.levelRingValue {
+  position: relative;
+  z-index: 3;
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kombineras med .levelRingCell på samma element (CSS-modules-export). */
+.compact {
+}
+
+.levelRingCell.compact .levelRingOuter,
+.levelRingCell.compact .levelRingInner {
+  width: 30px;
+  height: 30px;
+}
+
+.levelRingCell.compact .levelRingProgress {
+  width: 15px;
+  height: 15px;
+}
+
+.levelRingCell.compact .levelRingValue {
+  font-size: 11px;
+}

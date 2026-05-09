@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.54 |
-| Senast uppdaterad | 2026-05-08 |
+| Version | 0.56 |
+| Senast uppdaterad | 2026-05-09 |
 
 ---
 
@@ -372,7 +372,11 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
   - level 5 vid **1380 XP**
 - Efter sista explicita tröskeln fortsätter skalan linjärt med samma differens som mellan de två sista nivåerna.
 - Visas i **mobil-header** som progress mot nästa visad bryggnivå och som nivåsiffra i nivå-ringen.
-- **Resultatlista** när partiet är **slut** ska visa **bryggnivå** per spelare (för jämförelse utöver klunkar, pant och HP).
+- **Resultatlista** när partiet är **slut** visas som **tabell** på både `/table` och mobil (`/play`): **namn**, **bryggnivå** (samma ring och `lvl`-ram som i mobil-header), **antal stupad bryggare** (gånger spelaren triggat stupad bryggare vid 0 HP), **monster V/F** (vunna respektive förlorade monsterstrider), **förbrukade föremål**, samt **klunkar**, **pant** och **HP**. Under tabellen visas **badge-rader** (“bäst i klassen”) per statistiktyp där värdet är större än noll; **delad förstaplats** listar alla berörda spelare.
+- **Boss:** varje **vunnen runda** mot slutbossen (även när bossen har flera liv kvar) räknas som **+1 monsterseger** i sessionsstatistiken, så siffran följer spelupplevelsen av flera stridsrundor.
+- **Persistens:** sessionsstatistik lever i **`GameState`** under partiet; långsiktig lagring per konto/aggressionsfil är **inte** krav i nuvarande implementation.
+- **Slutmodal spotlight:** ovanför rubriken *«Spelet är slut»* visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
+- **Spenderad pant (`goldSpent` i state):** räknar pant som lämnar spelaren till **spelets sinkholes** (handel, avgifter för föremål/strider/korteffekter, livförsäkring, undvikande av möten där pant tas utan motpartssaldo m.m.). Pant som bara **överförs till annan spelares saldo** (BvB-byte, hjälpkontraktsbetalning, spelare-mot-spelare-stöldkort m.m.) räknas **inte** som spenderad i denna statistik.
 - **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
 - **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
 
@@ -550,4 +554,6 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.52 | 2026-05-08 | §7.2/§10.1/§19: på **sista brädnivån** ingår inte **Genväg** eller **Taproom-nyckel** i slump-pool för skatt/händelse/strids-item (`randomItem` / blandad monsterbelöning); handel och fasta korteffekter opåverkade |
 | 0.53 | 2026-05-08 | §2: **vald rad** på mörka interaktionsknappar — **guldram + guldtext** vid målval i föremålsmodal och vid tärningsyte-val (**Ett sjätte ölsinne**); implementation: `ArcadeButton` med `selected` på mörk variant |
 | 0.54 | 2026-05-08 | §7.2/§19: team-monster-slump **halverad** per brädnivå (**4% / 9% / 14%**, `pickMonsterForLevel` i `game-core`) |
+| 0.55 | 2026-05-08 | §13.1: slutresultat som tabell med sessionsstatistik, nivå-ring, monster V/F, förbrukade föremål, stup-räknare och badge-rader; bossrundor räknas som monstersegrar (`game-core`); ingen extern persistens ännu |
+| 0.56 | 2026-05-09 | Slutmodal: spotlight-karusell + `goldSpent`/spenderad-pant-definition (sinkholes vs spelaröverföring) i §13.1 |
 

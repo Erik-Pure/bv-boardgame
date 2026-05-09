@@ -597,6 +597,21 @@
       ]
     },
     {
+      "id": "event_fummel",
+      "kind": "event",
+      "title": "Fummel",
+      "text": "Slå tärningen. Du fumlar med dina prylar och tappar slumpmässig utrustning på 5-6.",
+      "artKey": "event/fummel",
+      "effects": [],
+      "choices": [
+        {
+          "id": "roll",
+          "label": "Slå tärning",
+          "effects": []
+        }
+      ]
+    },
+    {
       "id": "item_split_the_g",
       "kind": "item",
       "title": "Split the G",
@@ -731,7 +746,8 @@
       "event_rotasoptunna",
       "event_fastnatipant",
       "event_snurraflaskan",
-      "event_fastnatikylen"
+      "event_fastnatikylen",
+      "event_fummel"
     ],
     "rest": [
       "rest_brewery"

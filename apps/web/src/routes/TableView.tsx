@@ -21,7 +21,8 @@ import {
   writeBoardPreventSleepEnabled,
   writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
-import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
+import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
+import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
@@ -1041,6 +1042,7 @@ function TableViewBody() {
   const centerTurnReminderText = cur ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const boardPlayers = state?.players ?? [];
+  const activeTurnPlayerCardRef = useRef<HTMLDivElement | null>(null);
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const prevPlayerTilesRef = useRef<Map<string, { levelIndex: number; tileIndex: number }>>(new Map());
   const [moveAnimByPlayer, setMoveAnimByPlayer] = useState<Map<string, MoveAnim>>(new Map());
@@ -1167,6 +1169,17 @@ function TableViewBody() {
     const t = window.setTimeout(() => setShowCenterTurnReminder(true), 20_000);
     return () => window.clearTimeout(t);
   }, [playingTurn, cur?.id]);
+  useEffect(() => {
+    if (!playingTurn || !cur?.id) return;
+    const raf = window.requestAnimationFrame(() => {
+      activeTurnPlayerCardRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "center",
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [playingTurn, cur?.id, boardPlayers.length]);
   const itemPlayFanCards = useMemo(() => {
     if (!state) return [];
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
@@ -1588,28 +1601,12 @@ function TableViewBody() {
           ) : state?.phase === "ended" ? (
             <div role="dialog" aria-label={sv.play.gameOver} className={tableStyles.modalBackdropEnded}>
               <div className={tableStyles.modalCardEnded}>
+                <EndedSpotlightCarousel players={state.players} />
                 <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
                 <p className={u.gameOverWinnerLine}>
                   {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
-                <ol className={u.listGrid12}>
-                  {[...state.players]
-                    .sort((a, b) => {
-                      const w = state.winnerId;
-                      if (w) {
-                        if (a.id === w) return -1;
-                        if (b.id === w) return 1;
-                      }
-                      if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
-                      if (b.gold !== a.gold) return b.gold - a.gold;
-                      return a.name.localeCompare(b.name, "sv");
-                    })
-                    .map((p) => (
-                      <li key={p.id} className={u.flexRowBetweenWrap12}>
-                        <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
-                      </li>
-                    ))}
-                </ol>
+                <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
                 <div className={u.mt20w100}>
                   <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
                     {sv.play.gameOverLeaveToHome}
@@ -1904,19 +1901,24 @@ function TableViewBody() {
             <div className={tableStyles.turnPlayersScroller}>
               {boardPlayers.map((p) => {
                 const active = cur?.id === p.id;
+                const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
                 return (
                   <div
                     key={p.id}
                     className={[tableStyles.turnPlayerCard, active ? tableStyles.turnBannerActivePlayerCardPulse : ""].join(
                       " ",
                     )}
+                    ref={active ? activeTurnPlayerCardRef : null}
                     style={{
                       ["--turn-player-bg" as string]: active ? p.color : "rgba(255,255,255,0.04)",
                       ["--turn-active-player-color" as string]: p.color,
                     }}
                     title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
                   >
-                    <div className={tableStyles.turnPlayerName}>{p.name}</div>
+                    <div className={tableStyles.turnPlayerName}>
+                      {p.name}
+                      {sleepTag}
+                    </div>
                     <div className={tableStyles.turnPlayerVitals}>
                       <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={p.gold} klunkar={p.klunkar} iconSize={22} />
                     </div>
@@ -2052,7 +2054,13 @@ function TableViewBody() {
                 {toast.iconKinds.length > 0 ? (
                   <div className={tableStyles.tableToastIcons} aria-hidden>
                     {toast.iconKinds.map((kind) => (
-                      <StatIcon key={kind} kind={kind} size={28} popScale={1.08} />
+                      <StatIcon
+                        key={kind}
+                        kind={kind}
+                        size={28}
+                        popScale={1.08}
+                        className={kind === "xp" ? tableStyles.tableToastIconXp : undefined}
+                      />
                     ))}
                   </div>
                 ) : null}

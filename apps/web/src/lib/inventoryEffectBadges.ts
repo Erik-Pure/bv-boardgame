@@ -51,7 +51,6 @@ export function equipmentInventoryEffectBadges(
   piece?: Player["equipment"][EquipmentSlot],
   playerGold?: number,
   burkSetEquippedCount?: number,
-  playerLevelIndex?: number,
   player?: Player,
 ): EffectBadgeData[] {
   if (!piece) return [];
@@ -131,8 +130,8 @@ export function equipmentInventoryEffectBadges(
         : 0;
   const negateAllOnce = "negateAllOnce" in piece && !!piece.negateAllOnce;
   if (isLegendariskBurkhjälmName(piece.name)) {
-    const li = typeof playerLevelIndex === "number" ? playerLevelIndex : 0;
-    const eff = burkhjälmIIEffectiveDamageNegateFrom(li, piece as Player["equipment"]["helmet"]);
+    const xp = player?.xp ?? 0;
+    const eff = burkhjälmIIEffectiveDamageNegateFrom(xp, piece as Player["equipment"]["helmet"]);
     if (negateAllOnce) {
       badges.push({ icon: "armor", label: eff > 0 ? `+${eff}+ALL` : "+ALL" });
     } else if (eff > 0) {
@@ -259,11 +258,5 @@ export function shopItemToEquipmentPreviewPiece(
 
 export function equipmentShopCatalogBadges(item: EquipmentShopItem): EffectBadgeData[] {
   const piece = shopItemToEquipmentPreviewPiece(item);
-  return equipmentInventoryEffectBadges(
-    piece,
-    item.slot === "weapon" ? 0 : undefined,
-    0,
-    item.slot === "helmet" ? 0 : undefined,
-    undefined,
-  );
+  return equipmentInventoryEffectBadges(piece, item.slot === "weapon" ? 0 : undefined, 0, undefined);
 }

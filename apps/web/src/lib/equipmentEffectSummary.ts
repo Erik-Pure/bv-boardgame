@@ -83,5 +83,8 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (it.ignoreCombatCritFailOnOne) {
     parts.push("Etta på stridstärning ger inte automatisk förlust");
   }
+  if (typeof it.deathContinueCost === "number" && it.deathContinueCost > 0) {
+    parts.push(`Vid död: betala ${it.deathContinueCost} pant för fullt liv`);
+  }
   return parts.length ? parts.join(" · ") : "—";
 }

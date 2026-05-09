@@ -228,6 +228,14 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
       "Svart bälte i karatefylle: när du får straffklunk dricker du +1 extra klunk.",
   },
   {
+    id: "ex_medical_papers",
+    slot: "accessory",
+    name: "Livförsäkring",
+    price: 12,
+    deathContinueCost: 20,
+    rulesText: "När du dör kan du betala 20 pant för att fortsätta med fullt liv.",
+  },
+  {
     id: "ea_linne",
     slot: "armor",
     name: "Linne",
@@ -291,7 +299,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Öltunna",
     price: 13,
     bonusHp: 0,
-    damageNegate: 2,
+    damageNegate: 0,
     healHpPerTurn: 1,
     rulesText: "+1 HP varje tur",
   },

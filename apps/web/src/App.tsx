@@ -1,5 +1,5 @@
-import { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Suspense, lazy, useEffect } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import "./App.css";
 import { CardsCatalog } from "./routes/CardsCatalog";
 import { GameRules } from "./routes/GameRules";
@@ -11,9 +11,18 @@ import { Login } from "./routes/Login";
 const TableView = lazy(() => import("./routes/TableView").then((m) => ({ default: m.TableView })));
 const PlayView = lazy(() => import("./routes/PlayView").then((m) => ({ default: m.PlayView })));
 
+function ScrollToTopOnRouteChange() {
+  const location = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <Suspense fallback={<div style={{ minHeight: "100svh", display: "grid", placeItems: "center" }}>Laddar…</div>}>
+      <ScrollToTopOnRouteChange />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/join" element={<JoinGame />} />

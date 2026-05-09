@@ -5,6 +5,7 @@ import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemTex
 import { pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type { CombatLoseSummary, CombatWinSummary, EquipmentSlot, GameState, Pending, Player } from "../types.js";
+import { recordPantSpent } from "../sessionStats.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import { rollDie } from "../rng.js";
 import {
@@ -361,6 +362,7 @@ export function handleCardOption(params: {
     if (choiceId === "sip_leave") {
       if (p.gold < 5) return { handled: true, error: "Du behöver 5 pant för att hedra den belgiska munken." };
       p.gold -= 5;
+      recordPantSpent(state, p.id, 5);
       p.klunkar += 1;
       pushSipNotice(state, p.id, monster.name);
       log(state, `${p.name} tar en klunk och betalar 5 pant i ${monster.name}s ära. ${monster.name} försvinner.`);
@@ -378,6 +380,7 @@ export function handleCardOption(params: {
     if (choiceId === "pay_skip") {
       if (p.gold < 10) return { handled: true, error: "Du behöver 10 pant för att undvika striden." };
       p.gold -= 10;
+      recordPantSpent(state, p.id, 10);
       log(state, `${p.name} betalar 10 pant och undviker striden mot ${monster.name}.`);
       return { handled: true, completeCard: true };
     }

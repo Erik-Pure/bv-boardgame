@@ -1,0 +1,114 @@
+.wrap {
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.regionLabel {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.55);
+  text-align: center;
+}
+
+.viewport {
+  position: relative;
+  min-height: 88px;
+}
+
+.card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.65);
+  padding: 12px 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.cardFadeIn {
+  animation: spotlightFadeIn 0.55s ease-out;
+}
+
+@keyframes spotlightFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardFadeIn {
+    animation: none;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(253, 230, 138, 0.95);
+  font-family: var(--heading, ui-sans-serif, system-ui);
+}
+
+.body {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.dotRow {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.dotActive {
+  background: rgba(253, 224, 71, 0.95);
+  transform: scale(1.15);
+}
+
+.reducedGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(220px, 36vh);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.reducedGrid .card {
+  flex-shrink: 0;
+}

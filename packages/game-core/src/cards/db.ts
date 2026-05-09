@@ -56,6 +56,22 @@ export function itemDeckItemIds(disabledCardIds?: ReadonlySet<string>): ItemId[]
   });
 }
 
+/** Genväg / Taproom-nyckel har ingen effekt på sista brädnivån (ingen nästa våning). */
+export const ITEM_IDS_USELESS_ON_FINAL_BOARD_LEVEL: readonly ItemId[] = ["shortcut", "taproom_key"];
+
+/** Pool för slumpade föremål (skatt/händelse/stridsbelöning); utelämnar genvägs-kort på sista nivån om möjligt. */
+export function itemDeckItemIdsForRandomGrant(
+  disabledCardIds: ReadonlySet<string> | undefined,
+  levelsLength: number,
+  playerLevelIndex: number,
+): ItemId[] {
+  const pool = itemDeckItemIds(disabledCardIds);
+  const lastLevelIndex = Math.max(0, levelsLength - 1);
+  if (playerLevelIndex !== lastLevelIndex) return pool;
+  const filtered = pool.filter((id) => !ITEM_IDS_USELESS_ON_FINAL_BOARD_LEVEL.includes(id));
+  return filtered.length > 0 ? filtered : pool;
+}
+
 export function allCards(): CardDef[] {
   return db.cards.slice();
 }

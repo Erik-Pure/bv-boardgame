@@ -4,6 +4,8 @@ import styles from "./ArcadeButton.module.css";
 export function ArcadeButton(
   props: ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: "blue" | "pink" | "gray" | "merchant";
+    /** Mörka knappar (`pink`/`blue`): guldram + guldtext — t.ex. vald spelare i målval. */
+    selected?: boolean;
     size?: "lg" | "md" | "sm";
     fullWidth?: boolean;
     innerStyle?: CSSProperties;
@@ -12,6 +14,7 @@ export function ArcadeButton(
 ) {
   const {
     variant = "blue",
+    selected = false,
     size = "md",
     fullWidth = false,
     innerStyle,
@@ -23,6 +26,7 @@ export function ArcadeButton(
   const cls = [
     styles.btn,
     styles[`variant_${variant}`],
+    selected ? styles.selectedGold : "",
     styles[`size_${size}`],
     fullWidth ? styles.fullWidth : "",
     className ?? "",

@@ -1,3 +1,4 @@
+import { brewerLevelFromXp } from "./brewerXp.js";
 import type { Player } from "./types.js";
 
 /** Tillbehör som räknas in i burk-setet (gamla sparningar kan ha det gamla namnet). */
@@ -9,7 +10,7 @@ export const BEER_CAN_HELM2_NAME = "Legendarisk Burkhjälm";
 /** Tidigare visningsnamn (sparade spel). */
 export const BEER_CAN_HELM2_LEGACY_NAME = "Burkhjälm II";
 
-/** Legendarisk Burkhjälm aktiveras först från våning/nivå 4. */
+/** Legendarisk Burkhjälm aktiveras först från bryggnivå 4 (XP), samma som UI:s nivåring. */
 export const BEER_HELM2_MIN_LEVEL = 4;
 
 export function isBeerCanShieldName(name: string | undefined): boolean {
@@ -87,32 +88,38 @@ export function helmetAttackBonus(p: Player): number {
   return bonus + beerCanBurkhjälmSetCombatBonus(p);
 }
 
-/** Effektiv skadereduktion från hjälmen (0 under {@link BEER_HELM2_MIN_LEVEL}). */
+/** Sant när spelarens XP ger visad bryggnivå ≥ {@link BEER_HELM2_MIN_LEVEL}. */
+function legendaryBurkhjälmMechanicsUnlockedForXp(xp: number): boolean {
+  const internal = brewerLevelFromXp(Math.max(0, Math.floor(xp)));
+  return Math.max(1, internal + 1) >= BEER_HELM2_MIN_LEVEL;
+}
+
+/** Effektiv skadereduktion från hjälmen (0 under {@link BEER_HELM2_MIN_LEVEL} i XP-bryggnivå). */
 export function burkhjälmIIEffectiveDamageNegateFrom(
-  levelIndex: number,
+  xp: number,
   helmet: Player["equipment"]["helmet"] | undefined,
 ): number {
   if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return 0;
-  if (Math.floor(levelIndex) + 1 < BEER_HELM2_MIN_LEVEL) return 0;
+  if (!legendaryBurkhjälmMechanicsUnlockedForXp(xp)) return 0;
   return Math.max(0, helmet.damageNegate ?? 0);
 }
 
 export function burkhjälmIIEffectiveDamageNegate(p: Player): number {
-  return burkhjälmIIEffectiveDamageNegateFrom(p.levelIndex ?? 0, p.equipment.helmet);
+  return burkhjälmIIEffectiveDamageNegateFrom(p.xp ?? 0, p.equipment.helmet);
 }
 
-/** Effektiv bonus-HP från Legendarisk Burkhjälm (+5 först från nivå 4). */
+/** Effektiv bonus-HP från Legendarisk Burkhjälm (+5 först från bryggnivå 4). */
 export function burkhjälmIIEffectiveBonusHpFrom(
-  levelIndex: number,
+  xp: number,
   helmet: Player["equipment"]["helmet"] | undefined,
 ): number {
   if (!helmet || !isLegendariskBurkhjälmName(helmet.name)) return helmet?.bonusHp ?? 0;
-  if (Math.floor(levelIndex) + 1 < BEER_HELM2_MIN_LEVEL) return 0;
+  if (!legendaryBurkhjälmMechanicsUnlockedForXp(xp)) return 0;
   return Math.max(0, helmet.bonusHp ?? 0);
 }
 
 export function burkhjälmIIEffectiveBonusHp(p: Player): number {
-  return burkhjälmIIEffectiveBonusHpFrom(p.levelIndex ?? 0, p.equipment.helmet);
+  return burkhjälmIIEffectiveBonusHpFrom(p.xp ?? 0, p.equipment.helmet);
 }
 
 export function armorDamageNegateExcludingBeerCanSet(p: Player): number {

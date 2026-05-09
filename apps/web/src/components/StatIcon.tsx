@@ -16,10 +16,13 @@ export function StatIcon(props: {
   style?: CSSProperties;
   /** >1 förstorar ikonen visuellt så den kan sticka utanför sin ruta (layout utgår från `size`). */
   popScale?: number;
+  /** På `<img>` (t.ex. vit silhuett mot mörk toast). */
+  className?: string;
 }) {
-  const { kind, size = 20, style, popScale } = props;
+  const { kind, size = 20, style, popScale, className } = props;
   const img = (
     <img
+      className={className}
       src={STAT_ICON_SRC[kind]}
       alt=""
       aria-hidden

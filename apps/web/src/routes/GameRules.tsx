@@ -1,6 +1,4 @@
 import { Link } from "react-router-dom";
-import { FINAL_BOSS_LIFE_TOTAL } from "@bv/game-core";
-import { sv } from "../lib/uiStrings";
 
 function sectionTitle(text: string) {
   return (
@@ -103,54 +101,47 @@ export function GameRules() {
       </h1>
       <p style={{ margin: "0 0 12px", opacity: 0.92, fontSize: 16 }}>
         I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka
-        upp dina misslyckanden, så blir du en visare bryggmästare.
-      </p>
-      <p style={{ margin: "0 0 20px", opacity: 0.92, fontSize: 16 }}>
-        Man lär sig av sina misstag – men man lär sig snabbare av framgång.
+        upp dina misslyckanden, växer din visdom. Man lär sig av sina misstag – men man lär sig snabbare av framgång.
       </p>
       <p style={{ margin: "0 0 20px", opacity: 0.72, fontSize: 14 }}>
-        Vill du se alla kort med bild? Öppna{" "}
+        Vill du se alla kort? Se vår{" "}
         <Link to="/cards" style={{ color: "#93c5fd" }}>
-          {sv.home.footerCards}
+          [Kortkatalog]
         </Link>
-        .
       </p>
 
       {sectionTitle("🎲 1. Spelets gång")}
       {tutorialImage("/tutorial/tut4.png", "Snabbguide: slå och välj väg")}
-      <p>
-        På din tur slår du rörelsetärningen och väljer riktning. Du flyttar exakt så många steg som tärningen visar.
+      <p>Varje tur består av rörelse och handling:</p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Förflyttning:</strong> Slå rörelsetärningen och flytta exakt så många steg tärningen visar i valfri riktning.
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Förberedelser:</strong> Du kan spela föremål från handen för att förbättra dina odds inför rutan du landar på.
+        <strong>Förberedelser:</strong> Innan du landar på en ruta får du spela föremål från handen för att förbättra dina odds
+        eller optimera dina stats.
       </p>
 
       {sectionTitle("📈 2. Erfarenhet (XP) & Nivåer")}
       <p>
-        Du klättrar i nivå genom att samla Erfarenhetspoäng (XP).
+        Du klättrar i nivå genom att samla Erfarenhetspoäng (XP). Ju högre nivå du når, desto mer XP krävs för nästa steg.
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Vinst i strid (Räddad batch):</strong> Att besegra en dålig batch ger en rejäl dos XP (se respektive kort).
+        <strong>Vinst i strid (Räddad batch):</strong> Att besegra en dålig batch ger en rejäl dos XP (se värde på kortet).
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Förlust i strid (Straffklunkar):</strong> Om du förlorar tvingas du dricka straffklunkar. Varje klunk ger XP,
-        så även motgångar för dig framåt.
-      </p>
-      <p style={{ marginTop: 12 }}>
-        XP-systemet är progressivt: varje nytt nivåsteg kräver mer XP än det förra.
-      </p>
-      <p style={{ marginTop: 12 }}>
-        När du når en ny nivå möts du av budskapet:
+        <strong>Förlust i strid (Straffklunkar):</strong> Om du förlorar tvingas du dricka straffklunkar. Varje klunk härdar dig
+        och ger en liten mängd XP – även motgångar för dig framåt!
       </p>
       <p style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.32)", background: "rgba(15,23,42,0.45)" }}>
-        "Dina erfarenheter – från räddade batcher till den bittra läxan i glaset – har gett resultat. Du är nu tillräckligt
-        härdad för att lämna nybörjarträsket bakom dig och låsa upp nästa nivå. Vågar du anta utmaningen och höja
-        svårighetsgraden, eller har du redan fått nog?"
+        <strong>Nivå upp!</strong>
+        <br />
+        "Dina erfarenheter – från räddade batcher till bittra läxor i glaset – har gett resultat. Du lämnar nu nybörjarträsket
+        bakom dig. Vågar du höja svårighetsgraden, eller har du redan fått nog?"
       </p>
 
-      {sectionTitle("🧭 3. Hantera rutan")}
+      {sectionTitle("🧭 3. Rutor och händelser")}
       {tutorialImage("/tutorial/tut3.png", "Snabbguide: hantera rutan")}
-      <p>När du landar på en ruta aktiveras dess effekt:</p>
+      <p>När du landar på en ruta aktiveras dess effekt omedelbart:</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
           {inlineIcon("/icons/event-icon.svg", "#60a5fa")}
@@ -158,27 +149,27 @@ export function GameRules() {
         </li>
         <li>
           {inlineIcon("/icons/reward-icon.svg", "#facc15")}
-          <strong>Skatt:</strong> Möjlighet till ny utrustning eller kraftfulla föremål.
+          <strong>Skatt:</strong> Möjlighet att hitta ny utrustning eller kraftfulla föremål.
         </li>
         <li>
           {inlineIcon("/icons/heart-icon.svg", "#f472b6")}
-          <strong>Vila:</strong> Återhämtning av HP så att du orkar fortsätta brygga.
+          <strong>Vila:</strong> Återhämtning av HP så att du orkar fortsätta bryggandet.
         </li>
         <li>
           {inlineIcon("/icons/panta-icon.svg", "#fb923c")}
-          <strong>Panta burkar:</strong> Butik där du använder din Pant för att köpa utrustning och sabotage.
+          <strong>Panta burkar:</strong> Butik där du byter in din pant mot utrustning eller sabotage.
         </li>
         <li>
           {inlineIcon("/icons/monster-icon.svg", "#ef4444")}
           {inlineIcon("/icons/bvb-icon.svg", "#d1d5db")}
-          <strong>Dålig batch / BvB:</strong> Strid mot monster eller utmana en medspelare.
+          <strong>Dålig batch / BvB:</strong> Strid mot en misslyckad brygd eller utmana en medspelare (Bryggare mot Bryggare).
         </li>
       </ul>
 
       {sectionTitle("⚔️ 4. Strider, mutor och sabotage")}
       {tutorialImage("/tutorial/tut2.png", "Snabbguide: dåliga batchar, mutor och sabotage")}
       <p>
-        I strid jämförs din total (tärning + utrustning + eventuella föremål) med fiendens styrka.
+        I strid jämförs din Totalstyrka (Tärningsslag + Utrustning + Föremål) mot fiendens styrka.
       </p>
       <p style={{ marginTop: 12 }}>
         <strong>Vinst:</strong> Du får XP {inlineIcon("/icons/lvlup.svg", "#60a5fa")}, pant{" "}
@@ -199,13 +190,13 @@ export function GameRules() {
 
       {sectionTitle("🏆 5. Vinstvillkor")}
       {tutorialImage("/tutorial/tut1.png", "Snabbguide: nivåer, bossen och vinst")}
-      <p>När en spelare når högsta nivåskiktet startar slutskedet.</p>
+      <p>När en spelare når den högsta nivån inleds slutskedet. Spelet kan vinnas på två sätt:</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
-          <strong>Seger:</strong> Den spelare som först besegrar slutbossen (som har {FINAL_BOSS_LIFE_TOTAL} liv) vinner.
+          <strong>Mästerbryggaren:</strong> Besegra slutbossen (som har 3 liv) före alla andra.
         </li>
         <li>
-          <strong>Sist kvar:</strong> Om alla andra spelare förlorat sitt HP eller gett upp vinner den sista kvarvarande
+          <strong>Sista klunken:</strong> Om alla andra spelare förlorar sitt HP eller ger upp, vinner den sista kvarvarande
           bryggaren.
         </li>
       </ul>

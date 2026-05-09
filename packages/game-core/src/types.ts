@@ -134,6 +134,8 @@ export interface Accessory {
   pvpDieBonus?: number;
   /** Om true: spelarens egna etta på tärning i strid räknas inte som automatisk förlust. */
   ignoreCombatCritFailOnOne?: boolean;
+  /** Om satt: när spelaren dör kan den betala pantkostnaden för att fortsätta med fullt liv. */
+  deathContinueCost?: number;
 }
 
 export interface Equipment {
@@ -195,6 +197,7 @@ export interface ShopItem {
   levelUpDiscountGold?: number;
   canSkipMonsterEncounter?: boolean;
   ignoreCombatCritFailOnOne?: boolean;
+  deathContinueCost?: number;
   healAmount?: number;
   goldAmount?: number;
   /** Kort smaktext / särregler för UI (affär, inventarie). */
@@ -221,6 +224,11 @@ export interface CombatLoseSummary {
   enemyName: string;
   rollTotal: number;
   need: number;
+  /** HP-skada före sköld (rå skada). */
+  rawDamage?: number;
+  /** Hur mycket skada som blockerades av sköld/negate. */
+  blockedDamage?: number;
+  /** Faktisk HP-förlust efter sköld (netto). */
   damage: number;
   klunkGained: number;
   /** +1 om valfri straffklunk med pip-vapen togs före slaget (ingår i visad totalsumma). */
@@ -435,6 +443,31 @@ export interface LogEntry {
   message: string;
 }
 
+/** Kumulativ statistik under aktuellt parti (serialiseras med GameState). */
+export interface PlayerSessionStats {
+  /** Antal gånger spelaren nått stupad bryggare (0 HP, innan val). */
+  knockdownCount: number;
+  monsterCombatWins: number;
+  monsterCombatLosses: number;
+  pvpMatchWins: number;
+  pvpMatchLosses: number;
+  itemsPlayed: number;
+  /** Antal gånger spelarens egen t6 visat 1 i monsterstrid (lagkamrat räknas separat). */
+  combatOnesRolled: number;
+  /** Antal gånger spelaren slagit 1 i BvB-tärning (per slag). */
+  pvpOnesRolled: number;
+  sabotageItemsPlayed: number;
+  /** Antal monsterstrider vinst där spelaren var accepterad hjälpare (inte lagkamrat). */
+  helpedCombatWins: number;
+  /** Högsta sedda slagtotal i monsterstrid eller BvB för denna spelare. */
+  maxDiceRollTotal: number;
+  /**
+   * Kumulativ pant som lämnat spelaren till spelets sinkholes (handel, avgifter, monster/handelse-straff
+   * utan mottagande spelare m.m.) — inte ren överföring till annan spelares plånbok.
+   */
+  goldSpent: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -464,6 +497,8 @@ export interface Player {
   skipTurnReasons?: ("normal" | "oil")[];
   /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
   eliminated?: boolean;
+  /** Sessionsstatistik (partipoäng); saknas i äldre sparningar tills normaliserad. */
+  stats?: PlayerSessionStats;
 }
 
 export type GameMode = "bossKill";
@@ -609,7 +644,7 @@ export type ClientAction =
     }
   | { type: "combatHelpRequesterDecision"; playerId: string; accept: boolean }
   | { type: "sipNoticeAck"; playerId: string }
-  | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" }
+  | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" | "insuredContinue" }
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean };
 
 export interface ApplyResult {

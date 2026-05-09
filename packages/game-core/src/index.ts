@@ -18,6 +18,7 @@ export type {
   LogEntry,
   Pending,
   Player,
+  PlayerSessionStats,
   ShopItem,
   SipNoticeEntry,
   SipNoticeKind,
@@ -25,6 +26,15 @@ export type {
   TileType,
   Weapon,
 } from "./types.js";
+export type { EndedSpotlight, EndedSpotlightKind, StatBadge, StatBadgeKind } from "./sessionStats.js";
+export {
+  computeEndedSpotlights,
+  computeStatBadges,
+  DEFAULT_PLAYER_SESSION_STATS,
+  ensurePlayerStats,
+  isSabotageItemId,
+  recordPantSpent,
+} from "./sessionStats.js";
 export { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 export {
   BOARD_RING_GRID_SIZE,

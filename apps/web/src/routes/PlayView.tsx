@@ -8,10 +8,12 @@ import {
   isBeerCanShieldName,
   brewerKlunkProgressRatio,
   brewerLevel,
+  BEER_HELM2_MIN_LEVEL,
   combatReactionsAllAnswered,
   FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
   isFinalBossMonsterId,
+  isLegendariskBurkhjälmName,
   monsterCombatEquipmentAttackBonus,
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
@@ -47,7 +49,9 @@ import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { DiceCube3D } from "../components/DiceCube3D";
-import { EndedScoreboardPlayerLine } from "../components/EndedScoreboardPlayerLine";
+import { LevelRingCell } from "../components/LevelRingCell";
+import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
+import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
@@ -577,11 +581,7 @@ export function PlayView() {
   const prevHpRef = useRef<number | undefined>(undefined);
   const prevGoldRef = useRef<number | undefined>(undefined);
   const prevKlunkRef = useRef<number | undefined>(undefined);
-  const pendingStatFlashRef = useRef<{ hp: StatFlash; pant: StatFlash; klunk: StatFlash }>({
-    hp: null,
-    pant: null,
-    klunk: null,
-  });
+  const suppressNextHpFlashRef = useRef(false);
   const [hpFlash, setHpFlash] = useState<StatFlash>(null);
   const [pantFlash, setPantFlash] = useState<StatFlash>(null);
   const [klunkFlash, setKlunkFlash] = useState<StatFlash>(null);
@@ -612,7 +612,6 @@ export function PlayView() {
     setHpFlash(null);
     setPantFlash(null);
     setKlunkFlash(null);
-    pendingStatFlashRef.current = { hp: null, pant: null, klunk: null };
     prevEquipNamesRef.current = {};
     prevInvCountsRef.current = {};
     lootPrimedRef.current = false;
@@ -808,12 +807,15 @@ export function PlayView() {
       return true;
     }
     if (itemId === "lengraddad" && inCombatReactions) return true;
+    if (itemId === "lengraddad" && inPvpPreRoundItems) return true;
+    if (itemId === "lengraddad") return false;
     if (itemId === "not_my_round" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "spill_intentional" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemPlayGoldCost(itemId) > 0 && (!me || me.gold < itemPlayGoldCost(itemId))) return false;
     if (itemId === "get_lucky" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "beard_back" && inCombatReactions) return isCombatFighterNow;
     if (itemId === "beard_back" && inPvpAwaitingRolls) return true;
+    if (itemId === "beard_back") return false;
     if (itemId === "six_sense") {
       if (inCombatReactions) return isCombatFighterNow;
       if (inPvpPreRoundItems) return true;
@@ -829,11 +831,6 @@ export function PlayView() {
   const itemCardTone = (itemId: string, target: ItemUseTarget) => {
     const playable = isItemPlayableNow(itemId, target);
     const id = String(itemId);
-    const bluePlayable = {
-      border: "2px solid rgba(96,165,250,0.95)",
-      background: "rgba(37,99,235,0.13)",
-      boxShadow: "0 8px 16px rgba(0,0,0,0.28), 0 0 0 1px rgba(96,165,250,0.45) inset",
-    };
     const greenPositive = {
       border: "2px solid rgba(74,222,128,0.9)",
       background: "rgba(21,128,61,0.13)",
@@ -854,7 +851,10 @@ export function PlayView() {
       if (COMBAT_INTERVENE_EVIL_ITEM_IDS.has(id)) return redEvil;
       if (COMBAT_INTERVENE_GOOD_ITEM_IDS.has(id)) return greenPositive;
     }
-    if (playable) return bluePlayable;
+    if (playable) {
+      if (PLAYABLE_DEBUFF_ITEM_IDS.has(id)) return redEvil;
+      return greenPositive;
+    }
     return neutral;
   };
   const itemMetaForView = (itemId: any): { title: string; text: string; target: ItemUseTarget } => {
@@ -2393,6 +2393,8 @@ export function PlayView() {
               showXpGainPrompt(myCardPending.combatWin?.rewardXp ?? 0);
             } else if (myCardPending.cardId === "combat_lose") {
               const klunk = Math.max(0, Math.floor(myCardPending.combatLoss?.klunkGained ?? 0));
+              const hpLoss = Math.max(0, Math.floor(myCardPending.combatLoss?.damage ?? 0));
+              if (hpLoss === 0) suppressNextHpFlashRef.current = true;
               showXpGainPrompt(klunk * 10);
             }
             send({ type: "confirmCard", playerId: me.id });
@@ -2418,6 +2420,7 @@ export function PlayView() {
     const passive = meta.target === "passive";
     const broPick = meta.target === "combat_bro";
     const needsTarget = meta.target === "other" || meta.target === "self_or_other" || broPick;
+    const healingTargetItem = inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack";
     const canUse = isItemPlayableNow(inst.itemId, meta.target);
     const combatAttackerId = state.pending?.type === "combat" ? state.pending.attackerId : null;
     const candidates =
@@ -2428,7 +2431,7 @@ export function PlayView() {
           : meta.target === "self_or_other"
             ? state.players
           : [];
-    const chosen = needsTarget ? itemTargetId : null;
+    const chosen = needsTarget ? (itemTargetId ?? (healingTargetItem ? me.id : null)) : null;
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
     const showTargetPicker = needsTarget && itemUseTargetPhase;
     const needsSixSenseFace = inst.itemId === "six_sense" && canUse;
@@ -2452,11 +2455,16 @@ export function PlayView() {
               {candidates.map((p) => (
                 <ArcadeButton
                   key={p.id}
-                  variant={itemTargetId === p.id ? "pink" : "gray"}
+                  variant="pink"
+                  selected={chosen === p.id}
                   fullWidth
                   onClick={() => setItemTargetId(p.id)}
                 >
-                  {p.name}
+                  {inst.itemId === "split_the_g"
+                    ? `${p.name} (+${Math.floor((p.gold ?? 0) / 2)} pant)`
+                    : healingTargetItem && p.id === me.id
+                      ? "Använd själv"
+                      : p.name}
                 </ArcadeButton>
               ))}
             </div>
@@ -2475,7 +2483,8 @@ export function PlayView() {
               {([1, 2, 3, 4, 5, 6] as const).map((n) => (
                 <ArcadeButton
                   key={n}
-                  variant={itemSixSenseFace === n ? "pink" : "gray"}
+                  variant="pink"
+                  selected={itemSixSenseFace === n}
                   fullWidth
                   onClick={() => setItemSixSenseFace(n)}
                 >
@@ -2500,6 +2509,7 @@ export function PlayView() {
               disabled={usePrimaryDisabled}
               onClick={() => {
                 if (needsTarget && !itemUseTargetPhase) {
+                  if (healingTargetItem) setItemTargetId(me.id);
                   setItemUseTargetPhase(true);
                   return;
                 }
@@ -2805,12 +2815,12 @@ export function PlayView() {
     prevHpRef.current = next;
     if (prev === undefined) return;
     if (prev === next) return;
-    const dir: StatFlash = next < prev ? "down" : "up";
-    if (blocksStatFlashOverlay) {
-      pendingStatFlashRef.current.hp = dir;
+    if (suppressNextHpFlashRef.current) {
+      suppressNextHpFlashRef.current = false;
       return;
     }
-    pendingStatFlashRef.current.hp = null;
+    const dir: StatFlash = next < prev ? "down" : "up";
+    if (blocksStatFlashOverlay) return;
     setHpFlash(dir);
     setHpFlashKey((k) => k + 1);
     const t = window.setTimeout(() => setHpFlash(null), STAT_FLASH_MS);
@@ -2829,11 +2839,7 @@ export function PlayView() {
     if (prev === undefined) return;
     if (prev === next) return;
     const dir: StatFlash = next < prev ? "down" : "up";
-    if (blocksStatFlashOverlay) {
-      pendingStatFlashRef.current.pant = dir;
-      return;
-    }
-    pendingStatFlashRef.current.pant = null;
+    if (blocksStatFlashOverlay) return;
     setPantFlash(dir);
     setPantFlashKey((k) => k + 1);
     const t = window.setTimeout(() => setPantFlash(null), STAT_FLASH_MS);
@@ -2852,11 +2858,7 @@ export function PlayView() {
     if (prev === undefined) return;
     if (prev === next) return;
     const dir: StatFlash = next < prev ? "down" : "up";
-    if (blocksStatFlashOverlay) {
-      pendingStatFlashRef.current.klunk = dir;
-      return;
-    }
-    pendingStatFlashRef.current.klunk = null;
+    if (blocksStatFlashOverlay) return;
     setKlunkFlash(dir);
     setKlunkFlashKey((k) => k + 1);
     const t = window.setTimeout(() => setKlunkFlash(null), STAT_FLASH_MS);
@@ -2937,34 +2939,6 @@ export function PlayView() {
 
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, [state, myId, blocksStatFlashOverlay]);
-
-  useEffect(() => {
-    if (blocksStatFlashOverlay) return;
-    const q = pendingStatFlashRef.current;
-    const timers: ReturnType<typeof window.setTimeout>[] = [];
-    if (q.hp) {
-      const d = q.hp;
-      q.hp = null;
-      setHpFlash(d);
-      setHpFlashKey((k) => k + 1);
-      timers.push(window.setTimeout(() => setHpFlash(null), STAT_FLASH_MS));
-    }
-    if (q.pant) {
-      const d = q.pant;
-      q.pant = null;
-      setPantFlash(d);
-      setPantFlashKey((k) => k + 1);
-      timers.push(window.setTimeout(() => setPantFlash(null), STAT_FLASH_MS));
-    }
-    if (q.klunk) {
-      const d = q.klunk;
-      q.klunk = null;
-      setKlunkFlash(d);
-      setKlunkFlashKey((k) => k + 1);
-      timers.push(window.setTimeout(() => setKlunkFlash(null), STAT_FLASH_MS));
-    }
-    return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [blocksStatFlashOverlay]);
 
   useEffect(() => {
     if (blocksStatFlashOverlay) return;
@@ -3321,7 +3295,48 @@ export function PlayView() {
                 />
                 <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
                 <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{sv.play.brewerDownLead}</p>
+                {Math.max(
+                  0,
+                  (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ?? 0,
+                ) > 0 ? (
+                  <p style={{ margin: 0, opacity: 0.85, fontSize: 13, lineHeight: 1.4 }}>
+                    {sv.play.brewerDownInsuredContinue(
+                      Math.max(
+                        0,
+                        (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ?? 0,
+                      ),
+                    )}
+                  </p>
+                ) : null}
                 <div className={u.stack10Mt4}>
+                  {Math.max(
+                    0,
+                    (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ?? 0,
+                  ) > 0 ? (
+                    <ArcadeButton
+                      variant="blue"
+                      fullWidth
+                      disabled={
+                        me.gold <
+                        Math.max(
+                          0,
+                          (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ??
+                            0,
+                        )
+                      }
+                      onClick={() =>
+                        send({ type: "brewerDownChoice", playerId: me.id, choice: "insuredContinue" } as any)
+                      }
+                    >
+                      {sv.play.brewerDownInsuredContinue(
+                        Math.max(
+                          0,
+                          (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ??
+                            0,
+                        ),
+                      )}
+                    </ArcadeButton>
+                  ) : null}
                   {!state.config.hardcore ? (
                     <ArcadeButton
                       variant="pink"
@@ -3370,7 +3385,7 @@ export function PlayView() {
         >
           <div
             style={{
-              width: "min(480px, 100%)",
+              width: "min(560px, 100%)",
               maxHeight: "min(90dvh, 100%)",
               overflow: "auto",
               WebkitOverflowScrolling: "touch",
@@ -3382,39 +3397,14 @@ export function PlayView() {
               boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
             }}
           >
+            <EndedSpotlightCarousel players={state.players} />
             <h2 style={{ marginTop: 0, textAlign: "center", fontFamily: "var(--heading)", fontWeight: 500 }}>
               {sv.play.gameOver}
             </h2>
             <p style={{ textAlign: "center", marginBottom: 16 }}>
               {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
             </p>
-            <ol className={u.listGrid12}>
-              {[...state.players]
-                .sort((a, b) => {
-                  const w = state.winnerId;
-                  if (w) {
-                    if (a.id === w) return -1;
-                    if (b.id === w) return 1;
-                  }
-                  if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
-                  if (b.gold !== a.gold) return b.gold - a.gold;
-                  return a.name.localeCompare(b.name, "sv");
-                })
-                .map((p) => (
-                  <li
-                    key={p.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <EndedScoreboardPlayerLine player={p} isWinner={p.id === state.winnerId} />
-                  </li>
-                ))}
-            </ol>
+            <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
             <div style={{ marginTop: 20, width: "100%" }}>
               <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
                 {sv.play.gameOverLeaveToHome}
@@ -3491,7 +3481,6 @@ export function PlayView() {
                               ? beerCanSetPiecesEquippedCount(me)
                               : undefined
                           }
-                          effectBadgeLevelIndex={me.levelIndex ?? 0}
                           effectBadgePlayer={me}
                           lootFlash={equipFlash.helmet}
                           lootFlashKey={equipFlashKey.helmet}
@@ -4076,7 +4065,6 @@ export function PlayView() {
                       ? beerCanSetPiecesEquippedCount(me)
                       : undefined
                   }
-                  playerLevelIndex={slot === "helmet" ? (me.levelIndex ?? 0) : undefined}
                   player={me}
                 />
               ) : undefined
@@ -4233,36 +4221,6 @@ function PlayerStatCell(props: {
   );
 }
 
-function LevelRingCell(props: { ariaLabel: string; level: number; ratio: number }) {
-  const clamped = Number.isFinite(props.ratio) ? Math.max(0, Math.min(1, props.ratio)) : 0;
-  const fillPercent = Math.round(clamped * 100);
-  const uiLevel = Math.max(1, Math.floor(props.level || 1));
-  const frameLevel = Math.max(1, Math.min(5, uiLevel));
-  return (
-    <div className={styles.levelRingCell} role="group" aria-label={props.ariaLabel}>
-      <div className={styles.levelRingOuter}>
-        <div className={styles.levelRingInner}>
-          <div
-            className={styles.levelRingProgress}
-            style={{
-              background: `linear-gradient(0deg, rgba(234,88,12,0.72) 0%, rgba(249,115,22,0.9) ${fillPercent}%, rgba(148,163,184,0.08) ${fillPercent}% 100%)`,
-            }}
-            aria-hidden
-          />
-          <img
-            src={`/icons/lvl${frameLevel}.svg`}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className={styles.levelRingFrame}
-          />
-          <span className={styles.levelRingValue}>{uiLevel}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /** Radial + vobble som för HP/pant/klunk, för ny utrustning / nytt föremål */
 function LootFlashShell(props: { flash: StatFlash | null; flashKey: number; children: ReactNode }) {
   const tone = props.flash ? lootRadialToneClass(props.flash) : null;
@@ -4311,8 +4269,6 @@ function EquipButton(props: {
   burkSetEquippedCount?: number;
   /** Vapenbricka: pant för Burksvärd m.fl. (samma trösklar som i strid). */
   effectBadgeGold?: number;
-  /** Hjälmbricka: nivåindex för Legendarisk Burkhjälm (sköld-badge först från nivå 4). */
-  effectBadgeLevelIndex?: number;
   /** För hjälmbonus som följer spelarens klunkar (t.ex. Ölfylld rymdhjälm). */
   effectBadgePlayer?: Player;
   lootFlash: StatFlash | null;
@@ -4329,6 +4285,11 @@ function EquipButton(props: {
           : sv.play.equipAccessory;
   const disabled = !props.equipped;
   const lf = props.lootFlash;
+  const legendaryBurkhjälmLocked =
+    props.slot === "helmet" &&
+    props.equipped &&
+    isLegendariskBurkhjälmName(props.equippedName) &&
+    brewerLevelForUi(props.effectBadgePlayer ?? ({ xp: 0 } as Player)) < BEER_HELM2_MIN_LEVEL;
   return (
     <button
       type="button"
@@ -4346,10 +4307,14 @@ function EquipButton(props: {
         border: "none",
         background: disabled
           ? "radial-gradient(155% 100% at 50% 112%, rgba(107,114,128,0.52) 0%, rgba(31,41,55,0.62) 42%, rgba(0,0,0,0.66) 100%)"
-          : "radial-gradient(175% 125% at 50% 114%, rgba(34,211,238,1) 0%, rgba(14,165,233,0.92) 24%, rgba(15,23,42,0.52) 52%, rgba(0,0,0,0.62) 100%)",
+          : legendaryBurkhjälmLocked
+            ? "radial-gradient(175% 125% at 50% 114%, rgba(248,113,113,1) 0%, rgba(220,38,38,0.92) 24%, rgba(15,23,42,0.52) 52%, rgba(0,0,0,0.62) 100%)"
+            : "radial-gradient(175% 125% at 50% 114%, rgba(34,211,238,1) 0%, rgba(14,165,233,0.92) 24%, rgba(15,23,42,0.52) 52%, rgba(0,0,0,0.62) 100%)",
         boxShadow: disabled
           ? "none"
-          : "0 10px 22px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -22px 30px rgba(34,211,238,0.28)",
+          : legendaryBurkhjälmLocked
+            ? "0 10px 22px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -22px 30px rgba(248,113,113,0.32)"
+            : "0 10px 22px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -22px 30px rgba(34,211,238,0.28)",
         cursor: disabled ? "not-allowed" : "pointer",
         display: "grid",
         placeItems: "center",
@@ -4389,7 +4354,6 @@ function EquipButton(props: {
             piece={props.equippedPiece}
             playerGold={props.slot === "weapon" ? props.effectBadgeGold : undefined}
             burkSetEquippedCount={props.burkSetEquippedCount}
-            playerLevelIndex={props.slot === "helmet" ? props.effectBadgeLevelIndex : undefined}
             player={props.effectBadgePlayer}
           />
         </div>
@@ -4642,6 +4606,18 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "yeast_sabotage",
   "beer_bro",
 ]);
+/** Spelbara kort som primärt är debuff/sabotage ska få röd ton i inventory. */
+const PLAYABLE_DEBUFF_ITEM_IDS = new Set<string>([
+  "weak_beer",
+  "tripwire",
+  "hangover",
+  "monster_hype",
+  "lengraddad",
+  "not_my_round",
+  "spill_intentional",
+  "rigged_game",
+  "sleep_potion",
+]);
 const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
   "weak_beer",
   "light_beer",
@@ -4812,14 +4788,12 @@ function EquipmentModalEffectBadge(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
   burkSetEquippedCount?: number;
-  playerLevelIndex?: number;
   player?: Player;
 }) {
   const badges = equipmentInventoryEffectBadges(
     props.piece,
     props.playerGold,
     props.burkSetEquippedCount,
-    props.playerLevelIndex,
     props.player,
   );
   if (badges.length === 0) return null;
@@ -4895,8 +4869,8 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 3,
-        padding: "3px 5px 3px 5px",
+        gap: "clamp(2px, 0.55vw, 3px)",
+        padding: "clamp(2px, 0.55vw, 3px) clamp(4px, 1.15vw, 5px)",
         borderRadius: 999,
         background: "rgba(11,18,38,0.92)",
         border: danger ? "1px solid rgba(248,113,113,0.42)" : "1px solid rgba(255,255,255,0.2)",
@@ -4907,11 +4881,13 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
       <img
         src={src}
         alt=""
-        width={15}
-        height={15}
+        width={14}
+        height={14}
         draggable={false}
         style={{
           display: "block",
+          width: "clamp(12px, 3.4vw, 15px)",
+          height: "clamp(12px, 3.4vw, 15px)",
           objectFit: "contain",
           filter: danger
             ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
@@ -4920,7 +4896,7 @@ function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instan
       />
       <span
         style={{
-          fontSize: 11,
+          fontSize: "clamp(10px, 2.8vw, 11px)",
           fontWeight: 900,
           fontVariantNumeric: "tabular-nums",
           color: danger ? "#fca5a5" : "#f8fafc",
@@ -4953,8 +4929,8 @@ function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 3,
-        padding: "3px 5px 3px 5px",
+        gap: "clamp(2px, 0.55vw, 3px)",
+        padding: "clamp(2px, 0.55vw, 3px) clamp(4px, 1.15vw, 5px)",
         borderRadius: 999,
         background: "rgba(11,18,38,0.92)",
         border: "1px solid rgba(248,113,113,0.42)",
@@ -4965,18 +4941,20 @@ function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
       <img
         src={src}
         alt=""
-        width={15}
-        height={15}
+        width={14}
+        height={14}
         draggable={false}
         style={{
           display: "block",
+          width: "clamp(12px, 3.4vw, 15px)",
+          height: "clamp(12px, 3.4vw, 15px)",
           objectFit: "contain",
           filter: "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))",
         }}
       />
       <span
         style={{
-          fontSize: 11,
+          fontSize: "clamp(10px, 2.8vw, 11px)",
           fontWeight: 900,
           fontVariantNumeric: "tabular-nums",
           color: "#fca5a5",
@@ -4995,21 +4973,19 @@ function EquipmentInventoryEffectBadges(props: {
   piece?: Player["equipment"][EquipmentSlot];
   playerGold?: number;
   burkSetEquippedCount?: number;
-  playerLevelIndex?: number;
   player?: Player;
 }) {
   const badges = equipmentInventoryEffectBadges(
     props.piece,
     props.playerGold,
     props.burkSetEquippedCount,
-    props.playerLevelIndex,
     props.player,
   );
   if (badges.length === 0) return null;
   const cornerStyle = (idx: number): CSSProperties => {
     const row = Math.floor(idx / 2);
-    if (idx % 2 === 0) return { bottom: 4 + row * 26, right: 4 };
-    return { bottom: 4 + row * 26, left: 4 };
+    if (idx % 2 === 0) return { bottom: 3 + row * 23, right: 3 };
+    return { bottom: 3 + row * 23, left: 3 };
   };
   return (
     <span
@@ -5033,8 +5009,8 @@ function EquipmentInventoryEffectBadges(props: {
               ...cornerStyle(idx),
               display: "inline-flex",
               alignItems: "center",
-              gap: 3,
-              padding: "3px 5px",
+              gap: "clamp(2px, 0.55vw, 3px)",
+              padding: "clamp(2px, 0.55vw, 3px) clamp(4px, 1.15vw, 5px)",
               borderRadius: 999,
               background: "rgba(11,18,38,0.92)",
               border: danger ? "1px solid rgba(248,113,113,0.42)" : "1px solid rgba(255,255,255,0.2)",
@@ -5045,11 +5021,13 @@ function EquipmentInventoryEffectBadges(props: {
             <img
               src={src}
               alt=""
-              width={15}
-              height={15}
+              width={14}
+              height={14}
               draggable={false}
               style={{
                 display: "block",
+                width: "clamp(12px, 3.4vw, 15px)",
+                height: "clamp(12px, 3.4vw, 15px)",
                 objectFit: "contain",
                 filter: danger
                   ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
@@ -5058,7 +5036,7 @@ function EquipmentInventoryEffectBadges(props: {
             />
             <span
               style={{
-                fontSize: 11,
+                fontSize: "clamp(10px, 2.8vw, 11px)",
                 fontWeight: 900,
                 fontVariantNumeric: "tabular-nums",
                 color: danger ? "#fca5a5" : "#f8fafc",

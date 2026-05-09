@@ -16,13 +16,16 @@
   align-self: stretch;
 }
 
-/**
- * Händelsekort i flip-modal: extra utrymme nederst så regnbågsramen inte klipps mot
- * .faceFront / .scene (overflow hidden + subpixlar).
- */
 .wrapEventStory {
-  padding-bottom: 8px;
+  padding-bottom: 0;
   box-sizing: border-box;
+}
+
+/* Mobilens flip-container klipper lätt den nedersta regnbågsramen utan extra bottenluft. */
+@media (max-width: 900px) {
+  .wrapEventStory {
+    padding-bottom: 4px;
+  }
 }
 
 .spin {

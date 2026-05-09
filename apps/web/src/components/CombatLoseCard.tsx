@@ -6,6 +6,7 @@ import { sv } from "../lib/uiStrings";
 
 const HEART_ICON = "/icons/heart-icon.svg";
 const KLUNK_ICON = "/icons/klunk-icon.svg";
+const ARMOR_ICON = "/icons/armor-icon.svg";
 
 const HEART_TINT = "#ee5aa6";
 const KLUNK_TINT = "#fbb040";
@@ -38,11 +39,13 @@ function PenaltyLine({
   tint,
   prefix,
   value,
+  blockedValue,
 }: {
   iconSrc: string;
   tint: string;
   prefix: string;
   value: number;
+  blockedValue?: number;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -50,6 +53,24 @@ function PenaltyLine({
       <span style={{ fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "0.02em" }}>
         {prefix}
         {value}
+        {typeof blockedValue === "number" && blockedValue > 0 ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontWeight: 700,
+              fontSize: 16,
+              opacity: 0.9,
+              marginLeft: 6,
+            }}
+          >
+            (
+            <MaskedIcon src={ARMOR_ICON} color="#ffffff" size={14} />
+            {blockedValue}
+            )
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -58,6 +79,10 @@ function PenaltyLine({
 export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
   const { data } = props;
   const enemyLabel = data.enemyName.trim() || sv.play.combatWinEnemyFallback;
+  const blockedDamage = Math.max(0, Math.floor(data.blockedDamage ?? 0));
+  const rawDamage = Math.max(0, Math.floor(data.rawDamage ?? data.damage + blockedDamage));
+  const netDamage = Math.max(0, Math.floor(data.damage));
+  const showHpPenalty = rawDamage > 0 || blockedDamage > 0 || netDamage > 0;
 
   return (
     <div
@@ -113,7 +138,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
             marginBottom: 18,
           }}
         />
-        {data.damage > 0 ||
+        {showHpPenalty ||
         data.klunkGained > 0 ||
         (data.straffKlunkFromWeaponSip ?? 0) > 0 ? (
           <div
@@ -126,8 +151,14 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
               gap: "20px 32px",
             }}
           >
-            {data.damage > 0 ? (
-              <PenaltyLine iconSrc={HEART_ICON} tint={HEART_TINT} prefix="−" value={data.damage} />
+            {showHpPenalty ? (
+              <PenaltyLine
+                iconSrc={HEART_ICON}
+                tint={HEART_TINT}
+                prefix="−"
+                value={netDamage}
+                blockedValue={rawDamage > 0 ? blockedDamage : undefined}
+              />
             ) : null}
             {data.klunkGained > 0 || (data.straffKlunkFromWeaponSip ?? 0) > 0 ? (
               <PenaltyLine

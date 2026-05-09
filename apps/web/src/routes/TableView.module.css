@@ -368,7 +368,7 @@
 }
 
 .modalCardEnded {
-  width: min(480px, 100%);
+  width: min(560px, 100%);
   max-height: min(88dvh, 100%);
   overflow: auto;
   border-radius: 16px;
@@ -613,6 +613,11 @@
   padding-top: 3px;
 }
 
+/* lvlup.svg har svart default-fill — gör vit mot mörk toast (övriga stat-ikoner har redan ljusa gradienter). */
+.tableToastIconXp {
+  filter: brightness(0) invert(1);
+}
+
 .tableToastText {
   min-width: 0;
   font-size: clamp(1.05rem, 2.8vmin, 1.42rem);
@@ -831,6 +836,12 @@
   justify-content: center;
   overflow-x: auto;
   overflow-y: hidden;
+  -ms-overflow-style: none; /* IE/Edge legacy */
+  scrollbar-width: none; /* Firefox */
+}
+
+.turnPlayersScroller::-webkit-scrollbar {
+  display: none; /* Safari/Chrome */
 }
 
 .turnPlayerCard {

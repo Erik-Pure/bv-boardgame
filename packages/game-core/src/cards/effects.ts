@@ -1,9 +1,10 @@
 import type { Effect, EffectApplyOut } from "./types.js";
 import type { EquipmentSlot, GameState, Player } from "../types.js";
+import { recordPantSpent } from "../sessionStats.js";
 import { createItemInstance } from "../itemInstance.js";
 import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
-import { itemDeckItemIds } from "./db.js";
+import { itemDeckItemIdsForRandomGrant } from "./db.js";
 import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
 import { playerMaxHpFromBase } from "../playerMaxHp.js";
 
@@ -106,6 +107,8 @@ export function applyEffects(params: {
     if (e.type === "gold") {
       const before = params.player.gold;
       params.player.gold = Math.max(0, params.player.gold + e.amount);
+      const spent = before - params.player.gold;
+      if (spent > 0) recordPantSpent(params.state, params.player.id, spent);
       out.gold = (out.gold ?? 0) + (params.player.gold - before);
     } else if (e.type === "goldRoll") {
       const g = e.base + rollDie(params.rng, e.die);
@@ -135,7 +138,11 @@ export function applyEffects(params: {
       }
       if (!out.grantedItemId && !out.grantedEquipmentName && !out.equipmentReplaceOffer) {
         const disabledCardIds = new Set(params.state.config.disabledCardIds ?? []);
-        const pool = itemDeckItemIds(disabledCardIds);
+        const pool = itemDeckItemIdsForRandomGrant(
+          disabledCardIds,
+          params.state.levels.length,
+          params.player.levelIndex,
+        );
         const itemId = pick(params.rng, pool);
         params.player.inventory ??= [];
         params.player.inventory.push(createItemInstance(itemId, newInstanceId(params.rng)));
