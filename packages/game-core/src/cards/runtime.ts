@@ -40,7 +40,7 @@ function formatMonsterText(m: { rulesText: string }): string {
 function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef {
   const team = MONSTERS.filter((m) => m.teamBattleRequired && !isFinalBossMonsterId(m.id));
   const normal = MONSTERS.filter((m) => !m.teamBattleRequired && !isFinalBossMonsterId(m.id));
-  const teamChance = levelIndex <= 0 ? 0.08 : levelIndex === 1 ? 0.18 : 0.28;
+  const teamChance = levelIndex <= 0 ? 0.04 : levelIndex === 1 ? 0.09 : 0.14;
   if (team.length > 0 && rng() < teamChance) {
     return team[Math.floor(rng() * team.length)]!;
   }
@@ -536,6 +536,31 @@ export function handleCardOption(params: {
       choices: undefined,
       text:
         `${pending.text}\nTärning: ${die}.` +
+        formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    };
+    log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
+    return { handled: true };
+  }
+  if (pending.kind === "event" && pending.cardId === "event_fummel" && choiceId === "roll") {
+    const die = rollDie(rng, 6);
+    let droppedText = "\nInget tappades.";
+    if (die >= 5) {
+      const occupied = (["weapon", "armor", "helmet", "accessory"] as const).filter((slot) => !!p.equipment[slot]);
+      if (occupied.length > 0) {
+        const slot = occupied[Math.floor(rng() * occupied.length)] as EquipmentSlot;
+        const piece = p.equipment[slot];
+        p.equipment[slot] = undefined as any;
+        droppedText = `\nDu tappade ${piece?.name ?? "en utrustning"} (${slot}).`;
+      } else {
+        droppedText = "\nDu hade ingen utrustning att tappa.";
+      }
+    }
+    state.pending = {
+      ...pending,
+      choices: undefined,
+      text:
+        `${pending.text}\nTärning: ${die}.` +
+        droppedText +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);

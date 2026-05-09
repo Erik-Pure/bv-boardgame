@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.53 |
+| Version | 0.54 |
 | Senast uppdaterad | 2026-05-08 |
 
 ---
@@ -172,7 +172,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
 - **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
-- **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **8%** på nivå 1, **18%** på nivå 2, **28%** på nivå 3).
+- **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **4%** på nivå 1, **9%** på nivå 2, **14%** på nivå 3 och högre bräden).
 - **Slumpade föremål på sista planet:** **Genväg** och **Taproom-nyckel** ingår inte i slump-poolen när mottagaren står på **sista brädnivån** (ingen nästa våning att stiga till); se §10.1.
 
 ### 7.3 Uppstigning mellan våningsplan
@@ -483,7 +483,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
 - **Startpant vid spelstart:** 5 per spelare (inte vid respawn).
-- **Team-monsterfrekvens per nivå:** ~8% / 18% / 28%.
+- **Team-monsterfrekvens per nivå:** ~4% / 9% / 14%.
 - **Monster `need`:** +`levelIndex` på styrkekrav på den våningen (lokalt per plan).
 - **Monster förlust-skada (HP):** +`levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
@@ -549,4 +549,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.51 | 2026-05-08 | Livförsäkring dokumenterad i dödsflödet (betala 20 pant för fullt liv), turindikatorn i `/table` visar `(Zzz)` i spelarraden, samt mobil-badges i inventory/utrustning nedskalade för små skärmar |
 | 0.52 | 2026-05-08 | §7.2/§10.1/§19: på **sista brädnivån** ingår inte **Genväg** eller **Taproom-nyckel** i slump-pool för skatt/händelse/strids-item (`randomItem` / blandad monsterbelöning); handel och fasta korteffekter opåverkade |
 | 0.53 | 2026-05-08 | §2: **vald rad** på mörka interaktionsknappar — **guldram + guldtext** vid målval i föremålsmodal och vid tärningsyte-val (**Ett sjätte ölsinne**); implementation: `ArcadeButton` med `selected` på mörk variant |
+| 0.54 | 2026-05-08 | §7.2/§19: team-monster-slump **halverad** per brädnivå (**4% / 9% / 14%**, `pickMonsterForLevel` i `game-core`) |
 

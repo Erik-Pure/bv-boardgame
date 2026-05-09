@@ -221,7 +221,7 @@ Det minskar friktion mellan webb- och mobilvyer.
 
 Parametrar som bör hållas samlade och lätta att tweaka utan refaktor:
 
-- **Team monster spawn chance per nivå** (ex. `0.08 / 0.18 / 0.28`).
+- **Team monster spawn chance per nivå** (ex. `0.04 / 0.09 / 0.14`).
 - **Loot-tröskel för svagaste monster** (ex. `strength <= 2` ger 0 items).
 - **2-item sannolikhet** för:
   - team battle (ex. `0.35`)
