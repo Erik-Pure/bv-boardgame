@@ -56,6 +56,7 @@ export {
   brewerLevel,
   brewerKlunkProgressRatio,
   canAscendByKlunkRequirement,
+  computeMonsterDamage,
   createEmptyLobby,
   levelUpCostsForTargetLevel,
   lobbyAddPlayer,

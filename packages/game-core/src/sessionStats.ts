@@ -58,16 +58,19 @@ export function recordMonsterCombatDiceRoll(
   assistId: string | undefined,
   attackerDie: number,
   previewBroDie: number | null | undefined,
-  previewTotal: number,
+  /** Angriparens egen attacktotal (tärning + vapen + mods), inte lagets summerade slag. */
+  attackerRollTotal: number,
+  /** Medkompisens egen attacktotal i team battle; saknas vid solo. */
+  assistRollTotal?: number,
 ): void {
-  const bumpMax = (pid: string) => {
+  const bumpMax = (pid: string, rollTotal: number) => {
     const pl = state.players.find((x) => x.id === pid);
     if (!pl) return;
     const s = ensurePlayerStats(pl);
-    s.maxDiceRollTotal = Math.max(s.maxDiceRollTotal, previewTotal);
+    s.maxDiceRollTotal = Math.max(s.maxDiceRollTotal, rollTotal);
   };
-  bumpMax(attackerId);
-  if (assistId) bumpMax(assistId);
+  bumpMax(attackerId, attackerRollTotal);
+  if (assistId != null && typeof assistRollTotal === "number") bumpMax(assistId, assistRollTotal);
 
   const atk = state.players.find((x) => x.id === attackerId);
   if (atk && attackerDie === 1) ensurePlayerStats(atk).combatOnesRolled += 1;
@@ -198,9 +201,14 @@ export interface EndedSpotlight {
 export function computeEndedSpotlights(players: Player[]): EndedSpotlight[] {
   const out: EndedSpotlight[] = [];
 
-  const push = (kind: EndedSpotlightKind, sel: (s: PlayerSessionStats) => number) => {
+  const push = (
+    kind: EndedSpotlightKind,
+    sel: (s: PlayerSessionStats) => number,
+    /** Minsta maxvärde för att visa kortet (t.ex. stup bara om någon stupat ≥ 2). */
+    minMax = 1,
+  ) => {
     const { ids, max } = playersAtMax(players, sel);
-    if (ids.length && max > 0) out.push({ kind, playerIds: ids, value: max });
+    if (ids.length && max >= minMax) out.push({ kind, playerIds: ids, value: max });
   };
 
   push("mostOnesCombined", (s) => s.combatOnesRolled + s.pvpOnesRolled);
@@ -211,7 +219,7 @@ export function computeEndedSpotlights(players: Player[]): EndedSpotlight[] {
   push("mostSabotageItems", (s) => s.sabotageItemsPlayed);
   push("mostHelpedWins", (s) => s.helpedCombatWins);
   push("maxDiceRollTotal", (s) => s.maxDiceRollTotal);
-  push("mostKnockdowns", (s) => s.knockdownCount);
+  push("mostKnockdowns", (s) => s.knockdownCount, 2);
   push("mostMonsterWins", (s) => s.monsterCombatWins);
 
   return out;

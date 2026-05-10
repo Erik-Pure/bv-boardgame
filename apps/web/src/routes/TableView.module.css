@@ -1123,6 +1123,11 @@
   gap: 4px;
 }
 
+/* Level-ring (mobil-komponent): ingen extrasiffra brevid — siffran sitter i ringen. */
+.playerVitalsLevelRingWrap {
+  padding-left: 2px;
+}
+
 .overlayTopCenter {
   pointer-events: none;
   place-items: start center;

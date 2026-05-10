@@ -159,6 +159,20 @@ export function equipmentInventoryEffectBadges(
       : `+${damageNegateRaw}`;
     badges.push({ icon: "armor", label: defenseLabel });
   }
+  const gainGoldPerPenaltyKlunk =
+    "gainGoldPerPenaltyKlunk" in piece
+      ? Math.max(0, Math.floor((piece as { gainGoldPerPenaltyKlunk?: number }).gainGoldPerPenaltyKlunk ?? 0))
+      : typeof catalog?.gainGoldPerPenaltyKlunk === "number"
+        ? Math.max(0, Math.floor(catalog.gainGoldPerPenaltyKlunk))
+        : 0;
+  const skipPenaltyKlunkEffectBadge =
+    catalog?.id === "ex_totebag" || piece.name === "Tygkasse";
+  if (gainGoldPerPenaltyKlunk > 0 && !skipPenaltyKlunkEffectBadge) {
+    badges.push({
+      icon: "pant",
+      label: `+${gainGoldPerPenaltyKlunk}/str.kl`,
+    });
+  }
   return badges;
 }
 
@@ -264,6 +278,7 @@ export function shopItemToEquipmentPreviewPiece(
     moveBonus: item.moveBonus,
     gainGoldPerCombat: item.gainGoldPerCombat,
     gainKlunkPerCombat: item.gainKlunkPerCombat,
+    gainGoldPerPenaltyKlunk: item.gainGoldPerPenaltyKlunk,
     preventTheft: item.preventTheft,
     levelUpDiscountGold: item.levelUpDiscountGold,
     canSkipMonsterEncounter: item.canSkipMonsterEncounter,

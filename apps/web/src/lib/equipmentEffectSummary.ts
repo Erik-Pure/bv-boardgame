@@ -26,6 +26,13 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.gainGoldPerCombat === "number" && it.gainGoldPerCombat > 0) {
     parts.push(`Per strid: +${it.gainGoldPerCombat} pant`);
   }
+  if (
+    it.id !== "ex_totebag" &&
+    typeof it.gainGoldPerPenaltyKlunk === "number" &&
+    it.gainGoldPerPenaltyKlunk > 0
+  ) {
+    parts.push(`Per straffklunk: +${it.gainGoldPerPenaltyKlunk} pant`);
+  }
   if (typeof it.randomOtherDamageOnWin === "number" && it.randomOtherDamageOnWin > 0) {
     parts.push(`Vid vinst: slumpad annan −${it.randomOtherDamageOnWin} HP`);
   }

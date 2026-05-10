@@ -33,6 +33,7 @@ import { monsterCombatEquipmentAttackBonus, sipWeaponExtraAttackCosts } from "./
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
+import { grantKlunkWithXp } from "./klunkGrant.js";
 import { flushPenaltySipQueue, mergePenaltySipQueue, pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
@@ -327,8 +328,16 @@ function isPositiveHelpItemId(itemId: ItemId): boolean {
   return POSITIVE_HELP_ITEM_IDS.has(itemId);
 }
 
-function playerHasPositiveHelpItem(player: Player): boolean {
-  return (player.inventory ?? []).some((it) => isPositiveHelpItemId(it.itemId));
+/** Sant om spelaren kan spela minst ett positivt hjälpkort (pantkostnad räknas, t.ex. Manopositiv/Get Lucky). */
+function playerHasPlayablePositiveHelpItem(player: Player): boolean {
+  const inv = player.inventory ?? [];
+  for (const it of inv) {
+    if (!isPositiveHelpItemId(it.itemId)) continue;
+    const cost = itemPlayGoldCost(it.itemId);
+    if (cost > 0 && player.gold < cost) continue;
+    return true;
+  }
+  return false;
 }
 
 function combatHelpCandidateIds(state: GameState, pending: Extract<Pending, { type: "combat" }>): string[] {
@@ -338,7 +347,7 @@ function combatHelpCandidateIds(state: GameState, pending: Extract<Pending, { ty
       pl.id !== pending.assistId &&
       !pl.eliminated &&
       pl.hp > 0 &&
-      playerHasPositiveHelpItem(pl),
+      playerHasPlayablePositiveHelpItem(pl),
     )
     .map((pl) => pl.id);
 }
@@ -434,8 +443,6 @@ function logMonsterScaleAfterAscend(state: GameState, p: Player): void {
   );
 }
 
-const XP_PER_KLUNK = 10;
-
 /** Bryggnivåindex från XP (0-baserad, där UI visar +1). */
 export function brewerLevel(p: Player): number {
   return brewerLevelFromXp(p.xp);
@@ -475,14 +482,6 @@ function grantXp(p: Player, amount: number): number {
   const add = Math.max(0, Math.floor(amount));
   if (add <= 0) return 0;
   p.xp += add;
-  return add;
-}
-
-function grantKlunkWithXp(p: Player, amount: number): number {
-  const add = Math.max(0, Math.floor(amount));
-  if (add <= 0) return 0;
-  p.klunkar += add;
-  grantXp(p, add * XP_PER_KLUNK);
   return add;
 }
 
@@ -559,6 +558,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       moveBonus: item.moveBonus,
       gainGoldPerCombat: item.gainGoldPerCombat,
       gainKlunkPerCombat: item.gainKlunkPerCombat,
+      gainGoldPerPenaltyKlunk: item.gainGoldPerPenaltyKlunk,
       preventTheft: item.preventTheft,
       levelUpDiscountGold: item.levelUpDiscountGold,
       canSkipMonsterEncounter: item.canSkipMonsterEncounter,
@@ -622,7 +622,7 @@ function applyPerCombatAccessoryRewards(state: GameState, participantId: string)
   const goldGain = acc.gainGoldPerCombat ?? 0;
   const klunkGain = acc.gainKlunkPerCombat ?? 0;
   if (goldGain > 0) p.gold += goldGain;
-  if (klunkGain > 0) grantKlunkWithXp(p, klunkGain);
+  if (klunkGain > 0) grantKlunkWithXp(state, p, klunkGain, { penaltyStraff: false });
   if (goldGain > 0 || klunkGain > 0) {
     log(
       state,
@@ -765,7 +765,7 @@ function grantRandomCombatRewardItem(
   player: Player,
   rng: () => number,
   sourceName: string,
-): ItemId {
+): string {
   const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
   const itemId = pick(
     rng,
@@ -774,7 +774,7 @@ function grantRandomCombatRewardItem(
   player.inventory ??= [];
   player.inventory.push(createItemInstance(itemId, newItemInstanceId(rng)));
   log(state, `${player.name} hittar ett föremål efter segern mot ${sourceName}.`);
-  return itemId;
+  return itemDisplayTitle(itemId);
 }
 
 function grantRandomCombatReward(
@@ -783,7 +783,7 @@ function grantRandomCombatReward(
   rng: () => number,
   sourceName: string,
   winMonsterId?: MonsterId,
-): void {
+): string {
   if (winMonsterId === "bottling_bot" && rng() < 0.5) {
     const rallySlots: Array<"weapon" | "helmet"> = [];
     if (!player.equipment.weapon) rallySlots.push("weapon");
@@ -793,11 +793,12 @@ function grantRandomCombatReward(
       if (slot === "weapon") {
         player.equipment.weapon = { name: "Robotarm", power: 0, pvpDieBonus: 1 };
         log(state, `${player.name} får Robotarm efter segern mot ${sourceName}!`);
+        return "Robotarm";
       } else {
         player.equipment.helmet = { name: "Robothjälm", damageNegate: 1, combatBonus: 0 };
         log(state, `${player.name} får Robothjälm efter segern mot ${sourceName}!`);
+        return "Robothjälm";
       }
-      return;
     }
   }
   // Mix item cards with equipment. If equipment slot is occupied, fall back to an item card.
@@ -861,9 +862,11 @@ function grantRandomCombatReward(
             name: eq.name,
             damageNegate: eq.damageNegate,
             combatBonus: eq.combatBonus,
+            penaltySipExtra: eq.penaltySipExtra,
             moveBonus: eq.moveBonus,
             gainGoldPerCombat: eq.gainGoldPerCombat,
             gainKlunkPerCombat: eq.gainKlunkPerCombat,
+            gainGoldPerPenaltyKlunk: eq.gainGoldPerPenaltyKlunk,
             preventTheft: eq.preventTheft,
             levelUpDiscountGold: eq.levelUpDiscountGold,
             canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
@@ -873,14 +876,14 @@ function grantRandomCombatReward(
           };
         }
         log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
-        return;
+        return eq.name;
       }
     }
   }
-  grantRandomCombatRewardItem(state, player, rng, sourceName);
+  return grantRandomCombatRewardItem(state, player, rng, sourceName);
 }
 
-function computeMonsterDamage(
+export function computeMonsterDamage(
   monsterId: MonsterId,
   p: Player,
   die: number,
@@ -1013,7 +1016,7 @@ function applySlutbossLossPartyEffects(
     for (const pl of state.players) {
       if (pl.eliminated) continue;
       const gain = penaltySipTotalForPlayer(pl, 1);
-      grantKlunkWithXp(pl, gain);
+      grantKlunkWithXp(state, pl, gain, { penaltyStraff: true });
       pushSipNotice(state, pl.id, enemyName, gain);
     }
     logFn(state, "Alla spelare tar 1 klunk (Öldomaren).");
@@ -1071,6 +1074,8 @@ function applyCombatLoss(
     need: number;
     assistRoll: number | null;
     assistId?: string;
+    /** Stridshjälp (positiva kort): samma HP-/klunk-risk som ölkompis vid förlust; aldrig samma id som assistId. */
+    helpMateId?: string;
     teamBattleRequired?: boolean;
     enemyName: string;
     sipMitigation: boolean;
@@ -1085,6 +1090,12 @@ function applyCombatLoss(
   rng: () => number,
 ): void {
   const { p, tile, monsterId, die, pr, need, assistRoll, assistId } = ctx;
+  let assistImpactPlayerId: string | undefined;
+  let assistHpLost = 0;
+  let assistKlunksGained = 0;
+  let helpMateImpactPlayerId: string | undefined;
+  let helpMateHpLost = 0;
+  let helpMateKlunksGained = 0;
   recordMonsterCombatLoss(next, p.id, assistId);
   const before = p.hp;
   const beforeSips = p.klunkar;
@@ -1124,10 +1135,29 @@ function applyCombatLoss(
       const assistDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(bro.id) ?? false;
       const assistDamage = assistDamageDoubled ? dmgBro.damage * 2 : dmgBro.damage;
       applyDamage({ state: next, player: bro, amount: assistDamage, isBossHit, log });
+      assistImpactPlayerId = bro.id;
+      assistHpLost = Math.max(0, bb - bro.hp);
       if (assistDamageDoubled) {
         log(next, `${bro.name} pressade med Get Lucky och tar dubbel HP-skada (${assistDamage}).`);
       } else if (bb !== bro.hp) {
         log(next, `${bro.name} tar också skada (HP ${bb} → ${bro.hp}).`);
+      }
+    }
+  }
+  if (ctx.helpMateId && ctx.helpMateId !== assistId) {
+    const hm = next.players.find((x) => x.id === ctx.helpMateId) ?? null;
+    if (hm) {
+      const dmgHm = computeMonsterDamage(monsterId, hm, die, sipForMonster);
+      const hh = hm.hp;
+      const helpDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(hm.id) ?? false;
+      const helpDamage = helpDamageDoubled ? dmgHm.damage * 2 : dmgHm.damage;
+      applyDamage({ state: next, player: hm, amount: helpDamage, isBossHit, log });
+      helpMateImpactPlayerId = hm.id;
+      helpMateHpLost = Math.max(0, hh - hm.hp);
+      if (helpDamageDoubled) {
+        log(next, `${hm.name} pressade med Get Lucky och tar dubbel HP-skada (${helpDamage}).`);
+      } else if (hh !== hm.hp) {
+        log(next, `${hm.name} tar skada som hjälpare (HP ${hh} → ${hm.hp}).`);
       }
     }
   }
@@ -1146,13 +1176,14 @@ function applyCombatLoss(
   }
   const mitigationKlunk = monsterId === "sura_bar" && ctx.sipMitigation ? 1 : 0;
   const primaryLossApplied = penaltySipTotalForPlayer(p, totalLossSips);
-  grantKlunkWithXp(p, primaryLossApplied);
-  if (mitigationKlunk) grantKlunkWithXp(p, mitigationKlunk);
+  grantKlunkWithXp(next, p, primaryLossApplied, { penaltyStraff: true });
+  if (mitigationKlunk) grantKlunkWithXp(next, p, mitigationKlunk, { penaltyStraff: true });
   const sipNoticeKlunks = primaryLossApplied + mitigationKlunk;
   pushSipNotice(next, p.id, ctx.enemyName, sipNoticeKlunks);
   if (assistId) {
     const bro = next.players.find((x) => x.id === assistId) ?? null;
     if (bro) {
+      const broKlunksBeforeLoss = bro.klunkar;
       const broWeaponReduction = Math.max(0, Math.floor(bro.equipment.weapon?.monsterLossSipReduction ?? 0));
       const broTotalLossSips = Math.max(0, totalLossSipsBeforeReduction - broWeaponReduction);
       if (broWeaponReduction > 0 && totalLossSipsBeforeReduction > broTotalLossSips) {
@@ -1162,8 +1193,27 @@ function applyCombatLoss(
         );
       }
       const broLossApplied = penaltySipTotalForPlayer(bro, broTotalLossSips);
-      grantKlunkWithXp(bro, broLossApplied);
+      grantKlunkWithXp(next, bro, broLossApplied, { penaltyStraff: true });
       pushSipNotice(next, bro.id, ctx.enemyName, broLossApplied);
+      assistKlunksGained = Math.max(0, bro.klunkar - broKlunksBeforeLoss);
+    }
+  }
+  if (ctx.helpMateId && ctx.helpMateId !== assistId) {
+    const hm = next.players.find((x) => x.id === ctx.helpMateId) ?? null;
+    if (hm) {
+      const hmKlunksBeforeLoss = hm.klunkar;
+      const hmWeaponReduction = Math.max(0, Math.floor(hm.equipment.weapon?.monsterLossSipReduction ?? 0));
+      const hmTotalLossSips = Math.max(0, totalLossSipsBeforeReduction - hmWeaponReduction);
+      if (hmWeaponReduction > 0 && totalLossSipsBeforeReduction > hmTotalLossSips) {
+        log(
+          next,
+          `${hm.name}s ${hm.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${hmWeaponReduction}).`,
+        );
+      }
+      const hmLossApplied = penaltySipTotalForPlayer(hm, hmTotalLossSips);
+      grantKlunkWithXp(next, hm, hmLossApplied, { penaltyStraff: true });
+      pushSipNotice(next, hm.id, ctx.enemyName, hmLossApplied);
+      helpMateKlunksGained = Math.max(0, hm.klunkar - hmKlunksBeforeLoss);
     }
   }
   let lostEquipmentName: string | undefined;
@@ -1249,6 +1299,24 @@ function applyCombatLoss(
         : undefined,
       lostEquipmentName,
       imperialAdjacentSplash: imperialAdjacentSplash ? true : undefined,
+      ...(assistImpactPlayerId
+        ? {
+            assistPartnerImpact: {
+              playerId: assistImpactPlayerId,
+              hpLost: assistHpLost,
+              klunksGained: assistKlunksGained,
+            },
+          }
+        : {}),
+      ...(helpMateImpactPlayerId
+        ? {
+            helpMateImpact: {
+              playerId: helpMateImpactPlayerId,
+              hpLost: helpMateHpLost,
+              klunksGained: helpMateKlunksGained,
+            },
+          }
+        : {}),
     },
   });
 }
@@ -1293,7 +1361,22 @@ function finalizeCombatAfterRollPreview(
     return;
   }
 
-  recordMonsterCombatDiceRoll(next, p.id, assistId, die, pending.previewBroDie ?? null, pr);
+  const assistRollStat =
+    assistId != null && typeof pending.previewAssistRoll === "number"
+      ? pending.previewAssistRoll
+      : undefined;
+  const attackerRollStat =
+    pending.previewPrBase ??
+    (assistRollStat !== undefined ? pr - assistRollStat : pr);
+  recordMonsterCombatDiceRoll(
+    next,
+    p.id,
+    assistId,
+    die,
+    pending.previewBroDie ?? null,
+    attackerRollStat,
+    assistRollStat,
+  );
 
   applyPerCombatWeaponEconomy(next, p);
   const assistMateForWeaponCost = assistId ? (next.players.find((x) => x.id === assistId) ?? null) : null;
@@ -1415,19 +1498,26 @@ function finalizeCombatAfterRollPreview(
       log(next, `${p.name} och ${helpMate.name} delar vinsten lika enligt överenskommelsen.`);
     }
     const winMonsterId = pending.monsterId as MonsterId | undefined;
+    const attackerGrantedRewardTitles: string[] = [];
+    const beerBroGrantedRewardTitles: string[] = [];
+    const helpMateGrantedRewardTitles: string[] = [];
     if (attackerItemCount > 0) {
       for (let i = 0; i < attackerItemCount; i++) {
-        grantRandomCombatReward(next, p, rng, pending.enemyName, winMonsterId);
+        attackerGrantedRewardTitles.push(grantRandomCombatReward(next, p, rng, pending.enemyName, winMonsterId));
       }
       if (assistMate) {
         for (let i = 0; i < attackerItemCount; i++) {
-          grantRandomCombatReward(next, assistMate, rng, pending.enemyName, winMonsterId);
+          beerBroGrantedRewardTitles.push(
+            grantRandomCombatReward(next, assistMate, rng, pending.enemyName, winMonsterId),
+          );
         }
       }
     }
     if (helperItemCount > 0 && helpMate) {
       for (let i = 0; i < helperItemCount; i++) {
-        grantRandomCombatReward(next, helpMate, rng, pending.enemyName, winMonsterId);
+        helpMateGrantedRewardTitles.push(
+          grantRandomCombatReward(next, helpMate, rng, pending.enemyName, winMonsterId),
+        );
       }
     }
 
@@ -1446,7 +1536,7 @@ function finalizeCombatAfterRollPreview(
           if (candidates.length === 0) break;
           const victim = pick(rng, candidates);
           const sipGain = penaltySipTotalForPlayer(victim, 1);
-          grantKlunkWithXp(victim, sipGain);
+          grantKlunkWithXp(next, victim, sipGain, { penaltyStraff: true });
           pushSipNotice(next, victim.id, p.name, sipGain);
           randomOtherSipRecipientName = victim.name;
         }
@@ -1490,6 +1580,19 @@ function finalizeCombatAfterRollPreview(
           rewardXp,
           teammateName: assistName ?? undefined,
           randomOtherSipRecipientName,
+          ...(attackerGrantedRewardTitles.length > 0 ? { grantedRewardTitles: attackerGrantedRewardTitles } : {}),
+          ...(beerBroGrantedRewardTitles.length > 0 && assistMate
+            ? {
+                beerBroGrantedRewardTitles,
+                assistPlayerId: assistMate.id,
+              }
+            : {}),
+          ...(helpMateGrantedRewardTitles.length > 0 && helpMate
+            ? {
+                helpMateGrantedRewardTitles,
+                helpMatePlayerId: helpMate.id,
+              }
+            : {}),
         },
       });
     }
@@ -1508,6 +1611,10 @@ function finalizeCombatAfterRollPreview(
       return;
     }
     next.pending = null;
+    const helpMateIdOnLoss =
+      !teamBattleRequired && pending.helpAccepted === true && pending.helpSelectedHelperId
+        ? pending.helpSelectedHelperId
+        : undefined;
     applyCombatLoss(
       next,
       {
@@ -1519,6 +1626,7 @@ function finalizeCombatAfterRollPreview(
         need,
         assistRoll,
         assistId,
+        helpMateId: helpMateIdOnLoss,
         teamBattleRequired,
         enemyName: pending.enemyName,
         sipMitigation: false,
@@ -1736,6 +1844,7 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     moveBonus: eq.moveBonus,
     gainGoldPerCombat: eq.gainGoldPerCombat,
     gainKlunkPerCombat: eq.gainKlunkPerCombat,
+    gainGoldPerPenaltyKlunk: eq.gainGoldPerPenaltyKlunk,
     preventTheft: eq.preventTheft,
     levelUpDiscountGold: eq.levelUpDiscountGold,
     canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
@@ -2421,8 +2530,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.phase = "reactions";
       return { state: next, events: ["state"] };
     }
-    if (!playerHasPositiveHelpItem(helper)) {
-      return { state, events: [], error: "Du har inga positiva hjälpkort att spela" };
+    if (!playerHasPlayablePositiveHelpItem(helper)) {
+      return { state, events: [], error: "Du har inget positivt hjälpkort du kan spela nu (t.ex. för lite pant)." };
     }
     if (action.decision === "free") {
       pending.helpAccepted = true;
@@ -2468,8 +2577,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.phase = "reactions";
       return { state: next, events: ["state"] };
     }
-    if (!playerHasPositiveHelpItem(helper)) {
-      return { state, events: [], error: "Hjälparen har inga positiva hjälpkort kvar" };
+    if (!playerHasPlayablePositiveHelpItem(helper)) {
+      return { state, events: [], error: "Hjälparen kan inte spela något positivt hjälpkort nu (t.ex. för lite pant)." };
     }
     pending.helpAccepted = true;
     pending.helpUsedPositiveItem = false;
@@ -2587,7 +2696,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
-      grantKlunkWithXp(target, 1);
+      grantKlunkWithXp(next, target, 1, { penaltyStraff: true });
       pushSipNotice(next, target.id, user.name);
       log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`);
       inv.splice(idx, 1);
@@ -3822,7 +3931,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (action.useSipWeaponBonus) {
         if (sipPay.klunks > 0) {
-          grantKlunkWithXp(roller, sipPay.klunks);
+          grantKlunkWithXp(next, roller, sipPay.klunks, { penaltyStraff: false });
           pushSipNotice(next, roller.id, pending.enemyName ?? "Striden", sipPay.klunks);
           sipBoost = sipBonus;
           log(
@@ -3997,6 +4106,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           : `${p.name} tar hela skadan från ${pending.enemyName} (ingen klunk).`,
     );
     next.pending = null;
+    const helpMateIdMitigation =
+      !(pending.teamBattleRequired ?? false) &&
+      pending.helpAccepted === true &&
+      pending.helpSelectedHelperId
+        ? pending.helpSelectedHelperId
+        : undefined;
     const attackerIgnoresCritFailOnOneMit = p.equipment.accessory?.ignoreCombatCritFailOnOne === true;
     const broIgnoresCritFailOnOneMit =
       pending.assistId != null
@@ -4021,6 +4136,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         need: pending.previewNeed ?? 0,
         assistRoll: pending.previewAssistRoll ?? null,
         assistId: pending.assistId,
+        helpMateId: helpMateIdMitigation,
         teamBattleRequired: pending.teamBattleRequired,
         enemyName: pending.enemyName,
         sipMitigation: chooseMitigation,
@@ -4545,7 +4661,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       );
     } else if (action.choice === "sip") {
       const gain = penaltySipTotalForPlayer(loser, 1);
-      grantKlunkWithXp(loser, gain);
+      grantKlunkWithXp(next, loser, gain, { penaltyStraff: true });
       pushSipNotice(next, loser.id, winner.name, gain);
       log(next, `${winner.name} ger ${loser.name} en straffklunk (+1 klunk).`);
     } else if (action.choice === "damage") {

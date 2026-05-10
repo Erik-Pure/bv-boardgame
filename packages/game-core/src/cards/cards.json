@@ -510,7 +510,7 @@
       "id": "event_dubbelinget",
       "kind": "event",
       "title": "Dubbelt eller inget",
-      "text": "Slå tärningen. 1-3 = förlora all pant, 4-6 = få 12 pant.",
+      "text": "Slå tärningen. 1–3 = förlora 12 pant (eller all pant om du har mindre än 12). 4–6 = få 12 pant.",
       "artKey": "event/dubbelinget",
       "effects": [],
       "choices": [

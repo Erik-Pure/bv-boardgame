@@ -131,6 +131,8 @@ export interface Accessory {
   gainGoldPerCombat?: number;
   /** Få klunk per strid (oavsett utfall). */
   gainKlunkPerCombat?: number;
+  /** Pant per tilldelad straffklunk (via gemensam klunk-tilldelning med XP). */
+  gainGoldPerPenaltyKlunk?: number;
   /** Om true: andra kan inte stjäla pant/prylar från dig. */
   preventTheft?: boolean;
   /** Rabatt i pant när du går upp en nivå. */
@@ -205,6 +207,7 @@ export interface ShopItem {
   moveBonus?: number;
   gainGoldPerCombat?: number;
   gainKlunkPerCombat?: number;
+  gainGoldPerPenaltyKlunk?: number;
   preventTheft?: boolean;
   levelUpDiscountGold?: number;
   canSkipMonsterEncounter?: boolean;
@@ -228,6 +231,13 @@ export interface CombatWinSummary {
   teammateName?: string;
   /** Enhörning m.fl.: namn på spelare som fick straffklunk vid vinst. */
   randomOtherSipRecipientName?: string;
+  /** Visningsnamn för skatter till angriparen (ordning som vid slumpning); för mobil-toasts vid Fortsätt. */
+  grantedRewardTitles?: string[];
+  /** Ölkompis får samma antal skatter — för mobil-toast när angriparen bekräftar kortet. */
+  beerBroGrantedRewardTitles?: string[];
+  helpMateGrantedRewardTitles?: string[];
+  assistPlayerId?: string;
+  helpMatePlayerId?: string;
 }
 
 /** Visning av förlust efter strid (`cardId === "combat_lose"`). */
@@ -250,6 +260,10 @@ export interface CombatLoseSummary {
   lostEquipmentName?: string;
   /** Stoorn (imperial_dragon_stout): granne på brädet tog 1 skada. */
   imperialAdjacentSplash?: boolean;
+  /** Mobil-toast för ölkompis när angriparen stänger förlustkortet. */
+  assistPartnerImpact?: { playerId: string; hpLost: number; klunksGained: number };
+  /** Mobil-toast för stridshjälpare (samma ögonblick). */
+  helpMateImpact?: { playerId: string; hpLost: number; klunksGained: number };
 }
 
 export type CombatHelpContract = "free" | "pant" | "treasure" | "split";

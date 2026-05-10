@@ -128,6 +128,25 @@ type MobileTutorialStep = {
   imageSrc: string;
 };
 
+/** «Din tur»-overlay: en bokstav i taget fades in (behåll sr-text på föräldern). */
+function MyTurnOverlayHeading({ text }: { text: string }) {
+  const chars = Array.from(text);
+  const staggerMs = 38;
+  return (
+    <div className={styles.myTurnOverlayText} aria-hidden>
+      {chars.map((ch, i) => (
+        <span
+          key={`${i}-${ch}`}
+          className={styles.myTurnOverlayLetter}
+          style={{ animationDelay: `${i * staggerMs}ms` }}
+        >
+          {ch === " " ? "\u00a0" : ch}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function TutorialInlineIcon(props: { src: string; color: string; gap?: string }) {
   return (
     <span
@@ -501,6 +520,19 @@ export function PlayView() {
   const me = findMe(state, myId);
   const lobbyCardCoverId = state?.config.cardCover;
 
+  const iAmEliminated = useMemo(() => {
+    if (!state || !myId) return false;
+    return !!state.players.find((p) => p.id === myId)?.eliminated;
+  }, [state, myId]);
+
+  /** Efter «Ge upp» (eliminated): lämna server-rummet och gå till startsidan — som «Lämna spel». */
+  useEffect(() => {
+    if (!iAmEliminated) return;
+    clientRef.current?.send({ type: "action", action: { type: "leaveGame" } });
+    clearRememberedPlayerId(room);
+    navigate("/", { replace: true });
+  }, [iAmEliminated, navigate, room]);
+
   useEffect(() => {
     setShowResponsibleReminder(false);
     setShowMobileTutorial(false);
@@ -572,18 +604,6 @@ export function PlayView() {
     return () => window.removeEventListener("resize", measure);
   }, [showMobileTutorial, mobileTutorialStep]);
 
-  /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
-  useEffect(() => {
-    const mq = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ);
-    const apply = () => applyPlayRootBackground(me?.color);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => {
-      mq.removeEventListener("change", apply);
-      clearPlayRootBackground();
-    };
-  }, [me?.color]);
-
   const prevHpRef = useRef<number | undefined>(undefined);
   const prevGoldRef = useRef<number | undefined>(undefined);
   const prevKlunkRef = useRef<number | undefined>(undefined);
@@ -648,6 +668,18 @@ export function PlayView() {
     return sv.play.footerTurnOther(name);
   }, [state, activeId, me?.id]);
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
+  /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
+  useEffect(() => {
+    const mq = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ);
+    const apply = () => applyPlayRootBackground(me?.color);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      clearPlayRootBackground();
+    };
+  }, [me?.color]);
+
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
   const headerStatusTag = useMemo(() => {
     if (!me) return "";
@@ -718,13 +750,61 @@ export function PlayView() {
 
   useEffect(() => {
     const prev = prevPendingRef.current;
+
+    if (me?.id && prev?.type === "card" && prev.cardId === "combat_win" && prev.combatWin) {
+      const cw = prev.combatWin;
+      const stillCombatWin = pending?.type === "card" && pending.cardId === "combat_win";
+      if (!stillCombatWin) {
+        const loot: string[] = [];
+        if (cw.assistPlayerId === me.id && cw.beerBroGrantedRewardTitles?.length) {
+          loot.push(...cw.beerBroGrantedRewardTitles);
+        }
+        if (cw.helpMatePlayerId === me.id && cw.helpMateGrantedRewardTitles?.length) {
+          loot.push(...cw.helpMateGrantedRewardTitles);
+        }
+        if (loot.length > 0) {
+          showToast(sv.play.combatWinGrantedLootToast(loot), Math.min(9000, 2800 + loot.length * 1200));
+        }
+      }
+    }
+
+    if (me?.id && prev?.type === "card" && prev.cardId === "combat_lose" && prev.combatLoss) {
+      const cl = prev.combatLoss;
+      const stillCombatLose = pending?.type === "card" && pending.cardId === "combat_lose";
+      if (!stillCombatLose) {
+        const impactToastMs = 5200;
+        const hmImpact = cl.helpMateImpact;
+        if (
+          hmImpact &&
+          hmImpact.playerId === me.id &&
+          (hmImpact.hpLost > 0 || hmImpact.klunksGained > 0)
+        ) {
+          showToast(
+            sv.play.combatLoseAllyImpactToast("helpMate", hmImpact.hpLost, hmImpact.klunksGained),
+            impactToastMs,
+          );
+        }
+        const broImpact = cl.assistPartnerImpact;
+        if (
+          broImpact &&
+          broImpact.playerId === me.id &&
+          (broImpact.hpLost > 0 || broImpact.klunksGained > 0)
+        ) {
+          showToast(
+            sv.play.combatLoseAllyImpactToast("beerBro", broImpact.hpLost, broImpact.klunksGained),
+            impactToastMs,
+          );
+        }
+      }
+    }
+
     if (me) {
       const now = pending?.type === "moveChoice" && pending.playerId === me.id;
       const was = prev?.type === "moveChoice" && prev.playerId === me.id;
       if (now && !was) setSheetFlashGen((g) => g + 1);
     }
     prevPendingRef.current = pending;
-  }, [pending, me]);
+  }, [pending, me, showToast]);
 
   useEffect(() => {
     if (sheetFlashGen < 1) return;
@@ -756,7 +836,35 @@ export function PlayView() {
   const totalPlayers = state?.players?.length ?? 0;
   const canStart =
     !!me?.isHost && state?.phase === "lobby" && totalPlayers >= 2 && readyCount === totalPlayers;
-  const highlightPulse = !!isMyTurn || state?.phase === "lobby" || !!canStart;
+  /** Regnbåge även off-turn när du har konkret interaktion (ingripande, ölkompis-strid, hjälpkontrakt m.m.). */
+  const hasCombatMobileAttention = useMemo(() => {
+    if (!me || state?.phase !== "playing" || pending?.type !== "combat") return false;
+    if (combatFighterSheet) return true;
+    if (pending.phase === "reactions") {
+      const isEligibleReactor =
+        (pending.reactors?.includes(me.id) ?? false) && playerCanCombatIntervene(me);
+      const hasPassed = pending.reacted?.[me.id] === "pass";
+      const deadlineAt = pending.reactionsDeadlineAt ?? 0;
+      const secondsLeft = deadlineAt > 0 ? Math.max(0, Math.ceil((deadlineAt - nowTick) / 1000)) : 0;
+      const reactionOpen = deadlineAt <= 0 || secondsLeft > 0;
+      if (isEligibleReactor && !hasPassed && reactionOpen) return true;
+    }
+    const pid = me.id;
+    if (pending.phase === "helpChooseHelper" && pending.attackerId === pid) return true;
+    if (pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId === pid) return true;
+    if (pending.phase === "helpAwaitRequesterDecision" && pending.attackerId === pid) return true;
+    if (pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId === pid) return true;
+    if (pending.phase === "chooseTeammate" && pending.attackerId === pid) return true;
+    if (pending.phase === "rollPreview" && pending.attackerId === pid) return true;
+    if (pending.phase === "chooseHitMitigation" && pending.attackerId === pid) return true;
+    return false;
+  }, [me, state?.phase, pending, combatFighterSheet, nowTick]);
+  const highlightPulse =
+    !!isMyTurn ||
+    state?.phase === "lobby" ||
+    !!canStart ||
+    !!myPending ||
+    hasCombatMobileAttention;
   const showRainbowPulse = highlightPulse && rainbowEffectsEnabled;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
@@ -786,6 +894,13 @@ export function PlayView() {
     if (itemId === "paidassasin") return 15;
     return 0;
   };
+  const playerHasPlayablePositiveHelpItem = (pl: Player) =>
+    (pl.inventory ?? []).some((it) => {
+      const id = String(it.itemId);
+      if (!POSITIVE_HELP_ITEM_IDS.includes(id as (typeof POSITIVE_HELP_ITEM_IDS)[number])) return false;
+      const cost = itemPlayGoldCost(id);
+      return cost <= 0 || pl.gold >= cost;
+    });
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
     if (itemId === "shortcut" || itemId === "taproom_key") {
@@ -964,7 +1079,11 @@ export function PlayView() {
 
   const canSkipMonsterEncounter =
     !!myEnemyIntroPending && me?.equipment?.accessory?.canSkipMonsterEncounter === true;
+  /** Måste matcha `SKIP_MONSTER_ENCOUNTER_GOLD_COST` i motorn (2). */
   const canAffordSkipMonsterEncounter = (me?.gold ?? 0) >= 2;
+  /** Tillbehör för undvikande finns men för lite pant — ingen monster-intro-modal / Fortsätt-steg. */
+  const skipMonsterIntroBecauseCantAffordSkip =
+    canSkipMonsterEncounter && !canAffordSkipMonsterEncounter;
 
   /** Straffklunk efter monsterförlust: visa Vaskad-kortet först, sedan sip-modal (motorn lägger sip i kö före kortet). */
   const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
@@ -981,6 +1100,20 @@ export function PlayView() {
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
+
+  const autoCombatIntroAckSigRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!myEnemyIntroPending || status !== "connected" || !me) {
+      if (!myEnemyIntroPending) autoCombatIntroAckSigRef.current = null;
+      return;
+    }
+    if (!skipMonsterIntroBecauseCantAffordSkip) return;
+    const sig = `${myEnemyIntroPending.attackerId}:${myEnemyIntroPending.monsterId}:${myEnemyIntroPending.enemyName}:${myEnemyIntroPending.need}:${myEnemyIntroPending.needMod ?? 0}`;
+    if (autoCombatIntroAckSigRef.current === sig) return;
+    autoCombatIntroAckSigRef.current = sig;
+    clientRef.current?.send({ type: "action", action: { type: "combatIntroAck", playerId: me.id } });
+  }, [myEnemyIntroPending, me?.id, skipMonsterIntroBecauseCantAffordSkip, status]);
+
   const showXpGainPrompt = useCallback((xpAmount: number) => {
     const xp = Math.max(0, Math.floor(xpAmount));
     if (xp <= 0) return;
@@ -1079,6 +1212,13 @@ export function PlayView() {
           </div>
         );
       }
+      const encounterPvpEligibleNames = pending.opponentIds
+        .map((oid) => state.players.find((p) => p.id === oid))
+        .filter(
+          (pl): pl is Player => !!pl && pl.equipment.armor?.pvpCannotBeChallenged !== true,
+        )
+        .map((pl) => pl.name);
+      const encounterPvpButtonLabel = sv.play.pvpBothRollVersus(encounterPvpEligibleNames.join(", "));
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o9}`}>{sv.play.encounterChoose}</div>
@@ -1088,7 +1228,7 @@ export function PlayView() {
               fullWidth
               onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "pvp" })}
             >
-              {sv.play.pvpBothRoll}
+              {encounterPvpButtonLabel}
             </ArcadeButton>
             <ArcadeButton
               variant="blue"
@@ -1354,9 +1494,12 @@ export function PlayView() {
       const helperId = pending.helpSelectedHelperId;
       const isHelper = helperId === me.id;
       const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
-      const helperItems = (me.inventory ?? []).filter((it) =>
-        POSITIVE_HELP_ITEM_IDS.includes(String(it.itemId) as (typeof POSITIVE_HELP_ITEM_IDS)[number]),
-      );
+      const helperItems = (me.inventory ?? []).filter((it) => {
+        const id = String(it.itemId);
+        if (!POSITIVE_HELP_ITEM_IDS.includes(id as (typeof POSITIVE_HELP_ITEM_IDS)[number])) return false;
+        const cost = itemPlayGoldCost(id);
+        return cost <= 0 || me.gold >= cost;
+      });
       if (isHelper) {
         return (
           <div className={u.stack10}>
@@ -1458,9 +1601,7 @@ export function PlayView() {
           pl.id !== pending.assistId &&
           !pl.eliminated &&
           pl.hp > 0 &&
-          (pl.inventory ?? []).some((it) =>
-            POSITIVE_HELP_ITEM_IDS.includes(String(it.itemId) as (typeof POSITIVE_HELP_ITEM_IDS)[number]),
-          ),
+          playerHasPlayablePositiveHelpItem(pl),
       );
       const myTeamRoll = pending.teamRolls?.[me.id];
       const attackerRoll = pending.teamRolls?.[pending.attackerId];
@@ -2489,6 +2630,7 @@ export function PlayView() {
     if (state?.pending?.type === "brewerDown") return null;
     if (hasBlockingSipNotice) return null;
     if (myEnemyIntroPending) {
+      if (skipMonsterIntroBecauseCantAffordSkip) return null;
       return (
         <div className={u.stack10}>
           {canSkipMonsterEncounter ? (
@@ -2554,6 +2696,10 @@ export function PlayView() {
           onClick={() => {
             if (myCardPending.cardId === "combat_win") {
               showXpGainPrompt(myCardPending.combatWin?.rewardXp ?? 0);
+              const lootTitles = myCardPending.combatWin?.grantedRewardTitles;
+              if (lootTitles && lootTitles.length > 0) {
+                showToast(sv.play.combatWinGrantedLootToast(lootTitles), Math.min(9000, 2800 + lootTitles.length * 1200));
+              }
             } else if (myCardPending.cardId === "combat_lose") {
               const klunk = Math.max(0, Math.floor(myCardPending.combatLoss?.klunkGained ?? 0));
               const hpLoss = Math.max(0, Math.floor(myCardPending.combatLoss?.damage ?? 0));
@@ -3382,7 +3528,10 @@ export function PlayView() {
           />
         )}
 
-      {state?.phase === "playing" && me && myEnemyIntroPending && (
+      {state?.phase === "playing" &&
+        me &&
+        myEnemyIntroPending &&
+        !skipMonsterIntroBecauseCantAffordSkip && (
         <EnemyIntroModal
           enemyName={myEnemyIntroPending.enemyName}
           enemyArtKey={myEnemyIntroPending.enemyArtKey}
@@ -3957,8 +4106,8 @@ export function PlayView() {
       )}
 
       {showMyTurnOverlay ? (
-        <div className={styles.myTurnOverlay} aria-live="polite">
-          <div className={styles.myTurnOverlayText}>Din tur</div>
+        <div className={styles.myTurnOverlay} aria-live="polite" aria-label={sv.play.footerTurnYou}>
+          <MyTurnOverlayHeading text={sv.play.footerTurnYou} />
         </div>
       ) : null}
       {showLevelUpOverlay != null ? (
@@ -4938,6 +5087,14 @@ function equipmentModalEffectLines(
   }
   if ("penaltySipExtra" in piece && typeof piece.penaltySipExtra === "number" && piece.penaltySipExtra > 0) {
     lines.push(`När du får straffklunk: drick ${piece.penaltySipExtra} extra klunk.`);
+  }
+  if (
+    piece.name !== "Tygkasse" &&
+    "gainGoldPerPenaltyKlunk" in piece &&
+    typeof (piece as { gainGoldPerPenaltyKlunk?: number }).gainGoldPerPenaltyKlunk === "number"
+  ) {
+    const gpk = Math.max(0, Math.floor((piece as { gainGoldPerPenaltyKlunk?: number }).gainGoldPerPenaltyKlunk ?? 0));
+    if (gpk > 0) lines.push(`Per straffklunk: +${gpk} pant.`);
   }
   if ("klunkAttackBonus10" in piece && typeof piece.klunkAttackBonus10 === "number") {
     lines.push(`Vid 10+ klunkar: +${piece.klunkAttackBonus10} attack.`);

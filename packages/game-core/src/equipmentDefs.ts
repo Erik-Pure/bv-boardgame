@@ -244,7 +244,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     combatBonus: 1,
     penaltySipExtra: 1,
     rulesText:
-      "Svart bälte i karatefylle: när du får straffklunk dricker du +1 extra klunk.",
+      "Svart bälte i karatefylla: när du får straffklunk dricker du +1 extra klunk.",
   },
   {
     id: "ex_medical_papers",
@@ -253,6 +253,14 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 12,
     deathContinueCost: 20,
     rulesText: "När du dör kan du betala 20 pant för att fortsätta med fullt liv.",
+  },
+  {
+    id: "ex_totebag",
+    slot: "accessory",
+    name: "Tygkasse",
+    price: 10,
+    gainGoldPerPenaltyKlunk: 1,
+    rulesText: "Varje gång du får en straffklunk får du 1 pant.",
   },
   {
     id: "ea_linne",

@@ -34,6 +34,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
+  white-space: pre-line;
   color: #f8fafc;
   text-align: left;
   pointer-events: none;
@@ -66,7 +67,23 @@
     0 4px 18px rgba(0, 0, 0, 0.78),
     0 0 28px rgba(255, 255, 255, 0.25);
   margin-top: clamp(36px, 12vh, 120px);
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0;
   animation: myTurnOverlayInOut 3000ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.myTurnOverlayLetter {
+  display: inline-block;
+  transform-origin: center 62%;
+  opacity: 0;
+  animation: myTurnLetterFade 340ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+/* Omvänt lut på varannan bokstav — lite mer handskriven känsla. */
+.myTurnOverlayLetter:nth-child(even) {
+  animation-name: myTurnLetterFadeAlt;
 }
 
 .levelUpOverlay {
@@ -100,7 +117,7 @@
 
 @keyframes myTurnOverlayInOut {
   0% {
-    opacity: 0;
+    opacity: 1;
     transform: translateY(12px) scale(0.96);
   }
   20% {
@@ -117,9 +134,36 @@
   }
 }
 
+@keyframes myTurnLetterFade {
+  from {
+    opacity: 0;
+    transform: translateY(0.14em) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@keyframes myTurnLetterFadeAlt {
+  from {
+    opacity: 0;
+    transform: translateY(0.14em) rotate(12deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .myTurnOverlayText {
     animation: none;
+  }
+  .myTurnOverlayLetter {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
   .levelUpOverlayText {
     animation: none;

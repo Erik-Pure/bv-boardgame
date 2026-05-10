@@ -368,23 +368,42 @@ export function joinRoom(params: {
     room.state.players.some((p) => p.id === params.requestedPlayerId)
       ? params.requestedPlayerId
       : null;
+
+  const controllerHasOpenConn = (pid: string) =>
+    [...room.conns].some(
+      (c) => c.role === "controller" && c.playerId === pid && c.ws.readyState === c.ws.OPEN,
+    );
+
+  /** Namn-baserad återanslutning om klient saknar `playerId` i hello (sessionStorage). */
   let reconnectPlayerIdByName: string | null = null;
   if (!existingPlayerId && params.role === "controller") {
     const wanted = normalizePlayerName(params.playerName);
     const candidates = room.state.players.filter((p) => normalizePlayerName(p.name) === wanted);
     if (candidates.length === 1) {
-      const candidateId = candidates[0]?.id;
-      const alreadyConnected = [...room.conns].some(
-        (c) => c.role === "controller" && c.playerId === candidateId && c.ws.readyState === c.ws.OPEN,
-      );
-      if (!alreadyConnected) reconnectPlayerIdByName = candidateId ?? null;
+      const candidateId = candidates[0]!.id;
+      if (!controllerHasOpenConn(candidateId)) reconnectPlayerIdByName = candidateId;
+    } else if (candidates.length > 1 && room.state.phase !== "lobby") {
+      /** Under parti: om exakt en namnkopia saknar öppen mobilanslutning — koppla dit (två “Erik” m.m.). */
+      const lackingLiveController = candidates.filter((p) => !controllerHasOpenConn(p.id));
+      if (lackingLiveController.length === 1) {
+        reconnectPlayerIdByName = lackingLiveController[0]!.id;
+      }
     }
   }
+
   const playerId = existingPlayerId ?? reconnectPlayerIdByName ?? uuidv4();
+
+  const addFreshLobbySlot = params.role === "controller" && !existingPlayerId && !reconnectPlayerIdByName;
+  if (addFreshLobbySlot && room.state.phase !== "lobby") {
+    return {
+      error:
+        "Spelet pågår redan och vi kunde inte återkänna din spelare (ingen sparad anslutning). Öppna från samma flik/enhet som tidigare. Om flera spelare har samma namn: välj olika namn nästa gång eller behåll denna webbläsarflik.",
+    };
+  }
 
   // Bord-vyn är spectator: den ska inte bli en spelare.
   if (params.role === "controller") {
-    if (!existingPlayerId && !reconnectPlayerIdByName) {
+    if (addFreshLobbySlot) {
       const isFirstPlayer = room.state.players.length === 0;
       const addRes = lobbyAddPlayer(room.state, {
         id: playerId,
@@ -394,7 +413,7 @@ export function joinRoom(params: {
       if (addRes.error) return { error: addRes.error };
       room.state = addRes.state;
     } else {
-      // reconnect: keep existing player attributes
+      // reconnect / befintlig slot
     }
 
     // Om vi reconnectar: stäng gamla controller-anslutningar för samma playerId.
@@ -422,12 +441,25 @@ export function joinRoom(params: {
   return { conn, room };
 }
 
-function removePlayerFromRoomState(state: GameState, playerId: string): GameState["players"][number] | null {
+function removePlayerFromRoomState(
+  state: GameState,
+  playerId: string,
+  opts?: { purgeSlot?: boolean },
+): GameState["players"][number] | null {
   const leaving = state.players.find((p) => p.id === playerId);
   if (!leaving) return null;
+  const purgeSlot = opts?.purgeSlot === true;
+  /** «Ge upp» / frånkoppling efter stupad bryggare: behåll slot + stats för sluttabellen; bordets kick tar bort helt. */
+  const keepEliminatedGhost =
+    !purgeSlot &&
+    leaving.eliminated === true &&
+    (state.phase === "playing" || state.phase === "ended");
+
   const removedTurnIndex = state.turnOrder.indexOf(playerId);
   const hadActiveTurn = removedTurnIndex >= 0 && removedTurnIndex === state.currentTurnIndex;
-  state.players = state.players.filter((p) => p.id !== playerId);
+  if (!keepEliminatedGhost) {
+    state.players = state.players.filter((p) => p.id !== playerId);
+  }
   state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
   state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
   state.tableItemPlayReveals = (state.tableItemPlayReveals ?? []).filter(
@@ -458,12 +490,15 @@ function removePlayerFromRoomState(state: GameState, playerId: string): GameStat
     if (pendingJson.includes(playerId)) state.pending = null;
   }
 
-  if (state.phase === "playing" && state.players.length <= 1) {
-    const winner = state.players[0] ?? null;
-    state.phase = "ended";
-    state.pending = null;
-    state.winnerId = winner?.id ?? null;
-    state.winnerName = winner?.name ?? null;
+  if (state.phase === "playing") {
+    const activeRemaining = state.players.filter((p) => !p.eliminated);
+    if (activeRemaining.length <= 1) {
+      const winner = activeRemaining[0] ?? null;
+      state.phase = "ended";
+      state.pending = null;
+      state.winnerId = winner?.id ?? null;
+      state.winnerName = winner?.name ?? null;
+    }
   }
   return leaving;
 }
@@ -518,7 +553,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       if (conn.role !== "table") return "Endast bordet kan ta bort en spelare";
       const targetId = (action as { targetPlayerId?: unknown }).targetPlayerId;
       if (typeof targetId !== "string" || targetId.length === 0) return "Ogiltig spelare";
-      const leaving = removePlayerFromRoomState(room.state, targetId);
+      const leaving = removePlayerFromRoomState(room.state, targetId, { purgeSlot: true });
       if (!leaving) return "Spelaren finns inte";
       room.state.log.push({ at: Date.now(), message: `${leaving.name} togs bort från spelet (bordet).` });
       for (const c of [...room.conns]) {

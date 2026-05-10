@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
+  brewerKlunkProgressRatio,
   brewerLevel,
   type GameState,
   type Player,
@@ -45,6 +46,7 @@ import { CARD_FLIP_FRONT_ANIM_READY_MS, CardFlipModalShell, CardFlipScene } from
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
+import { LevelRingCell } from "../components/LevelRingCell";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { UserMenuIcon } from "../components/UserMenuIcon";
@@ -90,6 +92,11 @@ const TILE_SVG: Record<TileType, string> = {
 
 function tileSvgHref(type: TileType): string {
   return TILE_SVG[type];
+}
+
+/** Bryggnivå som visas i UI (intern XP-nivå + 1, minst 1) — samma som mobil. */
+function brewerDisplayLevelForTable(player: Player): number {
+  return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
 }
 
 function tileTypeLabel(type: TileType): string {
@@ -240,7 +247,7 @@ function eventCardOutcomeToasts(
       return [{ text: `${selfName} får +5 pant.`, category: "pvp", iconKinds: ["pant"] }];
     }
     if (pending.cardId === "event_dubbelinget") {
-      const delta = rolledDie <= 3 ? -6 : 12;
+      const delta = rolledDie <= 3 ? -12 : 12;
       return [
         {
           text: delta >= 0 ? `${selfName} vinner ${delta} pant.` : `${selfName} förlorar ${Math.abs(delta)} pant.`,
@@ -565,7 +572,15 @@ function TableLobbyPlayerRow(props: {
   );
 }
 
-function PlayerVitals(props: { hp: number; maxHp: number; pant: number; klunkar: number; iconSize: number }) {
+function PlayerVitals(props: {
+  hp: number;
+  maxHp: number;
+  pant: number;
+  klunkar: number;
+  iconSize: number;
+  /** Samma level-ring som mobil (`LevelRingCell`). */
+  brewerRing?: { level: number; ratio: number };
+}) {
   return (
     <div className={tableStyles.playerVitalsRow}>
       <span className={tableStyles.playerVitalsItem}>
@@ -580,6 +595,16 @@ function PlayerVitals(props: { hp: number; maxHp: number; pant: number; klunkar:
         <StatIcon kind="klunk" size={props.iconSize} />
         {props.klunkar}
       </span>
+      {props.brewerRing ? (
+        <span className={`${tableStyles.playerVitalsItem} ${tableStyles.playerVitalsLevelRingWrap}`}>
+          <LevelRingCell
+            ariaLabel={sv.play.levelUpProgressAria(props.brewerRing.level)}
+            level={props.brewerRing.level}
+            ratio={props.brewerRing.ratio}
+            size="compact"
+          />
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -1902,6 +1927,8 @@ function TableViewBody() {
               {boardPlayers.map((p) => {
                 const active = cur?.id === p.id;
                 const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
+                const brewerLv = brewerDisplayLevelForTable(p);
+                const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
                 return (
                   <div
                     key={p.id}
@@ -1913,14 +1940,23 @@ function TableViewBody() {
                       ["--turn-player-bg" as string]: active ? p.color : "rgba(255,255,255,0.04)",
                       ["--turn-active-player-color" as string]: p.color,
                     }}
-                    title={[p.name, ...tablePlayerAfflictionLines(p)].filter(Boolean).join(" · ")}
+                    title={[p.name, sv.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   >
                     <div className={tableStyles.turnPlayerName}>
                       {p.name}
                       {sleepTag}
                     </div>
                     <div className={tableStyles.turnPlayerVitals}>
-                      <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={p.gold} klunkar={p.klunkar} iconSize={22} />
+                      <PlayerVitals
+                        hp={p.hp}
+                        maxHp={p.maxHp}
+                        pant={p.gold}
+                        klunkar={p.klunkar}
+                        iconSize={22}
+                        brewerRing={{ level: brewerLv, ratio: brewerRatio }}
+                      />
                     </div>
                   </div>
                 );

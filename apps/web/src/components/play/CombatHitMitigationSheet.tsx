@@ -1,4 +1,10 @@
-import type { ClientAction, GameState, Player } from "@bv/game-core";
+import {
+  computeMonsterDamage,
+  type ClientAction,
+  type GameState,
+  type MonsterId,
+  type Player,
+} from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { sv } from "../../lib/uiStrings";
@@ -25,6 +31,11 @@ export function CombatHitMitigationSheet(props: {
   const isTransporter = pending.monsterId === "transporter";
   const reduce = isInterrobang ? 3 : isTransporter ? 999 : 2;
   const full = isInterrobang ? 5 : isTransporter ? 3 : 4;
+  const damagePreviewPlayer = attacker ?? me;
+  const rawFullHp = computeMonsterDamage(pending.monsterId as MonsterId, damagePreviewPlayer, die, false).damage;
+  const doubledFullHp =
+    (pending.getLuckyRiskPlayerIds?.includes(damagePreviewPlayer.id) ?? false) ? rawFullHp * 2 : rawFullHp;
+  const fullDamageHp = Math.max(0, Math.floor(doubledFullHp));
   const detailText = isInterrobang
     ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."
     : isTransporter
@@ -35,7 +46,8 @@ export function CombatHitMitigationSheet(props: {
     : isTransporter
       ? "Betala 10 pant (0 skada)"
       : sv.play.takeSipReduce(reduce);
-  const secondaryLabel = isInterrobang || isTransporter ? "Ta full skada (ingen betalning)" : sv.play.fullDamageNoSip(full);
+  const secondaryLabel =
+    isInterrobang || isTransporter ? sv.play.takeFullDamageHp(fullDamageHp) : sv.play.fullDamageNoSip(fullDamageHp);
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <div className={sheetDiceBlockClass}>

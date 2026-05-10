@@ -6,6 +6,7 @@ import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
 import { itemDeckItemIdsForRandomGrant } from "./db.js";
 import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
+import { grantKlunkWithXp } from "../klunkGrant.js";
 import { playerMaxHpFromBase } from "../playerMaxHp.js";
 
 function newInstanceId(rng: () => number): string {
@@ -86,6 +87,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
       moveBonus: eq.moveBonus,
       gainGoldPerCombat: eq.gainGoldPerCombat,
       gainKlunkPerCombat: eq.gainKlunkPerCombat,
+      gainGoldPerPenaltyKlunk: eq.gainGoldPerPenaltyKlunk,
       preventTheft: eq.preventTheft,
       levelUpDiscountGold: eq.levelUpDiscountGold,
       canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
@@ -118,8 +120,8 @@ export function applyEffects(params: {
       params.player.gold += g;
       out.gold = (out.gold ?? 0) + g;
     } else if (e.type === "klunkar") {
-      params.player.klunkar += e.amount;
-      out.klunkar = (out.klunkar ?? 0) + e.amount;
+      const add = grantKlunkWithXp(params.state, params.player, e.amount, { penaltyStraff: true });
+      out.klunkar = (out.klunkar ?? 0) + add;
     } else if (e.type === "item") {
       params.player.inventory ??= [];
       params.player.inventory.push(createItemInstance(e.itemId as any, newInstanceId(params.rng)));

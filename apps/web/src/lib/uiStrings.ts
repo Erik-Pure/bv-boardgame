@@ -121,6 +121,8 @@ export const sv = {
       `Ta en klunk: −${reduce} skada (du får +1 klunk). Eller ta full ${full} skada, ingen klunk.`,
     takeSipReduce: (n: number) => `Ta en klunk (−${n} skada)`,
     fullDamageNoSip: (n: number) => `Full skada (${n}), ingen klunk`,
+    /** Kapten Interrobang / Transporter: sekundär knapp utan pant/kompensation */
+    takeFullDamageHp: (n: number) => `Ta full skada (${n} skada)`,
     waitAttackerChoose: (name: string) => `Väntar på att ${name} väljer…`,
     attackModifier: (m: number) => `Attackmodifierare: ${m}`,
     waitIntervene: "Väntar på att andra spelare ingriper…",
@@ -169,7 +171,11 @@ export const sv = {
     /** Prefix när rörelseval leder till ruta med annan bryggare; kombineras med ruttyp, t.ex. «BvB / Händelse». */
     moveChoiceBvbLabel: "BvB",
     pvpChooseOpponent: "BvB — välj motståndare:",
-    pvpBothRoll: "BvB (båda slår)",
+    /** Mötesval: inget parentestext om inga giltiga namn (extremt fall). */
+    pvpBothRollVersus: (opponentNamesCommaSeparated: string) =>
+      opponentNamesCommaSeparated.trim().length > 0
+        ? `BvB (${opponentNamesCommaSeparated})`
+        : "BvB",
     /** Mötesval: knapptext för att inte ta BvB — bara ruttypen (t.ex. Skatt, Händelse). */
     resolveTileNoPvp: (tileLabel: string) => tileLabel,
     pvpRollDie: "Slå din tärning",
@@ -394,6 +400,9 @@ export const sv = {
     combatWinRoll: (roll: number, need: number) => `Slag: ${roll} (krävdes ${need})`,
     combatWinRandomOtherSip: (recipient: string) =>
       `${recipient} får en straffklunk — slumpad annan spelare.`,
+    /** Mobil PlayView: efter Fortsätt på vinst-modal — kort/utrustning du drog */
+    combatWinGrantedLootToast: (titles: string[]) =>
+      titles.length === 1 ? `Du fick: ${titles[0]}` : `Du fick:\n${titles.map((t) => `• ${t}`).join("\n")}`,
     combatSipWeaponPrompt: (
       weaponName: string,
       bonusIncrement: number,
@@ -418,6 +427,14 @@ export const sv = {
     combatLoseContinue: "FORTSÄTT",
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
     combatLosePenalties: "Påföljder",
+    /** Mobil: när angriparen stänger förlust — du var stridshjälp eller ölkompis */
+    combatLoseAllyImpactToast: (role: "helpMate" | "beerBro", hpLost: number, klunksGained: number) => {
+      const head = role === "helpMate" ? "Stridshjälp" : "Ölkompis i striden";
+      const bits: string[] = [];
+      if (hpLost > 0) bits.push(`−${hpLost} HP`);
+      if (klunksGained > 0) bits.push(`+${klunksGained} straffklunk`);
+      return bits.length === 0 ? `${head}: ingen ytterligare påföljd för dig.` : `${head}: du drabbades — ${bits.join(", ")}`;
+    },
     combatLoseNoDirectPenalty: (player: string) =>
       `Ingen direkt skada eller extra klunk för ${player} på denna träff.`,
     combatLoseLostEquipment: (player: string, item: string) => `${player} tappade utrustning: ${item}.`,

@@ -50,6 +50,7 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     Pilsnersköld: "/equipment/accessory/pilsnerskold.webp",
     Guldkedja: "/equipment/accessory/gold-chain.webp",
     Livförsäkring: "/equipment/accessory/medicalpapers.webp",
+    Tygkasse: "/equipment/accessory/totebag.webp",
     Mantel: "/equipment/accessory/beer-cape.webp",
     Solbrillor: "/equipment/accessory/sunglasses.webp",
     "Taproom nyckel": "/equipment/accessory/taproom-nyckelring.webp",

@@ -13,6 +13,7 @@ import type {
   PenaltySipQueueEntry,
   Player,
 } from "../types.js";
+import { grantKlunkWithXp } from "../klunkGrant.js";
 import { recordPantSpent } from "../sessionStats.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import { rollDie } from "../rng.js";
@@ -164,20 +165,23 @@ export function enterMonsterCombatFromTile(
     return;
   }
   if (monster.id === "demonkrigare") {
-    const choices: Array<{ id: string; label: string }> = [];
     if (player.gold >= 10) {
-      choices.push({ id: "pay_skip", label: "Betala 10 pant och undvik striden" });
+      showCard(state, {
+        playerId: player.id,
+        kind: "combat",
+        cardId: `monster:${monster.id}`,
+        title: monster.name,
+        text: formatMonsterText(monster),
+        artKey: monster.artKey,
+        choices: [
+          { id: "pay_skip", label: "Betala 10 pant och undvik striden" },
+          { id: "fight", label: "Slåss" },
+        ],
+      });
+      return;
     }
-    choices.push({ id: "fight", label: "Slåss" });
-    showCard(state, {
-      playerId: player.id,
-      kind: "combat",
-      cardId: `monster:${monster.id}`,
-      title: monster.name,
-      text: formatMonsterText(monster),
-      artKey: monster.artKey,
-      choices,
-    });
+    state.pending = createMonsterCombatPending(state, player, monster);
+    log(state, `${player.name} möter ${monster.name}.`);
     return;
   }
 
@@ -241,7 +245,7 @@ export function resolveEventCardOnLand(params: {
   }
   if (card.id === "event_apocalypse") {
     for (const pl of state.players) {
-      pl.klunkar += 1;
+      grantKlunkWithXp(state, pl, 1, { penaltyStraff: true });
     }
     log(state, `Händelse: ${card.title}`);
     const from = `${p.name} (${card.title})`;
@@ -277,7 +281,7 @@ export function resolveEventCardOnLand(params: {
     return;
   }
   if (card.id === "event_loser_wins") {
-    p.klunkar += 2;
+    grantKlunkWithXp(state, p, 2, { penaltyStraff: true });
     let lowest = state.players[0]!;
     for (const pl of state.players) if (pl.hp < lowest.hp) lowest = pl;
     const beforeLow = lowest.hp;
@@ -393,7 +397,7 @@ export function handleCardOption(params: {
       if (p.gold < 5) return { handled: true, error: "Du behöver 5 pant för att hedra den belgiska munken." };
       p.gold -= 5;
       recordPantSpent(state, p.id, 5);
-      p.klunkar += 1;
+      grantKlunkWithXp(state, p, 1, { penaltyStraff: false });
       pushSipNotice(state, p.id, monster.name);
       log(state, `${p.name} tar en klunk och betalar 5 pant i ${monster.name}s ära. ${monster.name} försvinner.`);
       return { handled: true, completeCard: true };
@@ -428,10 +432,10 @@ export function handleCardOption(params: {
     const beforeTargetHp = target.hp;
     const beforeTargetSips = target.klunkar;
     if (pending.cardId === "event_gift_sip") {
-      target.klunkar += 1;
+      grantKlunkWithXp(state, target, 1, { penaltyStraff: true });
       log(state, `${p.name} ger en klunk till ${target.name}.`);
     } else {
-      target.klunkar += 1;
+      grantKlunkWithXp(state, target, 1, { penaltyStraff: true });
       target.hp = Math.min(target.maxHp, target.hp + 2);
       log(state, `${p.name} bjuder ${target.name} på en vänlig klunk (+2 HP).`);
     }
@@ -460,7 +464,7 @@ export function handleCardOption(params: {
       rng,
       ignoreArmorOnDamage: true,
     });
-    p.klunkar += 1;
+    grantKlunkWithXp(state, p, 1, { penaltyStraff: true });
     state.pending = {
       ...pending,
       choices: undefined,
@@ -525,8 +529,11 @@ export function handleCardOption(params: {
     if (choiceId === "roll") {
       const die = rollDie(rng, 6);
       const beforeGold = p.gold;
-      if (die <= 3) p.gold = 0;
-      else p.gold += 12;
+      if (die <= 3) {
+        const loss = Math.min(12, Math.max(0, p.gold));
+        p.gold -= loss;
+        if (loss > 0) recordPantSpent(state, p.id, loss);
+      } else p.gold += 12;
       state.pending = {
         ...pending,
         choices: undefined,
