@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.57 |
+| Version | 0.58 |
 | Senast uppdaterad | 2026-05-10 |
 
 ---
@@ -33,6 +33,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 | Webb (mobil) | Personlig kontroll: inventory, val, tärning/duell, bekräfta klunkar |
 
 **Kortlivade felmeddelanden (mobil, `/play`):** server- eller klientmeddelanden som **inte** ska blockera spel (t.ex. WebSocket **`error`** med text som *«En Ölkompis hjälper redan»*, eller *inte ansluten*) visas som en **toast** nära **nedre kanten** (över interaktionspanelen, med **safe area**), mörk bakgrund, **kort fade/slide-in**, och försvinner **automatiskt efter några sekunder** — i stället för lång röd felrad ovanför innehållet. (`role="status"`, `aria-live="polite"`.)
+
+**Toasts vid monsterutfall (mobil, `/play`):** efter **monsterseger**, när angriparen trycker **Fortsätt** på vinstmodalen, kan en toast lista **vilka skatter** (kortnamn/utrustning) som just tilldelats angriparen. **Ölkompis** och **stridshjälpare** som fick skatter enligt kontrakt får motsvarande toast **när angriparen stänger vinstkortet** (synkad med serverns `pending`). Efter **monsterförlust**, när angriparen stänger förlustkortet, får **ölkompis** respektive **stridshjälpare** en toast med **ungefärlig HP-förlust** och **antal straffklunk** om de drabbades — så de ser påföljd även om de inte äger förlustmodalen.
 
 **Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) kan UI visa regnbågssignal i interaktionspanelen längst ned. Effekten är **av/på i inställningar** i mobilvyn.
 
@@ -229,6 +231,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 **Särskilda monster (val som spelaren gör):**
 
 - **Sip Snatcher:** spelaren ska kunna välja **ta en sip (monstret försvinner, ingen strid)** eller **slåss** som mot ett vanligt monster.
+- **Demonkrigare (före strid):** om spelaren har **≥ 10 pant** visas ett valkort **betala 10 pant och undvik striden** / **Slåss**. Om spelaren har **< 10 pant** ska **inget** sådant valkort visas — mötet går **direkt till monsterintro/strid** (som vanliga slumpmonster utan förhandsmodal).
 - **Brewizard / Sourceress:** vid **förlorat** slag ska spelaren efter tärningsresultatet välja **ta en sip för reducerad skada** (och då +1 sip) **eller** **ta full skada enligt monsterets basvärde utan sip**. *(Exakta tal i data: t.ex. −3 / −2 mot full bas-skada.)* **Straffklunk-notis:** sip-meddelandet efter förlust ska visa **samma total** som tilldelats (monsterförlustens klunkar **plus** den valfria mitigations-klunken i **en** notis, inte två i rad.)
 - **Klunk på förlust:** fler monster än tidigare ger nu explicit klunk-straff vid förlust (utöver HP-skada), inte bara specialfall.
 - **Begär hjälp i monsterstrid (efter reaktioner, före slag):** angriparen kan välja **Be om hjälp** om det finns andra aktiva spelare med **positiva hjälpkort** för attack. Angriparen väljer hjälpare, hjälparen väljer kontrakt (**gratis**, **pant**, **skatt**, **dela lika**) eller nekar. Om hjälparen accepterar måste den spela **minst ett positivt kort** innan striden får gå vidare till slag.
@@ -236,7 +239,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
   - **Demonkrigare:** vid förlust läker en **annan** levande spelare +3 HP (slumpad mottagare, cap vid max HP).  
   - **Busiga buskar:** vid förlust ger angriparen upp till **5 pant** till spelaren med **minst pant** (vid lika väljs mottagare slumpmässigt).  
   - **Solen:** vid förlust får angriparen *sol i ögonen* och **står över nästa tur**.
-- **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid förlust sker ingen utbetalning.
+- **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid **förlust** sker ingen utbetalning **och den accepterade hjälparen tar samma monster-HP-skada och straffklunk som angriparen i princip får i lagstrid** (egna rustnings-/vapenregler; mitigationsval för t.ex. Kapten Interrobang eller Sura bär följer angriparens val). **Ölkompis** i strid utan separat hjälpkontrakt hade redan motsvarande risk; copy/toast speglar båda på mobil.
 - **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
 - **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
 - **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
@@ -384,6 +387,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 - Efter sista explicita tröskeln fortsätter skalan linjärt med samma differens som mellan de två sista nivåerna.
 - Visas i **mobil-header** som progress mot nästa visad bryggnivå och som nivåsiffra i nivå-ringen.
 - **Resultatlista** när partiet är **slut** visas som **tabell** på både `/table` och mobil (`/play`): **namn**, **bryggnivå** (samma ring och `lvl`-ram som i mobil-header), **antal stupad bryggare** (gånger spelaren triggat stupad bryggare vid 0 HP), **monster V/F** (vunna respektive förlorade monsterstrider), **förbrukade föremål**, samt **klunkar**, **pant** och **HP**. Under tabellen visas **badge-rader** (“bäst i klassen”) per statistiktyp där värdet är större än noll; **delad förstaplats** listar alla berörda spelare.
+- **Eliminerade spelare och resultatlista:** när en spelare väljer **ge upp** från stupad bryggare (`eliminated`) och mobilen skickar **`leaveGame`**, ska servern **inte ta bort** spelaren ur **`players`**-listan under pågående eller avslutat parti — slotten behålls som **spök-spelare** med stats så **alla** fortfarande syns i sluttabellen och spotlight/jämförelser. **Undantag:** om **bordet** uttryckligen **kickar** en spelare (`tableKickPlayer` med `purgeSlot`) tas spelaren bort helt ur roster-state som tidigare.
 - **Boss:** varje **vunnen runda** mot slutbossen (även när bossen har flera liv kvar) räknas som **+1 monsterseger** i sessionsstatistiken, så siffran följer spelupplevelsen av flera stridsrundor.
 - **Persistens:** sessionsstatistik lever i **`GameState`** under partiet; långsiktig lagring per konto/aggressionsfil är **inte** krav i nuvarande implementation.
 - **Slutmodal spotlight:** ovanför rubriken *«Spelet är slut»* visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
@@ -568,4 +572,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.55 | 2026-05-08 | §13.1: slutresultat som tabell med sessionsstatistik, nivå-ring, monster V/F, förbrukade föremål, stup-räknare och badge-rader; bossrundor räknas som monstersegrar (`game-core`); ingen extern persistens ännu |
 | 0.56 | 2026-05-09 | Slutmodal: spotlight-karusell + `goldSpent`/spenderad-pant-definition (sinkholes vs spelaröverföring) i §13.1 |
 | 0.57 | 2026-05-10 | Mobil rörelseval: pilhintar + speglade knappar på ringens överkant (§8); lagstrid: egen modifier vid tärning på mobil (§9.1); vapen med pant eller klunk för valfri `sipAttackBonus`, nytt vapen **Ölsejdel** (§11); Genväg/Taproom användbar vid rörelseval/handl/mötesval (§10.1); straffklunk-kö vid kort → modaler vid Fortsätt (§13); utrustningsbild WebP-fallback; kompakt klunk-reduktionsbadge |
+| 0.58 | 2026-05-10 | §2: toasts för monsterskatter vid vinst och för ölkompis/stridshjälp vid vinst/förlust; §9.1: Demonkrigare utan pant-modal om spelaren saknar 10 pant; stridshjälp tar HP + straffklunk vid förlust (som lagrisk); §13.1: eliminerade behålls i roster efter `leaveGame` för full resultatlista (`purgeSlot` vid bordskick) |
 
