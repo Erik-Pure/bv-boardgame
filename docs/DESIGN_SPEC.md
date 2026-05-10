@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.56 |
-| Senast uppdaterad | 2026-05-09 |
+| Version | 0.57 |
+| Senast uppdaterad | 2026-05-10 |
 
 ---
 
@@ -209,6 +209,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 
 - Spelaren **slår tärning** (eller server slår) och **rör sig exakt så många steg** som resultatet visar längs giltiga banor på den nivå spelaren befinner sig på.
 - **Ring-läge per våning:** banan är en **sluten ring** av rutor. **Ett steg** = **en kant** till nästa ruta i **tile-indexordning** (samma ordning som generering och som bordets `ringPos`). Efter slag (t.ex. **d6**, plus **rörelsebonus** från accessoar; *Skägget rakt bak* **dubblar inte** rörelsetärningen — se §10.1) erbjuds **två mål**: **medurs** (`tileIndex + summa`, modulo `n`) respektive **moturs** (`tileIndex − summa`, modulo `n`), där `n = antal rutor på våningen`. Om `n` är **jämnt** och summan är exakt **`n/2`** kan båda riktningarna landa på **samma** ruta — då är det geometriskt förväntat, inte ett räknefel.
+- **Mobil (`/play`, rörelseval):** vid valet **medurs / moturs** visas **små pilikoner** vid sidan av rörelsetärningen som motsvarar **första stegets kardinalriktning** på den rektangulära ring-layouten (samma indexering som spelet). På rutor längs ringens **överkant** speglas **kolumnordningen** för de två knapparna så **vänster/höger** i UI matchar pilarna **visuellt** (medurs/moturs byter plats jämfört med standardläge).
 - **Modifiers** från kort, items, status eller klunk-regler kan **minska eller öka** antal steg (eller ändra riktning/giltiga rutor). Alla sådana effekter ska **resolveras på servern** och loggas i spelloggen.
 
 ---
@@ -239,6 +240,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
 - **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
 - **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
+- **Lagstrid på mobil:** bredvid tärningen visas **endast din egen** attackmodifier (utrustning, kortbuffar, `nextCombatModifier` m.m.) — inte summan av båda stridande. **Storskärmsbrädet** kan fortfarande visa lagets **samlade** modifier enligt befintlig presentation.
 
 ### 9.1.1 Team battle-monster
 
@@ -296,6 +298,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 
 ### 10.1 Nya item-effekter (aktuellt läge)
 
+**Genväg / Taproom-nyckel (spelbarhet):** dessa föremål ska kunna användas även när spelaren har ett aktivt **rörelseval**, är i **handel**, eller är **den som flyttat in** och ska lösa **mötesval** (BvB vs lösa ruta) — så man kan t.ex. fly till boss utan att först tvingas genom BvB-flödet.
+
 - **Druckit för mycket** (tidigare “Svag öl”): stridsreaktion, **−2 spelarattack**.
 - **Lättöl**: stridsreaktion, **+1 spelarattack**.
 - **Folköl**: stridsreaktion, **+2 spelarattack**.
@@ -314,6 +318,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ---
 
 ## 11. Utrustning
+
+**Valfri vapenbonus mot monster (`sipAttackBonus`):** utöver **Enkelpipa** / **Dubbelpipa** (fast pantkostnad i legacy-logik) kan vapen i datan ange **`sipWeaponBonusGoldCost`** (pant före monstertärning) eller **`sipWeaponBonusKlunks`** (positivt ⇒ **straffklunk(ar)** i stället för pant). Klient och server använder samma regel (`sipWeaponExtraAttackCosts`). Motmonster ger klunken **XP** som övriga straffklunkar; pant dras från saldot och räknas som spenderad där det gäller.
 
 Hård cap per spelare:
 
@@ -334,7 +340,11 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Badge-läsbarhet (mobil):** på smalare telefoner ska badges i inventory/utrustningsöversikten (ikon + tal) skala ner (padding, ikon och text) för att undvika trängsel/klippning.
 
-**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst).
+**Monsterförlust-klunk (badge):** reduktion av straffklunk vid monsterförlust visas som en **kompakt** etikett (**`−N`**) bredvid klunk-ikonen, i linje med övriga talbadges.
+
+**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog).
+
+**Utrustningsbilder (webben):** när unik art finns som **WebP** med tillhörande **AVIF** används `<picture>` med **WebP som `img`-fallback** (inte längre en separat PNG-fallback med samma basnamn om den saknas).
 
 **Föremålsbrickor (mobil, Safari / WebKit):** inventory-rutorna för **föremål** ska använda **lagerindelad layout** (t.ex. CSS grid med gemensam **“stack”**-cell): **bilden** i ett **eget** lager med `overflow: hidden` och avrundade hörn, **antal** (stack) och **effekt-badge** (ikon + siffra/text) i ett **overlay-lager** ovanpå med `z-index`. Syfte: undvika att **`object-fit: cover`** + **`height: 100%`** på `<img>` klipper bort **nederkant** på badge/siffror (känt iOS Safari när yttre knapp har `overflow: hidden`). Utrustningsfyran kan följa **samma mönster** så små märken längst ner inte klipps.
 
@@ -357,6 +367,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 ## 13. Öl / straffklunkar
 
 - **Straffklunk-räknare** per spelare (heltal ≥ 0).
+- **Notiser efter händelsekort:** klunk som ska följas upp med **sip-modal** kan ligga i en **kö** kopplad till det visade kortet (`queuedPenaltySipNotices`). Vid **Fortsätt** (`confirmCard`) töms kön **i ordning** — flera klunkkällor på samma kort-flöde (t.ex. kombinerade val/effekter, eller **Apocalypse** som ger alla spelare klunk) ska ge **en modal per post**, inte en ihopslagen eller felaktigt för tidig notis.
 - Kort och händelser kan **öka** motspelares klunkar eller påverkas av antal klunkar (modifiers på slag, kort som låses upp, etc.).
 - **Säkerhet och inkludering:** tydlig text att **alkohol är valfritt** (vatten räknas som klunk om gruppen vill). Spelet ska kunna spelas som **rent social räknare** utan krav på konsumtion.
 - **Konsekvent wording på monsterkort:** klunkstraff uttrycks som **“Vid förlust: ta X klunk.”** Skaderelaterade effekter och val (t.ex. Bryggtrollkarl/Surhäxan) inleds med **“Vid skada:”** (inte “Vid träff”).
@@ -556,4 +567,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.54 | 2026-05-08 | §7.2/§19: team-monster-slump **halverad** per brädnivå (**4% / 9% / 14%**, `pickMonsterForLevel` i `game-core`) |
 | 0.55 | 2026-05-08 | §13.1: slutresultat som tabell med sessionsstatistik, nivå-ring, monster V/F, förbrukade föremål, stup-räknare och badge-rader; bossrundor räknas som monstersegrar (`game-core`); ingen extern persistens ännu |
 | 0.56 | 2026-05-09 | Slutmodal: spotlight-karusell + `goldSpent`/spenderad-pant-definition (sinkholes vs spelaröverföring) i §13.1 |
+| 0.57 | 2026-05-10 | Mobil rörelseval: pilhintar + speglade knappar på ringens överkant (§8); lagstrid: egen modifier vid tärning på mobil (§9.1); vapen med pant eller klunk för valfri `sipAttackBonus`, nytt vapen **Ölsejdel** (§11); Genväg/Taproom användbar vid rörelseval/handl/mötesval (§10.1); straffklunk-kö vid kort → modaler vid Fortsätt (§13); utrustningsbild WebP-fallback; kompakt klunk-reduktionsbadge |
 
