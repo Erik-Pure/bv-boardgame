@@ -3,7 +3,7 @@ import { useCallback, useState, type ImgHTMLAttributes, type ReactNode } from "r
 export type PictureSources = {
   avif?: string | null;
   webp?: string | null;
-  /** Fallback till något som alltid funkar (t.ex. .png eller .webp). */
+  /** `<img src>` — vanligtvis .webp för utrustningskatalog (avif/webp i `<source>`). */
   fallback: string;
 };
 

@@ -2,9 +2,17 @@ import type { CardDef, EffectApplyOut } from "./types.js";
 import { applyEffects } from "./effects.js";
 import { getCard } from "./db.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemText.js";
-import { pushSipNotice } from "../sipNotice.js";
+import { mergePenaltySipQueue, pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
-import type { CombatLoseSummary, CombatWinSummary, EquipmentSlot, GameState, Pending, Player } from "../types.js";
+import type {
+  CombatLoseSummary,
+  CombatWinSummary,
+  EquipmentSlot,
+  GameState,
+  Pending,
+  PenaltySipQueueEntry,
+  Player,
+} from "../types.js";
 import { recordPantSpent } from "../sessionStats.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import { rollDie } from "../rng.js";
@@ -31,7 +39,14 @@ export type ShowCardFn = (state: GameState, params: {
   combatWin?: CombatWinSummary;
   combatLoss?: CombatLoseSummary;
   equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
+  queuedPenaltySipNotices?: PenaltySipQueueEntry[];
 }) => void;
+
+function penaltySipEntriesForKlunks(recipientId: string, klunkDelta: number | undefined, fromPlayerName: string): PenaltySipQueueEntry[] {
+  const n = klunkDelta ?? 0;
+  if (n <= 0) return [];
+  return [{ recipientId, klunkCount: n, fromPlayerName }];
+}
 
 /** Endast specialregler — standard styrka/vinst/förlust visas i UI med ikoner. */
 function formatMonsterText(m: { rulesText: string }): string {
@@ -229,7 +244,20 @@ export function resolveEventCardOnLand(params: {
       pl.klunkar += 1;
     }
     log(state, `Händelse: ${card.title}`);
-    showCard(state, { playerId: p.id, kind: "event", cardId: card.id, title: card.title, text: card.text, artKey: card.artKey });
+    const from = `${p.name} (${card.title})`;
+    showCard(state, {
+      playerId: p.id,
+      kind: "event",
+      cardId: card.id,
+      title: card.title,
+      text: card.text,
+      artKey: card.artKey,
+      queuedPenaltySipNotices: state.players.map((pl) => ({
+        recipientId: pl.id,
+        klunkCount: 1,
+        fromPlayerName: from,
+      })),
+    });
     return;
   }
   if (card.id === "event_round_on_me") {
@@ -266,6 +294,7 @@ export function resolveEventCardOnLand(params: {
       title: card.title,
       text: `${card.text}${lowHpLine}${yourSipsLine}`,
       artKey: card.artKey,
+      queuedPenaltySipNotices: penaltySipEntriesForKlunks(p.id, p.klunkar - beforeKlunk, card.title),
     });
     return;
   }
@@ -334,6 +363,7 @@ export function resolveEventCardOnLand(params: {
     artKey: artKeyForGrantedItem(effectOut, card.artKey) ?? card.artKey,
     grantedItemId: effectOut.grantedItemId,
     equipmentReplaceOffer: effectOut.equipmentReplaceOffer,
+    queuedPenaltySipNotices: penaltySipEntriesForKlunks(p.id, effectOut.klunkar, card.title),
   });
 }
 
@@ -399,17 +429,18 @@ export function handleCardOption(params: {
     const beforeTargetSips = target.klunkar;
     if (pending.cardId === "event_gift_sip") {
       target.klunkar += 1;
-      pushSipNotice(state, target.id, p.name);
       log(state, `${p.name} ger en klunk till ${target.name}.`);
     } else {
       target.klunkar += 1;
-      pushSipNotice(state, target.id, p.name);
       target.hp = Math.min(target.maxHp, target.hp + 2);
       log(state, `${p.name} bjuder ${target.name} på en vänlig klunk (+2 HP).`);
     }
     state.pending = {
       ...pending,
       choices: undefined,
+      queuedPenaltySipNotices: mergePenaltySipQueue(pending.queuedPenaltySipNotices, [
+        { recipientId: target.id, klunkCount: 1, fromPlayerName: p.name },
+      ]),
       text:
         `${pending.text}\nValt: ${target.name}` +
         formatTargetStatDeltas(target.name, beforeTargetHp, target.hp, beforeTargetSips, target.klunkar),
@@ -433,6 +464,9 @@ export function handleCardOption(params: {
     state.pending = {
       ...pending,
       choices: undefined,
+      queuedPenaltySipNotices: mergePenaltySipQueue(pending.queuedPenaltySipNotices, [
+        { recipientId: p.id, klunkCount: 1, fromPlayerName: pending.title },
+      ]),
       text:
         `${pending.text}\nValt: ${target.name}` +
         formatTargetStatDeltas(target.name, beforeTargetHp, target.hp, beforeTargetSips, target.klunkar) +
@@ -517,6 +551,10 @@ export function handleCardOption(params: {
       artKey: artKeyForGrantedItem(effectOut, pending.artKey) ?? pending.artKey,
       grantedItemId: effectOut.grantedItemId ?? pending.grantedItemId,
       equipmentReplaceOffer: effectOut.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
+      queuedPenaltySipNotices: mergePenaltySipQueue(
+        pending.queuedPenaltySipNotices,
+        penaltySipEntriesForKlunks(p.id, effectOut.klunkar, pending.title),
+      ),
       text:
         `${pending.text}\nTärning: ${die}.` +
         appendTextForGrantedItem(effectOut) +
@@ -619,6 +657,10 @@ export function handleCardOption(params: {
     artKey: artKeyForGrantedItem(effectOut, pending.artKey) ?? pending.artKey,
     grantedItemId: effectOut.grantedItemId ?? pending.grantedItemId,
     equipmentReplaceOffer: effectOut.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
+    queuedPenaltySipNotices: mergePenaltySipQueue(
+      pending.queuedPenaltySipNotices,
+      penaltySipEntriesForKlunks(p.id, effectOut.klunkar, pending.title),
+    ),
     text:
       `${def.text}\nVal: ${choice.label}` +
       appendTextForGrantedItem(effectOut) +

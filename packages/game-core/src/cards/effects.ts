@@ -32,6 +32,8 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
       name: eq.name,
       power: eq.power ?? 1,
       sipAttackBonus: eq.sipAttackBonus,
+      sipWeaponBonusGoldCost: eq.sipWeaponBonusGoldCost,
+      sipWeaponBonusKlunks: eq.sipWeaponBonusKlunks,
       pvpDieBonus: eq.pvpDieBonus,
       gainGoldOnWin: eq.gainGoldOnWin,
       powerAtGold10: eq.powerAtGold10,

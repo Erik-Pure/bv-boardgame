@@ -16,6 +16,7 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     Padel: "/equipment/weapon/padel.webp",
     Mäskpaddel: "/equipment/weapon/padel.webp",
     Högtryckstvätt: "/equipment/weapon/powerwash.webp",
+    Ölsejdel: "/equipment/weapon/tankard.webp",
     "Cap-front": "/equipment/helmet/cap-front.webp",
     Keps: "/equipment/helmet/cap-front.webp",
     "Cap-back": "/equipment/helmet/cap-back.webp",
@@ -89,7 +90,7 @@ export function equipmentImageSources(
   const fallback = equipmentCatalogImageSrc(name, slot);
   if (fallback.endsWith(".webp")) {
     const base = fallback.slice(0, -".webp".length);
-    return { avif: `${base}.avif`, webp: fallback, fallback: `${base}.png` };
+    return { avif: `${base}.avif`, webp: fallback, fallback };
   }
   return { fallback };
 }

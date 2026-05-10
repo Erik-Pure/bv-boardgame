@@ -2,6 +2,22 @@ import { helmetAttackBonus } from "./beerCanEquipment.js";
 import type { Player, Weapon } from "./types.js";
 
 /** Vapnets kraft efter pant-trösklar (samma som i strid). */
+/**
+ * Pant resp. straffklunk(ar) för valfri vapenbonus (`sipAttackBonus`) före monstertärning.
+ * Om `sipWeaponBonusKlunks` är positivt används klunkar; annars pant enligt `sipWeaponBonusGoldCost` eller äldre vapennamn (Enkel-/Dubbelpipa).
+ */
+export function sipWeaponExtraAttackCosts(w: Weapon | undefined): { gold: number; klunks: number } {
+  if (!w || typeof w.sipAttackBonus !== "number" || w.sipAttackBonus <= 0) return { gold: 0, klunks: 0 };
+  const kl = Math.max(0, Math.floor(w.sipWeaponBonusKlunks ?? 0));
+  if (kl > 0) return { gold: 0, klunks: kl };
+  const fallbackGold = w.name === "Dubbelpipa" ? 4 : w.name === "Enkelpipa" ? 2 : 0;
+  const gold =
+    typeof w.sipWeaponBonusGoldCost === "number"
+      ? Math.max(0, Math.floor(w.sipWeaponBonusGoldCost))
+      : fallbackGold;
+  return { gold, klunks: 0 };
+}
+
 export function effectiveWeaponPiecePower(weapon: Weapon | undefined, gold: number): number {
   if (!weapon) return 0;
   let pow = weapon.power ?? 0;

@@ -14,7 +14,9 @@ import {
   MONSTERS,
   isFinalBossMonsterId,
   isLegendariskBurkhjälmName,
+  effectiveWeaponPiecePower,
   monsterCombatEquipmentAttackBonus,
+  sipWeaponExtraAttackCosts,
   monsterLossKlunkTotal,
   playerCanCombatIntervene,
   levelUpCostsForTargetLevel,
@@ -32,6 +34,7 @@ import {
   type ShopItem,
   type SipNoticeKind,
   type TileType,
+  type Weapon,
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
@@ -80,6 +83,7 @@ import {
   resolveCombatWinViewer,
 } from "../lib/combatUi";
 import { sv, wsStatusLabel, capitalizeWord, equipmentSlotSv, tileTypeSv } from "../lib/uiStrings";
+import { isRingTopEdgeTile, moveChoiceDirectionHints } from "../lib/moveChoiceDirectionHints";
 import { moveChoiceTileVisual } from "../lib/moveChoiceTileVisual";
 
 function findMe(state: GameState | null, myId: string | null) {
@@ -816,7 +820,8 @@ export function PlayView() {
         pe != null &&
         !(
           (pe.type === "moveChoice" && pe.playerId === me.id) ||
-          (pe.type === "merchant" && pe.playerId === me.id)
+          (pe.type === "merchant" && pe.playerId === me.id) ||
+          (pe.type === "encounterChoice" && pe.moverId === me.id)
         )
       ) {
         return false;
@@ -1402,33 +1407,44 @@ export function PlayView() {
       const hasAnyReaction = (me.inventory ?? []).some((it) => canPlayInterveneItem(String(it.itemId)));
       const attacker = state.players.find((p) => p.id === pending.attackerId) ?? null;
       const teammate = pending.assistId ? state.players.find((p) => p.id === pending.assistId) ?? null : null;
-      // Samma summa som på brädet: attackMods + utrustningsattack + nextCombatModifier (reaktionsfas),
-      // och båda spelare i lagstrid.
-      const diceModifierTotal = (() => {
-        const ids = pending.assistId ? [pending.attackerId, pending.assistId] : [pending.attackerId];
-        let sum = 0;
-        for (const id of ids) {
-          const p = state.players.find((x) => x.id === id);
-          if (!p) continue;
-          sum += pending.attackMods?.[id] ?? 0;
-          sum += monsterCombatEquipmentAttackBonus(p);
-          sum += p.nextCombatModifier ?? 0;
+      /** Mobil: vid två slagande (team/ölkompis) bara *din* bonus vid tärningen — brädet visar fortfarande lagets samlade modifier. */
+      const diceModifierBesideDice = (() => {
+        if (pending.assistId) {
+          const p = state.players.find((x) => x.id === me.id);
+          if (!p) return 0;
+          return (
+            (pending.attackMods?.[me.id] ?? 0) +
+            monsterCombatEquipmentAttackBonus(p) +
+            (p.nextCombatModifier ?? 0)
+          );
         }
-        return sum;
+        const p = state.players.find((x) => x.id === pending.attackerId);
+        if (!p) return 0;
+        return (
+          (pending.attackMods?.[pending.attackerId] ?? 0) +
+          monsterCombatEquipmentAttackBonus(p) +
+          (p.nextCombatModifier ?? 0)
+        );
       })();
-      const modDisplay = diceModifierTotal > 0 ? `+${diceModifierTotal}` : String(diceModifierTotal);
-      const attackDiceDoubledCount = [pending.attackerId, pending.assistId]
-        .filter((id): id is string => !!id)
-        .reduce((sum, id) => {
-          const p = state.players.find((x) => x.id === id);
-          return sum + (p?.nextCombatAttackDiceDouble === true ? 1 : 0);
-        }, 0);
+      const modDisplay =
+        diceModifierBesideDice > 0 ? `+${diceModifierBesideDice}` : String(diceModifierBesideDice);
       const attackDiceDoubledHint =
-        attackDiceDoubledCount <= 0
-          ? null
-          : attackDiceDoubledCount === 1
+        pending.assistId != null
+          ? me.nextCombatAttackDiceDouble === true
             ? "2 x tärningsslag"
-            : `2 x tärningsslag (x${attackDiceDoubledCount})`;
+            : null
+          : (() => {
+              const attackDiceDoubledCount = [pending.attackerId, pending.assistId]
+                .filter((id): id is string => !!id)
+                .reduce((sum, id) => {
+                  const p = state.players.find((x) => x.id === id);
+                  return sum + (p?.nextCombatAttackDiceDouble === true ? 1 : 0);
+                }, 0);
+              if (attackDiceDoubledCount <= 0) return null;
+              return attackDiceDoubledCount === 1
+                ? "2 x tärningsslag"
+                : `2 x tärningsslag (x${attackDiceDoubledCount})`;
+            })();
       const isEligibleReactor =
         (pending.reactors?.includes(me.id) ?? false) && playerCanCombatIntervene(me);
       const hasPassed = pending.reacted?.[me.id] === "pass";
@@ -1479,9 +1495,11 @@ export function PlayView() {
             ) : null}
             <div className={styles.sheetDiceBlock}>
               <div className={styles.sheetDiceRowWithModifier}>
-                {diceModifierTotal !== 0 || attackDiceDoubledHint ? (
+                {diceModifierBesideDice !== 0 || attackDiceDoubledHint ? (
                   <div className={styles.sheetDiceModifierSlot}>
-                    {diceModifierTotal !== 0 ? <div className={styles.sheetDiceModifierBig}>{modDisplay}</div> : null}
+                    {diceModifierBesideDice !== 0 ? (
+                      <div className={styles.sheetDiceModifierBig}>{modDisplay}</div>
+                    ) : null}
                     {attackDiceDoubledHint ? (
                       <div className={styles.sheetDiceAttackDoubledHint}>{attackDiceDoubledHint}</div>
                     ) : null}
@@ -1533,8 +1551,12 @@ export function PlayView() {
               </div>
             ) : (() => {
               const sipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
-              const weaponPantCost = me.equipment.weapon?.name === "Dubbelpipa" ? 4 : me.equipment.weapon?.name === "Enkelpipa" ? 2 : 0;
+              const sipPay = sipWeaponExtraAttackCosts(me.equipment.weapon);
+              const weaponPow =
+                sipBonus > 0 ? effectiveWeaponPiecePower(me.equipment.weapon, me.gold) : 0;
+              const totalWeaponWithSip = weaponPow + sipBonus;
               if (sipBonus > 0) {
+                const cantAffordGold = sipPay.klunks <= 0 && sipPay.gold > 0 && me.gold < sipPay.gold;
                 return (
                   <div className={u.stack10}>
                     {isAttacker &&
@@ -1551,7 +1573,13 @@ export function PlayView() {
                       </ArcadeButton>
                     ) : null}
                     <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
-                      {sv.play.combatSipWeaponPrompt(me.equipment.weapon?.name ?? "Vapnet", sipBonus, weaponPantCost)}
+                      {sv.play.combatSipWeaponPrompt(
+                        me.equipment.weapon?.name ?? "Vapnet",
+                        sipBonus,
+                        sipPay.gold,
+                        sipPay.klunks,
+                        totalWeaponWithSip,
+                      )}
                     </div>
                     <ArcadeButton
                       variant="pink"
@@ -1560,9 +1588,9 @@ export function PlayView() {
                         setCombatDiceSpinning(false);
                         send({ type: "combatRoll", playerId: me.id, useSipWeaponBonus: true });
                       }}
-                      disabled={!!myTeamRoll || me.gold < weaponPantCost}
+                      disabled={!!myTeamRoll || cantAffordGold}
                     >
-                      {sv.play.combatSipWeaponRollWith(sipBonus, weaponPantCost)}
+                      {sv.play.combatSipWeaponRollWith(sipBonus, sipPay.gold, sipPay.klunks, totalWeaponWithSip)}
                     </ArcadeButton>
                     <ArcadeButton
                       variant="gray"
@@ -1850,13 +1878,69 @@ export function PlayView() {
     if (pending?.type === "moveChoice" && pending.playerId === me.id) {
       const hasBaseDie = typeof pending.baseDie === "number" && Number.isFinite(pending.baseDie);
       const diceFaceValue = hasBaseDie ? pending.baseDie : pending.die;
+      const moveRingN = state.levels[pending.from.levelIndex]?.tiles.length ?? 0;
+      const cwOpt = pending.options.find((o) => o.dir === "cw");
+      const ccwOpt = pending.options.find((o) => o.dir === "ccw");
+      const swapMoveChoiceColumns =
+        Boolean(cwOpt && ccwOpt) && isRingTopEdgeTile(pending.from.tileIndex, moveRingN);
+      const moveChoiceDisplayOptions =
+        swapMoveChoiceColumns && cwOpt && ccwOpt ? [ccwOpt, cwOpt] : pending.options;
+      const moveDirHints =
+        moveRingN > 0 && cwOpt && ccwOpt
+          ? moveChoiceDirectionHints({
+              fromTileIndex: pending.from.tileIndex,
+              cwLandingTileIndex: cwOpt.target.tileIndex,
+              ccwLandingTileIndex: ccwOpt.target.tileIndex,
+              ringTileCount: moveRingN,
+            })
+          : null;
+      const moveChoiceArrowLeft = moveDirHints
+        ? swapMoveChoiceColumns
+          ? moveDirHints.ccw.besideDice
+          : moveDirHints.cw.besideDice
+        : null;
+      const moveChoiceArrowRight = moveDirHints
+        ? swapMoveChoiceColumns
+          ? moveDirHints.cw.besideDice
+          : moveDirHints.ccw.besideDice
+        : null;
       return (
         <div className={u.stack10}>
           <div className={styles.sheetDiceBlock}>
-            <DiceCube3D value={diceFaceValue} size={76} />
+            <div className={styles.moveChoiceDiceArrowsRow}>
+              <div className={styles.moveChoiceArrowCell}>
+                {moveChoiceArrowLeft ? (
+                  <img
+                    src={`/icons/arrow-${moveChoiceArrowLeft}.svg`}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className={styles.moveChoiceArrowImg}
+                  />
+                ) : (
+                  <span className={styles.moveChoiceSideArrowSpacer} aria-hidden />
+                )}
+              </div>
+              <div className={styles.moveChoiceArrowCell}>
+                {moveChoiceArrowRight ? (
+                  <img
+                    src={`/icons/arrow-${moveChoiceArrowRight}.svg`}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className={styles.moveChoiceArrowImg}
+                  />
+                ) : (
+                  <span className={styles.moveChoiceSideArrowSpacer} aria-hidden />
+                )}
+              </div>
+              <div className={styles.moveChoiceDiceOverlay}>
+                <DiceCube3D value={diceFaceValue} size={76} />
+              </div>
+            </div>
           </div>
           <div className={u.grid2Equal10}>
-            {pending.options.map((o) => {
+            {moveChoiceDisplayOptions.map((o) => {
               const v = moveChoiceTileVisual(o.tileType);
               return (
                 <ArcadeButton
@@ -4819,12 +4903,29 @@ function equipmentModalEffectLines(
     lines.push(sv.play.pvpWeaponDieBonus(piece.pvpDieBonus));
   }
   if ("sipAttackBonus" in piece && typeof piece.sipAttackBonus === "number" && piece.sipAttackBonus > 0) {
-    const weaponPantCost = piece.name === "Dubbelpipa" ? 4 : piece.name === "Enkelpipa" ? 2 : 0;
-    lines.push(
-      weaponPantCost > 0
-        ? `Strid mot monster: valfri betalning ${weaponPantCost} pant före stridstärningen för +${piece.sipAttackBonus} attack.`
-        : `Strid mot monster: valfri bonus före stridstärningen för +${piece.sipAttackBonus} attack.`,
-    );
+    const wp = piece as Weapon;
+    const kl = Math.max(0, Math.floor(wp.sipWeaponBonusKlunks ?? 0));
+    if (kl > 0) {
+      const basePow = typeof wp.power === "number" ? wp.power : 1;
+      const tot = basePow + piece.sipAttackBonus;
+      lines.push(
+        `Strid mot monster: valfritt ${kl} klunk före stridstärningen → +${tot} attack från vapnet (+${basePow} utan klunk).`,
+      );
+    } else {
+      const weaponPantCost =
+        typeof wp.sipWeaponBonusGoldCost === "number"
+          ? Math.max(0, Math.floor(wp.sipWeaponBonusGoldCost))
+          : piece.name === "Dubbelpipa"
+            ? 4
+            : piece.name === "Enkelpipa"
+              ? 2
+              : 0;
+      lines.push(
+        weaponPantCost > 0
+          ? `Strid mot monster: valfri betalning ${weaponPantCost} pant före stridstärningen för +${piece.sipAttackBonus} attack.`
+          : `Strid mot monster: valfri bonus före stridstärningen för +${piece.sipAttackBonus} attack.`,
+      );
+    }
   }
   if ("pvpCannotBeChallenged" in piece && piece.pvpCannotBeChallenged) {
     lines.push("Andra spelare kan inte utmana dig till BvB, men du kan utmana dem.");

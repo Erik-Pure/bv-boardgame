@@ -394,9 +394,25 @@ export const sv = {
     combatWinRoll: (roll: number, need: number) => `Slag: ${roll} (krävdes ${need})`,
     combatWinRandomOtherSip: (recipient: string) =>
       `${recipient} får en straffklunk — slumpad annan spelare.`,
-    combatSipWeaponPrompt: (weaponName: string, bonus: number, cost: number) =>
-      `${weaponName}: vill du betala ${cost} pant för +${bonus} attack på detta slag?`,
-    combatSipWeaponRollWith: (bonus: number, cost: number) => `Betala ${cost} pant (+${bonus} attack)`,
+    combatSipWeaponPrompt: (
+      weaponName: string,
+      bonusIncrement: number,
+      costGold: number,
+      costKlunks = 0,
+      totalWeaponAtk?: number,
+    ) =>
+      costKlunks > 0
+        ? `${weaponName}: vill du dricka ${costKlunks} klunk för +${totalWeaponAtk ?? bonusIncrement} attack från vapnet på detta slag?`
+        : `${weaponName}: vill du betala ${costGold} pant för +${bonusIncrement} attack på detta slag?`,
+    combatSipWeaponRollWith: (
+      bonusIncrement: number,
+      costGold: number,
+      costKlunks = 0,
+      totalWeaponAtk?: number,
+    ) =>
+      costKlunks > 0
+        ? `Drick ${costKlunks} klunk (+${totalWeaponAtk ?? bonusIncrement} från vapnet)`
+        : `Betala ${costGold} pant (+${bonusIncrement} attack)`,
     combatSipWeaponRollWithout: "Slå utan bonus",
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",

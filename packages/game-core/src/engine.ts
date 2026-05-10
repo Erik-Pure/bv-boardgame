@@ -29,11 +29,11 @@ import {
   createFinalBossCombatPending,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
-import { monsterCombatEquipmentAttackBonus } from "./weaponPower.js";
+import { monsterCombatEquipmentAttackBonus, sipWeaponExtraAttackCosts } from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
-import { pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
+import { flushPenaltySipQueue, mergePenaltySipQueue, pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
@@ -47,6 +47,7 @@ import type {
   GameState,
   ItemId,
   Pending,
+  PenaltySipQueueEntry,
   Player,
   ShopItem,
   TableItemPlaySidePayload,
@@ -504,6 +505,8 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       name: item.name,
       power: item.power ?? 1,
       sipAttackBonus: item.sipAttackBonus,
+      sipWeaponBonusGoldCost: item.sipWeaponBonusGoldCost,
+      sipWeaponBonusKlunks: item.sipWeaponBonusKlunks,
       pvpDieBonus: item.pvpDieBonus,
       gainGoldOnWin: item.gainGoldOnWin,
       powerAtGold10: item.powerAtGold10,
@@ -810,6 +813,8 @@ function grantRandomCombatReward(
             name: eq.name,
             power: eq.power ?? 1,
             sipAttackBonus: eq.sipAttackBonus,
+            sipWeaponBonusGoldCost: eq.sipWeaponBonusGoldCost,
+            sipWeaponBonusKlunks: eq.sipWeaponBonusKlunks,
             pvpDieBonus: eq.pvpDieBonus,
             gainGoldOnWin: eq.gainGoldOnWin,
             powerAtGold10: eq.powerAtGold10,
@@ -923,6 +928,7 @@ function showCard(
     combatWin?: CombatWinSummary;
     combatLoss?: CombatLoseSummary;
     equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
+    queuedPenaltySipNotices?: PenaltySipQueueEntry[];
   },
 ): void {
   state.pending = {
@@ -938,6 +944,7 @@ function showCard(
     combatWin: params.combatWin,
     combatLoss: params.combatLoss,
     equipmentReplaceOffer: params.equipmentReplaceOffer,
+    queuedPenaltySipNotices: params.queuedPenaltySipNotices,
   };
 }
 
@@ -1736,6 +1743,8 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     deathContinueCost: eq.deathContinueCost,
     power: eq.power,
     sipAttackBonus: eq.sipAttackBonus,
+    sipWeaponBonusGoldCost: eq.sipWeaponBonusGoldCost,
+    sipWeaponBonusKlunks: eq.sipWeaponBonusKlunks,
     pvpDieBonus: eq.pvpDieBonus,
     gainGoldOnWin: eq.gainGoldOnWin,
     powerAtGold10: eq.powerAtGold10,
@@ -1762,6 +1771,23 @@ function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
 function indexOfBossTileInLevel(level: GameState["levels"][number] | undefined): number {
   if (!level?.tiles?.length) return -1;
   return level.tiles.findIndex((t) => t.type === "boss");
+}
+
+/** Genväg / Taproom-nyckel får användas under rörelseval, handel eller när du är den som ska lösa möte på rutan (kan fly till boss utan BvB först). */
+function pendingAllowsShortcutTaproom(pe: Pending | null, userId: string): boolean {
+  if (pe == null) return true;
+  if (pe.type === "moveChoice" && pe.playerId === userId) return true;
+  if (pe.type === "merchant" && pe.playerId === userId) return true;
+  if (pe.type === "encounterChoice" && pe.moverId === userId) return true;
+  return false;
+}
+
+function clearPendingSupersededByFloorTravel(state: GameState, userId: string): void {
+  const pe = state.pending;
+  if (!pe) return;
+  if (pe.type === "merchant" && pe.playerId === userId) state.pending = null;
+  else if (pe.type === "moveChoice" && pe.playerId === userId) state.pending = null;
+  else if (pe.type === "encounterChoice" && pe.moverId === userId) state.pending = null;
 }
 
 /** Pant för Genväg resp. Taproom på angiven våningsindex (även teleport till boss på sista nivån). */
@@ -3089,13 +3115,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Inte din tur" };
       }
       const pe = next.pending;
-      if (
-        pe != null &&
-        !(
-          (pe.type === "moveChoice" && pe.playerId === user.id) ||
-          (pe.type === "merchant" && pe.playerId === user.id)
-        )
-      ) {
+      if (!pendingAllowsShortcutTaproom(pe, user.id)) {
         return {
           state,
           events: [],
@@ -3125,12 +3145,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.gold -= goldCost;
         recordPantSpent(next, user.id, goldCost);
         user.tileIndex = bossIdx;
-        if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
-          next.pending = null;
-        }
-        if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
-          next.pending = null;
-        }
+        clearPendingSupersededByFloorTravel(next, user.id);
         log(
           next,
           `${user.name} använder Genväg och betalar ${goldCost} pant för att gå direkt till slutbossens ruta.`,
@@ -3155,12 +3170,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       recordPantSpent(next, user.id, goldCost);
       user.levelIndex = targetLevelIndex;
       user.tileIndex = 0;
-      if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
-        next.pending = null;
-      }
-      if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
-        next.pending = null;
-      }
+      clearPendingSupersededByFloorTravel(next, user.id);
       log(
         next,
         `${user.name} använder Genväg och betalar ${goldCost} pant för att stiga till nivå ${user.levelIndex + 1}.`,
@@ -3182,13 +3192,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Inte din tur" };
       }
       const pe = next.pending;
-      if (
-        pe != null &&
-        !(
-          (pe.type === "moveChoice" && pe.playerId === user.id) ||
-          (pe.type === "merchant" && pe.playerId === user.id)
-        )
-      ) {
+      if (!pendingAllowsShortcutTaproom(pe, user.id)) {
         return {
           state,
           events: [],
@@ -3218,12 +3222,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.gold -= taproomKeyCost;
         recordPantSpent(next, user.id, taproomKeyCost);
         user.tileIndex = bossIdx;
-        if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
-          next.pending = null;
-        }
-        if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
-          next.pending = null;
-        }
+        clearPendingSupersededByFloorTravel(next, user.id);
         log(
           next,
           `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att gå direkt till slutbossens ruta.`,
@@ -3249,12 +3248,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       recordPantSpent(next, user.id, taproomKeyCost);
       user.levelIndex = targetLevelIndex;
       user.tileIndex = 0;
-      if (next.pending?.type === "merchant" && next.pending.playerId === user.id) {
-        next.pending = null;
-      }
-      if (next.pending?.type === "moveChoice" && next.pending.playerId === user.id) {
-        next.pending = null;
-      }
+      clearPendingSupersededByFloorTravel(next, user.id);
       log(
         next,
         `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att stiga till nivå ${user.levelIndex + 1}.`,
@@ -3818,29 +3812,41 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     let sipBoost = 0;
     const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
     if (sipBonus > 0) {
-      const weaponPantCost = roller.equipment.weapon?.name === "Dubbelpipa" ? 4 : roller.equipment.weapon?.name === "Enkelpipa" ? 2 : 0;
+      const sipPay = sipWeaponExtraAttackCosts(roller.equipment.weapon);
       if (typeof action.useSipWeaponBonus !== "boolean") {
         return {
           state,
           events: [],
-          error: "Välj om du vill betala pant för extra vapenstyrka innan du slår.",
+          error: "Välj om du vill använda vapnets extraattack innan du slår.",
         };
       }
       if (action.useSipWeaponBonus) {
-        if (roller.gold < weaponPantCost) {
-          return {
-            state,
-            events: [],
-            error: `Du behöver ${weaponPantCost} pant för att använda ${roller.equipment.weapon?.name ?? "vapnet"}-bonusen.`,
-          };
+        if (sipPay.klunks > 0) {
+          grantKlunkWithXp(roller, sipPay.klunks);
+          pushSipNotice(next, roller.id, pending.enemyName ?? "Striden", sipPay.klunks);
+          sipBoost = sipBonus;
+          log(
+            next,
+            `${roller.name} dricker ${sipPay.klunks} klunk med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
+          );
+        } else if (sipPay.gold > 0) {
+          if (roller.gold < sipPay.gold) {
+            return {
+              state,
+              events: [],
+              error: `Du behöver ${sipPay.gold} pant för att använda ${roller.equipment.weapon?.name ?? "vapnet"}-bonusen.`,
+            };
+          }
+          roller.gold -= sipPay.gold;
+          recordPantSpent(next, roller.id, sipPay.gold);
+          sipBoost = sipBonus;
+          log(
+            next,
+            `${roller.name} betalar ${sipPay.gold} pant med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
+          );
+        } else {
+          sipBoost = sipBonus;
         }
-        roller.gold -= weaponPantCost;
-        recordPantSpent(next, roller.id, weaponPantCost);
-        sipBoost = sipBonus;
-        log(
-          next,
-          `${roller.name} betalar ${weaponPantCost} pant med ${roller.equipment.weapon?.name ?? "vapnet"}: +${sipBonus} attack.`,
-        );
       }
     }
     const total = dieContribution + weaponPower(roller) + mod + sipBoost;
@@ -4065,6 +4071,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (pending.choices && pending.choices.length > 0) {
       return { state, events: [], error: "Välj ett alternativ först" };
     }
+    flushPenaltySipQueue(next, pending.queuedPenaltySipNotices);
     const replaceOffer = pending.equipmentReplaceOffer;
     const handled = handleCardConfirm({ state: next, pending, rng, log });
     if (handled.handled) {
@@ -4086,13 +4093,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
     next.pending = null;
-    if (pending.cardId === "event_apocalypse") {
-      const drawer = next.players.find((x) => x.id === pending.playerId);
-      const from = drawer ? `${drawer.name} (Apocalypse)` : "Apocalypse";
-      for (const pl of next.players) {
-        pushSipNotice(next, pl.id, from);
-      }
-    }
     if (replaceOffer && next.phase === "playing") {
       next.pending = {
         type: "equipmentReplaceOffer",
@@ -4129,6 +4129,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state: next, events: ["state"] };
       }
       if (optRes.completeCard) {
+        flushPenaltySipQueue(next, pending.queuedPenaltySipNotices);
         const replaceOffer = pending.equipmentReplaceOffer;
         if (replaceOffer && next.phase === "playing") {
           next.pending = {
@@ -4160,6 +4161,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     applyEffects({ state: next, player: p, effects: choice.effects ?? [], rng, out: effectOutFallback });
     log(next, `${p.name} chooses: ${choice.label}.`);
 
+    const klunkFallback = effectOutFallback.klunkar ?? 0;
+    const sipAddsFallback =
+      klunkFallback > 0
+        ? [{ recipientId: p.id, klunkCount: klunkFallback, fromPlayerName: pending.title }]
+        : [];
+
     // Uppdatera korttexten med resultat, och vänta på bekräftelse.
     next.pending = {
       ...pending,
@@ -4167,6 +4174,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       artKey: artKeyForGrantedItem(effectOutFallback, pending.artKey) ?? pending.artKey,
       grantedItemId: effectOutFallback.grantedItemId ?? pending.grantedItemId,
       equipmentReplaceOffer: effectOutFallback.equipmentReplaceOffer ?? pending.equipmentReplaceOffer,
+      queuedPenaltySipNotices: mergePenaltySipQueue(pending.queuedPenaltySipNotices, sipAddsFallback),
       text:
         `${def.text}\nVal: ${choice.label}` +
         appendTextForGrantedItem(effectOutFallback) +

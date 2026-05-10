@@ -130,7 +130,7 @@ export function equipmentInventoryEffectBadges(
       ? Math.max(0, Math.floor((piece as Weapon).monsterLossSipReduction ?? 0))
       : 0;
   if (monsterLossSipRed > 0) {
-    badges.push({ icon: "klunk", label: `−${monsterLossSipRed} förl` });
+    badges.push({ icon: "klunk", label: `−${monsterLossSipRed}` });
   }
   const damageNegateRaw =
     "damageNegate" in piece
@@ -214,6 +214,8 @@ export function shopItemToEquipmentPreviewPiece(
       name: item.name,
       power: item.power ?? 1,
       sipAttackBonus: item.sipAttackBonus,
+      sipWeaponBonusGoldCost: item.sipWeaponBonusGoldCost,
+      sipWeaponBonusKlunks: item.sipWeaponBonusKlunks,
       pvpDieBonus: item.pvpDieBonus,
       gainGoldOnWin: item.gainGoldOnWin,
       powerAtGold10: item.powerAtGold10,

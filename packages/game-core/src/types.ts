@@ -57,6 +57,10 @@ export interface Weapon {
   power: number;
   /** Bonus om spelaren tar 1 klunk vid slag (auto-aktiveras i nuläget). */
   sipAttackBonus?: number;
+  /** Pant för valfri {@link sipAttackBonus} före monstertärning (om {@link sipWeaponBonusKlunks} saknas/0). */
+  sipWeaponBonusGoldCost?: number;
+  /** Straffklunk(ar) för valfri {@link sipAttackBonus} före monstertärning; om satt (positivt) används detta i stället för pant. */
+  sipWeaponBonusKlunks?: number;
   /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack (samma fält finns valfritt på rustning/hjälm/tillbehör). */
   pvpDieBonus?: number;
   /** Bonus gold granted on each win while equipped. */
@@ -174,6 +178,8 @@ export interface ShopItem {
   /** vapen */
   power?: number;
   sipAttackBonus?: number;
+  sipWeaponBonusGoldCost?: number;
+  sipWeaponBonusKlunks?: number;
   pvpDieBonus?: number;
   gainGoldOnWin?: number;
   powerAtGold10?: number;
@@ -248,6 +254,13 @@ export interface CombatLoseSummary {
 
 export type CombatHelpContract = "free" | "pant" | "treasure" | "split";
 
+/** Straffklunk som visas för mottagaren via sip-modal efter att dragande spelare tryckt Fortsätt. */
+export type PenaltySipQueueEntry = {
+  recipientId: string;
+  klunkCount: number;
+  fromPlayerName: string;
+};
+
 export type Pending =
   | { type: "merchant"; items: ShopItem[]; playerId: string }
   | {
@@ -287,6 +300,8 @@ export type Pending =
         catalogId: string;
         newName: string;
       };
+      /** Sip-notiser som pushas vid `confirmCard` (Fortsätt), efter att klunkar redan tillämpats i state. */
+      queuedPenaltySipNotices?: PenaltySipQueueEntry[];
     }
   | {
       type: "equipmentReplaceOffer";
@@ -635,7 +650,7 @@ export type ClientAction =
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
-  /** `useSipWeaponBonus`: vid pip-vapen måste anges (true = betala vapenkostnad och få +sipAttackBonus på slaget). */
+  /** `useSipWeaponBonus`: vid vapen med sipAttackBonus måste anges (true = betala pant/klunk och få +sipAttackBonus på slaget). */
   | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
   | { type: "skipMonsterEncounter"; playerId: string }
   | { type: "combatIntroAck"; playerId: string }

@@ -87,6 +87,16 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Betala 2 pant före tärningsslaget för +1 attack.",
   },
   {
+    id: "ew_seidel",
+    slot: "weapon",
+    name: "Ölsejdel",
+    price: 12,
+    power: 1,
+    sipAttackBonus: 2,
+    sipWeaponBonusKlunks: 1,
+    rulesText: "+1 attack från vapnet. Valfritt före monstertärning: drick 1 straffklunk så räknas vapnet som +3 attack totalt.",
+  },
+  {
     id: "ew_powerwash",
     slot: "weapon",
     name: "Högtryckstvätt",

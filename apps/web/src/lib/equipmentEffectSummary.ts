@@ -38,10 +38,24 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.combatBonus === "number" && it.combatBonus !== 0) {
     parts.push(it.combatBonus > 0 ? `Attack +${it.combatBonus}` : `Attack ${it.combatBonus}`);
   }
-  if (typeof it.sipAttackBonus === "number") {
-    const cost = it.name === "Dubbelpipa" ? 4 : it.name === "Enkelpipa" ? 2 : 0;
-    if (cost > 0) parts.push(`Strid mot monster: valfri betalning ${cost} pant före slag för +${it.sipAttackBonus} attack`);
-    else parts.push(`Strid mot monster: valfri bonus före slag för +${it.sipAttackBonus} attack`);
+  if (typeof it.sipAttackBonus === "number" && it.sipAttackBonus > 0) {
+    const kl = Math.max(0, Math.floor(it.sipWeaponBonusKlunks ?? 0));
+    if (kl > 0) {
+      const basePow = typeof it.power === "number" ? it.power : 1;
+      const tot = basePow + it.sipAttackBonus;
+      parts.push(`Strid mot monster: valfritt ${kl} klunk före slag → +${tot} attack från vapnet (+${basePow} utan klunk)`);
+    } else {
+      const cost =
+        typeof it.sipWeaponBonusGoldCost === "number"
+          ? Math.max(0, Math.floor(it.sipWeaponBonusGoldCost))
+          : it.name === "Dubbelpipa"
+            ? 4
+            : it.name === "Enkelpipa"
+              ? 2
+              : 0;
+      if (cost > 0) parts.push(`Strid mot monster: valfri betalning ${cost} pant före slag för +${it.sipAttackBonus} attack`);
+      else parts.push(`Strid mot monster: valfri bonus före slag för +${it.sipAttackBonus} attack`);
+    }
   }
   if (typeof it.monsterLossSipReduction === "number" && it.monsterLossSipReduction > 0) {
     parts.push(`Vid förlust mot monster: −${it.monsterLossSipReduction} straffklunk`);

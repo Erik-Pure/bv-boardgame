@@ -843,6 +843,51 @@
   margin-bottom: 10px;
 }
 
+/* Rörelseval: samma två kolumner som knapparna under — pilar centrerade ovanför resp. knapp; tärning i mitten ovanpå. */
+.moveChoiceDiceArrowsRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 82px;
+  align-items: center;
+}
+
+.moveChoiceArrowCell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  min-width: 0;
+}
+
+.moveChoiceDiceOverlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Samma visuella yta för ←→↑↓ (SVG har olika proportioner). */
+.moveChoiceArrowImg {
+  width: min(30px, 8vw);
+  height: min(30px, 8vw);
+  object-fit: contain;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.moveChoiceSideArrowSpacer {
+  width: min(30px, 8vw);
+  height: min(30px, 8vw);
+  flex-shrink: 0;
+}
+
 .sheetDiceRowWithModifier {
   position: relative;
   width: 100%;
