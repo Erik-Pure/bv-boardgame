@@ -339,6 +339,7 @@ export const sv = {
     scoreboardColPant: "Pant",
     scoreboardColHp: "HP",
     scoreboardBrewerLevelAria: (n: number) => `Bryggnivå ${n}`,
+    scoreboardLeftGameAria: "Lämnade spelet",
     winner: "Vinnare",
     /** Knapp i modalen när spelet är slut — går till startsidan. */
     gameOverLeaveToHome: "Avsluta spelet",

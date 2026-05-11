@@ -39,7 +39,7 @@ export type ShowCardFn = (state: GameState, params: {
   choices?: Array<{ id: string; label: string }>;
   combatWin?: CombatWinSummary;
   combatLoss?: CombatLoseSummary;
-  equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
+  equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId?: string; newName: string };
   queuedPenaltySipNotices?: PenaltySipQueueEntry[];
 }) => void;
 
@@ -100,6 +100,33 @@ export function createFinalBossCombatPending(
   };
 }
 
+/** Samma styrka/skada/vinst som {@link createMonsterCombatPending} — för monsterkort-modal (t.ex. Demonkrigare). */
+export function monsterEncounterCardPreviewFromState(
+  state: GameState,
+  attacker: Player,
+  monster: MonsterDef,
+): {
+  need: number;
+  baseDamage: number;
+  rewardGold: number;
+  rewardItems: number;
+  rewardXp: number;
+} {
+  const difficultyMod = startLevelDifficultyNeedMod(state.config.difficulty, attacker.levelIndex);
+  const need = monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex) + difficultyMod;
+  const floorXpMultiplier = 1 + Math.max(0, attacker.levelIndex) * 0.5;
+  const rewardXp = Math.max(1, Math.round(monster.rewardXp * floorXpMultiplier));
+  const baseDamage =
+    monster.baseDamage + (isStandardMonsterId(monster.id) ? monsterNeedBonusForBoardLevel(attacker.levelIndex) : 0);
+  return {
+    need,
+    baseDamage,
+    rewardGold: monster.rewardGold,
+    rewardItems: monster.rewardItems,
+    rewardXp,
+  };
+}
+
 export function createMonsterCombatPending(
   state: GameState,
   attacker: Player,
@@ -107,10 +134,7 @@ export function createMonsterCombatPending(
 ): Extract<Pending, { type: "combat" }> {
   const teamBattleRequired = !!monster.teamBattleRequired;
   const reactors = teamBattleRequired ? [] : combatReactorsFor(state, attacker.id);
-  const difficultyMod = startLevelDifficultyNeedMod(state.config.difficulty, attacker.levelIndex);
-  const need = monster.strength + monsterNeedBonusForBoardLevel(attacker.levelIndex) + difficultyMod;
-  const floorXpMultiplier = 1 + Math.max(0, attacker.levelIndex) * 0.5;
-  const rewardXp = Math.max(1, Math.round(monster.rewardXp * floorXpMultiplier));
+  const preview = monsterEncounterCardPreviewFromState(state, attacker, monster);
   return {
     type: "combat",
     attackerId: attacker.id,
@@ -118,17 +142,17 @@ export function createMonsterCombatPending(
     tileIndex: attacker.tileIndex,
     monsterId: monster.id,
     enemyName: monster.name,
-    need,
+    need: preview.need,
     needMod: 0,
-    baseDamage: monster.baseDamage + (isStandardMonsterId(monster.id) ? monsterNeedBonusForBoardLevel(attacker.levelIndex) : 0),
+    baseDamage: preview.baseDamage,
     lossSipsOnLose: monster.lossSipsOnLose,
     phase: teamBattleRequired ? "chooseTeammate" : "enemyIntro",
     attackMods: {},
     teamBattleRequired,
     teamBattleBonusGold: monster.teamBattleBonusGold ?? 0,
-    rewardGold: monster.rewardGold,
-    rewardItems: monster.rewardItems,
-    rewardXp,
+    rewardGold: preview.rewardGold,
+    rewardItems: preview.rewardItems,
+    rewardXp: preview.rewardXp,
     reactors,
     reacted: {},
     enemyArtKey: monster.artKey,

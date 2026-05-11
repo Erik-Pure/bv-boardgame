@@ -454,11 +454,18 @@ function removePlayerFromRoomState(
     !purgeSlot &&
     leaving.eliminated === true &&
     (state.phase === "playing" || state.phase === "ended");
+  /** Frivillig «Lämna spel» under parti: behåll namn + stats på sluttabellen med ikon. */
+  const keepVoluntaryGhost =
+    !purgeSlot &&
+    leaving.eliminated !== true &&
+    (state.phase === "playing" || state.phase === "ended");
 
   const removedTurnIndex = state.turnOrder.indexOf(playerId);
   const hadActiveTurn = removedTurnIndex >= 0 && removedTurnIndex === state.currentTurnIndex;
-  if (!keepEliminatedGhost) {
+  if (!keepEliminatedGhost && !keepVoluntaryGhost) {
     state.players = state.players.filter((p) => p.id !== playerId);
+  } else if (keepVoluntaryGhost) {
+    leaving.leftVoluntarily = true;
   }
   state.turnOrder = state.turnOrder.filter((id) => id !== playerId);
   state.sipNotices = (state.sipNotices ?? []).filter((n) => n.recipientId !== playerId);
@@ -491,7 +498,7 @@ function removePlayerFromRoomState(
   }
 
   if (state.phase === "playing") {
-    const activeRemaining = state.players.filter((p) => !p.eliminated);
+    const activeRemaining = state.players.filter((p) => !p.eliminated && !p.leftVoluntarily);
     if (activeRemaining.length <= 1) {
       const winner = activeRemaining[0] ?? null;
       state.phase = "ended";

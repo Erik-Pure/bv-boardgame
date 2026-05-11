@@ -39,7 +39,15 @@ const STAT_ICON_TINT: Record<"pant" | "reward" | "xp" | "klunk" | "heart", strin
   heart: "#ee5aa6",
 };
 
-function MaskedStatIcon({ src, color, size = 22 }: { src: string; color: string; size?: number }) {
+function MaskedStatIcon({
+  src,
+  color,
+  size = 22,
+}: {
+  src: string;
+  color: string;
+  size?: number | string;
+}) {
   return (
     <span
       aria-hidden
@@ -66,13 +74,17 @@ function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; 
   const src = ICON[kind];
   const label = emDash ? "—" : value === 0 ? "-" : String(value);
   const compact = !emDash && label.length >= 3;
+  // Container-query units: kortet ligger i `CardFlipModalShell` där `.faceInner` är en container.
+  // Gör att iPhone SE får mindre stats-siffror utan att påverka stora skärmar.
+  const iconSize = compact ? "clamp(14px, 4.0cqw, 17px)" : "clamp(15px, 4.5cqw, 19px)";
+  const fontSize = compact ? "clamp(12px, 3.6cqw, 15px)" : "clamp(13px, 4.1cqw, 17px)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: compact ? 3 : 5 }}>
-      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={compact ? 17 : 19} />
+      <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={iconSize} />
       <span
         style={{
           fontWeight: 900,
-          fontSize: compact ? 15 : 17,
+          fontSize,
           lineHeight: 1,
           color: "#fff",
           fontVariantNumeric: "tabular-nums",
@@ -248,7 +260,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
               style={{
                 fontFamily: '"Permanent Marker", var(--heading), sans-serif',
                 fontWeight: 900,
-                fontSize: 21,
+                fontSize: "clamp(17px, 5.8cqw, 21px)",
                 lineHeight: 1.1,
                 letterSpacing: 0.02,
                 wordBreak: "break-word",
@@ -293,7 +305,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
             draggable={false}
             style={{ filter: ICON_LIGHT }}
           />
-          <span style={{ fontWeight: 900, fontSize: 20, lineHeight: 1, color: "#e9d5ff" }}>
+          <span style={{ fontWeight: 900, fontSize: "clamp(16px, 5.4cqw, 20px)", lineHeight: 1, color: "#e9d5ff" }}>
             {props.combatStrength}
           </span>
         </div>
@@ -369,7 +381,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
             marginTop: 14,
             paddingTop: 12,
             borderTop: "1px solid rgba(255,255,255,0.12)",
-            fontSize: 15,
+            fontSize: "clamp(12px, 4.1cqw, 15px)",
             lineHeight: 1.45,
             whiteSpace: "pre-wrap",
             opacity: 0.95,

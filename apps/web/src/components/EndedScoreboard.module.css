@@ -176,6 +176,12 @@
     contrast(104%);
 }
 
+.doorLeftVoluntary {
+  flex-shrink: 0;
+  display: block;
+  filter: brightness(0) saturate(100%) invert(72%) sepia(12%) saturate(920%) hue-rotate(162deg) brightness(103%) contrast(92%);
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

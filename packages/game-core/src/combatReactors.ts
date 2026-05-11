@@ -18,6 +18,7 @@ const INTERVENE_ITEM_IDS = new Set<string>([
 /** Levande bryggare får ingripa i andras strider (inte stupad / 0 HP). */
 export function playerCanCombatIntervene(p: Player): boolean {
   if (p.eliminated) return false;
+  if (p.leftVoluntarily) return false;
   if (p.hp <= 0) return false;
   return true;
 }

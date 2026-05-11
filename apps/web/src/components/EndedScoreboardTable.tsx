@@ -79,6 +79,7 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
             {sorted.map((p) => {
               const isWinner = props.winnerId != null && p.id === props.winnerId;
               const eliminated = p.eliminated === true;
+              const leftVoluntary = p.leftVoluntarily === true;
               const s = p.stats ?? DEFAULT_PLAYER_SESSION_STATS;
               const uiLevel = brewerLevelForUi(p);
               const ratio = brewerKlunkProgressRatio(p.xp);
@@ -94,6 +95,15 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
                           width={16}
                           height={16}
                           className={styles.skullEliminated}
+                        />
+                      ) : leftVoluntary ? (
+                        <img
+                          src="/icons/door-exit.svg"
+                          alt={sv.play.scoreboardLeftGameAria}
+                          title={sv.play.scoreboardLeftGameAria}
+                          width={16}
+                          height={16}
+                          className={styles.doorLeftVoluntary}
                         />
                       ) : null}
                       <span className={[styles.nameText, isWinner ? styles.nameTextWinner : ""].filter(Boolean).join(" ")}>

@@ -33,6 +33,11 @@ import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
 import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
+import {
+  type MoveChoiceCardinalArrow,
+  isRingTopEdgeTile,
+  moveChoiceDirectionHints,
+} from "../lib/moveChoiceDirectionHints";
 import { TableBoardCameraViewport } from "../components/table/TableBoardCameraViewport";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import turnBannerStyles from "./turnBanner.module.css";
@@ -129,6 +134,50 @@ function playerClusterOffsets(n: number, baseR: number): { dx: number; dy: numbe
     out.push({ dx: Math.cos(ang) * r, dy: Math.sin(ang) * r });
   }
   return out;
+}
+
+/** Pilens övre-vänstra hörn i pjäsens lokala koordinater (0,0)–(tw,th); pilen placeras utanför pjäsen i pilens pekriktning. */
+function boardMoveArrowTopLeft(
+  dir: MoveChoiceCardinalArrow,
+  tw: number,
+  th: number,
+  s: number,
+  gap: number,
+): { x: number; y: number } {
+  const cx = tw / 2;
+  const cy = th / 2;
+  switch (dir) {
+    case "up":
+      return { x: cx - s / 2, y: -gap - s };
+    case "down":
+      return { x: cx - s / 2, y: th + gap };
+    case "left":
+      return { x: -gap - s, y: cy - s / 2 };
+    case "right":
+      return { x: tw + gap, y: cy - s / 2 };
+  }
+}
+
+/** Liten fram-och-tillbaka-rörelse längs vektorn från pjäsens centrum till pilens centrum. */
+function boardMoveArrowWobblePos(
+  base: { x: number; y: number },
+  tw: number,
+  th: number,
+  s: number,
+  nowMs: number,
+): { x: number; y: number } {
+  const cx = tw / 2;
+  const cy = th / 2;
+  const ax = base.x + s / 2;
+  const ay = base.y + s / 2;
+  let vx = ax - cx;
+  let vy = ay - cy;
+  const len = Math.hypot(vx, vy) || 1;
+  vx /= len;
+  vy /= len;
+  const phase = ((nowMs % 1200) / 1200) * 2 * Math.PI;
+  const amt = Math.sin(phase) * Math.min(6, s * 0.25);
+  return { x: base.x + vx * amt, y: base.y + vy * amt };
 }
 
 /** Min höjd på tur-banner — används för padding så brädet inte döljs under bannern. */
@@ -1061,6 +1110,34 @@ function TableViewBody() {
 
   const playingTurn = state?.phase === "playing" && cur;
   const pendingMoveChoice = state?.pending?.type === "moveChoice" ? state.pending : null;
+  /** Samma pilhintar som mobil PlayView — visas vid pjäsen efter rörelseslag. */
+  const boardMoveChoiceArrows = useMemo(() => {
+    if (!state || !pendingMoveChoice) return null;
+    const moveRingN = state.levels[pendingMoveChoice.from.levelIndex]?.tiles.length ?? 0;
+    const cwOpt = pendingMoveChoice.options.find((o) => o.dir === "cw");
+    const ccwOpt = pendingMoveChoice.options.find((o) => o.dir === "ccw");
+    const swapMoveChoiceColumns =
+      Boolean(cwOpt && ccwOpt) && isRingTopEdgeTile(pendingMoveChoice.from.tileIndex, moveRingN);
+    const hints =
+      moveRingN > 0 && cwOpt && ccwOpt
+        ? moveChoiceDirectionHints({
+            fromTileIndex: pendingMoveChoice.from.tileIndex,
+            cwLandingTileIndex: cwOpt.target.tileIndex,
+            ccwLandingTileIndex: ccwOpt.target.tileIndex,
+            ringTileCount: moveRingN,
+          })
+        : null;
+    if (!hints) return null;
+    const arrowLeft = swapMoveChoiceColumns ? hints.ccw.besideDice : hints.cw.besideDice;
+    const arrowRight = swapMoveChoiceColumns ? hints.cw.besideDice : hints.ccw.besideDice;
+    return {
+      playerId: pendingMoveChoice.playerId,
+      levelIndex: pendingMoveChoice.from.levelIndex,
+      tileIndex: pendingMoveChoice.from.tileIndex,
+      arrowLeft,
+      arrowRight,
+    };
+  }, [state, pendingMoveChoice]);
   const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
   const moveTurnCornerLabel =
     cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
@@ -1167,6 +1244,17 @@ function TableViewBody() {
     const t = window.setInterval(() => setAnimNowMs(Date.now()), 16);
     return () => window.clearInterval(t);
   }, [moveAnimByPlayer.size]);
+  useEffect(() => {
+    // MoveChoice-pilarna behöver egen ticker (det finns ingen token-move animation då).
+    if (state?.pending?.type !== "moveChoice") return;
+    let raf = 0;
+    const tick = () => {
+      setAnimNowMs(Date.now());
+      raf = window.requestAnimationFrame(tick);
+    };
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, [state?.pending?.type]);
   useEffect(() => {
     if (!cur?.id) {
       prevTurnPlayerIdRef.current = null;
@@ -1302,6 +1390,12 @@ function TableViewBody() {
 }
 @media (prefers-reduced-motion: reduce) {
   .bv-target-ring-pulse { animation: none; }
+}
+.bv-move-choice-board-arrow {
+  opacity: 0.98;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bv-move-choice-board-arrow { opacity: 1; }
 }`}
               </style>
               <defs>
@@ -1521,6 +1615,62 @@ function TableViewBody() {
                               }
                               const curTx = fromTx;
                               const curTy = fromTy;
+                              const showBoardMoveArrows =
+                                boardMoveChoiceArrows &&
+                                p.id === boardMoveChoiceArrows.playerId &&
+                                li === boardMoveChoiceArrows.levelIndex &&
+                                i === boardMoveChoiceArrows.tileIndex;
+                              const moveArrowS = clamp(Math.round(tileSize * 0.2), 18, 40);
+                              const moveArrowSpacing = 40;
+                              let moveArrowLeftPos = boardMoveChoiceArrows
+                                ? boardMoveArrowTopLeft(
+                                    boardMoveChoiceArrows.arrowLeft,
+                                    tw,
+                                    th,
+                                    moveArrowS,
+                                    moveArrowSpacing,
+                                  )
+                                : { x: 0, y: 0 };
+                              if (boardMoveChoiceArrows) {
+                                moveArrowLeftPos = boardMoveArrowWobblePos(
+                                  moveArrowLeftPos,
+                                  tw,
+                                  th,
+                                  moveArrowS,
+                                  animNowMs,
+                                );
+                              }
+                              let moveArrowRightPos = boardMoveChoiceArrows
+                                ? boardMoveArrowTopLeft(
+                                    boardMoveChoiceArrows.arrowRight,
+                                    tw,
+                                    th,
+                                    moveArrowS,
+                                    moveArrowSpacing,
+                                  )
+                                : { x: 0, y: 0 };
+                              if (boardMoveChoiceArrows) {
+                                moveArrowRightPos = boardMoveArrowWobblePos(
+                                  moveArrowRightPos,
+                                  tw,
+                                  th,
+                                  moveArrowS,
+                                  animNowMs,
+                                );
+                              }
+                              if (
+                                boardMoveChoiceArrows &&
+                                Math.abs(moveArrowLeftPos.x - moveArrowRightPos.x) < 2 &&
+                                Math.abs(moveArrowLeftPos.y - moveArrowRightPos.y) < 2
+                              ) {
+                                const d = boardMoveChoiceArrows.arrowRight;
+                                const bump = Math.round(moveArrowS * 0.42);
+                                if (d === "up" || d === "down") {
+                                  moveArrowRightPos = { ...moveArrowRightPos, x: moveArrowRightPos.x + bump };
+                                } else {
+                                  moveArrowRightPos = { ...moveArrowRightPos, y: moveArrowRightPos.y + bump };
+                                }
+                              }
                               return (
                                 <g
                                   key={p.id}
@@ -1558,6 +1708,28 @@ function TableViewBody() {
                                       </g>
                                     </g>
                                   </g>
+                                  {showBoardMoveArrows && boardMoveChoiceArrows ? (
+                                    <g transform={`translate(${curTx}, ${curTy})`} pointerEvents="none">
+                                      <image
+                                        className="bv-move-choice-board-arrow"
+                                        href={`/icons/arrow-${boardMoveChoiceArrows.arrowLeft}.svg`}
+                                        x={moveArrowLeftPos.x}
+                                        y={moveArrowLeftPos.y}
+                                        width={moveArrowS}
+                                        height={moveArrowS}
+                                        aria-hidden={true}
+                                      />
+                                      <image
+                                        className="bv-move-choice-board-arrow"
+                                        href={`/icons/arrow-${boardMoveChoiceArrows.arrowRight}.svg`}
+                                        x={moveArrowRightPos.x}
+                                        y={moveArrowRightPos.y}
+                                        width={moveArrowS}
+                                        height={moveArrowS}
+                                        aria-hidden={true}
+                                      />
+                                    </g>
+                                  ) : null}
                                 </g>
                               );
                             })}

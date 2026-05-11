@@ -311,7 +311,7 @@ export type Pending =
       /** Efter skatt/händelse m.m.: ny utrustning när motsvarande slot redan är full. */
       equipmentReplaceOffer?: {
         slot: EquipmentSlot;
-        catalogId: string;
+        catalogId?: string;
         newName: string;
       };
       /** Sip-notiser som pushas vid `confirmCard` (Fortsätt), efter att klunkar redan tillämpats i state. */
@@ -321,8 +321,12 @@ export type Pending =
       type: "equipmentReplaceOffer";
       playerId: string;
       slot: EquipmentSlot;
-      catalogId: string;
+      /** Affär/skatt: utrustning från katalog */
+      catalogId?: string;
       newName: string;
+      /** Stöld/PvP: konkret pjäs (ingen katalog); vid avböjan lämnas tillbaka till {@link returnVictimId} */
+      incomingPiece?: Weapon | ArmorPiece | Helmet | Accessory;
+      returnVictimId?: string;
     }
   | {
       type: "encounterChoice";
@@ -473,6 +477,14 @@ export type Pending =
       helpAccepted?: boolean;
       /** Hjälp-funktion: hjälparen har spelat minst ett positivt kort i denna förfrågan. */
       helpUsedPositiveItem?: boolean;
+      /** Under strid (reaktioner): bytesfråga efter stöld när tjuven redan har något i slotten */
+      postReactionEquipmentOffer?: {
+        playerId: string;
+        slot: EquipmentSlot;
+        newName: string;
+        incomingPiece: Weapon | ArmorPiece | Helmet | Accessory;
+        returnVictimId: string;
+      };
     };
 
 export interface LogEntry {
@@ -534,6 +546,8 @@ export interface Player {
   skipTurnReasons?: ("normal" | "oil")[];
   /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
   eliminated?: boolean;
+  /** True när spelaren lämnat spelet frivilligt — rad finns kvar för resultatlista / statistik. */
+  leftVoluntarily?: boolean;
   /** Sessionsstatistik (partipoäng); saknas i äldre sparningar tills normaliserad. */
   stats?: PlayerSessionStats;
 }
@@ -620,6 +634,8 @@ export interface GameState {
   finalBossLivesRemaining: number | null;
   /** tileKey: `${levelIndex}-${tileIndex}` för skatter som tömts */
   treasureTaken: Record<string, true>;
+  /** Genväg/Taproom till boss-ruta: kör tile utan att `encounterChoice` blockerar */
+  landingBypassEncounter?: boolean;
   /** Senaste tärningsslag (visning) */
   lastDiceRoll: number | null;
   lastDiceRollerId: string | null;

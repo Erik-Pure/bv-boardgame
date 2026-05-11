@@ -97,3 +97,4 @@ export {
 } from "./cards/grantedItemText.js";
 export { allCards, getCard, itemDisplayTitle } from "./cards/db.js";
 export type { CardDef, CardChoice, CardKind, Effect } from "./cards/types.js";
+export { monsterEncounterCardPreviewFromState } from "./cards/runtime.js";

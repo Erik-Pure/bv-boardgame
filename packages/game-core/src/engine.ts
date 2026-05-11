@@ -39,13 +39,16 @@ import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 import type {
+  Accessory,
   ApplyResult,
+  ArmorPiece,
   ClientAction,
   CombatHelpContract,
   CombatLoseSummary,
   CombatWinSummary,
   EquipmentSlot,
   GameState,
+  Helmet,
   ItemId,
   Pending,
   PenaltySipQueueEntry,
@@ -53,6 +56,7 @@ import type {
   ShopItem,
   TableItemPlaySidePayload,
   Tile,
+  Weapon,
 } from "./types.js";
 import { CONFIG_NUMERIC, clampConfigNumber } from "./configConstraints.js";
 import {
@@ -569,6 +573,35 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
   }
 }
 
+/** Kopiera inkommen pjäs (stöld/PvP) till slot utan affär-/hels-specialfall */
+function assignEquipmentPieceFromLoot(
+  state: GameState,
+  p: Player,
+  slot: EquipmentSlot,
+  piece: Weapon | ArmorPiece | Helmet | Accessory,
+): void {
+  const baseMaxHp = state.config.maxHp;
+  if (slot === "weapon") {
+    p.equipment.weapon = { ...(piece as Weapon) };
+  } else if (slot === "armor") {
+    p.equipment.armor = { ...(piece as ArmorPiece) };
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+  } else if (slot === "helmet") {
+    p.equipment.helmet = { ...(piece as Helmet) };
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+  } else {
+    p.equipment.accessory = { ...(piece as Accessory) };
+  }
+}
+
+function cloneEquipmentIncomingPiece(
+  piece: Weapon | ArmorPiece | Helmet | Accessory,
+): Weapon | ArmorPiece | Helmet | Accessory {
+  return JSON.parse(JSON.stringify(piece)) as Weapon | ArmorPiece | Helmet | Accessory;
+}
+
 /** +HP vid turstart för rustning med {@link ArmorPiece.healHpPerTurn} (t.ex. Öltunna). */
 function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): void {
   const h = player.equipment.armor?.healHpPerTurn;
@@ -930,7 +963,7 @@ function showCard(
     choices?: Array<{ id: string; label: string }>;
     combatWin?: CombatWinSummary;
     combatLoss?: CombatLoseSummary;
-    equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
+    equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId?: string; newName: string };
     queuedPenaltySipNotices?: PenaltySipQueueEntry[];
   },
 ): void {
@@ -1935,6 +1968,7 @@ function findOpponentsOnTile(state: GameState, mover: Player): Player[] {
     (p) =>
       p.id !== mover.id &&
       !p.eliminated &&
+      !p.leftVoluntarily &&
       p.levelIndex === mover.levelIndex &&
       p.tileIndex === mover.tileIndex,
   );
@@ -2177,24 +2211,28 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
 }
 
 function resolveLanding(state: GameState, p: Player, rng: () => number): void {
-  const opps = findOpponentsOnTile(state, p);
-  if (opps.length > 0) {
-    const curTile = state.levels[p.levelIndex]?.tiles[p.tileIndex];
-    state.pending = {
-      type: "encounterChoice",
-      moverId: p.id,
-      opponentIds: opps.map((x) => x.id),
-      phase: "choosePvpOrTile",
-      tileType: curTile?.type ?? "empty",
-    };
-    const names = opps.map((x) => x.name).join(", ");
-    log(
-      state,
-      opps.length === 1
-        ? `${p.name} springer in i ${names}. Välj BvB eller rutan.`
-        : `${p.name} möter ${names} på rutan. Välj BvB eller rutan.`,
-    );
-    return;
+  const bypassEncounter = state.landingBypassEncounter === true;
+  state.landingBypassEncounter = undefined;
+  if (!bypassEncounter) {
+    const opps = findOpponentsOnTile(state, p);
+    if (opps.length > 0) {
+      const curTile = state.levels[p.levelIndex]?.tiles[p.tileIndex];
+      state.pending = {
+        type: "encounterChoice",
+        moverId: p.id,
+        opponentIds: opps.map((x) => x.id),
+        phase: "choosePvpOrTile",
+        tileType: curTile?.type ?? "empty",
+      };
+      const names = opps.map((x) => x.name).join(", ");
+      log(
+        state,
+        opps.length === 1
+          ? `${p.name} springer in i ${names}. Välj BvB eller rutan.`
+          : `${p.name} möter ${names} på rutan. Välj BvB eller rutan.`,
+      );
+      return;
+    }
   }
   resolveTileLanding(state, p, rng);
 }
@@ -2348,7 +2386,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const nx = currentPlayer(next);
       if (nx) {
         log(next, `— ${nx.name}s tur —`);
-        maybeCreateLevelUpOffer(next, nx, false);
       }
     }
     return { state: next, events: ["state"] };
@@ -3263,6 +3300,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.inventory = inv;
         recordItemConsumed(next, user.id, inst.itemId);
         notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, false);
+        next.landingBypassEncounter = true;
         resolveLanding(next, user, rng);
         return { state: next, events: ["state"] };
       }
@@ -3340,6 +3378,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         user.inventory = inv;
         recordItemConsumed(next, user.id, inst.itemId);
         notifyItemPlayForTableAfterUse(next, "taproom_key", user.id, undefined, false);
+        next.landingBypassEncounter = true;
         resolveLanding(next, user, rng);
         return { state: next, events: ["state"] };
       }
@@ -3626,31 +3665,50 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const piece = target.equipment[slot]!;
         stealSide = { sideEquipmentSlot: slot, sideEquipmentName: piece.name ?? String(slot) };
         target.equipment[slot] = undefined as any;
-        if (slot === "armor") {
+        if (slot === "armor" || slot === "helmet") {
           target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
-          user.equipment.armor = { ...(piece as any) };
-          user.maxHp = maxHpFor(next, user);
-          if (user.hp > user.maxHp) user.hp = user.maxHp;
-        } else if (slot === "weapon") {
-          user.equipment.weapon = { ...(piece as any) };
-        } else if (slot === "helmet") {
-          target.maxHp = maxHpFor(next, target);
-          if (target.hp > target.maxHp) target.hp = target.maxHp;
-          user.equipment.helmet = { ...(piece as any) };
-          user.maxHp = maxHpFor(next, user);
-          if (user.hp > user.maxHp) user.hp = user.maxHp;
-        } else {
-          user.equipment.accessory = { ...(piece as any) };
         }
-        log(next, `${user.name} stjäl ${piece.name ?? slot} (${slot}) från ${target.name}.`);
-        if (shouldSendDirectTargetNotices) {
+        const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
+        const thiefOccupied =
+          (slot === "weapon" && !!user.equipment.weapon) ||
+          (slot === "armor" && !!user.equipment.armor) ||
+          (slot === "helmet" && !!user.equipment.helmet) ||
+          (slot === "accessory" && !!user.equipment.accessory);
+        if (thiefOccupied) {
+          if (next.pending?.type !== "combat") {
+            return { state, events: [], error: "Ogiltigt spelläge för bytesmodal." };
+          }
+          next.pending.postReactionEquipmentOffer = {
+            playerId: user.id,
+            slot,
+            newName: piece.name ?? String(slot),
+            incomingPiece: incomingClone,
+            returnVictimId: target.id,
+          };
+          log(
+            next,
+            `${user.name} rycker ${piece.name ?? slot} (${slot}) från ${target.name} — välj om du tar emot den (du har redan något där).`,
+          );
+        } else {
+          assignEquipmentPieceFromLoot(next, user, slot, incomingClone);
+          log(next, `${user.name} stjäl ${piece.name ?? slot} (${slot}) från ${target.name}.`);
+        }
+        if (shouldSendDirectTargetNotices && !thiefOccupied) {
           pushPlayerNotice(
             next,
             target.id,
             user.name,
             "En enkel stöld",
             `${user.name} stal ${piece.name ?? slot} från dig.`,
+          );
+        } else if (shouldSendDirectTargetNotices && thiefOccupied) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "En enkel stöld",
+            `${user.name} har tagit din ${piece.name ?? slot} och måste välja om hen tar emot den.`,
           );
         }
       }
@@ -3882,6 +3940,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "combatRoll" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
     const pending = next.pending;
+    if (pending.postReactionEquipmentOffer) {
+      return { state, events: [], error: "Välj hur du hanterar den stulna utrustningen först." };
+    }
     const assistId = pending.assistId;
     const needsAssistRoll = !!assistId;
     const canRollForTeam =
@@ -4299,27 +4360,73 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state: next, events: ["state"] };
   }
 
-  if (action.type === "equipmentReplaceDecision" && next.pending?.type === "equipmentReplaceOffer") {
+  if (action.type === "equipmentReplaceDecision") {
+    const combatP = next.pending?.type === "combat" ? next.pending : null;
+    const postOffer = combatP?.postReactionEquipmentOffer;
+    if (postOffer && combatP) {
+      if (action.playerId !== postOffer.playerId) {
+        return { state, events: [], error: "Inte ditt val" };
+      }
+      const thief = next.players.find((x) => x.id === action.playerId);
+      if (!thief) return { state, events: [], error: "Player not found" };
+      const victim = next.players.find((x) => x.id === postOffer.returnVictimId);
+      if (action.accept) {
+        assignEquipmentPieceFromLoot(next, thief, postOffer.slot, postOffer.incomingPiece);
+        log(next, `${thief.name} byter ut sin ${postOffer.slot} mot ${postOffer.newName} (stöld).`);
+      } else if (victim) {
+        assignEquipmentPieceFromLoot(next, victim, postOffer.slot, postOffer.incomingPiece);
+        log(
+          next,
+          `${thief.name} behåller sin gamla utrustning — ${postOffer.newName} lämnas tillbaka till ${victim.name}.`,
+        );
+      }
+      combatP.postReactionEquipmentOffer = undefined;
+      next.pending = combatP;
+      return { state: next, events: ["state"] };
+    }
+
+    if (next.pending?.type !== "equipmentReplaceOffer") {
+      return { state, events: [], error: "Inget aktivt bytesval" };
+    }
     const erPending = next.pending;
     if (action.playerId !== erPending.playerId) {
       return { state, events: [], error: "Inte ditt val" };
     }
-    if (action.playerId !== cp.id) {
+    const lootOffer = !!(erPending.incomingPiece && erPending.returnVictimId);
+    if (!lootOffer && action.playerId !== cp.id) {
       return { state, events: [], error: "Inte din tur" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
     const turnPid = erPending.playerId;
     if (action.accept) {
-      const eq = EQUIPMENT_CATALOG.find((e) => e.id === erPending.catalogId);
-      if (!eq || eq.slot !== erPending.slot) {
-        return { state, events: [], error: "Ogiltig utrustning" };
+      if (erPending.catalogId) {
+        const eq = EQUIPMENT_CATALOG.find((e) => e.id === erPending.catalogId);
+        if (!eq || eq.slot !== erPending.slot) {
+          return { state, events: [], error: "Ogiltig utrustning" };
+        }
+        const item = catalogEquipmentToMerchantShopItem(eq, eq.id);
+        equipShopLikeItemToPlayer(p, item, next.config.maxHp);
+        log(next, `${p.name} byter ut ${erPending.slot} mot ${erPending.newName}.`);
+      } else if (erPending.incomingPiece) {
+        assignEquipmentPieceFromLoot(next, p, erPending.slot, erPending.incomingPiece);
+        log(next, `${p.name} tar emot ${erPending.newName} och kastar sin gamla ${erPending.slot}-utrustning.`);
+      } else {
+        return { state, events: [], error: "Ogiltigt bytesval" };
       }
-      const item = catalogEquipmentToMerchantShopItem(eq, eq.id);
-      equipShopLikeItemToPlayer(p, item, next.config.maxHp);
-      log(next, `${p.name} byter ut ${erPending.slot} mot ${erPending.newName}.`);
     } else {
-      log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
+      if (erPending.returnVictimId && erPending.incomingPiece) {
+        const victim = next.players.find((x) => x.id === erPending.returnVictimId);
+        if (victim) {
+          assignEquipmentPieceFromLoot(next, victim, erPending.slot, erPending.incomingPiece);
+          log(
+            next,
+            `${p.name} behåller sin gamla utrustning — ${erPending.newName} lämnas tillbaka till ${victim.name}.`,
+          );
+        }
+      } else {
+        log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
+      }
     }
     next.pending = null;
     if (next.phase === "playing") {
@@ -4646,6 +4753,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!winner || !loser) return { state, events: [], error: "Player not found" };
     recordPvpMatchOutcome(next, winner.id, loser.id);
     const theftBlocked = loser.equipment.accessory?.preventTheft === true;
+    let deferredEquipReplace: Extract<Pending, { type: "equipmentReplaceOffer" }> | null = null;
     if (action.choice === "gold") {
       const steal = Math.min(5, loser.gold);
       loser.gold -= steal;
@@ -4692,28 +4800,45 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           loser.maxHp = maxHpFor(next, loser);
           if (loser.hp > loser.maxHp) loser.hp = loser.maxHp;
         }
-        if (slot === "weapon") {
-          winner.equipment.weapon = { ...piece } as typeof winner.equipment.weapon;
-        } else if (slot === "armor") {
-          winner.equipment.armor = { ...piece } as typeof winner.equipment.armor;
-          winner.maxHp = maxHpFor(next, winner);
-          if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
-        } else if (slot === "helmet") {
-          winner.equipment.helmet = { ...piece } as typeof winner.equipment.helmet;
-          winner.maxHp = maxHpFor(next, winner);
-          if (winner.hp > winner.maxHp) winner.hp = winner.maxHp;
+        const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
+        const winnerOccupied =
+          (slot === "weapon" && !!winner.equipment.weapon) ||
+          (slot === "armor" && !!winner.equipment.armor) ||
+          (slot === "helmet" && !!winner.equipment.helmet) ||
+          (slot === "accessory" && !!winner.equipment.accessory);
+        if (winnerOccupied) {
+          deferredEquipReplace = {
+            type: "equipmentReplaceOffer",
+            playerId: winner.id,
+            slot,
+            newName: piece.name ?? String(slot),
+            incomingPiece: incomingClone,
+            returnVictimId: loser.id,
+          };
+          log(
+            next,
+            `${winner.name} rycker ${piece.name ?? slot} från ${loser.name} — välj om du tar emot den (du har redan något i ${slot}).`,
+          );
+          pushPlayerNotice(
+            next,
+            loser.id,
+            winner.name,
+            "Du förlorade duellen",
+            `${winner.name} tog din ${piece.name ?? slot} och måste välja om hen tar emot den (du har tom slot tills valet är klart).`,
+            "duel_loss",
+          );
         } else {
-          winner.equipment.accessory = { ...piece } as typeof winner.equipment.accessory;
+          assignEquipmentPieceFromLoot(next, winner, slot, incomingClone);
+          log(next, `${winner.name} tar ${piece.name ?? slot} från ${loser.name}.`);
+          pushPlayerNotice(
+            next,
+            loser.id,
+            winner.name,
+            "Du förlorade duellen",
+            `${winner.name} tog din ${piece.name ?? slot} efter duellen.`,
+            "duel_loss",
+          );
         }
-        log(next, `${winner.name} tar ${piece.name ?? slot} från ${loser.name}.`);
-        pushPlayerNotice(
-          next,
-          loser.id,
-          winner.name,
-          "Du förlorade duellen",
-          `${winner.name} tog din ${piece.name ?? slot} efter duellen.`,
-          "duel_loss",
-        );
       } else {
         const steal = Math.min(3, loser.gold);
         loser.gold -= steal;
@@ -4729,10 +4854,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         );
       }
     }
-    next.pending = null;
-    if (next.phase === "playing") {
-      queueFirstBrewerDownIfNeeded(next);
-      if (!next.pending) endTurnOrOfferLevelUp(next, winner.id);
+    if (deferredEquipReplace) {
+      next.pending = deferredEquipReplace;
+    } else {
+      next.pending = null;
+      if (next.phase === "playing") {
+        queueFirstBrewerDownIfNeeded(next);
+        if (!next.pending) endTurnOrOfferLevelUp(next, winner.id);
+      }
     }
     return { state: next, events: ["state"] };
   }
@@ -4835,7 +4964,7 @@ function removePlayerFromTurnOrderAfterElimination(state: GameState, removedId: 
 function endGameIfSingleBrewerAlive(state: GameState): boolean {
   if (state.phase !== "playing") return false;
   /** Matchen avgörs av "ge upp" (eliminated), inte tillfällig HP 0 före stupad-bryggare-valet. */
-  const remaining = state.players.filter((p) => !p.eliminated);
+  const remaining = state.players.filter((p) => !p.eliminated && !p.leftVoluntarily);
   if (remaining.length === 1) {
     const winner = remaining[0]!;
     state.phase = "ended";
@@ -4860,14 +4989,14 @@ function advanceTurn(state: GameState): void {
   if (state.phase !== "playing") return;
   const anyAlive = state.turnOrder.some((id) => {
     const pl = state.players.find((p) => p.id === id);
-    return pl && !pl.eliminated;
+    return pl && !pl.eliminated && !pl.leftVoluntarily;
   });
   if (!anyAlive) return;
   for (let i = 0; i < state.turnOrder.length; i++) {
     state.currentTurnIndex = (state.currentTurnIndex + 1) % state.turnOrder.length;
     const n = currentPlayer(state);
     if (!n) continue;
-    if (n.eliminated) {
+    if (n.eliminated || n.leftVoluntarily) {
       continue;
     }
     if ((n.skippedTurns ?? 0) > 0) {
@@ -4878,7 +5007,6 @@ function advanceTurn(state: GameState): void {
     }
     log(state, `— ${n.name}'s turn —`);
     applyArmorHealHpPerTurnAtTurnStart(state, n);
-    maybeCreateLevelUpOffer(state, n, false);
     break;
   }
 }

@@ -18,6 +18,7 @@ import {
   monsterCombatEquipmentAttackBonus,
   sipWeaponExtraAttackCosts,
   monsterLossKlunkTotal,
+  monsterEncounterCardPreviewFromState,
   playerCanCombatIntervene,
   levelUpCostsForTargetLevel,
   penaltySipTotalForPlayer,
@@ -2287,8 +2288,15 @@ export function PlayView() {
       );
     }
 
-    if (pending?.type === "equipmentReplaceOffer" && myPending) {
-      const slot = pending.slot;
+    const stealEquipOffer =
+      pending?.type === "combat" && pending.postReactionEquipmentOffer?.playerId === me.id
+        ? pending.postReactionEquipmentOffer
+        : null;
+    const catalogEquipOffer =
+      pending?.type === "equipmentReplaceOffer" && myPending ? pending : null;
+    const equipOffer = catalogEquipOffer ?? stealEquipOffer;
+    if (equipOffer) {
+      const slot = equipOffer.slot;
       return (
         <div className={u.stack12}>
           <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
@@ -2297,7 +2305,7 @@ export function PlayView() {
           <div className={u.flexCenterFullWidth}>
             <div className={u.box96}>
               <PictureImg
-                sources={equipmentImageSources(pending.newName, slot)}
+                sources={equipmentImageSources(equipOffer.newName, slot)}
                 alt=""
                 className={u.fillContain}
               />
@@ -2307,7 +2315,7 @@ export function PlayView() {
             {sv.play.merchantReplaceBody(
               capitalizeWord(equipmentSlotSv(slot)),
               merchantEquippedName(me, slot),
-              pending.newName,
+              equipOffer.newName,
             )}
           </div>
           <div className={u.stack8}>
@@ -3117,6 +3125,7 @@ export function PlayView() {
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
       !!(myPending && pending?.type === "equipmentReplaceOffer") ||
+      !!(pending?.type === "combat" && pending.postReactionEquipmentOffer?.playerId === me.id) ||
       !!itemDetail ||
       !!equipDetail ||
       !!cardOrSipActions ||
@@ -3431,6 +3440,8 @@ export function PlayView() {
           combatLoss={pending.combatLoss}
           viewerName={me.name}
           cardCoverId={lobbyCardCoverId}
+          gameState={state}
+          cardOwnerPlayerId={pending.playerId}
         />
       )}
       {state?.phase === "playing" && me && myPending && pending?.type === "levelUpOffer" && (
@@ -5774,7 +5785,7 @@ function EnemyIntroModal(props: {
     return `RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`;
   })();
   const aboveScene =
-    bossRoundLabel || props.teammateName ? (
+    bossRoundLabel || props.teammateName || props.showCard ? (
       <div className={u.stack6Mb4}>
         {bossRoundLabel ? (
           <div
@@ -5790,6 +5801,24 @@ function EnemyIntroModal(props: {
             }}
           >
             {bossRoundLabel}
+          </div>
+        ) : null}
+        {props.showCard && !bossRoundLabel ? (
+          <div
+            style={{
+              textAlign: "center",
+              fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+              fontWeight: 900,
+              fontSize: "clamp(1.4rem, 6vw, 2rem)",
+              letterSpacing: "0.06em",
+              lineHeight: 1.05,
+              textTransform: "uppercase",
+              color: "#f8fafc",
+              textShadow: "0 2px 18px rgba(0,0,0,0.45)",
+              marginBottom: 2,
+            }}
+          >
+            DU MÖTER
           </div>
         ) : null}
         {props.teammateName ? (
@@ -6044,12 +6073,24 @@ function CardModal(props: {
   /** Kortägarens visningsnamn (ersätter "Du" i vinst/förlust om det behövs). */
   viewerName?: string;
   cardCoverId?: string | null;
+  /** För monster:* kort: rätt skalade stats mot {@link cardOwnerPlayerId}. */
+  gameState?: GameState | null;
+  cardOwnerPlayerId?: string;
 }) {
   const effectiveArtKey = resolveCardRevealArtKey(props.artKey, props.grantedItemId, {
     cardText: props.text,
     cardId: props.cardId,
   });
   const mon = props.kind === "combat" ? monsterFromCardId(props.cardId) : undefined;
+  const monsterScaled = useMemo(() => {
+    if (!props.gameState || !props.cardOwnerPlayerId || props.kind !== "combat") return null;
+    const m = /^monster:(.+)$/.exec(props.cardId);
+    if (!m) return null;
+    const monster = MONSTERS.find((x) => x.id === m[1]);
+    const owner = props.gameState.players.find((p) => p.id === props.cardOwnerPlayerId);
+    if (!monster || !owner) return null;
+    return monsterEncounterCardPreviewFromState(props.gameState, owner, monster);
+  }, [props.gameState, props.cardOwnerPlayerId, props.cardId, props.kind]);
   const useMonsterLayout = !!mon;
   const effectiveWin =
     props.cardId === "combat_win"
@@ -6277,11 +6318,11 @@ function CardModal(props: {
                 <MonsterEncounterCard
                   title={props.title}
                   artKey={effectiveArtKey}
-                  combatStrength={mon.strength}
-                  winGold={mon.rewardGold}
-                  winItems={mon.rewardItems}
-                  winXp={Math.max(20, Math.ceil(mon.strength / 2) * 10)}
-                  lossDamage={mon.baseDamage}
+                  combatStrength={monsterScaled?.need ?? mon.strength}
+                  winGold={monsterScaled?.rewardGold ?? mon.rewardGold}
+                  winItems={monsterScaled?.rewardItems ?? mon.rewardItems}
+                  winXp={monsterScaled?.rewardXp ?? mon.rewardXp}
+                  lossDamage={monsterScaled?.baseDamage ?? mon.baseDamage}
                   lossKlunks={monsterLossKlunkTotal(mon)}
                   specialRules={props.text.trim() || undefined}
                   fillAvailableHeight
