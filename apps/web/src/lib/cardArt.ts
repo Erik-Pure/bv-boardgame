@@ -40,6 +40,7 @@ const ART_ATTRIBUTION_SV: Record<string, string> = {
   "item/not-my-round": "Enkelpipa, Bryggverket",
   "item/shortcut": "Vermont marching juice, Bryggverket & Malmö Brewing Co",
   "item/rigged-game": "Lillprinsen, Bryggverket",
+  "item/shuffle": "Janne Shuffle, Bryggverket",
   "item/getlucky": "Get Lucky, Bryggverket",
   "item/hops": "Kaakao kaakao, Bryggverket & Mabrouk Chocolate",
   "item/8-bit-beer": "41337, Bryggverket",

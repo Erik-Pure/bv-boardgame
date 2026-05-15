@@ -163,7 +163,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Störtkruka",
     price: 11,
     bonusHp: 4,
-    rulesText: "Tung porslinshjälm — +4 max-HP.",
+    rulesText: "Säkerheten först! +4 max-HP.",
   },
   {
     id: "eh_beer_cap_helm_1",
@@ -267,8 +267,8 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "accessory",
     name: "Tygkasse",
     price: 10,
-    gainGoldPerPenaltyKlunk: 1,
-    rulesText: "Varje gång du får en straffklunk får du 1 pant.",
+    gainGoldPerPenaltyKlunk: 2,
+    rulesText: "Varje gång du får en straffklunk får du 2 pant.",
   },
   {
     id: "ex_vib_member",
@@ -332,7 +332,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 10,
     bonusHp: 0,
     damageNegate: 2,
-    rulesText: "Mjuk och tjock — bättre skydd mot träffar.",
+    rulesText: "Mjuk och skön — bättre skydd mot träffar.",
   },
   {
     id: "ea_longsleeve",
@@ -341,7 +341,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 10,
     bonusHp: -4,
     combatBonus: 2,
-    rulesText: "Tajt passform och armarna fria — mer attack i monsterstrid, men färre max HP.",
+    rulesText: "Att se snygg ut har ett pris — färre max HP, men mer attack i monsterstrid.",
   },
   {
     id: "ea_six_pack",

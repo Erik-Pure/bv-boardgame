@@ -358,14 +358,14 @@ export const sv = {
     spotlightMostOnesTitle: "Flest ettor",
     spotlightMostPantSpentTitle: "Mest spenderad pant",
     spotlightMostPvpWinsTitle: "Flest BvB vinster",
-    spotlightMostPvpMatchesTitle: "Flest BvB",
-    spotlightMostLossesTitle: "Mest förluster totalt",
-    spotlightMostSabotageTitle: "Mest sabotage",
-    spotlightMostHelpedTitle: "Hjälp till mest",
+    spotlightMostPvpMatchesTitle: "Flest BvB matcher",
+    spotlightMostLossesTitle: "Flest förluster",
+    spotlightMostSabotageTitle: "Saboterat mest",
+    spotlightMostHelpedTitle: "Hjälpt till mest",
     spotlightMaxRollTitle: "Högsta tärningsslag",
     spotlightMostKnockdownsTitle: "Dog mest",
     spotlightMostMonsterWinsTitle: "Räddat flest batcher",
-    spotlightMostHpLostTitle: "Mest tappad HP",
+    spotlightMostHpLostTitle: "Förlorat mest HP",
     debugLine: (parts: {
       ws: string;
       myId: string;
