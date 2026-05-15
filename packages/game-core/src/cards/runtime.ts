@@ -20,10 +20,10 @@ import { combatReactorsFor } from "../combatReactors.js";
 import { rollDie } from "../rng.js";
 import {
   finalBossCardTagline,
-  isFinalBossMonsterId,
   isStandardMonsterId,
   monsterNeedBonusForBoardLevel,
   MONSTERS,
+  monstersEligibleForRandomEncounter,
   type MonsterDef,
   type MonsterId,
 } from "../monsters.js";
@@ -56,8 +56,7 @@ function formatMonsterText(m: { rulesText: string }): string {
 }
 
 function pickMonsterForLevel(rng: () => number, levelIndex: number): MonsterDef {
-  const team = MONSTERS.filter((m) => m.teamBattleRequired && !isFinalBossMonsterId(m.id));
-  const normal = MONSTERS.filter((m) => !m.teamBattleRequired && !isFinalBossMonsterId(m.id));
+  const { team, normal } = monstersEligibleForRandomEncounter(levelIndex);
   const teamChance = levelIndex <= 0 ? 0.04 : levelIndex === 1 ? 0.09 : 0.14;
   if (team.length > 0 && rng() < teamChance) {
     return team[Math.floor(rng() * team.length)]!;

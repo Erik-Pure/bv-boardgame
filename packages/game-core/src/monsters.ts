@@ -52,6 +52,11 @@ export interface MonsterDef {
   artKey: string;
   /** Vid vinst: slumpa mottagare (annan levande spelare, ej angripare/medhjälpare) och ge straffklunk per enhet. */
   winRandomOtherSips?: number;
+  /**
+   * Tidigaste brädnivå (0-baserat `levelIndex`) där monstret kan slumpas på dålig batch.
+   * Default 0 = från första våningen. T.ex. 1 = inte förrän spelaren är på våning 2.
+   */
+  minBoardLevelIndex?: number;
 }
 
 /**
@@ -136,6 +141,7 @@ const MONSTER_DEFS: MonsterDefInput[] = [
     rewardItems: 2,
     rewardXp: 60,
     artKey: "monster/stoorn",
+    minBoardLevelIndex: 1,
   },
   {
     id: "megasouruz",
@@ -322,6 +328,7 @@ const MONSTER_DEFS: MonsterDefInput[] = [
     rewardItems: 2,
     rewardXp: 75,
     artKey: "monster/enhorningsryttare",
+    minBoardLevelIndex: 1,
   },
   {
     id: "fargglada_gubbar",
@@ -368,6 +375,7 @@ const MONSTER_DEFS: MonsterDefInput[] = [
     rewardItems: 2,
     rewardXp: 66,
     artKey: "monster/demonkrigare",
+    minBoardLevelIndex: 1,
   },
   {
     id: "busiga_buskar",
@@ -399,6 +407,32 @@ export const MONSTERS: MonsterDef[] = MONSTER_DEFS.map((m) => ({
   ...m,
   rewardXp: m.rewardXp ?? m.strength * 10,
 }));
+
+/** Dåliga batchar som inte får slumpas förrän `levelIndex >= 1` (spelarens våning 2). */
+export const LATE_RANDOM_MONSTER_IDS: readonly MonsterId[] = [
+  "imperial_dragon_stout",
+  "enhorningsryttare",
+  "demonkrigare",
+];
+
+export function monsterAvailableAtBoardLevel(
+  m: Pick<MonsterDef, "minBoardLevelIndex">,
+  levelIndex: number,
+): boolean {
+  return levelIndex >= (m.minBoardLevelIndex ?? 0);
+}
+
+export function monstersEligibleForRandomEncounter(levelIndex: number): {
+  team: MonsterDef[];
+  normal: MonsterDef[];
+} {
+  const eligible = (list: readonly MonsterDef[]) =>
+    list.filter((m) => monsterAvailableAtBoardLevel(m, levelIndex));
+  return {
+    team: eligible(MONSTERS.filter((m) => m.teamBattleRequired && !isFinalBossMonsterId(m.id))),
+    normal: eligible(MONSTERS.filter((m) => !m.teamBattleRequired && !isFinalBossMonsterId(m.id))),
+  };
+}
 
 /** Högsta brädsnivå (våning) någon spelare befinner sig på — t.ex. statistik eller lobby. */
 export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]): number {
