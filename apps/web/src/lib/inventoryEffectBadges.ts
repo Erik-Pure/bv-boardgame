@@ -10,6 +10,7 @@ import {
   helmetAttackBonus,
   isBeerCanShieldName,
   isLegendariskBurkhjälmName,
+  shortcutDisplayPantGold,
   type EquipmentSlot,
   type ItemInstance,
   type Player,
@@ -32,6 +33,13 @@ export type EffectBadgeData = {
   icon: keyof typeof ITEM_EFFECT_BADGE_ICONS;
   label: string;
   labelTone?: "danger";
+  /** Ikon efter texten — t.ex. pantkostnad för Genväg/Taproom (samma ordning som övriga pantkostnader). */
+  iconAfter?: boolean;
+};
+
+export type ItemInventoryBadgeOpts = {
+  playerLevelIndex: number;
+  levelCount: number;
 };
 
 export function formatSigned(n: number): string {
@@ -173,16 +181,42 @@ export function equipmentInventoryEffectBadges(
       label: `+${gainGoldPerPenaltyKlunk}/str.kl`,
     });
   }
+  const merchantDisc =
+    "merchantDiscountGold" in piece &&
+    typeof (piece as { merchantDiscountGold?: number }).merchantDiscountGold === "number"
+      ? Math.max(0, Math.floor((piece as { merchantDiscountGold?: number }).merchantDiscountGold ?? 0))
+      : 0;
+  if (merchantDisc > 0) {
+    badges.push({ icon: "pant", label: `−${merchantDisc}` });
+  }
+  const bwr =
+    "breakWinsRemaining" in piece && typeof (piece as Weapon).breakWinsRemaining === "number"
+      ? (piece as Weapon).breakWinsRemaining
+      : undefined;
+  if (typeof bwr === "number" && bwr > 0 && (piece as Weapon).breakOnWin) {
+    badges.push({ icon: "attack", label: String(bwr) });
+  }
   return badges;
 }
 
 export function itemInventoryEffectBadge(
   itemId: string,
   instance?: ItemInstance | null,
+  opts?: ItemInventoryBadgeOpts,
 ): EffectBadgeData | null {
   if (itemId === "canman") {
     const left = instance?.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
     return { icon: "pant", label: String(left) };
+  }
+  if (
+    (itemId === "shortcut" || itemId === "taproom_key") &&
+    opts &&
+    Number.isFinite(opts.levelCount) &&
+    opts.levelCount > 0 &&
+    Number.isFinite(opts.playerLevelIndex)
+  ) {
+    const n = shortcutDisplayPantGold(itemId, opts.playerLevelIndex, opts.levelCount);
+    return { icon: "pant", label: `-${n}`, labelTone: "danger", iconAfter: true };
   }
   const m: Record<string, EffectBadgeData> = {
     healing_potion: { icon: "heart", label: "+3" },
@@ -205,14 +239,13 @@ export function itemInventoryEffectBadge(
     manopositiv: { icon: "attack", label: "+4" },
     sip_card: { icon: "klunk", label: "+1" },
     split_the_g: { icon: "pant", label: "½" },
+    shuffle: { icon: "pant", label: "10" },
     lengraddad: { icon: "attack", label: "−2", labelTone: "danger" },
     early_night: { icon: "monster", label: "skip" },
     bribes: { icon: "monster", label: "skip" },
     beer_bro: { icon: "attack", label: "×2" },
     sleep_potion: { icon: "monster", label: "Zzz" },
     beard_back: { icon: "attack", label: "×2" },
-    six_sense: { icon: "bvb", label: "t6" },
-    rigged_game: { icon: "armor", label: "⇄" },
     not_my_round: { icon: "attack", label: "−", labelTone: "danger" },
     spill_intentional: { icon: "attack", label: "×" },
   };
@@ -238,6 +271,7 @@ export function shopItemToEquipmentPreviewPiece(
       powerDynamicMax: item.powerDynamicMax,
       randomOtherDamageOnWin: item.randomOtherDamageOnWin,
       breakOnWin: item.breakOnWin,
+      breakWinsRemaining: item.breakWinsRemaining,
       monsterLossSipReduction: item.monsterLossSipReduction,
     };
   }
@@ -284,6 +318,8 @@ export function shopItemToEquipmentPreviewPiece(
     canSkipMonsterEncounter: item.canSkipMonsterEncounter,
     pvpDieBonus: item.pvpDieBonus,
     ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
+    deathContinueCost: item.deathContinueCost,
+    merchantDiscountGold: item.merchantDiscountGold,
   };
 }
 

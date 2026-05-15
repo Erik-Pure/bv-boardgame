@@ -179,7 +179,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
       {(data.assistRollNote ||
         data.redirectNote ||
         data.lostEquipmentName ||
-        data.imperialAdjacentSplash) && (
+        data.imperialSameLevelSplash) && (
         <div
           style={{
             width: "100%",
@@ -199,7 +199,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
               {sv.play.combatLoseLostEquipment(data.playerName, data.lostEquipmentName)}
             </p>
           ) : null}
-          {data.imperialAdjacentSplash ? (
+          {data.imperialSameLevelSplash ? (
             <p style={{ margin: 0 }}>{sv.play.combatLoseImperialSplash}</p>
           ) : null}
         </div>

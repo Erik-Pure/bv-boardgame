@@ -29,6 +29,14 @@ export function ringGridSizeFromTileCount(tileCount: number): number {
   return s;
 }
 
+/** Index för slutboss-rutan; `bossName`-fallback om `type` saknas i äldre/serialiserad state. */
+export function findBossTileIndexInLevel(level: LevelBoard | undefined): number {
+  if (!level?.tiles?.length) return -1;
+  const byType = level.tiles.findIndex((t) => t.type === "boss");
+  if (byType >= 0) return byType;
+  return level.tiles.findIndex((t) => Boolean(t.bossName?.trim()));
+}
+
 function makeTile(
   id: string,
   type: TileType,

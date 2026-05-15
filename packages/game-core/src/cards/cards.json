@@ -730,6 +730,14 @@
       "text": "På din tur: varje skänkt pant ger 1 HP (upp till max HP). Du skänker högst lika många pant som HP du saknar, och aldrig mer pant än du fyller på.",
       "artKey": "item/charity",
       "effects": []
+    },
+    {
+      "id": "item_shuffle",
+      "kind": "item",
+      "title": "Shuffle",
+      "text": "Byt alla dina föremål mot en annan spelares föremål. Kostar 10 pant.",
+      "artKey": "item/shuffle",
+      "effects": []
     }
   ],
   "decks": {
@@ -813,7 +821,8 @@
       "item_rigged_game",
       "item_bribes",
       "item_paidassasin",
-      "item_charity"
+      "item_charity",
+      "item_shuffle"
     ]
   }
 }

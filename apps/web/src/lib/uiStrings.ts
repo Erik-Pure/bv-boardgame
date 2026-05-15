@@ -100,6 +100,11 @@ export const sv = {
     hostNeedPlayers: "Behövs minst 2 spelare och alla måste vara redo.",
     waitHostStart: "Väntar på att värden startar när alla är redo.",
     strength: "Styrka",
+    /** Mobil: utrustningsrad under slots — attack från utrustning + ev. stridsmodifierare. */
+    equipmentAttackFromGearAria: (n: number) => `Attack från utrustning (inkl. modifierare): ${n}`,
+    /** Mobil: sköld = skadersläckning från rustning/hjälm/tillbehör m.m. */
+    equipmentDefenseFromGearAria: (n: number) => `Sköld — skadersläckning från utrustning: ${n}`,
+    equipmentBvbFromGearAria: (n: number) => `BvB-bonus på tärningsslag från utrustning: ${n}`,
     continue: "Fortsätt",
     chooseTeammate: "Team battle — välj en medkämpe",
     teammateMustFight: "Vald spelare måste strida med dig i denna runda.",
@@ -242,6 +247,9 @@ export const sv = {
     lootEquipmentReplaceTitle: "Ny utrustning — vill du byta?",
     lootEquipmentReplaceDecline: "Nej, behåll det jag har",
     merchantCantAfford: "Du har inte råd.",
+    /** Plastback: argument = pant vid försäljning (0 om ingen Tom flaska-synergi). */
+    sellPlastbackAccessory: (pant: number) =>
+      pant > 0 ? `Sälj Plastback (+${pant} pant)` : "Sälj Plastback",
     leave: "Lämna",
     pvpChooseLoot: "BvB — välj byte",
     takePantMax5: "Ta pant (max 5)",
@@ -335,9 +343,12 @@ export const sv = {
     /** BvB-matcher vunna / förlorade (rubrik aria-label). */
     scoreboardColPvpWl: "BvB, vunna och förlorade matcher",
     scoreboardColItems: "Förbr.",
-    scoreboardColKlunk: "Klunk",
+    /** Klunk-kolumnen visar kumulativt intagna klunkar (alla liv). */
+    scoreboardColKlunk: "Klunk (totalt parti)",
     scoreboardColPant: "Pant",
     scoreboardColHp: "HP",
+    scoreboardKlunkCellAria: (total: number) => `${total} klunkar intagna totalt under partiet`,
+    scoreboardPantCellAria: (wallet: number) => `Pant i plånbok ${wallet}`,
     scoreboardBrewerLevelAria: (n: number) => `Bryggnivå ${n}`,
     scoreboardLeftGameAria: "Lämnade spelet",
     winner: "Vinnare",
@@ -354,6 +365,7 @@ export const sv = {
     spotlightMaxRollTitle: "Högsta tärningsslag",
     spotlightMostKnockdownsTitle: "Dog mest",
     spotlightMostMonsterWinsTitle: "Räddat flest batcher",
+    spotlightMostHpLostTitle: "Mest tappad HP",
     debugLine: (parts: {
       ws: string;
       myId: string;
@@ -439,7 +451,7 @@ export const sv = {
     combatLoseNoDirectPenalty: (player: string) =>
       `Ingen direkt skada eller extra klunk för ${player} på denna träff.`,
     combatLoseLostEquipment: (player: string, item: string) => `${player} tappade utrustning: ${item}.`,
-    combatLoseImperialSplash: "En spelare på intilliggande ruta tog 1 skada (drakstänk).",
+    combatLoseImperialSplash: "Övriga spelare på samma våning tog 1 skada vardera (Stoorns stänk).",
   },
   table: {
     wsConnecting: "Ansluter till bordet…",
@@ -647,6 +659,10 @@ export const sv = {
     charity: {
       title: "Skänk till välgörenhet",
       text: "På din tur: skänk pant och fyll på lika många HP — högst din saknade hälsa och högst din pant (aldrig mer pant än liv du fyller på).",
+    },
+    shuffle: {
+      title: "Shuffle",
+      text: "Byt alla dina föremål mot en annan spelares föremål. Kostar 10 pant.",
     },
 
   },

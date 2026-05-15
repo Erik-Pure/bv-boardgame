@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.58 |
-| Senast uppdaterad | 2026-05-10 |
+| Version | 0.59 |
+| Senast uppdaterad | 2026-05-15 |
 
 ---
 
@@ -295,7 +295,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ### 10.2 Panta burkar (affär på brädet)
 
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
-- **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**) och **tre slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**). Efter blandning visas **exakt fyra** erbjudanden.
+- **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln) och **tre slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**). Efter blandning visas **exakt fyra** erbjudanden.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
 
@@ -315,7 +315,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 - **Get Lucky** (`get_lucky`): stridsreaktion som kan spelas på **den som slåss** (angripare eller medkämpe), även av en annan spelare som ingriper. Målet får **+4 attack** i striden; om målet sedan förlorar tar just den spelaren **dubbel HP-skada**.
 - **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/BvB-fönster och ingripande); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
-- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** eller (slump, om ledig utrustningsslot) **utrustning** från katalogen — samma idé som blandad monsterloot. När spelaren är på **sista brädnivån** dras varken **Genväg** eller **Taproom-nyckel** ur slump-poolen (de är meningslösa utan nästa våning). **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
+- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** (`decks.item` i `cards.json` — alla listade `item_*`-kort ska finnas där för att kunna slumpas) eller (slump, om ledig utrustningsslot) **utrustning** från **`EQUIPMENT_CATALOG`** — samma idé som blandad monsterloot och stridsbelöning. När spelaren är på **sista brädnivån** dras varken **Genväg** eller **Taproom-nyckel** ur slump-poolen (de är meningslösa utan nästa våning). **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
 
 ---
@@ -345,7 +345,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Monsterförlust-klunk (badge):** reduktion av straffklunk vid monsterförlust visas som en **kompakt** etikett (**`−N`**) bredvid klunk-ikonen, i linje med övriga talbadges.
 
-**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog).
+**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
 
 **Utrustningsbilder (webben):** när unik art finns som **WebP** med tillhörande **AVIF** används `<picture>` med **WebP som `img`-fallback** (inte längre en separat PNG-fallback med samma basnamn om den saknas).
 
@@ -358,12 +358,12 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 ## 12. Död och respawn
 
 - Spelaren kan **välja att starta om på nytt** efter att ha blivit besegrad/“död” (exakt trigger definieras i combat-regler).
-- **Omstart (nuvarande implementation):** spelaren återställs till ett nytt startläge: **start-ruta** (nivå 1, tile 0), **0 pant**, **0 klunkar**, tomt **inventory**, ingen **utrustning**, och strids-/statusflaggor nollställs.
+- **Startföremål vid spelstart:** varje spelare får **ett positivt** och **ett negativt** stridsföremål (samma pooler som `grantStartingCombatItems` i `game-core`: buff t.ex. Lättöl/Folköl/Ölbomb m.m., debuff t.ex. Druckit för mycket/Baksmälla/Krokben m.m.).
+- **Omstart (nuvarande implementation):** vid val **Starta om på nytt** i stupad-bryggare-läget (ej hardcore) återställs spelaren till **start-ruta** (nivå 0, tile 0), **lobbyns startpant**, **0 klunkar**, **ingen utrustning**, nollställda strids-/statusflaggor och **nya startföremål** (samma buff/debuff-pool som vid spelstart; egen deterministisk slump per omstart). Sessionsstatistik (t.ex. antal stup, totala klunkar, spenderad pant) **behålls**.
 - **HP vid omstart:** sätts till lobbykonfigurerat max HP (default 10).
 - **Hardcore mode:** om aktivt tillåts ingen omstart; spelaren elimineras vid 0 HP.
-- **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1.
-- **Respawn-plats:** definiera i implementation (t.ex. starttile på aktuell nivå eller alltid nivå 1 — dokumentera här när fastställt).
-- **Livförsäkring (tillbehör):** om spelaren dör och har **Livförsäkring** utrustad kan den i *stupad bryggare*-läget välja att betala **20 pant** för att fortsätta med **fullt liv** (om pant räcker).
+- **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1 (index 0).
+- **Livförsäkring (tillbehör):** om spelaren dör och har **Livförsäkring** utrustad kan den i *stupad bryggare*-läget välja att betala **10 pant** för att fortsätta med **fullt liv** (om pant räcker), utan att nollställa position/utrustning/inventory.
 
 ---
 
@@ -501,7 +501,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
-- **Startpant vid spelstart:** 5 per spelare (inte vid respawn).
+- **Startpant vid spelstart och omstart:** lobbyns **startpant** (default 5) per spelare vid spelstart och vid **Starta om på nytt**; livförsäkring och övriga pantflöden följer §12.
 - **Team-monsterfrekvens per nivå:** ~4% / 9% / 14%.
 - **Monster `need`:** +`levelIndex` på styrkekrav på den våningen (lokalt per plan).
 - **Monster förlust-skada (HP):** +`levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
@@ -573,4 +573,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.56 | 2026-05-09 | Slutmodal: spotlight-karusell + `goldSpent`/spenderad-pant-definition (sinkholes vs spelaröverföring) i §13.1 |
 | 0.57 | 2026-05-10 | Mobil rörelseval: pilhintar + speglade knappar på ringens överkant (§8); lagstrid: egen modifier vid tärning på mobil (§9.1); vapen med pant eller klunk för valfri `sipAttackBonus`, nytt vapen **Ölsejdel** (§11); Genväg/Taproom användbar vid rörelseval/handl/mötesval (§10.1); straffklunk-kö vid kort → modaler vid Fortsätt (§13); utrustningsbild WebP-fallback; kompakt klunk-reduktionsbadge |
 | 0.58 | 2026-05-10 | §2: toasts för monsterskatter vid vinst och för ölkompis/stridshjälp vid vinst/förlust; §9.1: Demonkrigare utan pant-modal om spelaren saknar 10 pant; stridshjälp tar HP + straffklunk vid förlust (som lagrisk); §13.1: eliminerade behålls i roster efter `leaveGame` för full resultatlista (`purgeSlot` vid bordskick) |
+| 0.59 | 2026-05-15 | §10.2 **Helande brygd** 5 pant i handeln; §10.1/`decks.item` förtydligat; §11 **Störtkruka**, **VIB Member**, **Plastback**; §12 omstart ger **startföremål** som vid spelstart + **startpant** (inte tom förråd); **Livförsäkring** 10 pant för fullt liv |
 

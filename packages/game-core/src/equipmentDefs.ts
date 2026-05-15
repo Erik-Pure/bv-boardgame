@@ -158,6 +158,14 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Mysig mössa: lite mer liv och lättare att stå emot smällar.",
   },
   {
+    id: "eh_stortkruka",
+    slot: "helmet",
+    name: "Störtkruka",
+    price: 11,
+    bonusHp: 4,
+    rulesText: "Tung porslinshjälm — +4 max-HP.",
+  },
+  {
     id: "eh_beer_cap_helm_1",
     slot: "helmet",
     name: "Burkhjälm",
@@ -251,8 +259,8 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "accessory",
     name: "Livförsäkring",
     price: 12,
-    deathContinueCost: 20,
-    rulesText: "När du dör kan du betala 20 pant för att fortsätta med fullt liv.",
+    deathContinueCost: 10,
+    rulesText: "När du dör kan du betala 10 pant för att fortsätta med fullt liv.",
   },
   {
     id: "ex_totebag",
@@ -261,6 +269,22 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     price: 10,
     gainGoldPerPenaltyKlunk: 1,
     rulesText: "Varje gång du får en straffklunk får du 1 pant.",
+  },
+  {
+    id: "ex_vib_member",
+    slot: "accessory",
+    name: "VIB Member",
+    price: 11,
+    merchantDiscountGold: 2,
+    rulesText: "Very Important Brewer — 2 pant billigare på alla varor när du pantar i handeln.",
+  },
+  {
+    id: "ex_plastback",
+    slot: "accessory",
+    name: "Plastback",
+    price: 10,
+    rulesText:
+      "Kombineras med vapnet Tom flaska: flaskan håller för sex dåliga batcher innan den går sönder. Öppna tillbehöret i inventariet för att sälja plastbacken mot pant motsvarande antal kvarvarande flaskor.",
   },
   {
     id: "ea_linne",

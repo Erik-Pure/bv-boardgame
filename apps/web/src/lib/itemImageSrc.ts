@@ -32,6 +32,7 @@ export function itemImageSrc(itemId: string): string {
     bribes: "/items/bribes.webp",
     paidassasin: "/items/paidassasin.webp",
     charity: "/items/charity.webp",
+    shuffle: "/items/shuffle.webp",
   };
   return m[itemId] ?? "/card-placeholder.png";
 }

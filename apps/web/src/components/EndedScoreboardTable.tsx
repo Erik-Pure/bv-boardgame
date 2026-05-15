@@ -30,6 +30,11 @@ function brewerLevelForUi(player: Player): number {
   return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
 }
 
+function sessionKlunkTotal(p: Player): number {
+  const s = p.stats ?? DEFAULT_PLAYER_SESSION_STATS;
+  return s.totalKlunksGained ?? 0;
+}
+
 function sortEndedPlayers(players: Player[], winnerId: string | null | undefined): Player[] {
   return [...players].sort((a, b) => {
     const w = winnerId;
@@ -37,6 +42,9 @@ function sortEndedPlayers(players: Player[], winnerId: string | null | undefined
       if (a.id === w) return -1;
       if (b.id === w) return 1;
     }
+    const aK = sessionKlunkTotal(a);
+    const bK = sessionKlunkTotal(b);
+    if (bK !== aK) return bK - aK;
     if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
     if (b.gold !== a.gold) return b.gold - a.gold;
     return a.name.localeCompare(b.name, "sv");
@@ -81,6 +89,7 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
               const eliminated = p.eliminated === true;
               const leftVoluntary = p.leftVoluntarily === true;
               const s = p.stats ?? DEFAULT_PLAYER_SESSION_STATS;
+              const klunkTotal = s.totalKlunksGained ?? 0;
               const uiLevel = brewerLevelForUi(p);
               const ratio = brewerKlunkProgressRatio(p.xp);
               return (
@@ -136,8 +145,12 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
                     <span className={styles.wlLoss}>{s.pvpMatchLosses}</span>
                   </td>
                   <td className={styles.statCell}>{s.itemsPlayed}</td>
-                  <td className={styles.statCell}>{p.klunkar}</td>
-                  <td className={styles.statCell}>{p.gold}</td>
+                  <td className={styles.statCell} aria-label={sv.play.scoreboardKlunkCellAria(klunkTotal)}>
+                    {klunkTotal}
+                  </td>
+                  <td className={styles.statCell} aria-label={sv.play.scoreboardPantCellAria(p.gold)}>
+                    {p.gold}
+                  </td>
                   <td className={styles.statCell}>
                     {p.hp}/{p.maxHp}
                   </td>

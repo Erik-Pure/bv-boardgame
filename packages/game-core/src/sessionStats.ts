@@ -14,6 +14,8 @@ export const DEFAULT_PLAYER_SESSION_STATS: PlayerSessionStats = {
   helpedCombatWins: 0,
   maxDiceRollTotal: 0,
   goldSpent: 0,
+  totalKlunksGained: 0,
+  totalHpLost: 0,
 };
 
 /** Negativa/sochande föremål som räknas till «sabotage»-badge. */
@@ -143,6 +145,23 @@ export function recordPantSpent(state: GameState, playerId: string, amount: numb
   ensurePlayerStats(pl).goldSpent += n;
 }
 
+export function recordTotalKlunksGained(state: GameState, playerId: string, amount: number): void {
+  const n = Math.max(0, Math.floor(amount));
+  if (n <= 0) return;
+  const pl = state.players.find((x) => x.id === playerId);
+  if (!pl) return;
+  ensurePlayerStats(pl).totalKlunksGained += n;
+}
+
+/** Kumulativ HP-förlust (faktiskt borttagen HP) för slutstatistik / höjdpunkter. */
+export function recordHpLost(state: GameState, playerId: string, amount: number): void {
+  const n = Math.max(0, Math.floor(amount));
+  if (n <= 0) return;
+  const pl = state.players.find((x) => x.id === playerId);
+  if (!pl) return;
+  ensurePlayerStats(pl).totalHpLost += n;
+}
+
 export type StatBadgeKind =
   | "mostKnockdowns"
   | "mostMonsterWins"
@@ -187,7 +206,8 @@ export type EndedSpotlightKind =
   /** Extra höjdpunkter för fylligare karusell */
   | "maxDiceRollTotal"
   | "mostKnockdowns"
-  | "mostMonsterWins";
+  | "mostMonsterWins"
+  | "mostHpLost";
 
 export interface EndedSpotlight {
   kind: EndedSpotlightKind;
@@ -221,6 +241,7 @@ export function computeEndedSpotlights(players: Player[]): EndedSpotlight[] {
   push("maxDiceRollTotal", (s) => s.maxDiceRollTotal);
   push("mostKnockdowns", (s) => s.knockdownCount, 2);
   push("mostMonsterWins", (s) => s.monsterCombatWins);
+  push("mostHpLost", (s) => s.totalHpLost);
 
   return out;
 }

@@ -130,7 +130,7 @@ const MONSTER_DEFS: MonsterDefInput[] = [
     name: "Stoorn",
     strength: 5,
     baseDamage: 6,
-    rulesText: "Vid skada: alla intilliggande spelare tar 1 skada.",
+    rulesText: "Vid förlust: alla andra spelare på samma våning tar 1 skada.",
     lossSipsOnLose: 1,
     rewardGold: 7,
     rewardItems: 2,

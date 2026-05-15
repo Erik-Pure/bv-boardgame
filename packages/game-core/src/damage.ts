@@ -7,6 +7,7 @@ import {
   helmetDamageNegateExcludingBeerCanSet,
 } from "./beerCanEquipment.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
+import { recordHpLost } from "./sessionStats.js";
 
 export function equipmentDamageNegate(p: Player): number {
   const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
@@ -96,6 +97,7 @@ export function applyDamage(params: {
   p.hp = Math.max(0, p.hp - final);
   const applied = before - p.hp;
   if (applied > 0) {
+    recordHpLost(state, p.id, applied);
     p.gold += p.equipment.armor?.gainGoldOnDamageTaken ?? 0;
     if (p.equipment.armor?.name === BEER_CAN_RUSTNING_NAME && p.gold > 0) {
       p.gold = Math.max(0, p.gold - 1);

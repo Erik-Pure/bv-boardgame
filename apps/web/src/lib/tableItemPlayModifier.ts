@@ -57,6 +57,8 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
       return { iconSrc: ICON.combat, value: "2" };
     case "split_the_g":
       return { iconSrc: ICON.pant, value: "½" };
+    case "shuffle":
+      return { iconSrc: ICON.pant, value: "10" };
     case "sleep_potion":
       return { iconSrc: "/icons/thumbdown-icon.svg", value: "1", isNegative: true };
     case "early_night":

@@ -53,6 +53,8 @@ function spotlightTitle(kind: EndedSpotlightKind): string {
       return sv.play.spotlightMostKnockdownsTitle;
     case "mostMonsterWins":
       return sv.play.spotlightMostMonsterWinsTitle;
+    case "mostHpLost":
+      return sv.play.spotlightMostHpLostTitle;
   }
 }
 

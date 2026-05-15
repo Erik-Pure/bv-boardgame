@@ -1,6 +1,6 @@
 import type { Effect, EffectApplyOut } from "./types.js";
 import type { EquipmentSlot, GameState, Player } from "../types.js";
-import { recordPantSpent } from "../sessionStats.js";
+import { recordHpLost, recordPantSpent } from "../sessionStats.js";
 import { createItemInstance } from "../itemInstance.js";
 import { pick, rollDie } from "../rng.js";
 import { applyDamage } from "../damage.js";
@@ -8,6 +8,7 @@ import { itemDeckItemIdsForRandomGrant } from "./db.js";
 import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
 import { grantKlunkWithXp } from "../klunkGrant.js";
 import { playerMaxHpFromBase } from "../playerMaxHp.js";
+import { syncPlastbackEmptyBottleSynergy } from "../plastbackSynergy.js";
 
 function newInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
@@ -45,6 +46,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
       breakOnWin: eq.breakOnWin,
       monsterLossSipReduction: eq.monsterLossSipReduction,
     };
+    syncPlastbackEmptyBottleSynergy(player);
   } else if (slot === "armor") {
     player.equipment.armor = {
       name: eq.name,
@@ -60,6 +62,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
     };
     player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
     player.hp = Math.min(player.hp, player.maxHp);
+    syncPlastbackEmptyBottleSynergy(player);
   } else if (slot === "helmet") {
     player.equipment.helmet = {
       name: eq.name,
@@ -78,6 +81,7 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
     const helmHp = eq.bonusHp ?? 0;
     if (helmHp > 0) player.hp = Math.min(player.hp + helmHp, player.maxHp);
     else player.hp = Math.min(player.hp, player.maxHp);
+    syncPlastbackEmptyBottleSynergy(player);
   } else {
     player.equipment.accessory = {
       name: eq.name,
@@ -93,7 +97,10 @@ function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseM
       canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
       pvpDieBonus: eq.pvpDieBonus,
       ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
+      deathContinueCost: eq.deathContinueCost,
+      merchantDiscountGold: eq.merchantDiscountGold,
     };
+    syncPlastbackEmptyBottleSynergy(player);
   }
   return { kind: "equipped", name: eq.name, slot };
 }
@@ -169,6 +176,7 @@ export function applyEffects(params: {
       if (params.ignoreArmorOnDamage) {
         const dmg = Math.max(0, Math.floor(e.amount));
         params.player.hp = Math.max(0, params.player.hp - dmg);
+        recordHpLost(params.state, params.player.id, before - params.player.hp);
       } else {
         const res = applyDamage({
           state: params.state,

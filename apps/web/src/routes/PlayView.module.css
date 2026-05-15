@@ -807,6 +807,49 @@
   box-sizing: border-box;
 }
 
+.equipmentCombatTotalsRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3.5vw, 18px);
+  margin-top: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.equipmentCombatTotalPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(11, 18, 38, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: var(--sans), system-ui, sans-serif;
+  font-size: clamp(13px, 3.4vw, 15px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+  box-sizing: border-box;
+}
+
+.equipmentCombatTotalPillMuted {
+  opacity: 0.38;
+}
+
+.equipmentCombatTotalIcon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
 .inventoryEmpty {
   width: 100%;
   box-sizing: border-box;

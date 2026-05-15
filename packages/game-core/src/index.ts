@@ -38,16 +38,19 @@ export {
 export { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 export {
   BOARD_RING_GRID_SIZE,
+  findBossTileIndexInLevel,
   generateLevels,
   ringGridSizeFromTileCount,
   ringTileCount,
 } from "./board.js";
 export { createRng, rollDie, pick } from "./rng.js";
 export { CONFIG_NUMERIC, clampConfigNumber, type ConfigNumericKey } from "./configConstraints.js";
-export { previewHpAfterFlatDamage } from "./damage.js";
+export { effectiveMerchantBuyPrice } from "./merchantBuyPrice.js";
+export { equipmentDamageNegate, previewHpAfterFlatDamage } from "./damage.js";
 export {
   effectiveWeaponPiecePower,
   monsterCombatEquipmentAttackBonus,
+  pvpEquipmentDieBonusTotal,
   sipWeaponExtraAttackCosts,
 } from "./weaponPower.js";
 export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
@@ -98,3 +101,4 @@ export {
 export { allCards, getCard, itemDisplayTitle } from "./cards/db.js";
 export type { CardDef, CardChoice, CardKind, Effect } from "./cards/types.js";
 export { monsterEncounterCardPreviewFromState } from "./cards/runtime.js";
+export { shortcutDisplayPantGold } from "./shortcutDisplayCost.js";

@@ -16,6 +16,7 @@ import {
   isLegendariskBurkhjälmName,
   effectiveWeaponPiecePower,
   monsterCombatEquipmentAttackBonus,
+  pvpEquipmentDieBonusTotal,
   sipWeaponExtraAttackCosts,
   monsterLossKlunkTotal,
   monsterEncounterCardPreviewFromState,
@@ -23,6 +24,9 @@ import {
   levelUpCostsForTargetLevel,
   penaltySipTotalForPlayer,
   previewHpAfterFlatDamage,
+  effectiveMerchantBuyPrice,
+  equipmentDamageNegate,
+  findBossTileIndexInLevel,
   type ClientAction,
   type CombatLoseSummary,
   type CombatWinSummary,
@@ -42,6 +46,7 @@ import {
   equipmentInventoryEffectBadges,
   itemInventoryEffectBadge,
   ITEM_EFFECT_BADGE_ICONS,
+  type ItemInventoryBadgeOpts,
 } from "../lib/inventoryEffectBadges";
 import { isGameState } from "../lib/gameTypes";
 import { itemImageSrc } from "../lib/itemImageSrc";
@@ -658,8 +663,27 @@ export function PlayView() {
       if (!cur) acc[groupKey] = { count: 1, firstInstanceId: it.instanceId, itemId: String(it.itemId) };
       else cur.count += 1;
     }
-    return Object.entries(acc).map(([groupKey, v]) => ({ groupKey, ...v }));
+    const rows = Object.entries(acc).map(([groupKey, v]) => ({ groupKey, ...v }));
+    rows.sort((a, b) => {
+      const ta = inventoryGroupSortTier(a.itemId);
+      const tb = inventoryGroupSortTier(b.itemId);
+      if (ta !== tb) return ta - tb;
+      return a.groupKey.localeCompare(b.groupKey);
+    });
+    return rows;
   }, [me]);
+  const itemInvBadgeOpts = useMemo<ItemInventoryBadgeOpts | undefined>(() => {
+    if (!me || !state?.levels?.length) return undefined;
+    return { playerLevelIndex: me.levelIndex, levelCount: state.levels.length };
+  }, [me, state?.levels?.length, me?.levelIndex]);
+  const mobileEquipmentCombatTotals = useMemo(() => {
+    if (!me || state?.phase !== "playing") return null;
+    return {
+      attack: monsterCombatEquipmentAttackBonus(me) + (me.nextCombatModifier ?? 0),
+      shield: equipmentDamageNegate(me),
+      bvb: pvpEquipmentDieBonusTotal(me),
+    };
+  }, [me, state?.phase]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const footerTurnCaption = useMemo(() => {
     if (!state || state.phase !== "playing" || !activeId) return null;
@@ -904,6 +928,20 @@ export function PlayView() {
     });
   const isItemPlayableNow = (itemId: string, target: ItemUseTarget) => {
     if (target === "passive") return false;
+    if (itemId === "healing_potion" || itemId === "pretzel_snack") {
+      if (!me || !state) return false;
+      if (state.phase !== "playing") return false;
+      if (me.eliminated) return false;
+      if (pending?.type === "brewerDown") return false;
+      if (
+        pending?.type === "combat" &&
+        pending.phase === "helpAwaitCard" &&
+        me.id === pending.helpSelectedHelperId
+      ) {
+        return false;
+      }
+      return true;
+    }
     if (itemId === "shortcut" || itemId === "taproom_key") {
       if (!me || !state) return false;
       if (inCombatReactions || inPvpPreRoundItems) return false;
@@ -914,8 +952,8 @@ export function PlayView() {
       const onFinalFloor = levelsLen > 0 && me.levelIndex >= lastIdx;
       let goldCost: number;
       if (onFinalFloor) {
-        const bossIdx = state.levels[lastIdx]?.tiles?.findIndex((x) => x.type === "boss") ?? -1;
-        if (bossIdx < 0 || me.tileIndex === bossIdx) return false;
+        const bossIdx = findBossTileIndexInLevel(state.levels[me.levelIndex]);
+        if (bossIdx < 0) return false;
         goldCost =
           itemId === "taproom_key"
             ? Math.max(0, shortcutItemGoldCostForTargetLevel(me.levelIndex) - 10)
@@ -946,8 +984,10 @@ export function PlayView() {
     }
     if (itemId === "charity") {
       if (!me || !state) return false;
+      if (state.phase !== "playing") return false;
+      if (me.eliminated) return false;
+      if (pending?.type === "brewerDown") return false;
       if (inCombatReactions || inPvpPreRoundItems || inPvpAwaitingRolls) return false;
-      if (!isMyTurn) return false;
       const missingHp = Math.max(0, me.maxHp - me.hp);
       if (missingHp <= 0) return false;
       const donation = Math.min(missingHp, me.gold);
@@ -957,7 +997,26 @@ export function PlayView() {
         pe != null &&
         !(
           (pe.type === "moveChoice" && pe.playerId === me.id) ||
-          (pe.type === "merchant" && pe.playerId === me.id)
+          (pe.type === "merchant" && pe.playerId === me.id) ||
+          (pe.type === "encounterChoice" && pe.moverId === me.id)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    }
+    if (itemId === "shuffle") {
+      if (!me || !state) return false;
+      if (inCombatReactions || inPvpPreRoundItems || inPvpAwaitingRolls) return false;
+      if (!isMyTurn) return false;
+      if (itemPlayGoldCost(itemId) > 0 && me.gold < itemPlayGoldCost(itemId)) return false;
+      const pe = state.pending;
+      if (
+        pe != null &&
+        !(
+          (pe.type === "moveChoice" && pe.playerId === me.id) ||
+          (pe.type === "merchant" && pe.playerId === me.id) ||
+          (pe.type === "encounterChoice" && pe.moverId === me.id)
         )
       ) {
         return false;
@@ -967,6 +1026,18 @@ export function PlayView() {
     if (itemId === "lengraddad" && inCombatReactions) return true;
     if (itemId === "lengraddad" && inPvpPreRoundItems) return true;
     if (itemId === "lengraddad") return false;
+    if (itemId === "early_night") {
+      if (!me || pending?.type !== "combat") return false;
+      if (pending.phase !== "enemyIntro" && pending.phase !== "reactions") return false;
+      return pending.attackerId === me.id;
+    }
+    if (itemId === "bribes") {
+      if (!me || pending?.type !== "combat") return false;
+      if (pending.phase !== "enemyIntro" && pending.phase !== "reactions") return false;
+      if (pending.attackerId !== me.id) return false;
+      const cost = itemPlayGoldCost("bribes");
+      return cost <= 0 || me.gold >= cost;
+    }
     if (itemId === "not_my_round" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemId === "spill_intentional" && inCombatReactions) return isCombatFighterNow || isThirdPartyCombatIntervention;
     if (itemPlayGoldCost(itemId) > 0 && (!me || me.gold < itemPlayGoldCost(itemId))) return false;
@@ -989,8 +1060,8 @@ export function PlayView() {
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
   };
-  const itemCardTone = (itemId: string, target: ItemUseTarget) => {
-    const playable = isItemPlayableNow(itemId, target);
+  const itemCardTone = (itemId: string, target: ItemUseTarget, playableHint?: boolean) => {
+    const playable = playableHint ?? isItemPlayableNow(itemId, target);
     const id = String(itemId);
     const greenPositive = {
       border: "2px solid rgba(74,222,128,0.9)",
@@ -1008,10 +1079,6 @@ export function PlayView() {
       boxShadow: "0 8px 16px rgba(0,0,0,0.28)",
     };
 
-    if (isThirdPartyCombatIntervention) {
-      if (COMBAT_INTERVENE_EVIL_ITEM_IDS.has(id)) return redEvil;
-      if (COMBAT_INTERVENE_GOOD_ITEM_IDS.has(id)) return greenPositive;
-    }
     if (playable) {
       if (PLAYABLE_DEBUFF_ITEM_IDS.has(id)) return redEvil;
       return greenPositive;
@@ -1027,7 +1094,7 @@ export function PlayView() {
     const targetLevelIndex = me.levelIndex + 1;
     const onFinalFloor = levelsLen > 0 && me.levelIndex >= lastIdx;
     if (onFinalFloor) {
-      const bossIdx = state.levels[lastIdx]?.tiles?.findIndex((x) => x.type === "boss") ?? -1;
+      const bossIdx = findBossTileIndexInLevel(state.levels[me.levelIndex]);
       if (bossIdx < 0) {
         return {
           ...base,
@@ -1038,9 +1105,10 @@ export function PlayView() {
         String(itemId) === "taproom_key"
           ? Math.max(0, shortcutItemGoldCostForTargetLevel(me.levelIndex) - 10)
           : shortcutItemGoldCostForTargetLevel(me.levelIndex);
+      const onBoss = me.tileIndex === bossIdx;
       return {
         ...base,
-        text: `${base.text}\nNuvarande kostnad: ${goldCost} pant (gå direkt till slutbossens ruta).`,
+        text: `${base.text}\nNuvarande kostnad: ${goldCost} pant (${onBoss ? "lös slutbossrutan direkt — du står redan på rutan." : "gå direkt till slutbossens ruta."})`,
       };
     }
     if (targetLevelIndex >= levelsLen) {
@@ -1570,8 +1638,13 @@ export function PlayView() {
           (p.nextCombatModifier ?? 0)
         );
       })();
-      const modDisplay =
-        diceModifierBesideDice > 0 ? `+${diceModifierBesideDice}` : String(diceModifierBesideDice);
+      const myWeaponSipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
+      const mySipWeaponChoice = pending.sipWeaponBonusChoice?.[me.id];
+      const mySipWeaponBonusActive = mySipWeaponChoice === true && myWeaponSipBonus > 0;
+      const diceModifierTotal =
+        diceModifierBesideDice + (mySipWeaponBonusActive ? myWeaponSipBonus : 0);
+      const modTotalDisplay =
+        diceModifierTotal > 0 ? `+${diceModifierTotal}` : String(diceModifierTotal);
       const attackDiceDoubledHint =
         pending.assistId != null
           ? me.nextCombatAttackDiceDouble === true
@@ -1637,10 +1710,10 @@ export function PlayView() {
             ) : null}
             <div className={styles.sheetDiceBlock}>
               <div className={styles.sheetDiceRowWithModifier}>
-                {diceModifierBesideDice !== 0 || attackDiceDoubledHint ? (
+                {diceModifierTotal !== 0 || attackDiceDoubledHint ? (
                   <div className={styles.sheetDiceModifierSlot}>
-                    {diceModifierBesideDice !== 0 ? (
-                      <div className={styles.sheetDiceModifierBig}>{modDisplay}</div>
+                    {diceModifierTotal !== 0 ? (
+                      <div className={styles.sheetDiceModifierBig}>{modTotalDisplay}</div>
                     ) : null}
                     {attackDiceDoubledHint ? (
                       <div className={styles.sheetDiceAttackDoubledHint}>{attackDiceDoubledHint}</div>
@@ -1692,13 +1765,14 @@ export function PlayView() {
                   : sv.play.waitTeamSecondRoll}
               </div>
             ) : (() => {
-              const sipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
+              const sipBonus = myWeaponSipBonus;
               const sipPay = sipWeaponExtraAttackCosts(me.equipment.weapon);
               const weaponPow =
                 sipBonus > 0 ? effectiveWeaponPiecePower(me.equipment.weapon, me.gold) : 0;
               const totalWeaponWithSip = weaponPow + sipBonus;
               if (sipBonus > 0) {
                 const cantAffordGold = sipPay.klunks <= 0 && sipPay.gold > 0 && me.gold < sipPay.gold;
+                const sipChoiceMade = mySipWeaponChoice !== undefined;
                 return (
                   <div className={u.stack10}>
                     {isAttacker &&
@@ -1714,37 +1788,66 @@ export function PlayView() {
                         {sv.play.combatHelpRequest}
                       </ArcadeButton>
                     ) : null}
-                    <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
-                      {sv.play.combatSipWeaponPrompt(
-                        me.equipment.weapon?.name ?? "Vapnet",
-                        sipBonus,
-                        sipPay.gold,
-                        sipPay.klunks,
-                        totalWeaponWithSip,
-                      )}
-                    </div>
-                    <ArcadeButton
-                      variant="pink"
-                      fullWidth
-                      onClick={() => {
-                        setCombatDiceSpinning(false);
-                        send({ type: "combatRoll", playerId: me.id, useSipWeaponBonus: true });
-                      }}
-                      disabled={!!myTeamRoll || cantAffordGold}
-                    >
-                      {sv.play.combatSipWeaponRollWith(sipBonus, sipPay.gold, sipPay.klunks, totalWeaponWithSip)}
-                    </ArcadeButton>
-                    <ArcadeButton
-                      variant="gray"
-                      fullWidth
-                      onClick={() => {
-                        setCombatDiceSpinning(false);
-                        send({ type: "combatRoll", playerId: me.id, useSipWeaponBonus: false });
-                      }}
-                      disabled={!!myTeamRoll}
-                    >
-                      {sv.play.combatSipWeaponRollWithout}
-                    </ArcadeButton>
+                    {!sipChoiceMade ? (
+                      <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
+                        {sv.play.combatSipWeaponPrompt(
+                          me.equipment.weapon?.name ?? "Vapnet",
+                          sipBonus,
+                          sipPay.gold,
+                          sipPay.klunks,
+                          totalWeaponWithSip,
+                        )}
+                      </div>
+                    ) : null}
+                    {!sipChoiceMade ? (
+                      <>
+                        <ArcadeButton
+                          variant="pink"
+                          fullWidth
+                          onClick={() =>
+                            send({
+                              type: "combatChooseSipWeaponBonus",
+                              playerId: me.id,
+                              useSipWeaponBonus: true,
+                            })
+                          }
+                          disabled={!!myTeamRoll || cantAffordGold}
+                        >
+                          {sv.play.combatSipWeaponRollWith(
+                            sipBonus,
+                            sipPay.gold,
+                            sipPay.klunks,
+                            totalWeaponWithSip,
+                          )}
+                        </ArcadeButton>
+                        <ArcadeButton
+                          variant="gray"
+                          fullWidth
+                          onClick={() =>
+                            send({
+                              type: "combatChooseSipWeaponBonus",
+                              playerId: me.id,
+                              useSipWeaponBonus: false,
+                            })
+                          }
+                          disabled={!!myTeamRoll}
+                        >
+                          {sv.play.combatSipWeaponRollWithout}
+                        </ArcadeButton>
+                      </>
+                    ) : (
+                      <ArcadeButton
+                        variant="pink"
+                        fullWidth
+                        onClick={() => {
+                          setCombatDiceSpinning(false);
+                          send({ type: "combatRoll", playerId: me.id });
+                        }}
+                        disabled={!!myTeamRoll}
+                      >
+                        {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
+                      </ArcadeButton>
+                    )}
                   </div>
                 );
               }
@@ -2361,7 +2464,8 @@ export function PlayView() {
 
     if (pending?.type === "merchant" && myPending) {
       const requestMerchantBuy = (it: ShopItem) => {
-        if (me.gold < it.price) {
+        const price = effectiveMerchantBuyPrice(me, it.price);
+        if (me.gold < price) {
           showToast(sv.play.merchantCantAfford);
           return;
         }
@@ -2403,6 +2507,11 @@ export function PlayView() {
                   variant="pink"
                   fullWidth
                   onClick={() => {
+                    const pr = effectiveMerchantBuyPrice(me, merchantReplaceItem.price);
+                    if (me.gold < pr) {
+                      showToast(sv.play.merchantCantAfford);
+                      return;
+                    }
                     send({ type: "merchantBuy", playerId: me.id, itemId: merchantReplaceItem.id });
                     setMerchantReplaceItem(null);
                   }}
@@ -2455,7 +2564,8 @@ export function PlayView() {
           <div className={u.stack10}>
             {pending.items.slice(0, 4).map((it) => {
               const effectSummary = formatShopItemEffectSummary(it);
-              const cantAfford = me.gold < it.price;
+              const price = effectiveMerchantBuyPrice(me, it.price);
+              const cantAfford = me.gold < price;
               return (
               <ArcadeButton
                 key={it.id}
@@ -2519,7 +2629,7 @@ export function PlayView() {
                         : {}),
                     }}
                   >
-                    <span style={{ fontWeight: 900, fontSize: 18, lineHeight: 1, opacity: 0.98 }}>{it.price}</span>
+                    <span style={{ fontWeight: 900, fontSize: 18, lineHeight: 1, opacity: 0.98 }}>{price}</span>
                     <StatIcon kind="pant" size={20} />
                   </span>
                 </span>
@@ -2789,6 +2899,8 @@ export function PlayView() {
                 >
                   {inst.itemId === "split_the_g"
                     ? `${p.name} (+${Math.floor((p.gold ?? 0) / 2)} pant)`
+                    : inst.itemId === "shuffle"
+                      ? `${p.name} (${(p.inventory ?? []).length} föremål)`
                     : healingTargetItem && p.id === me.id
                       ? "Använd själv"
                       : p.name}
@@ -3848,6 +3960,56 @@ export function PlayView() {
                           onClick={() => setEquipDetail({ slot: "accessory" })}
                         />
                       </div>
+                      {mobileEquipmentCombatTotals ? (
+                        <div
+                          className={styles.equipmentCombatTotalsRow}
+                          role="group"
+                          aria-label={`${sv.play.equipmentAttackFromGearAria(mobileEquipmentCombatTotals.attack)} · ${sv.play.equipmentDefenseFromGearAria(mobileEquipmentCombatTotals.shield)} · ${sv.play.equipmentBvbFromGearAria(mobileEquipmentCombatTotals.bvb)}`}
+                        >
+                          <div
+                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.attack === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
+                            aria-label={sv.play.equipmentAttackFromGearAria(mobileEquipmentCombatTotals.attack)}
+                          >
+                            <img
+                              className={styles.equipmentCombatTotalIcon}
+                              src="/icons/combat-icon.svg"
+                              alt=""
+                              width={18}
+                              height={18}
+                              draggable={false}
+                            />
+                            <span>{mobileEquipmentCombatTotals.attack}</span>
+                          </div>
+                          <div
+                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.shield === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
+                            aria-label={sv.play.equipmentDefenseFromGearAria(mobileEquipmentCombatTotals.shield)}
+                          >
+                            <img
+                              className={styles.equipmentCombatTotalIcon}
+                              src="/icons/armor-icon.svg"
+                              alt=""
+                              width={18}
+                              height={18}
+                              draggable={false}
+                            />
+                            <span>{mobileEquipmentCombatTotals.shield}</span>
+                          </div>
+                          <div
+                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.bvb === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
+                            aria-label={sv.play.equipmentBvbFromGearAria(mobileEquipmentCombatTotals.bvb)}
+                          >
+                            <img
+                              className={styles.equipmentCombatTotalIcon}
+                              src="/icons/bvb-icon.svg"
+                              alt=""
+                              width={18}
+                              height={18}
+                              draggable={false}
+                            />
+                            <span>{mobileEquipmentCombatTotals.bvb}</span>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className={u.stack8FullMin1}>
@@ -3859,7 +4021,11 @@ export function PlayView() {
                           <div className={styles.equipmentGrid}>
                             {groupedInventoryEntries.map((info) => {
                               const itemId = info.itemId;
-                              const tone = itemCardTone(itemId, itemMetaForView(itemId).target);
+                              const itemMeta = itemMetaForView(itemId);
+                              const invPlayable = isItemPlayableNow(itemId, itemMeta.target);
+                              const tone = itemCardTone(itemId, itemMeta.target, invPlayable);
+                              const dimThirdPartyUnplayable =
+                                isThirdPartyCombatIntervention && !invPlayable;
                               const iflash = itemFlash[itemId] ?? null;
                               const iflashKey = itemFlashKey[itemId] ?? 0;
                               const invInst =
@@ -3883,7 +4049,7 @@ export function PlayView() {
                                     }
                                     setItemDetail({ instanceId: info.firstInstanceId });
                                   }}
-                                  aria-label={itemMetaForView(itemId).title}
+                                  aria-label={itemMeta.title}
                                   style={{
                                     width: "100%",
                                     aspectRatio: "1 / 1",
@@ -3899,6 +4065,8 @@ export function PlayView() {
                                     cursor: "pointer",
                                     display: "flex",
                                     flexDirection: "column",
+                                    opacity: dimThirdPartyUnplayable ? 0.42 : 1,
+                                    filter: dimThirdPartyUnplayable ? "grayscale(0.22)" : undefined,
                                   }}
                                 >
                                   <div
@@ -3965,9 +4133,9 @@ export function PlayView() {
                                             <span
                                               style={{
                                                 position: "absolute",
-                                                top: 2,
-                                                right: 2,
-                                                minWidth: 20,
+                                                bottom: 2,
+                                                left: 2,
+                                                minWidth: 24,
                                                 minHeight: 20,
                                                 borderRadius: 999,
                                                 border: "1px solid #ffffff55",
@@ -3981,9 +4149,10 @@ export function PlayView() {
                                                 lineHeight: 1,
                                               }}
                                             >
-                                              {info.count}
+                                              x{info.count}
                                             </span>
                                           ) : null}
+                                          <ItemInventoryAttackCorner itemId={itemId} instance={invInst} />
                                           <div
                                             style={{
                                               position: "absolute",
@@ -3995,7 +4164,11 @@ export function PlayView() {
                                               gap: 2,
                                             }}
                                           >
-                                            <ItemInventoryEffectBadge itemId={itemId} instance={invInst} />
+                                            <ItemInventoryEffectBadge
+                                              itemId={itemId}
+                                              instance={invInst}
+                                              opts={itemInvBadgeOpts}
+                                            />
                                             <ItemInventoryCostBadge itemId={itemId} />
                                           </div>
                                         </div>
@@ -4473,6 +4646,23 @@ export function PlayView() {
                       {catalogRow.rulesText}
                     </div>
                   ) : null}
+                  {pieceName === "Plastback" && isMyTurn ? (
+                    <ArcadeButton
+                      variant="pink"
+                      fullWidth
+                      onClick={() => {
+                        send({ type: "sellAccessory", playerId: me.id });
+                        setEquipDetail(null);
+                      }}
+                    >
+                      {sv.play.sellPlastbackAccessory(
+                        me.equipment.weapon?.name === "Tom flaska" &&
+                          typeof me.equipment.weapon?.breakWinsRemaining === "number"
+                          ? me.equipment.weapon.breakWinsRemaining
+                          : 0,
+                      )}
+                    </ArcadeButton>
+                  ) : null}
                 </>
               )}
             </div>
@@ -4490,7 +4680,15 @@ export function PlayView() {
             onClose={() => setItemDetail(null)}
             instantFront
             hideClose
-            headerRight={inst ? <ItemModalEffectBadge itemId={inst.itemId} instance={inst} /> : undefined}
+            headerRight={
+              inst ? (
+                <ItemModalEffectBadge
+                  itemId={inst.itemId}
+                  instance={inst}
+                  opts={itemInvBadgeOpts}
+                />
+              ) : undefined
+            }
             titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
           >
             {!inst ? (
@@ -4918,6 +5116,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   yeast_sabotage: "combat",
   beer_bro: "combat_bro",
   split_the_g: "other",
+  shuffle: "other",
   lengraddad: "other",
   canman: "passive",
   not_my_round: "other",
@@ -4947,7 +5146,7 @@ const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([
   "spill_intentional",
 ]);
 
-/** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`). */
+/** Ingripandekort i andras strider — röd/grön ton i inventory (PlayView `itemCardTone`, baserat på faktisk spelbarhet). */
 const COMBAT_INTERVENE_EVIL_ITEM_IDS = new Set<string>([
   "weak_beer",
   "tripwire",
@@ -4968,6 +5167,12 @@ const COMBAT_INTERVENE_GOOD_ITEM_IDS = new Set<string>([
   "get_lucky",
   "beer_bro",
 ]);
+
+function inventoryGroupSortTier(itemId: string): number {
+  if (COMBAT_INTERVENE_GOOD_ITEM_IDS.has(itemId)) return 0;
+  if (COMBAT_INTERVENE_EVIL_ITEM_IDS.has(itemId)) return 1;
+  return 2;
+}
 /** Spelbara kort som primärt är debuff/sabotage ska få röd ton i inventory. */
 const PLAYABLE_DEBUFF_ITEM_IDS = new Set<string>([
   "weak_beer",
@@ -5126,11 +5331,65 @@ const ITEM_MODAL_TITLE_STYLE: CSSProperties = {
 };
 
 /** Rubrik höger i föremålsmodal: samma data som inventory-brickan, större och i rad. */
-function ItemModalEffectBadge({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
-  const b = itemInventoryEffectBadge(itemId, instance);
+function ItemModalEffectBadge({
+  itemId,
+  instance,
+  opts,
+}: {
+  itemId: string;
+  instance?: ItemInstance | null;
+  opts?: ItemInventoryBadgeOpts;
+}) {
+  const b = itemInventoryEffectBadge(itemId, instance, opts);
   if (!b) return null;
-  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
   const danger = b.labelTone === "danger";
+  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  if (b.iconAfter) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 10px",
+          borderRadius: 12,
+          background: "rgba(11,18,38,0.88)",
+          border: danger ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(255,255,255,0.22)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 900,
+            fontVariantNumeric: "tabular-nums",
+            color: danger ? "#fca5a5" : "#f8fafc",
+            textShadow: danger ? "0 0 10px rgba(248,113,113,0.5)" : undefined,
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {b.label}
+        </span>
+        <img
+          src={src}
+          alt=""
+          width={20}
+          height={20}
+          draggable={false}
+          style={{
+            display: "block",
+            objectFit: "contain",
+            filter: danger
+              ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
+              : "brightness(0) invert(1)",
+          }}
+        />
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden
@@ -5251,11 +5510,113 @@ function EquipmentModalEffectBadge(props: {
   );
 }
 
-function ItemInventoryEffectBadge({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
+/** Attack-effekt på föremålsbricka: stor färgkodad text med outline, utan ikon/bakgrund (övre vänster). */
+function ItemInventoryAttackCorner({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
   const b = itemInventoryEffectBadge(itemId, instance);
-  if (!b) return null;
-  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  if (!b || b.icon !== "attack") return null;
+  const raw = b.label.trim();
+  const isNegative =
+    b.labelTone === "danger" || /^[\u2212-]/.test(raw) || raw.startsWith("−");
+  const isPositive = raw.startsWith("+") || (raw.startsWith("×") && raw.length > 1);
+  const fill = isNegative ? "#f87171" : isPositive ? "#4ade80" : "#f1f5f9";
+  const outlineDirs: [number, number][] = [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ];
+  const outline = [1, 2, 3]
+    .flatMap((r) => outlineDirs.map(([dx, dy]) => `${dx * r}px ${dy * r}px 0 #0a0a12`))
+    .join(", ");
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        top: 4,
+        left: 4,
+        zIndex: 3,
+        fontFamily: "var(--sans), system-ui, sans-serif",
+        fontSize: "clamp(16px, 5vw, 24px)",
+        fontWeight: 900,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1,
+        letterSpacing: "-0.03em",
+        color: fill,
+        textShadow: outline,
+        pointerEvents: "none",
+      }}
+    >
+      {b.label}
+    </span>
+  );
+}
+
+function ItemInventoryEffectBadge({
+  itemId,
+  instance,
+  opts,
+}: {
+  itemId: string;
+  instance?: ItemInstance | null;
+  opts?: ItemInventoryBadgeOpts;
+}) {
+  const b = itemInventoryEffectBadge(itemId, instance, opts);
+  if (!b || b.icon === "attack") return null;
   const danger = b.labelTone === "danger";
+  const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
+  if (b.iconAfter) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "clamp(2px, 0.55vw, 3px)",
+          padding: "clamp(2px, 0.55vw, 3px) clamp(4px, 1.15vw, 5px)",
+          borderRadius: 999,
+          background: "rgba(11,18,38,0.92)",
+          border: danger ? "1px solid rgba(248,113,113,0.42)" : "1px solid rgba(255,255,255,0.2)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
+          pointerEvents: "none",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "clamp(10px, 2.8vw, 11px)",
+            fontWeight: 900,
+            fontVariantNumeric: "tabular-nums",
+            color: danger ? "#fca5a5" : "#f8fafc",
+            textShadow: danger ? "0 0 6px rgba(248,113,113,0.45)" : undefined,
+            lineHeight: 1,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {b.label}
+        </span>
+        <img
+          src={src}
+          alt=""
+          width={14}
+          height={14}
+          draggable={false}
+          style={{
+            display: "block",
+            width: "clamp(12px, 3.4vw, 15px)",
+            height: "clamp(12px, 3.4vw, 15px)",
+            objectFit: "contain",
+            filter: danger
+              ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
+              : "brightness(0) invert(1)",
+          }}
+        />
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden
@@ -5333,6 +5694,19 @@ function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
         pointerEvents: "none",
       }}
     >
+      <span
+        style={{
+          fontSize: "clamp(10px, 2.8vw, 11px)",
+          fontWeight: 900,
+          fontVariantNumeric: "tabular-nums",
+          color: "#fca5a5",
+          textShadow: "0 0 6px rgba(248,113,113,0.45)",
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        -{cost}
+      </span>
       <img
         src={src}
         alt=""
@@ -5347,19 +5721,6 @@ function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
           filter: "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))",
         }}
       />
-      <span
-        style={{
-          fontSize: "clamp(10px, 2.8vw, 11px)",
-          fontWeight: 900,
-          fontVariantNumeric: "tabular-nums",
-          color: "#fca5a5",
-          textShadow: "0 0 6px rgba(248,113,113,0.45)",
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-        }}
-      >
-        -{cost}
-      </span>
     </span>
   );
 }

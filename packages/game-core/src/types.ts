@@ -43,7 +43,8 @@ export type ItemId =
   | "rigged_game"
   | "bribes"
   | "paidassasin"
-  | "charity";
+  | "charity"
+  | "shuffle";
 
 export interface ItemInstance {
   instanceId: string;
@@ -74,6 +75,11 @@ export interface Weapon {
   randomOtherDamageOnWin?: number;
   /** If true: weapon breaks and is removed after a win. */
   breakOnWin?: boolean;
+  /**
+   * Antal kvarvarande monsterstridsvinster innan vapnet tas bort när {@link breakOnWin} är sant.
+   * Sätts t.ex. till 6 för Tom flaska + Plastback; om `undefined` räknas som 1 vinst.
+   */
+  breakWinsRemaining?: number;
   /** Minskar bas-antalet straffklunkar vid förlust mot monster (per enhet, ej under 0 totalt före hjälm/tillbehör-extra). */
   monsterLossSipReduction?: number;
 }
@@ -147,6 +153,8 @@ export interface Accessory {
   ignoreCombatCritFailOnOne?: boolean;
   /** Om satt: när spelaren dör kan den betala pantkostnaden för att fortsätta med fullt liv. */
   deathContinueCost?: number;
+  /** Rabatt i pant på alla varor i Panta burkar (golv 1 pant per rad). */
+  merchantDiscountGold?: number;
 }
 
 export interface Equipment {
@@ -190,6 +198,7 @@ export interface ShopItem {
   powerDynamicMax?: number;
   randomOtherDamageOnWin?: number;
   breakOnWin?: boolean;
+  breakWinsRemaining?: number;
   monsterLossSipReduction?: number;
   /** rustning */
   bonusHp?: number;
@@ -213,6 +222,7 @@ export interface ShopItem {
   canSkipMonsterEncounter?: boolean;
   ignoreCombatCritFailOnOne?: boolean;
   deathContinueCost?: number;
+  merchantDiscountGold?: number;
   healAmount?: number;
   goldAmount?: number;
   /** Kort smaktext / särregler för UI (affär, inventarie). */
@@ -258,8 +268,8 @@ export interface CombatLoseSummary {
   assistRollNote?: string;
   redirectNote?: string;
   lostEquipmentName?: string;
-  /** Stoorn (imperial_dragon_stout): granne på brädet tog 1 skada. */
-  imperialAdjacentSplash?: boolean;
+  /** Stoorn (imperial_dragon_stout): övriga spelare på samma våning tog 1 skada vardera vid förlust. */
+  imperialSameLevelSplash?: boolean;
   /** Mobil-toast för ölkompis när angriparen stänger förlustkortet. */
   assistPartnerImpact?: { playerId: string; hpLost: number; klunksGained: number };
   /** Mobil-toast för stridshjälpare (samma ögonblick). */
@@ -273,6 +283,11 @@ export type PenaltySipQueueEntry = {
   recipientId: string;
   klunkCount: number;
   fromPlayerName: string;
+  /** Egen rubrik i sip-modalen (annars "Straffklunk"). */
+  noticeTitle?: string;
+  /** Egen brödtext; om satt används {@link pushPlayerNotice} vid flush (t.ex. vapen-klunk före slag). */
+  noticeBody?: string;
+  noticeKind?: "custom" | "duel_loss";
 };
 
 export type Pending =
@@ -436,6 +451,13 @@ export type Pending =
       assistId?: string;
       /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6. Med två slag: auto-förlust bara om båda är 1. */
       teamRolls?: Partial<Record<string, { die: number; total: number; attackDiceDoubled?: boolean }>>;
+      /**
+       * Reactions: val om vapen-sipbonus (pant/klunk) ska användas på nästa t6 — måste sättas innan `combatRoll` om vapnet har `sipAttackBonus`.
+       * Bakåtkompat: klient kan fortfarande skicka `useSipWeaponBonus` på `combatRoll` om fältet saknas.
+       */
+      sipWeaponBonusChoice?: Partial<Record<string, boolean>>;
+      /** Reactions: köade straffklunk-notiser för vapen-klunk (Ölsejdel) — flyttas till `previewDeferredSipWeaponPenalties` vid rollPreview. */
+      weaponSipDeferredPenalties?: PenaltySipQueueEntry[];
       reactors: string[];
       reacted: Partial<Record<string, "pass" | "intervened">>;
       /** Epoch ms när reaktionsfönstret stänger (server-auktoritativ timeout). */
@@ -465,6 +487,8 @@ export type Pending =
       previewUsedSipWeaponBonus?: boolean;
       /** Attackbonus från den valfria klunken (2/3). */
       previewSipWeaponBonusValue?: number;
+      /** Straffklunk(ar) från vapen-klunk — visas via `queuedPenaltySipNotices` efter vinst/förlust-kort (Fortsätt). */
+      previewDeferredSipWeaponPenalties?: PenaltySipQueueEntry[];
       /** Hjälp-funktion: möjliga spelare som kan hjälpa med positivt kort. */
       helpCandidateIds?: string[];
       /** Hjälp-funktion: vald hjälpare för aktuell förfrågan. */
@@ -515,6 +539,13 @@ export interface PlayerSessionStats {
    * utan mottagande spelare m.m.) — inte ren överföring till annan spelares plånbok.
    */
   goldSpent: number;
+  /** Kumulativt antal klunkar som tilldelats spelaren under partiet (påverkas inte av «starta om»). */
+  totalKlunksGained: number;
+  /**
+   * Kumulativ HP som förlorats till skada (strid, kort m.m. efter rustningsreduktion där `applyDamage` används;
+   * ren «ignorera rustning»-kortskada ingår också). Ökar inte vid maxHp-justeringar som bara klampar HP.
+   */
+  totalHpLost: number;
 }
 
 export interface Player {
@@ -680,7 +711,9 @@ export type ClientAction =
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
-  /** `useSipWeaponBonus`: vid vapen med sipAttackBonus måste anges (true = betala pant/klunk och få +sipAttackBonus på slaget). */
+  /** Valt innan `combatRoll` när vapnet har `sipAttackBonus` (mobil tvåsteg + bord). */
+  | { type: "combatChooseSipWeaponBonus"; playerId: string; useSipWeaponBonus: boolean }
+  /** `useSipWeaponBonus`: bakåtkompat; annars läses val från `pending.sipWeaponBonusChoice`. */
   | { type: "combatRoll"; playerId: string; useSipWeaponBonus?: boolean }
   | { type: "skipMonsterEncounter"; playerId: string }
   | { type: "combatIntroAck"; playerId: string }
@@ -698,7 +731,9 @@ export type ClientAction =
   | { type: "combatHelpRequesterDecision"; playerId: string; accept: boolean }
   | { type: "sipNoticeAck"; playerId: string }
   | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" | "insuredContinue" }
-  | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean };
+  | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean }
+  /** Sälj tillbehöret Plastback (pant = kvarvarande Tom flaska-vinster om synergi). */
+  | { type: "sellAccessory"; playerId: string };
 
 export interface ApplyResult {
   state: GameState;

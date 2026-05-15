@@ -509,12 +509,27 @@ function TableCombatBoardPanelInner(props: {
       : attackDiceDoubledCount === 1
         ? "2 x tärningsslag"
         : `2 x tärningsslag (x${attackDiceDoubledCount})`;
-  const sipWeaponTakenBonus =
+  const sipWeaponTakenBonusFromPreview =
     (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
     pending.previewUsedSipWeaponBonus === true &&
     typeof pending.previewSipWeaponBonusValue === "number"
       ? pending.previewSipWeaponBonusValue
       : null;
+  const sipWeaponTakenBonusFromReactions =
+    pending.phase === "reactions"
+      ? (() => {
+          const ids = pending.assistId ? [pending.attackerId, pending.assistId] : [pending.attackerId];
+          let sum = 0;
+          for (const id of ids) {
+            if (pending.sipWeaponBonusChoice?.[id] !== true) continue;
+            const pl = modifierState.players.find((x) => x.id === id);
+            const b = pl?.equipment.weapon?.sipAttackBonus ?? 0;
+            if (b > 0) sum += b;
+          }
+          return sum > 0 ? sum : null;
+        })()
+      : null;
+  const sipWeaponTakenBonus = sipWeaponTakenBonusFromPreview ?? sipWeaponTakenBonusFromReactions;
   const monsterCardWrapTransform = hold
     ? "translateX(0) rotate(0deg)"
     : monsterTableAnim === "intro"

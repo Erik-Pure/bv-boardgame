@@ -46,3 +46,16 @@ export function monsterCombatEquipmentAttackBonus(p: Player): number {
     (p.equipment.accessory?.combatBonus ?? 0)
   );
 }
+
+/**
+ * BvB-tärning: summa av `pvpDieBonus` på vapen, rustning, hjälm och tillbehör (samma som tidigare `pvpRollStrengthBonus` i motorn).
+ */
+export function pvpEquipmentDieBonusTotal(p: Player): number {
+  const e = p.equipment;
+  return (
+    (e.weapon?.pvpDieBonus ?? 0) +
+    (e.armor?.pvpDieBonus ?? 0) +
+    (e.helmet?.pvpDieBonus ?? 0) +
+    (e.accessory?.pvpDieBonus ?? 0)
+  );
+}

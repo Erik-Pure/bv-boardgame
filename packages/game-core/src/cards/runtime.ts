@@ -15,6 +15,7 @@ import type {
 } from "../types.js";
 import { grantKlunkWithXp } from "../klunkGrant.js";
 import { recordPantSpent } from "../sessionStats.js";
+import { beginCombatReactionsPhase } from "../combatReactionAutopass.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import { rollDie } from "../rng.js";
 import {
@@ -86,6 +87,7 @@ function startLevelDifficultyNeedMod(
 export function createFinalBossCombatPending(
   state: GameState,
   attacker: Player,
+  opts?: { skipEnemyIntro?: boolean; log?: LogFn },
 ): Extract<Pending, { type: "combat" }> | null {
   const id = state.finalBossMonsterId;
   if (!id) return null;
@@ -94,10 +96,17 @@ export function createFinalBossCombatPending(
   const soloMonster: MonsterDef = { ...monster, teamBattleRequired: false, teamBattleBonusGold: 0 };
   const base = createMonsterCombatPending(state, attacker, soloMonster);
   const tag = finalBossCardTagline(id);
-  return {
+  const pending: Extract<Pending, { type: "combat" }> = {
     ...base,
     enemyIntroText: tag ?? base.enemyIntroText,
   };
+  if (opts?.skipEnemyIntro) {
+    beginCombatReactionsPhase(state, pending);
+    if (opts.log && (pending.reactors?.length ?? 0) > 0) {
+      opts.log(state, `Strid: andra kan spela föremål innan slaget.`);
+    }
+  }
+  return pending;
 }
 
 /** Samma styrka/skada/vinst som {@link createMonsterCombatPending} — för monsterkort-modal (t.ex. Demonkrigare). */
@@ -721,7 +730,7 @@ export function handleCardConfirm(params: {
   if (pending.kind === "combat" && pending.cardId === "boss_round_win") {
     const attacker = state.players.find((x) => x.id === pending.playerId);
     if (!attacker) return { handled: true };
-    const start = createFinalBossCombatPending(state, attacker);
+    const start = createFinalBossCombatPending(state, attacker, { skipEnemyIntro: true, log });
     if (!start) return { handled: true };
     log(state, `${attacker.name} går in i nästa runda mot slutbossen.`);
     return { handled: true, startCombat: start };

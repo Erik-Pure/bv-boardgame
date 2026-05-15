@@ -1,4 +1,4 @@
-import { generateLevels } from "./board.js";
+import { findBossTileIndexInLevel, generateLevels } from "./board.js";
 import { brewerLevelFromXp, xpThresholdForBrewerLevel } from "./brewerXp.js";
 import { createRng, fnv1a32, pick, rollDie, stableStringify } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
@@ -29,15 +29,33 @@ import {
   createFinalBossCombatPending,
 } from "./cards/runtime.js";
 import { applyDamage, moveBonusSteps } from "./damage.js";
-import { monsterCombatEquipmentAttackBonus, sipWeaponExtraAttackCosts } from "./weaponPower.js";
+import {
+  monsterCombatEquipmentAttackBonus,
+  pvpEquipmentDieBonusTotal,
+  sipWeaponExtraAttackCosts,
+} from "./weaponPower.js";
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import { grantKlunkWithXp } from "./klunkGrant.js";
-import { flushPenaltySipQueue, mergePenaltySipQueue, pushPlayerNotice, pushSipNotice } from "./sipNotice.js";
+import { effectiveMerchantBuyPrice } from "./merchantBuyPrice.js";
+import { PLASTBACK_ACCESSORY_NAME, syncPlastbackEmptyBottleSynergy, TOM_FLASKA_WEAPON_NAME } from "./plastbackSynergy.js";
+import {
+  flushPenaltySipQueue,
+  mergePenaltySipQueue,
+  pushPlayerNotice,
+  pushSipNotice,
+  weaponBoostPenaltySipNoticeBody,
+} from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
+import {
+  autoPassReactorsWithoutPlayableItems,
+  beginCombatReactionsPhase,
+  itemPlayGoldCost,
+  playerHasCombatReactionPlayableItem,
+} from "./combatReactionAutopass.js";
 import type {
   Accessory,
   ApplyResult,
@@ -62,6 +80,7 @@ import { CONFIG_NUMERIC, clampConfigNumber } from "./configConstraints.js";
 import {
   bumpKnockdown,
   DEFAULT_PLAYER_SESSION_STATS,
+  ensurePlayerStats,
   recordHelpedCombatWin,
   recordItemConsumed,
   recordMonsterCombatDiceRoll,
@@ -75,39 +94,6 @@ import {
 const MAX_PLAYERS = 8;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
-const DEFAULT_COMBAT_REACTION_TIMEOUT_MS = CONFIG_NUMERIC.reactionSeconds.default * 1000;
-const COMBAT_REACTION_PLAYABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
-  "weak_beer",
-  "light_beer",
-  "folk_beer",
-  "tripwire",
-  "double_hops",
-  "beer_bomb",
-  "manopositiv",
-  "hangover",
-  "monster_hype",
-  "yeast_sabotage",
-  "beer_bro",
-  "lengraddad",
-  "not_my_round",
-  "spill_intentional",
-  "get_lucky",
-  "paidassasin",
-]);
-const ITEM_PLAY_GOLD_COST: Partial<Record<ItemId, number>> = {
-  six_sense: 5,
-  get_lucky: 5,
-  manopositiv: 10,
-  beard_back: 5,
-  rigged_game: 5,
-  spill_intentional: 2,
-  bribes: 10,
-  paidassasin: 15,
-};
-
-function itemPlayGoldCost(itemId: ItemId): number {
-  return Math.max(0, Math.floor(ITEM_PLAY_GOLD_COST[itemId] ?? 0));
-}
 const PLAYER_COLORS = [
   "#c41e3a",
   "#2563eb",
@@ -204,12 +190,6 @@ function rollD6WithOptionalSixSense(player: Player, rng: () => number): { die: n
   return { die: rollDie(rng, 6), forced: false };
 }
 
-function combatReactionTimeoutMs(config: GameState["config"]): number {
-  const sec = Number(config.reactionSeconds);
-  if (!Number.isFinite(sec)) return DEFAULT_COMBAT_REACTION_TIMEOUT_MS;
-  return clampConfigNumber("reactionSeconds", sec) * 1000;
-}
-
 /** Bräd-tv: lägg till spelat föremål (solfjäder tills rensning). */
 function appendTableItemPlayReveal(
   next: GameState,
@@ -290,6 +270,9 @@ const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
 
 /** Under `awaitingRolls`: bara dessa (utöver att vara duellant). Övriga BvB-föremål spelas i förberedelsefasen. */
 const PVP_ROLL_PHASE_ITEM_IDS: ReadonlySet<ItemId> = new Set(["six_sense", "beard_back", "spill_intentional"]);
+
+/** Helande föremål som får spelas utan tur (ej under stupad bryggare / strid / BvB där charity blockeras nedan). */
+const HEALING_ANYTIME_ITEM_IDS: ReadonlySet<ItemId> = new Set(["healing_potion", "pretzel_snack", "charity"]);
 
 function playerHasPvpPreRoundItem(player: Player): boolean {
   return (player.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
@@ -518,6 +501,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       powerDynamicMax: item.powerDynamicMax,
       randomOtherDamageOnWin: item.randomOtherDamageOnWin,
       breakOnWin: item.breakOnWin,
+      breakWinsRemaining: item.breakWinsRemaining,
       monsterLossSipReduction: item.monsterLossSipReduction,
     };
   } else if (item.slot === "armor") {
@@ -569,8 +553,10 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       pvpDieBonus: item.pvpDieBonus,
       ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
       deathContinueCost: item.deathContinueCost,
+      merchantDiscountGold: item.merchantDiscountGold,
     };
   }
+  syncPlastbackEmptyBottleSynergy(p);
 }
 
 /** Kopiera inkommen pjäs (stöld/PvP) till slot utan affär-/hels-specialfall */
@@ -594,6 +580,7 @@ function assignEquipmentPieceFromLoot(
   } else {
     p.equipment.accessory = { ...(piece as Accessory) };
   }
+  syncPlastbackEmptyBottleSynergy(p);
 }
 
 function cloneEquipmentIncomingPiece(
@@ -621,17 +608,6 @@ function weaponPower(p: Player): number {
   return monsterCombatEquipmentAttackBonus(p);
 }
 
-/** BvB-tärning: endast utrustningsdelars `pvpDieBonus` (vapen, rustning, hjälm, tillbehör) — inga vanliga monster-attribut. */
-function pvpRollStrengthBonus(p: Player): number {
-  const e = p.equipment;
-  return (
-    (e.weapon?.pvpDieBonus ?? 0) +
-    (e.armor?.pvpDieBonus ?? 0) +
-    (e.helmet?.pvpDieBonus ?? 0) +
-    (e.accessory?.pvpDieBonus ?? 0)
-  );
-}
-
 function applyWeaponWinGoldBonus(winner: Player): number {
   const bonus = winner.equipment.weapon?.gainGoldOnWin ?? 0;
   if (bonus <= 0) return 0;
@@ -643,6 +619,12 @@ function breakWeaponAfterWin(winner: Player): string | null {
   const w = winner.equipment.weapon;
   if (!w?.breakOnWin) return null;
   const name = w.name;
+  if (w.breakWinsRemaining != null) {
+    w.breakWinsRemaining -= 1;
+    if (w.breakWinsRemaining > 0) return null;
+    winner.equipment.weapon = undefined;
+    return name;
+  }
   winner.equipment.weapon = undefined;
   return name;
 }
@@ -708,24 +690,21 @@ function isAfter2030(now = new Date()): boolean {
   return h > 20 || (h === 20 && m >= 30);
 }
 
-function applyAdjacentSplashDamage(state: GameState, attacker: Player, dmg: number): boolean {
-  const level = state.levels[attacker.levelIndex];
-  if (!level) return false;
-  const n = level.tiles.length;
-  const left = (attacker.tileIndex - 1 + n) % n;
-  const right = (attacker.tileIndex + 1) % n;
-  const adj = state.players.filter(
-    (p) =>
-      p.id !== attacker.id &&
-      p.levelIndex === attacker.levelIndex &&
-      (p.tileIndex === left || p.tileIndex === right),
+/** Stoorn (imperial_dragon_stout): vid monsterförlust tar övriga spelare på samma våning 1 skada vardera. */
+function applySameLevelSplashDamage(state: GameState, loser: Player, dmg: number): boolean {
+  const targets = state.players.filter(
+    (pl) =>
+      pl.id !== loser.id &&
+      pl.levelIndex === loser.levelIndex &&
+      !pl.eliminated &&
+      !pl.leftVoluntarily,
   );
-  for (const p of adj) {
-    const before = p.hp;
-    applyDamage({ state, player: p, amount: dmg, log });
-    log(state, `${p.name} hamnar i stänket (HP ${before} → ${p.hp}).`);
+  for (const pl of targets) {
+    const before = pl.hp;
+    applyDamage({ state, player: pl, amount: dmg, log });
+    log(state, `${pl.name} drabbas av Stoorns stänk på samma våning (HP ${before} → ${pl.hp}).`);
   }
-  return adj.length > 0;
+  return targets.length > 0;
 }
 
 function removeRandomEquipment(p: Player, rng: () => number, baseMaxHp: number): string | null {
@@ -776,20 +755,24 @@ const START_COMBAT_DEBUFF_ITEM_IDS: ItemId[] = [
   "lengraddad",
 ];
 
+function grantStartingCombatItemsForPlayer(state: GameState, player: Player, rng: () => number): void {
+  const buffId = pick(rng, START_COMBAT_BUFF_ITEM_IDS);
+  const debuffId = pick(rng, START_COMBAT_DEBUFF_ITEM_IDS);
+  player.inventory ??= [];
+  player.inventory.push(createItemInstance(buffId, newItemInstanceId(rng)));
+  player.inventory.push(createItemInstance(debuffId, newItemInstanceId(rng)));
+  log(
+    state,
+    `${player.name} får startföremål: ${itemDisplayTitle(buffId)} (+ i strid) och ${itemDisplayTitle(debuffId)} (− i strid).`,
+  );
+}
+
 function grantStartingCombatItems(state: GameState, seed: number): void {
   let i = 0;
   for (const p of state.players) {
     const rng = createRng(seed ^ (0x5f3759df + i * 0x9e3779b9));
     i += 1;
-    const buffId = pick(rng, START_COMBAT_BUFF_ITEM_IDS);
-    const debuffId = pick(rng, START_COMBAT_DEBUFF_ITEM_IDS);
-    p.inventory ??= [];
-    p.inventory.push(createItemInstance(buffId, newItemInstanceId(rng)));
-    p.inventory.push(createItemInstance(debuffId, newItemInstanceId(rng)));
-    log(
-      state,
-      `${p.name} får startföremål: ${itemDisplayTitle(buffId)} (+ i strid) och ${itemDisplayTitle(debuffId)} (− i strid).`,
-    );
+    grantStartingCombatItemsForPlayer(state, p, rng);
   }
 }
 
@@ -859,6 +842,7 @@ function grantRandomCombatReward(
             breakOnWin: eq.breakOnWin,
             monsterLossSipReduction: eq.monsterLossSipReduction,
           };
+          syncPlastbackEmptyBottleSynergy(player);
         } else if (slot === "armor") {
           player.equipment.armor = {
             name: eq.name,
@@ -874,6 +858,7 @@ function grantRandomCombatReward(
           };
           player.maxHp = maxHpFor(state, player);
           player.hp = Math.min(player.hp, player.maxHp);
+          syncPlastbackEmptyBottleSynergy(player);
         } else if (slot === "helmet") {
           player.equipment.helmet = {
             name: eq.name,
@@ -890,6 +875,7 @@ function grantRandomCombatReward(
           };
           player.maxHp = maxHpFor(state, player);
           player.hp = Math.min(player.hp, player.maxHp);
+          syncPlastbackEmptyBottleSynergy(player);
         } else {
           player.equipment.accessory = {
             name: eq.name,
@@ -906,7 +892,9 @@ function grantRandomCombatReward(
             pvpDieBonus: eq.pvpDieBonus,
             ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
             deathContinueCost: eq.deathContinueCost,
+            merchantDiscountGold: eq.merchantDiscountGold,
           };
+          syncPlastbackEmptyBottleSynergy(player);
         }
         log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
         return eq.name;
@@ -1116,6 +1104,10 @@ function applyCombatLoss(
     critFailOnOne?: boolean;
     /** Pip-vapen: valfri straffklunk togs före tärningsslaget. */
     weaponSipBeforeRoll?: boolean;
+    /** Klunk(ar) som redan tilldelats för vapen-sip (visas separat på förlustkortet). */
+    weaponSipKlunkCost?: number;
+    /** Straffklunk-notiser (vapen-klunk) efter att förlustkortet bekräftats. */
+    queuedPenaltySipNotices?: PenaltySipQueueEntry[];
     /** Get Lucky: spelare med dubbel HP-skada vid förlust i denna strid. */
     getLuckyRiskPlayerIds?: string[];
   },
@@ -1257,8 +1249,8 @@ function applyCombatLoss(
       log(next, `${p.name} tappar ett slumpmässigt utrustat föremål: ${lost}.`);
     }
   }
-  const imperialAdjacentSplash =
-    monsterId === "imperial_dragon_stout" ? applyAdjacentSplashDamage(next, p, 1) : false;
+  const imperialSameLevelSplash =
+    monsterId === "imperial_dragon_stout" ? applySameLevelSplashDamage(next, p, 1) : false;
 
   if (monsterId === "demonkrigare") {
     const candidates = next.players.filter((pl) => pl.id !== p.id && !pl.eliminated && pl.hp > 0);
@@ -1308,13 +1300,16 @@ function applyCombatLoss(
       : `${p.name} förlorar striden (slag ${pr}<${need}).`,
   );
   const damageTaken = before - p.hp;
-  const klunkGained = p.klunkar - beforeSips;
+  const totalKlunkDelta = p.klunkar - beforeSips;
+  const weaponSipCost = Math.max(0, Math.floor(ctx.weaponSipKlunkCost ?? 0));
+  const klunkGained = Math.max(0, totalKlunkDelta - weaponSipCost);
   showCard(next, {
     playerId: p.id,
     kind: "combat",
     cardId: "combat_lose",
     title: tile.type === "boss" ? `Boss: ${tile.bossName ?? "Okänd"}` : "Dålig batch",
     text: "",
+    queuedPenaltySipNotices: ctx.queuedPenaltySipNotices,
     combatLoss: {
       playerName: p.name,
       enemyName: ctx.enemyName,
@@ -1324,14 +1319,14 @@ function applyCombatLoss(
       blockedDamage: redirectedTargetName ? 0 : attackerBlockedDamage,
       damage: damageTaken,
       klunkGained,
-      straffKlunkFromWeaponSip: undefined,
+      straffKlunkFromWeaponSip: weaponSipCost > 0 ? weaponSipCost : undefined,
       assistRollNote:
         assistRoll !== null ? `Ölkompis-slag inkluderat: +${assistRoll}.` : undefined,
       redirectNote: redirectedTargetName
         ? `Rabarbapappan slog om till: ${redirectedTargetName}.`
         : undefined,
       lostEquipmentName,
-      imperialAdjacentSplash: imperialAdjacentSplash ? true : undefined,
+      imperialSameLevelSplash: imperialSameLevelSplash ? true : undefined,
       ...(assistImpactPlayerId
         ? {
             assistPartnerImpact: {
@@ -1603,6 +1598,7 @@ function finalizeCombatAfterRollPreview(
         cardId: "combat_win",
         title: "Dålig batch",
         text: "",
+        queuedPenaltySipNotices: pending.previewDeferredSipWeaponPenalties,
         combatWin: {
           winnerName: p.name,
           enemyName: pending.enemyName,
@@ -1665,6 +1661,10 @@ function finalizeCombatAfterRollPreview(
         sipMitigation: false,
         critFailOnOne,
         weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
+        weaponSipKlunkCost: (pending.previewDeferredSipWeaponPenalties ?? [])
+          .filter((e) => e.recipientId === p.id)
+          .reduce((s, e) => s + Math.max(1, Math.floor(e.klunkCount)), 0),
+        queuedPenaltySipNotices: pending.previewDeferredSipWeaponPenalties,
         getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
       },
       log,
@@ -1883,6 +1883,7 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
     ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
     deathContinueCost: eq.deathContinueCost,
+    merchantDiscountGold: eq.merchantDiscountGold,
     power: eq.power,
     sipAttackBonus: eq.sipAttackBonus,
     sipWeaponBonusGoldCost: eq.sipWeaponBonusGoldCost,
@@ -1910,10 +1911,6 @@ function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
   return Math.max(0, levelNumber * 10);
 }
 
-function indexOfBossTileInLevel(level: GameState["levels"][number] | undefined): number {
-  if (!level?.tiles?.length) return -1;
-  return level.tiles.findIndex((t) => t.type === "boss");
-}
 
 /** Genväg / Taproom-nyckel får användas under rörelseval, handel eller när du är den som ska lösa möte på rutan (kan fly till boss utan BvB först). */
 function pendingAllowsShortcutTaproom(pe: Pending | null, userId: string): boolean {
@@ -1949,7 +1946,7 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
       id: "h",
       slot: "heal",
       name: "Helande brygd",
-      price: 8,
+      price: 5,
       healAmount: 3,
     },
   ];
@@ -1990,8 +1987,8 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   // Legacy path (shouldn't be used after encounterChoice is introduced)
   const ad = rollDie(rng, 6);
   const bd = rollDie(rng, 6);
-  const ar = ad + pvpRollStrengthBonus(a);
-  const br = bd + pvpRollStrengthBonus(b);
+  const ar = ad + pvpEquipmentDieBonusTotal(a);
+  const br = bd + pvpEquipmentDieBonusTotal(b);
   const attackerWins = ar >= br;
   const winner = attackerWins ? a : b;
   const loser = attackerWins ? b : a;
@@ -2010,19 +2007,6 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   };
 }
 
-function playerHasCombatReactionPlayableItem(
-  player: Player,
-  pending: Extract<Pending, { type: "combat" }>,
-): boolean {
-  return (player.inventory ?? []).some((it) => {
-    if (!COMBAT_REACTION_PLAYABLE_ITEM_IDS.has(it.itemId)) return false;
-    const cost = itemPlayGoldCost(it.itemId);
-    if (cost > 0 && player.gold < cost) return false;
-    if (it.itemId === "beer_bro" && pending.assistId) return false;
-    return true;
-  });
-}
-
 /** Reaktor som har spelat sitt sista ingripandekort blir automatiskt klar/pass. */
 function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string): void {
   const pending = state.pending;
@@ -2037,25 +2021,6 @@ function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string):
     return;
   }
   pending.reacted[reactorId] = "pass";
-}
-
-/** Reaktorer utan spelbara ingripandekort markeras automatiskt som "gör inget". */
-function autoPassReactorsWithoutPlayableItems(
-  state: GameState,
-  pending: Extract<Pending, { type: "combat" }>,
-): void {
-  pending.reacted ??= {};
-  for (const rid of pending.reactors ?? []) {
-    if (pending.reacted[rid] === "intervened") continue;
-    const reactor = state.players.find((p) => p.id === rid);
-    if (!reactor) {
-      pending.reacted[rid] = "pass";
-      continue;
-    }
-    if (!playerHasCombatReactionPlayableItem(reactor, pending)) {
-      pending.reacted[rid] = "pass";
-    }
-  }
 }
 
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
@@ -2352,6 +2317,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
     if (action.choice === "retry" && !next.config.hardcore) {
+      const preservedStats = { ...ensurePlayerStats(victim) };
       victim.eliminated = false;
       victim.levelIndex = 0;
       victim.tileIndex = 0;
@@ -2360,6 +2326,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.klunkar = 0;
       victim.equipment = {};
       victim.inventory = [];
+      {
+        const pi = Math.max(0, next.players.findIndex((x) => x.id === victim.id));
+        const kd = ensurePlayerStats(victim).knockdownCount;
+        const retryRng = createRng(
+          (next.seed ^
+            (0x5f3759df + pi * 0x9e3779b9) ^
+            (kd * 0x7f4a7c15) ^
+            0x52657479) >>>
+            0,
+        );
+        grantStartingCombatItemsForPlayer(next, victim, retryRng);
+      }
       victim.nextMoveBonus = 0;
       victim.nextCombatModifier = 0;
       victim.nextCombatAttackDiceDouble = undefined;
@@ -2367,9 +2345,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.skipTurnReasons = undefined;
       victim.maxHp = next.config.maxHp;
       victim.hp = victim.maxHp;
+      victim.stats = preservedStats;
+      /** Straffklunk-modalen köas vid förlust före stupad-bryggare — efter omstart ska den inte visas (klunkar nollställds). */
+      next.sipNotices = (next.sipNotices ?? []).filter((n) => n.recipientId !== victim.id);
       log(
         next,
-        `${victim.name} startar om på nytt: tillbaka till start, utan utrustning/föremål, ${victim.gold} pant och 0 klunkar.`,
+        `${victim.name} startar om på nytt: tillbaka till start, utan utrustning, nya startföremål som vid spelstart, ${victim.gold} pant och 0 klunkar.`,
       );
       next.pending = null;
       queueFirstBrewerDownIfNeeded(next);
@@ -2426,10 +2407,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const pending = next.pending;
     if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan fortsätta" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
-    pending.phase = "reactions";
-    pending.reactionsDeadlineAt = Date.now() + combatReactionTimeoutMs(next.config);
-    pending.teamRolls = {};
-    autoPassReactorsWithoutPlayableItems(next, pending);
+    beginCombatReactionsPhase(next, pending);
     const reactors = pending.reactors ?? [];
     if (reactors.length > 0) {
       log(next, `Strid: andra kan spela föremål innan slaget.`);
@@ -2637,6 +2615,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (idx < 0) return { state, events: [], error: "Föremålet hittades inte" };
     const inst = inv[idx]!;
 
+    if (user.eliminated) {
+      return { state, events: [], error: "Du är ute ur spelet" };
+    }
+    if (next.pending?.type === "brewerDown" && HEALING_ANYTIME_ITEM_IDS.has(inst.itemId)) {
+      return { state, events: [], error: "Vänta tills du valt efter stupad bryggare." };
+    }
+
     // Allow item usage on your turn, during combat reactions, or as accepted helper.
     const combatPending = next.pending?.type === "combat" ? next.pending : null;
     const pvpPending = next.pending?.type === "pvp" ? next.pending : null;
@@ -2654,7 +2639,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inCombatReactions && !playerCanCombatIntervene(user)) {
       return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
     }
-    if (inCombatHelpAwaitCard) {
+    const skipHelpAwaitCardRules =
+      HEALING_ANYTIME_ITEM_IDS.has(inst.itemId) &&
+      inCombatHelpAwaitCard &&
+      combatPending &&
+      action.playerId !== combatPending.helpSelectedHelperId;
+    if (inCombatHelpAwaitCard && !skipHelpAwaitCardRules) {
       if (!combatPending || action.playerId !== combatPending.helpSelectedHelperId || combatPending.helpAccepted !== true) {
         return { state, events: [], error: "Endast vald hjälpare kan spela kort nu" };
       }
@@ -2666,13 +2656,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     }
     const isYourTurn = cp.id === user.id;
-    if (!isYourTurn && !inCombatItemWindow && !inPvpPreRoundItems && !inPvpAwaitingRollsParticipant) {
+    const healingAnytimeOk = HEALING_ANYTIME_ITEM_IDS.has(inst.itemId);
+    if (!isYourTurn && !inCombatItemWindow && !inPvpPreRoundItems && !inPvpAwaitingRollsParticipant && !healingAnytimeOk) {
       return { state, events: [], error: "Inte din tur" };
     }
-    if (inPvpAwaitingRollsParticipant && !PVP_ROLL_PHASE_ITEM_IDS.has(inst.itemId)) {
+    const healingPvpRollOk =
+      inPvpAwaitingRollsParticipant && (inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack");
+    if (inPvpAwaitingRollsParticipant && !PVP_ROLL_PHASE_ITEM_IDS.has(inst.itemId) && !healingPvpRollOk) {
       return { state, events: [], error: "Det kortet kan inte spelas under BvB-slaget." };
     }
-    if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId)) {
+    const healingPvpPreRoundOk =
+      inPvpPreRoundItems && (inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack");
+    if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId) && !healingPvpPreRoundOk) {
       return { state, events: [], error: "Det kortet kan inte spelas i BvB före rundan." };
     }
     const playCost = itemPlayGoldCost(inst.itemId);
@@ -3204,17 +3199,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (inCombatItemWindow || inPvpPreRoundItems || inPvpAwaitingRollsParticipant) {
         return { state, events: [], error: "Skänk till välgörenhet kan inte användas under strid eller BvB." };
       }
-      if (!isYourTurn) {
-        return { state, events: [], error: "Inte din tur" };
-      }
       const pe = next.pending;
-      if (
-        pe != null &&
-        !(
-          (pe.type === "moveChoice" && pe.playerId === user.id) ||
-          (pe.type === "merchant" && pe.playerId === user.id)
-        )
-      ) {
+      if (!pendingAllowsShortcutTaproom(pe, user.id)) {
         return {
           state,
           events: [],
@@ -3270,15 +3256,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       const targetLevelIndex = user.levelIndex + 1;
       if (targetLevelIndex >= next.levels.length) {
-        const bossIdx = indexOfBossTileInLevel(next.levels[user.levelIndex]);
+        const bossIdx = findBossTileIndexInLevel(next.levels[user.levelIndex]);
         if (bossIdx < 0) {
           return { state, events: [], error: "Ingen bossruta på sista våningen." };
         }
         if (!next.finalBossMonsterId || !MONSTERS.some((m) => m.id === next.finalBossMonsterId)) {
           return { state, events: [], error: "Slutbossen är inte konfigurerad." };
-        }
-        if (user.tileIndex === bossIdx) {
-          return { state, events: [], error: "Du står redan på slutbossens ruta." };
         }
         const goldCost = shortcutTaproomGoldCostForFloor(user.levelIndex, "shortcut");
         if (user.gold < goldCost) {
@@ -3290,17 +3273,24 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         }
         user.gold -= goldCost;
         recordPantSpent(next, user.id, goldCost);
-        user.tileIndex = bossIdx;
+        const alreadyOnBoss = user.tileIndex === bossIdx;
+        if (!alreadyOnBoss) {
+          user.tileIndex = bossIdx;
+        }
         clearPendingSupersededByFloorTravel(next, user.id);
         log(
           next,
-          `${user.name} använder Genväg och betalar ${goldCost} pant för att gå direkt till slutbossens ruta.`,
+          alreadyOnBoss
+            ? `${user.name} använder Genväg och betalar ${goldCost} pant för att lösa slutbossrutan direkt.`
+            : `${user.name} använder Genväg och betalar ${goldCost} pant för att gå direkt till slutbossens ruta.`,
         );
         inv.splice(idx, 1);
         user.inventory = inv;
         recordItemConsumed(next, user.id, inst.itemId);
         notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, false);
-        next.landingBypassEncounter = true;
+        if (!alreadyOnBoss) {
+          next.landingBypassEncounter = true;
+        }
         resolveLanding(next, user, rng);
         return { state: next, events: ["state"] };
       }
@@ -3348,15 +3338,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       const targetLevelIndex = user.levelIndex + 1;
       if (targetLevelIndex >= next.levels.length) {
-        const bossIdx = indexOfBossTileInLevel(next.levels[user.levelIndex]);
+        const bossIdx = findBossTileIndexInLevel(next.levels[user.levelIndex]);
         if (bossIdx < 0) {
           return { state, events: [], error: "Ingen bossruta på sista våningen." };
         }
         if (!next.finalBossMonsterId || !MONSTERS.some((m) => m.id === next.finalBossMonsterId)) {
           return { state, events: [], error: "Slutbossen är inte konfigurerad." };
-        }
-        if (user.tileIndex === bossIdx) {
-          return { state, events: [], error: "Du står redan på slutbossens ruta." };
         }
         const taproomKeyCost = shortcutTaproomGoldCostForFloor(user.levelIndex, "taproom_key");
         if (user.gold < taproomKeyCost) {
@@ -3368,17 +3355,24 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         }
         user.gold -= taproomKeyCost;
         recordPantSpent(next, user.id, taproomKeyCost);
-        user.tileIndex = bossIdx;
+        const alreadyOnBossTap = user.tileIndex === bossIdx;
+        if (!alreadyOnBossTap) {
+          user.tileIndex = bossIdx;
+        }
         clearPendingSupersededByFloorTravel(next, user.id);
         log(
           next,
-          `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att gå direkt till slutbossens ruta.`,
+          alreadyOnBossTap
+            ? `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att lösa slutbossrutan direkt.`
+            : `${user.name} använder Taproom-nyckel och betalar ${taproomKeyCost} pant för att gå direkt till slutbossens ruta.`,
         );
         inv.splice(idx, 1);
         user.inventory = inv;
         recordItemConsumed(next, user.id, inst.itemId);
         notifyItemPlayForTableAfterUse(next, "taproom_key", user.id, undefined, false);
-        next.landingBypassEncounter = true;
+        if (!alreadyOnBossTap) {
+          next.landingBypassEncounter = true;
+        }
         resolveLanding(next, user, rng);
         return { state: next, events: ["state"] };
       }
@@ -3544,6 +3538,33 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
       notifyItemPlayForTableAfterUse(next, "split_the_g", user.id, target.id, inCombatTableFan);
+      return { state: next, events: ["state"] };
+    }
+
+    if (inst.itemId === "shuffle") {
+      const target = action.targetPlayerId ? next.players.find((x) => x.id === action.targetPlayerId) : null;
+      if (!target) return { state, events: [], error: "Mål krävs" };
+      if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
+      if (target.eliminated || target.leftVoluntarily) {
+        return { state, events: [], error: "Målet är inte tillgängligt." };
+      }
+      const cost = itemPlayGoldCost("shuffle");
+      if (cost > 0 && user.gold < cost) {
+        return { state, events: [], error: `Du behöver ${cost} pant för att spela Shuffle.` };
+      }
+      if (cost > 0) {
+        user.gold -= cost;
+        recordPantSpent(next, user.id, cost);
+      }
+      inv.splice(idx, 1);
+      user.inventory = inv;
+      const a = [...(user.inventory ?? [])];
+      const b = [...(target.inventory ?? [])];
+      user.inventory = b;
+      target.inventory = a;
+      log(next, `${user.name} spelar Shuffle och byter hela föremålsväskan med ${target.name} (${cost} pant).`);
+      recordItemConsumed(next, user.id, inst.itemId);
+      notifyItemPlayForTableAfterUse(next, "shuffle", user.id, target.id, inCombatTableFan);
       return { state: next, events: ["state"] };
     }
 
@@ -3938,6 +3959,35 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state, events: [], error: "Okänt föremål" };
   }
 
+  if (action.type === "combatChooseSipWeaponBonus" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
+    const pending = next.pending;
+    if (pending.postReactionEquipmentOffer) {
+      return { state, events: [], error: "Välj hur du hanterar den stulna utrustningen först." };
+    }
+    const assistId = pending.assistId;
+    const canChoose =
+      action.playerId === pending.attackerId || (!!assistId && action.playerId === assistId);
+    if (!canChoose) return { state, events: [], error: "Du är inte med i den här striden" };
+    if (action.playerId !== cp.id && !(assistId && action.playerId === assistId)) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    const chooser = next.players.find((x) => x.id === action.playerId);
+    if (!chooser) return { state, events: [], error: "Player not found" };
+    const sipBonus = chooser.equipment.weapon?.sipAttackBonus ?? 0;
+    if (sipBonus <= 0) return { state, events: [], error: "Inget vapen med sip-bonus" };
+    const sipPay = sipWeaponExtraAttackCosts(chooser.equipment.weapon);
+    if (action.useSipWeaponBonus && sipPay.gold > 0 && chooser.gold < sipPay.gold) {
+      return {
+        state,
+        events: [],
+        error: `Du behöver ${sipPay.gold} pant för att använda ${chooser.equipment.weapon?.name ?? "vapnet"}-bonusen.`,
+      };
+    }
+    pending.sipWeaponBonusChoice ??= {};
+    pending.sipWeaponBonusChoice[action.playerId] = action.useSipWeaponBonus;
+    return { state: next, events: ["state"] };
+  }
+
   if (action.type === "combatRoll" && next.pending?.type === "combat" && next.pending.phase === "reactions") {
     const pending = next.pending;
     if (pending.postReactionEquipmentOffer) {
@@ -3981,19 +4031,34 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
     let sipBoost = 0;
     const sipBonus = roller.equipment.weapon?.sipAttackBonus ?? 0;
+    let useSipWeaponBonusResolved: boolean | undefined = pending.sipWeaponBonusChoice?.[roller.id];
+    if (useSipWeaponBonusResolved === undefined && typeof action.useSipWeaponBonus === "boolean") {
+      useSipWeaponBonusResolved = action.useSipWeaponBonus;
+    }
     if (sipBonus > 0) {
-      const sipPay = sipWeaponExtraAttackCosts(roller.equipment.weapon);
-      if (typeof action.useSipWeaponBonus !== "boolean") {
+      if (useSipWeaponBonusResolved === undefined) {
         return {
           state,
           events: [],
           error: "Välj om du vill använda vapnets extraattack innan du slår.",
         };
       }
-      if (action.useSipWeaponBonus) {
+      if (useSipWeaponBonusResolved) {
+        const sipPay = sipWeaponExtraAttackCosts(roller.equipment.weapon);
         if (sipPay.klunks > 0) {
           grantKlunkWithXp(next, roller, sipPay.klunks, { penaltyStraff: false });
-          pushSipNotice(next, roller.id, pending.enemyName ?? "Striden", sipPay.klunks);
+          pending.weaponSipDeferredPenalties = mergePenaltySipQueue(pending.weaponSipDeferredPenalties, [
+            {
+              recipientId: roller.id,
+              klunkCount: sipPay.klunks,
+              fromPlayerName: pending.enemyName ?? "Striden",
+              noticeBody: weaponBoostPenaltySipNoticeBody(
+                roller.equipment.weapon?.name,
+                sipPay.klunks,
+                pending.enemyName ?? "",
+              ),
+            },
+          ]);
           sipBoost = sipBonus;
           log(
             next,
@@ -4019,6 +4084,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         }
       }
     }
+    const usedSipWeapon = sipBonus > 0 && useSipWeaponBonusResolved === true;
     const total = dieContribution + weaponPower(roller) + mod + sipBoost;
 
     pending.teamRolls ??= {};
@@ -4107,8 +4173,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       previewNeed: need,
       previewWon: !critFailOnOne && pr >= need,
       previewCritFailOnOne: critFailOnOne || undefined,
-      previewUsedSipWeaponBonus: sipBonus > 0 && action.useSipWeaponBonus === true,
+      previewUsedSipWeaponBonus: usedSipWeapon,
       previewSipWeaponBonusValue: sipBoost > 0 ? sipBonus : undefined,
+      previewDeferredSipWeaponPenalties: pending.weaponSipDeferredPenalties
+        ? [...pending.weaponSipDeferredPenalties]
+        : undefined,
       getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
     };
 
@@ -4203,6 +4272,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         sipMitigation: chooseMitigation,
         critFailOnOne: critFailOnOneMit,
         weaponSipBeforeRoll: pending.previewUsedSipWeaponBonus === true,
+        weaponSipKlunkCost: (pending.previewDeferredSipWeaponPenalties ?? [])
+          .filter((e) => e.recipientId === p.id)
+          .reduce((s, e) => s + Math.max(1, Math.floor(e.klunkCount)), 0),
+        queuedPenaltySipNotices: pending.previewDeferredSipWeaponPenalties,
         getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
       },
       log,
@@ -4579,7 +4652,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     const dieContribution = attackDoubled ? rawDie * 2 : rawDie;
     const pvpMod = pending.pvpAttackMods?.[action.playerId] ?? 0;
-    const total = dieContribution + pvpRollStrengthBonus(p) + pvpMod;
+    const total = dieContribution + pvpEquipmentDieBonusTotal(p) + pvpMod;
     pending.rolls[action.playerId] = { die: rawDie, total };
     log(
       next,
@@ -4681,6 +4754,30 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state: next, events: ["state"] };
   }
 
+  if (action.type === "sellAccessory") {
+    if (next.phase !== "playing") return { state, events: [], error: "Spelet är slut" };
+    const cp = currentPlayer(next);
+    if (!cp || cp.id !== action.playerId) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    if (cp.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME) {
+      return { state, events: [], error: "Du har ingen Plastback att sälja." };
+    }
+    const w = cp.equipment.weapon;
+    const pant =
+      w?.name === TOM_FLASKA_WEAPON_NAME && w.breakOnWin === true && typeof w.breakWinsRemaining === "number"
+        ? w.breakWinsRemaining
+        : 0;
+    cp.gold += pant;
+    cp.equipment.accessory = undefined;
+    syncPlastbackEmptyBottleSynergy(cp);
+    log(
+      next,
+      pant > 0 ? `${cp.name} säljer Plastback och får ${pant} pant.` : `${cp.name} säljer Plastback.`,
+    );
+    return { state: next, events: ["state"] };
+  }
+
   if (action.type === "merchantBuy" && next.pending?.type === "merchant") {
     if (action.playerId !== next.pending.playerId) {
       return { state, events: [], error: "Inte du som är vid Panta burkar" };
@@ -4696,9 +4793,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const itemIdx = next.pending.items.findIndex((i) => i.id === action.itemId);
     if (itemIdx < 0) return { state, events: [], error: "Ogiltigt föremål" };
     const item = next.pending.items[itemIdx]!;
-    if (p.gold < item.price) return { state, events: [], error: "För lite pant" };
-    p.gold -= item.price;
-    recordPantSpent(next, p.id, item.price);
+    const pay = effectiveMerchantBuyPrice(p, item.price);
+    if (p.gold < pay) return { state, events: [], error: "För lite pant" };
+    p.gold -= pay;
+    recordPantSpent(next, p.id, pay);
     if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
       equipShopLikeItemToPlayer(p, item, next.config.maxHp);
     } else if (item.slot === "heal") {
@@ -4707,7 +4805,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     } else if (item.slot === "gold") {
       p.gold += item.goldAmount ?? 0;
     }
-    log(next, `${p.name} buys ${item.name} (${item.price}g).`);
+    log(next, `${p.name} buys ${item.name} (${pay}g).`);
     // One purchase per shelf row during the current merchant visit.
     next.pending.items = next.pending.items.filter((_, idx) => idx !== itemIdx);
     // Keep merchant open so player can buy multiple things before leaving explicitly.
