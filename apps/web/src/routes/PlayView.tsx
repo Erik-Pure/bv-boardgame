@@ -2573,8 +2573,8 @@ export function PlayView() {
           >
             <div
               style={{
-                fontFamily: "var(--heading)",
-                fontWeight: 400,
+                fontFamily: "var(--sans)",
+                fontWeight: 700,
                 fontSize: "clamp(1.35rem, 5vw, 1.75rem)",
                 lineHeight: 1.05,
                 letterSpacing: 0.03,

@@ -922,6 +922,9 @@
   color: #ffffff;
   position: relative;
   z-index: 1;
+  /* Panelen använder Saira — inte Permanent Marker som i kort/modaler. */
+  --heading: var(--sans);
+  font-family: var(--sans), system-ui, sans-serif;
 }
 
 /**
@@ -1149,8 +1152,8 @@
 }
 
 .sheetDiceModifierBig {
-  font-family: "Permanent Marker", var(--heading), sans-serif;
-  font-weight: 400;
+  font-family: var(--sans), system-ui, sans-serif;
+  font-weight: 700;
   font-size: clamp(1.55rem, 8.4vw, 2.2rem);
   line-height: 1;
   letter-spacing: 0.02em;
@@ -1849,11 +1852,12 @@
 }
 
 .waitingTurnCaption {
-  font-family: "Permanent Marker", var(--heading), sans-serif;
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 1.15;
+  font-family: var(--sans), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
   text-align: center;
+  opacity: 0.9;
 }
 
 .waitingTurnEmoteTrigger {
