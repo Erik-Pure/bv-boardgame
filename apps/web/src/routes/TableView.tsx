@@ -5,11 +5,14 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   brewerKlunkProgressRatio,
   brewerLevel,
+  isPlayerOnBoard,
+  prunePlayerEmoteBursts,
   type GameState,
   type Player,
   type TileType,
 } from "@bv/game-core";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
+import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
 import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
@@ -1144,6 +1147,20 @@ function TableViewBody() {
   const centerTurnReminderText = cur ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const boardPlayers = state?.players ?? [];
+  const [emoteDisplayTick, setEmoteDisplayTick] = useState(0);
+  const hasActiveEmoteBursts = useMemo(() => {
+    const now = Date.now();
+    return prunePlayerEmoteBursts(state?.playerEmoteBursts ?? [], now).length > 0;
+  }, [state?.playerEmoteBursts, emoteDisplayTick]);
+  useEffect(() => {
+    if (!hasActiveEmoteBursts) return;
+    const id = window.setInterval(() => setEmoteDisplayTick((n) => n + 1), 200);
+    return () => window.clearInterval(id);
+  }, [hasActiveEmoteBursts]);
+  const turnBannerFanWrapRef = useRef<HTMLDivElement | null>(null);
+  const turnBannerColorBarRef = useRef<HTMLDivElement | null>(null);
+  const turnPlayersScrollerRef = useRef<HTMLDivElement | null>(null);
+  const turnPlayerCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const activeTurnPlayerCardRef = useRef<HTMLDivElement | null>(null);
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const prevPlayerTilesRef = useRef<Map<string, { levelIndex: number; tileIndex: number }>>(new Map());
@@ -2071,11 +2088,12 @@ function TableViewBody() {
 
       {playingTurn ? (
         <div className={tableStyles.turnBannerDock} aria-live="polite">
-          <div className={tableStyles.turnBannerFanWrap}>
+          <div className={tableStyles.turnBannerFanWrap} ref={turnBannerFanWrapRef}>
             {showItemPlayFan && state ? (
               <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
             ) : null}
             <div
+              ref={turnBannerColorBarRef}
               className={[
                 turnBannerStyles.colorBar,
                 turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
@@ -2095,21 +2113,30 @@ function TableViewBody() {
             {currentTurnAfflictions.length > 0 ? (
               <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
             ) : null}
-            <div className={tableStyles.turnPlayersScroller}>
+            <div className={tableStyles.turnPlayersScroller} ref={turnPlayersScrollerRef}>
               {boardPlayers.map((p) => {
                 const active = cur?.id === p.id;
+                const outOfGame = !isPlayerOnBoard(p);
                 const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
                 const brewerLv = brewerDisplayLevelForTable(p);
                 const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
                 return (
                   <div
                     key={p.id}
-                    className={[tableStyles.turnPlayerCard, active ? tableStyles.turnBannerActivePlayerCardPulse : ""].join(
-                      " ",
-                    )}
-                    ref={active ? activeTurnPlayerCardRef : null}
+                    className={[
+                      tableStyles.turnPlayerCard,
+                      active && !outOfGame ? tableStyles.turnBannerActivePlayerCardPulse : "",
+                      outOfGame ? tableStyles.turnPlayerCardEliminated : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    ref={(el) => {
+                      if (el) turnPlayerCardRefs.current.set(p.id, el);
+                      else turnPlayerCardRefs.current.delete(p.id);
+                      if (active) activeTurnPlayerCardRef.current = el;
+                    }}
                     style={{
-                      ["--turn-player-bg" as string]: active ? p.color : "rgba(255,255,255,0.04)",
+                      ["--turn-player-bg" as string]: active && !outOfGame ? p.color : "rgba(255,255,255,0.04)",
                       ["--turn-active-player-color" as string]: p.color,
                     }}
                     title={[p.name, sv.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p)]
@@ -2117,8 +2144,22 @@ function TableViewBody() {
                       .join(" · ")}
                   >
                     <div className={tableStyles.turnPlayerName}>
-                      {p.name}
-                      {sleepTag}
+                      <span className={tableStyles.turnPlayerNameRow}>
+                        {outOfGame ? (
+                          <img
+                            src="/icons/skull-icon.svg"
+                            alt=""
+                            aria-hidden
+                            width={18}
+                            height={18}
+                            className={tableStyles.turnPlayerSkull}
+                          />
+                        ) : null}
+                        <span>
+                          {p.name}
+                          {sleepTag}
+                        </span>
+                      </span>
                     </div>
                     <div className={tableStyles.turnPlayerVitals}>
                       <PlayerVitals
@@ -2135,6 +2176,15 @@ function TableViewBody() {
               })}
             </div>
           </div>
+          <TurnBannerEmoteOverlay
+            players={boardPlayers}
+            emoteBursts={state?.playerEmoteBursts}
+            fanWrapRef={turnBannerFanWrapRef}
+            colorBarRef={turnBannerColorBarRef}
+            scrollerRef={turnPlayersScrollerRef}
+            playerCardRefs={turnPlayerCardRefs}
+            layoutTick={emoteDisplayTick}
+          />
           </div>
         </div>
       ) : null}

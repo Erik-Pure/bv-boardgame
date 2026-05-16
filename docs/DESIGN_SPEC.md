@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.59 |
-| Senast uppdaterad | 2026-05-15 |
+| Version | 0.60 |
+| Senast uppdaterad | 2026-05-16 |
 
 ---
 
@@ -50,6 +50,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
 
+**Turväntan och emotes (mobil):** när det **inte är spelarens tur** och interaktionspanelen annars skulle vara **tom** (klassisk väntan på rörelsetärning — inte under strid, BvB eller annat panelinnehåll), visas **vems tur det är** i possessiv form (t.ex. *Veras tur*, samma namnregel som på bordet: *Anders tur* utan extra **s**). Brevid: en **emote-knapp** (`emote-icon.svg`, ljusgrå). Knappen expanderar val bland fem reaktioner: **förvånad, glad, ledsen, arg, kärlek** (`emote-*.svg`). **Cooldown** ca **5 s** (klient + server); spam ger toast (*Vänta lite innan nästa emote.*). Under strids-/BvB-väntan visas **inte** emote-väljaren — då gäller befintlig väntecopy.
+
 ### 2.1 Storskärmsvy: pan, zoom och fokus
 
 - På **spelplansvyn** (stor skärm) ska kameran kunna **panorera** och **zooma** (t.ex. mushjul + dra, pinch på pekskärm, eller enkla +/--knappar).
@@ -57,6 +59,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Turindikator:** under huvudmenyn visas en **fullbreddsremsa** med **svart bakgrund** (kompakt höjd).
 - **Turindikator (detaljer):** i remsan visas en **spelarrad med alla spelare** (namn + HP/pant/klunk). Aktiv spelare markeras med **spelarens färg**. Raden är centrerad när den får plats och kan annars scrolla horisontellt.
 - **Turindikator (status):** sömnstatus ska också synas i spelarraden längst ner i bordsvyn; spelare som står över tur p.g.a. normal sömn markeras med **`(Zzz)`** efter namnet.
+- **Eliminerade / lämnat (bord):** spelare med **`eliminated`** eller **`leftVoluntarily`** har **ingen pjäs** på brädet. I turbannern: **vit döskalle** före namnet, **nedtonad** rad, ingen aktiv-puls även om de råkar vara «aktiva» i turordning. Spelare med **0 HP** men ej eliminerad (väntar på stupad-bryggare-val) behåller pjäs och normal banner tills de gett upp eller startar om.
+- **Emotes (bord):** valda emotes synkas via `sendEmote` och visas i ett **overlay ovanför turbannern** (på brädet — bannerhöjden ökas **inte**). Ca **76×76 px**, **sammanhängande** rörelse: fade in, **långsam glidning** uppåt med **lätt rotation** (±7° start, +3° under färden) och **gradvis växande skala**, sedan fade ut (~**3,4 s**). Horisontell position följer spelarens kolumn i spelarraden (uppdateras vid scroll).
 - **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna. På desktop finns även en toggle **“Inaktivera sömnläge”** till vänster om status (wake lock när webbläsaren stödjer det).
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
@@ -248,6 +252,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 ### 9.1.1 Team battle-monster
 
 - Vissa starkare monster är markerade som **team battle**.
+- **Inaktiva spelare som mål:** spelare som är **ute ur matchen** (`eliminated`, `leftVoluntarily`, eller **0 HP** utan stupad-bryggare-läge) ska **inte** kunna väljas som mål för föremål, **medkämpe** i team battle eller **stridsingripande**; klienten filtrerar listor och servern avvisar fuskförsök (`isPlayerActiveInMatch` i `game-core`).
 - När ett sådant monster dras måste angriparen välja **en annan spelare** som **måste strida tillsammans** med angriparen.
 - Båda spelarnas tärnings-/attackvärden summeras i slaget.
 - Vid **vinst** får båda pant och rewards enligt monsterets **fasta vinstvärden**.
@@ -574,4 +579,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.57 | 2026-05-10 | Mobil rörelseval: pilhintar + speglade knappar på ringens överkant (§8); lagstrid: egen modifier vid tärning på mobil (§9.1); vapen med pant eller klunk för valfri `sipAttackBonus`, nytt vapen **Ölsejdel** (§11); Genväg/Taproom användbar vid rörelseval/handl/mötesval (§10.1); straffklunk-kö vid kort → modaler vid Fortsätt (§13); utrustningsbild WebP-fallback; kompakt klunk-reduktionsbadge |
 | 0.58 | 2026-05-10 | §2: toasts för monsterskatter vid vinst och för ölkompis/stridshjälp vid vinst/förlust; §9.1: Demonkrigare utan pant-modal om spelaren saknar 10 pant; stridshjälp tar HP + straffklunk vid förlust (som lagrisk); §13.1: eliminerade behålls i roster efter `leaveGame` för full resultatlista (`purgeSlot` vid bordskick) |
 | 0.59 | 2026-05-15 | §10.2 **Helande brygd** 5 pant i handeln; §10.1/`decks.item` förtydligat; §11 **Störtkruka**, **VIB Member**, **Plastback**; §12 omstart ger **startföremål** som vid spelstart + **startpant** (inte tom förråd); **Livförsäkring** 10 pant för fullt liv |
+| 0.60 | 2026-05-16 | §2 **turväntan + emotes** på mobil (`Veras tur`, fem emotes, cooldown); §2.1 eliminerade/lämnat i turbanner och utan pjäs, **emote-overlay** ovanför banner; `playerParticipation` + servervalidering av inaktiva mål (föremål, medkämpe, ingripande) |
 

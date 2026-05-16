@@ -1,4 +1,4 @@
-import type { ClientAction, GameState, Player } from "@bv/game-core";
+import { isPlayerActiveInMatch, type ClientAction, type GameState, type Player } from "@bv/game-core";
 import { ArcadeButton } from "../ArcadeButton";
 import { capitalizeWord, sv } from "../../lib/uiStrings";
 
@@ -13,7 +13,9 @@ export function CombatChooseTeammateSheet(props: {
   const { state, me, pending, send } = props;
   const isAttacker = pending.attackerId === me.id;
   const attacker = state.players.find((p) => p.id === pending.attackerId);
-  const options = state.players.filter((p) => p.id !== pending.attackerId);
+  const options = state.players.filter(
+    (p) => p.id !== pending.attackerId && isPlayerActiveInMatch(p),
+  );
   if (isAttacker) {
     return (
       <div style={{ display: "grid", gap: 10 }}>

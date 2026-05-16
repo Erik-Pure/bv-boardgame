@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="91.167" height="91.167" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 91.167 91.167">
+  <defs>
+    <radialGradient id="d" cx="45.04" cy="19.515" fx="45.04" fy="19.515" r="69.749" gradientTransform="translate(-.534 .54) rotate(-.675)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d0d946"/>
+      <stop offset=".349" stop-color="#cdd846"/>
+      <stop offset=".505" stop-color="#c6d646"/>
+      <stop offset=".623" stop-color="#b9d346"/>
+      <stop offset=".722" stop-color="#a7cf47"/>
+      <stop offset=".808" stop-color="#90c947"/>
+      <stop offset=".886" stop-color="#73c248"/>
+      <stop offset=".957" stop-color="#51ba49"/>
+      <stop offset="1" stop-color="#39b54a"/>
+    </radialGradient>
+    <filter id="f" x="28.306" y="3.197" width="35" height="16" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-color="#fff" result="bg"/>
+      <feBlend in="SourceGraphic" in2="bg"/>
+    </filter>
+    <mask id="e" data-name="mask" x="28.306" y="3.197" width="35" height="16" maskUnits="userSpaceOnUse">
+      <g filter="url(#f)">
+        <image width="35" height="16" transform="translate(28.306 3.197)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACMAAAAQCAYAAACcN8ZaAAAACXBIWXMAAAsSAAALEgHS3X78AAACYUlEQVRIic2VS0sjQRRGT1c/1LTdaGiwJaHBXqmgWQmCIvrP5pepuNOFiuBCNIhBTTSUeanR2KmaxZBmYuJjGIfxWxXUvVXnPuqWAWi+icT/Bvhd1kcG6+vr5PN5XNfFsiyEEBiG8a6P1hqlFJ1Oh3a7zeXlJdvb2x/CGAwp0+rqKnEcMz09TRzHTE1N4boutm1jmmYK8xpK619HKaVSmMfHRyqVCsVikdvbW87Pz9nZ2fkYZmlpidnZWQqFAnEcE4YhQRDg+z6O42BZFoZhYBgGQgyvsFIKrTVaa7rdLs/PzzSbTarVagp1cHDAyckJ+/v7fb5pmQqFAsvLyywuLjI3N0cURUxMTOC67psXf1ZBEBCGIWEYks1myWQy+L5PkiQcHR0NwoRhSD6fZ2ZmhiiKCMMQ27b/CqIn0zTxPA8hBEmS0Gw2kVISBEGfXRqybduMjIzgOA6O43wZSN9lQiCEwDTN4fu9RbvdplarUavVqNfrtFqttCG/Qk9PT0gpqVar3NzcUKlUuLu767MxgR8AjuOglEIIgVIKgG63mzZkL6rPSmtNp9Ph4eGBer1OqVTi9PSUs7Mzjo+POTw8ZG9vr89n4GmvrKwwPz/PwsICuVyOyclJMpkM4+Pj+L7P6Ogotm0PwPVeUJIkKUSj0aDVaiGl5OrqimKxSLlc5uLigt3d3YEAhs4ZgLW1NaIowvM8xsbG8DyPKIrIZrNDB2Bv0L28vHB/f4+UklKpRKPRQEpJuVxma2vr3Wy+CTNMGxsb5HK5PpjXmelN3evrazY3Nz979J/D/Gt9q4/yW8H8BJbSEvG2Io7/AAAAAElFTkSuQmCC"/>
+      </g>
+    </mask>
+    <filter id="h" x="33.306" y="6.197" width="25" height="7" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-color="#fff" result="bg"/>
+      <feBlend in="SourceGraphic" in2="bg"/>
+    </filter>
+    <mask id="g" data-name="mask-1" x="33.306" y="6.197" width="25" height="7" maskUnits="userSpaceOnUse">
+      <g filter="url(#h)">
+        <image width="25" height="7" transform="translate(33.306 6.197)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAHCAYAAAD9NeaIAAAACXBIWXMAAAsSAAALEgHS3X78AAAASElEQVQokd2RsQ3AMAgEj7D/SIgVfqNPFUtW0sVufNIXNH8CAjCbuXYLXhJJ2P4VSZ8iA64qr6K7/fQCHptk5rLzRMQ8c8rjb/YJierF+INCAAAAAElFTkSuQmCC"/>
+      </g>
+    </mask>
+  </defs>
+  <g id="c" data-name="Layer 1">
+    <g>
+      <g>
+        <path d="M45.573,89.167c-23.745,0-43.291-19.321-43.57-43.07-.137-11.641,4.267-22.638,12.401-30.966S33.429,2.14,45.07,2.003l.523-.003c23.745,0,43.291,19.321,43.57,43.07.137,11.641-4.267,22.638-12.401,30.966s-19.025,12.99-30.666,13.127l-.523.003Z" fill="url(#d)"/>
+        <path d="M45.594,4c22.737,0,41.302,18.296,41.57,41.094.271,22.964-18.126,41.8-41.091,42.07-.167.002-.333.003-.5.003-22.737,0-41.302-18.296-41.57-41.094C3.732,23.109,22.129,4.273,45.094,4.003c.167-.002.333-.003.5-.003M45.594,0h0c-.182,0-.365.001-.547.003-12.175.143-23.565,5.019-32.073,13.73C4.466,22.443-.14,33.945.003,46.12c.142,12.08,4.954,23.407,13.548,31.895,8.587,8.481,19.959,13.152,32.021,13.152.182,0,.365-.001.547-.003,12.175-.143,23.565-5.019,32.073-13.73,8.507-8.71,13.114-20.212,12.97-32.387-.142-12.079-4.954-23.406-13.549-31.894C69.027,4.671,57.655,0,45.594,0h0Z"/>
+      </g>
+      <polyline points="19.691 27.535 31.154 32.841 19.84 40.229" fill="none" stroke="#231f20" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <polyline points="71.516 26.924 60.181 32.499 71.665 39.619" fill="none" stroke="#231f20" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <path d="M75.341,43.111c-2.914.034-20.715,6.624-29.783,6.731-9.067.107-27.018-6.062-29.933-6.028-2.914.034-3.228,6.418-3.194,9.333.034,2.915,5.373,21.702,33.417,21.371,28.044-.33,32.939-19.238,32.905-22.152-.034-2.914-.498-9.289-3.412-9.255Z"/>
+      <path d="M45.64,56.74c-10.408.123-19.71,2.735-26.026,6.77,4.965,4.621,13.108,8.637,26.206,8.483,13.098-.154,21.144-4.361,25.999-9.098-6.409-3.884-15.77-6.277-26.179-6.155Z" fill="#e65f66"/>
+      <g>
+        <path d="M44.946,59.9c-13.571,0-26.756-4.415-27.912-6.218-.854-1.33-.629-6.194-.539-7.653l.035-.567.559.107c1.506.29,3.88.917,6.629,1.645,6.706,1.774,15.891,4.203,21.629,4.203h.229c5.719-.069,14.988-2.755,21.755-4.717,2.731-.792,5.089-1.475,6.588-1.8l.556-.121.048.567c.124,1.457.463,6.314-.359,7.664-1.197,1.968-14.349,6.719-28.488,6.886l-.73.004Z" fill="#fff"/>
+        <path d="M74.025,45.389c.224,2.639.318,6.366-.288,7.361-.953,1.566-13.586,6.476-28.067,6.646-.242.003-.482.004-.725.004-13.622,0-26.519-4.472-27.491-5.988-.629-.98-.623-4.709-.461-7.352,5.101.98,20.156,5.856,28.353,5.856.079,0,.158,0,.236-.001,8.142-.096,23.317-5.416,28.442-6.527M74.925,44.17l-1.112.241c-1.516.328-3.882,1.014-6.622,1.808-6.74,1.954-15.97,4.629-21.621,4.696h-.224c-5.674.001-14.822-2.418-21.501-4.185-2.758-.729-5.14-1.359-6.663-1.652l-1.118-.215-.069,1.136c-.118,1.919-.292,6.536.618,7.953,1.396,2.178,15.089,6.447,28.332,6.447.246,0,.49-.001.736-.004,14.049-.165,27.521-4.847,28.909-7.126.876-1.439.593-6.05.43-7.966l-.097-1.134h0Z"/>
+      </g>
+      <path d="M52.617,76.941c0,.572-3.214,2.526-7.025,2.526s-6.776-1.954-6.776-2.526,2.965.453,6.776.453,7.025-1.026,7.025-.453Z" opacity=".23"/>
+      <g opacity=".37">
+        <g mask="url(#e)">
+          <ellipse cx="45.716" cy="11.214" rx="14.733" ry="5.197" fill="#fff"/>
+        </g>
+      </g>
+      <g opacity=".37">
+        <g mask="url(#g)">
+          <path d="M55.397,10.242c0,1.091-4.334.356-9.681.356s-9.681.735-9.681-.356,4.334-1.976,9.681-1.976,9.681.884,9.681,1.976Z" fill="#fff"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

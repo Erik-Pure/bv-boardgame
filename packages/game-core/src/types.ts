@@ -602,6 +602,14 @@ export interface GameConfig {
   cardCover: string;
 }
 
+export type EmoteId = "surprised" | "happy" | "sad" | "angry" | "love";
+
+export interface PlayerEmoteBurst {
+  playerId: string;
+  emoteId: EmoteId;
+  at: number;
+}
+
 export type SipNoticeKind = "custom" | "duel_loss";
 
 export interface SipNoticeEntry {
@@ -677,6 +685,8 @@ export interface GameState {
    * Appendas per spel; solfjäder på bräd-tv. Rensas vid rörelse m.m.
    */
   tableItemPlayReveals?: TableItemPlayReveal[];
+  /** Senaste emotes för turbanner (ballonger); rensas efter EMOTE_DISPLAY_MS. */
+  playerEmoteBursts?: PlayerEmoteBurst[];
 }
 
 export type ClientAction =
@@ -733,7 +743,8 @@ export type ClientAction =
   | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" | "insuredContinue" }
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean }
   /** Sälj tillbehöret Plastback (pant = kvarvarande Tom flaska-vinster om synergi). */
-  | { type: "sellAccessory"; playerId: string };
+  | { type: "sellAccessory"; playerId: string }
+  | { type: "sendEmote"; playerId: string; emoteId: EmoteId };
 
 export interface ApplyResult {
   state: GameState;

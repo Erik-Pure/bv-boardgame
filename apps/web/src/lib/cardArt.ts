@@ -53,6 +53,11 @@ export function artAttributionLabel(artKey?: string): string | undefined {
   return ART_ATTRIBUTION_SV[artKey];
 }
 
+/** True om kort/monster har en registrerad ölreferens (etikett under bilden). */
+export function hasArtAttribution(artKey?: string): boolean {
+  return artAttributionLabel(artKey) != null;
+}
+
 export type ArtImageSources = { avif?: string; webp?: string; fallback: string };
 
 function sourcesFromPath(webpPath: string): ArtImageSources {

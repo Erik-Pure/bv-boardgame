@@ -280,7 +280,23 @@ export const sv = {
     lobbyHeader: (room: string, status: string) => `Lobby ${room} · ${status}`,
     /** Statusfot i PlayView när spelet pågår — egen rad ovanför lobby-raden. */
     footerTurnYou: "Din tur",
-    footerTurnOther: (name: string) => `Tur · ${name}`,
+    footerTurnOther: (name: string) => {
+      const n = name.trim() || "—";
+      return `${n}${n.endsWith("s") ? "" : "s"} tur`;
+    },
+    emoteOpenPickerAria: "Skicka emote",
+    emotePickerAria: "Välj emote",
+    emoteCooldown: "Vänta lite innan nästa emote",
+    emoteSendAria: (id: string) => {
+      const labels: Record<string, string> = {
+        surprised: "Förvånad",
+        happy: "Glad",
+        sad: "Ledsen",
+        angry: "Arg",
+        love: "Kärlek",
+      };
+      return `Skicka ${labels[id] ?? "emote"}`;
+    },
     players: "Spelare",
     settings: "Inställningar",
     settingsTitle: "Inställningar",

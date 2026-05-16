@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import {
   allCards,
@@ -11,7 +11,7 @@ import {
   type EquipmentShopItem,
   type MonsterDef,
 } from "@bv/game-core";
-import { artAttributionLabel, artImageSources } from "../lib/cardArt";
+import { artAttributionLabel, artImageSources, hasArtAttribution } from "../lib/cardArt";
 import { CatalogImageBadgeStrip, cardDefOverviewBadges } from "../lib/catalogCardOverviewBadges";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/inventoryEffectBadges";
@@ -126,17 +126,22 @@ function splitItemCardsByPolarity(cards: CardDef[]): {
 }
 
 export function CardsCatalog() {
-  const byKind = useMemo(
-    () =>
-      groupCardsByKind(
-        allCards().filter((c) => !HIDDEN_CATALOG_CARD_IDS.has(c.id) && c.kind !== "treasure"),
-      ),
-    [],
-  );
-  const equipmentBySlot = useMemo(
-    () => groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT]),
-    [],
-  );
+  const [onlyBeerRef, setOnlyBeerRef] = useState(false);
+
+  const byKind = useMemo(() => {
+    let cards = allCards().filter((c) => !HIDDEN_CATALOG_CARD_IDS.has(c.id) && c.kind !== "treasure");
+    if (onlyBeerRef) cards = cards.filter((c) => hasArtAttribution(c.artKey));
+    return groupCardsByKind(cards);
+  }, [onlyBeerRef]);
+
+  const equipmentBySlot = useMemo(() => {
+    if (onlyBeerRef) {
+      const empty = new Map<EquipmentShopItem["slot"], EquipmentShopItem[]>();
+      for (const s of EQUIP_SLOT_ORDER) empty.set(s, []);
+      return empty;
+    }
+    return groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT]);
+  }, [onlyBeerRef]);
 
   const { soloMonsters, teamMonsters, bossMonsters } = useMemo(() => {
     const bossIds = new Set(FINAL_BOSS_IDS);
@@ -144,6 +149,7 @@ export function CardsCatalog() {
     const team: MonsterDef[] = [];
     const bosses: MonsterDef[] = [];
     for (const m of MONSTERS) {
+      if (onlyBeerRef && !hasArtAttribution(m.artKey)) continue;
       if (bossIds.has(m.id)) bosses.push(m);
       else if (m.teamBattleRequired) team.push(m);
       else solo.push(m);
@@ -153,21 +159,47 @@ export function CardsCatalog() {
     team.sort(sort);
     bosses.sort(sort);
     return { soloMonsters: solo, teamMonsters: team, bossMonsters: bosses };
-  }, []);
+  }, [onlyBeerRef]);
+
+  const beerRefCount = useMemo(() => {
+    let n = 0;
+    for (const list of byKind.values()) n += list.length;
+    n += soloMonsters.length + teamMonsters.length + bossMonsters.length;
+    return n;
+  }, [byKind, soloMonsters.length, teamMonsters.length, bossMonsters.length]);
 
   return (
     <div className={catalogStyles.pageRoot}>
       <div className={catalogStyles.catalogHeaderRow}>
         <h1 className={catalogStyles.catalogTitle}>Kortkatalog</h1>
-        <Link to="/" className={catalogStyles.catalogHomeLink}>
-          Till startsidan
-        </Link>
+        <div className={catalogStyles.catalogHeaderActions}>
+          <button
+            type="button"
+            className={onlyBeerRef ? catalogStyles.filterBtnActive : catalogStyles.filterBtn}
+            aria-pressed={onlyBeerRef}
+            onClick={() => setOnlyBeerRef((v) => !v)}
+          >
+            {onlyBeerRef ? "Visar ölreferens" : "Endast ölreferens"}
+          </button>
+          <Link to="/" className={catalogStyles.catalogHomeLink}>
+            Till startsidan
+          </Link>
+        </div>
       </div>
       <p className={catalogStyles.catalogIntro}>
-        Översikt: kort från <code className={catalogStyles.codeInline}>cards.json</code>, utrustning från{" "}
-        <code className={catalogStyles.codeInline}>equipmentDefs.ts</code>, monster från{" "}
-        <code className={catalogStyles.codeInline}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
-        <strong>team battle</strong> och <strong>slutbossar</strong>.
+        {onlyBeerRef ? (
+          <>
+            Visar <strong>{beerRefCount}</strong> kort och monster med registrerad ölreferens (etikett under bilden).
+            Utrustning har inga ölreferenser i katalogen.
+          </>
+        ) : (
+          <>
+            Översikt: kort från <code className={catalogStyles.codeInline}>cards.json</code>, utrustning från{" "}
+            <code className={catalogStyles.codeInline}>equipmentDefs.ts</code>, monster från{" "}
+            <code className={catalogStyles.codeInline}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
+            <strong>team battle</strong> och <strong>slutbossar</strong>.
+          </>
+        )}
       </p>
 
       {KIND_ORDER.map((kind) => {
@@ -222,7 +254,8 @@ export function CardsCatalog() {
         );
       })}
 
-      <section className={catalogStyles.sectionMb36}>
+      {!onlyBeerRef ? (
+        <section className={catalogStyles.sectionMb36}>
         <h2 className={catalogStyles.h2SectionTight}>
           Utrustning{" "}
           <span className={catalogStyles.countMuted}>
@@ -249,6 +282,7 @@ export function CardsCatalog() {
           );
         })}
       </section>
+      ) : null}
 
       <MonsterSection
         title="Monster — vanliga (solo)"

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="91.167" height="91.167" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 91.167 91.167">
+  <defs>
+    <radialGradient id="d" cx="45.867" cy="22.85" fx="45.867" fy="22.85" r="66.278" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9dc5e6"/>
+      <stop offset="1" stop-color="#27aae1"/>
+    </radialGradient>
+    <filter id="f" x="28.543" y="3.197" width="34" height="16" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-color="#fff" result="bg"/>
+      <feBlend in="SourceGraphic" in2="bg"/>
+    </filter>
+    <mask id="e" data-name="mask" x="28.543" y="3.197" width="34" height="16" maskUnits="userSpaceOnUse">
+      <g filter="url(#f)">
+        <image width="34" height="16" transform="translate(28.543 3.197)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACIAAAAQCAYAAABz9a1kAAAACXBIWXMAAAsSAAALEgHS3X78AAACXklEQVRIic2Vz0vjQBSAv0yaqI0JWgKOtATMSQXtSRAU0f/Mv0zFmx5UBA+iRSxqq2XsL7Va05k9LA2rVtdlXdbvNDDvTb6ZN/NiAYZvgPjfAn0yvwtYXV2lUCjgeR6ZTAYhBJZlfZhjjEFrTbfbpdPpcHFxwdbW1oc5FgNKs7y8TBzHTE5OEscxExMTeJ6H4zjYtp2KvBYy5udSWutU5OHhgWq1SqlU4ubmhrOzM7a3tz8WWVhYYHp6mmKxSBzHSCkJw5AgCHBdl0wmg2VZWJaFEIOrqrXGGIMxhl6vx9PTE61Wi1qtlgrt7+9zfHzM3t5empeWplgssri4yPz8PDMzM0RRxNjYGJ7nvfvRzxKGIVJKpJTkcjmy2SxBEJAkCYeHhy9FpJQUCgWmpqaIoggpJY7j/JVAH9u28X0fIQRJktBqtVBKEYZhGpNu1XEchoaGcF0X13W/TOJXhBAIIbBt++1cf9DpdKjX69TrdRqNBu12O718X8Hj4yNKKWq1GtfX11SrVW5vb9N5G1gHcF0XrTVCCLTWAPR6vfTy9XfzWYwxdLtd7u/vaTQalMtlTk5OOD095ejoiIODA3Z3d9P4N893aWmJ2dlZ5ubmyOfzjI+Pk81mGR0dJQgChoeHcRznjVj/pSRJkgo0m03a7TZKKS4vLymVSlQqFc7Pz9nZ2XkhPrCPAKysrBBFEb7vMzIygu/7RFFELpcb2Nz6Tez5+Zm7uzuUUpTLZZrNJkopKpUKm5ub757guyKDWFtbI5/PvxB5fSL9bnp1dcXGxsZnl/4zkX/Jt/npfRuRH4HvEvEhcMKmAAAAAElFTkSuQmCC"/>
+      </g>
+    </mask>
+    <filter id="h" x="33.543" y="6.197" width="24" height="7" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-color="#fff" result="bg"/>
+      <feBlend in="SourceGraphic" in2="bg"/>
+    </filter>
+    <mask id="g" data-name="mask-1" x="33.543" y="6.197" width="24" height="7" maskUnits="userSpaceOnUse">
+      <g filter="url(#h)">
+        <image width="24" height="7" transform="translate(33.543 6.197)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAHCAYAAAAS9422AAAACXBIWXMAAAsSAAALEgHS3X78AAAARklEQVQokdWRsQ0AMQwCz+/9R7K8Ahvx1SdFyk+KICFRgYAAzEE8J82XAEnY/kVJS4gBV5V3obv9+Y4GmbltloiYmttPfgFhX4jrFOJolQAAAABJRU5ErkJggg=="/>
+      </g>
+    </mask>
+  </defs>
+  <g id="c" data-name="Layer 1">
+    <g>
+      <g>
+        <path d="M45.583,89.167c-24.032,0-43.583-19.551-43.583-43.583S21.552,2,45.583,2s43.583,19.551,43.583,43.583-19.552,43.583-43.583,43.583Z" fill="url(#d)"/>
+        <path d="M45.583,4c22.966,0,41.583,18.618,41.583,41.583s-18.618,41.583-41.583,41.583S4,68.549,4,45.583,22.618,4,45.583,4M45.583,0C20.449,0,0,20.449,0,45.583s20.449,45.583,45.583,45.583,45.583-20.449,45.583-45.583S70.718,0,45.583,0h0Z"/>
+      </g>
+      <path d="M20.634,32.786s2.235-5.635,9.91-4.469" fill="none" stroke="#231f20" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <path d="M69.148,32.786s-2.235-5.635-9.91-4.469" fill="none" stroke="#231f20" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <path d="M33.945,70.454s2.623-13.718,10.979-13.718,10.785,13.718,10.785,13.718" fill="none" stroke="#231f20" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <path d="M75.574,72.735c0,3.363-2.726,6.089-6.089,6.089s-6.089-2.726-6.089-6.089c0-6.866,6.089-15.772,6.089-15.772,0,0,6.089,9.619,6.089,15.772Z" fill="#fff"/>
+      <g>
+        <ellipse cx="27.435" cy="45.031" rx="8.291" ry="10.281"/>
+        <ellipse cx="25.058" cy="41.991" rx="4.035" ry="5.003" fill="#fff"/>
+        <circle cx="30.7" cy="49.617" r="2.622" fill="#fff"/>
+      </g>
+      <g>
+        <ellipse cx="62.347" cy="45.031" rx="8.291" ry="10.281"/>
+        <circle cx="66.406" cy="49.617" r="2.622" fill="#fff"/>
+        <ellipse cx="59.749" cy="41.991" rx="4.035" ry="5.003" fill="#fff"/>
+      </g>
+      <path d="M30.884,56.931c0,.644-1.789,2.841-3.909,2.841s-3.771-2.197-3.771-2.841,1.65.51,3.771.51,3.909-1.154,3.909-.51Z" opacity=".23"/>
+      <path d="M66.187,56.931c0,.644-1.789,2.841-3.909,2.841s-3.771-2.197-3.771-2.841,1.65.51,3.771.51,3.909-1.154,3.909-.51Z" opacity=".23"/>
+      <g opacity=".37">
+        <g mask="url(#e)">
+          <ellipse cx="45.584" cy="11.214" rx="14.733" ry="5.197" fill="#fff"/>
+        </g>
+      </g>
+      <g opacity=".37">
+        <g mask="url(#g)">
+          <path d="M55.265,10.242c0,1.091-4.334.356-9.681.356s-9.681.735-9.681-.356,4.334-1.976,9.681-1.976,9.681.884,9.681,1.976Z" fill="#fff"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

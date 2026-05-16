@@ -13,6 +13,7 @@ import {
   FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
   isFinalBossMonsterId,
+  isPlayerActiveInMatch,
   isLegendariskBurkhjälmName,
   effectiveWeaponPiecePower,
   monsterCombatEquipmentAttackBonus,
@@ -66,6 +67,7 @@ import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
+import { WaitingTurnEmotePanel } from "../components/play/WaitingTurnEmotePanel";
 import { CombatEnemyIntroWaiting } from "../components/play/CombatEnemyIntroWaiting";
 import { CombatRollPreviewSheet } from "../components/play/CombatRollPreviewSheet";
 import { CombatHitMitigationSheet } from "../components/play/CombatHitMitigationSheet";
@@ -1673,8 +1675,7 @@ export function PlayView() {
         (pl) =>
           pl.id !== pending.attackerId &&
           pl.id !== pending.assistId &&
-          !pl.eliminated &&
-          pl.hp > 0 &&
+          isPlayerActiveInMatch(pl) &&
           playerHasPlayablePositiveHelpItem(pl),
       );
       const myTeamRoll = pending.teamRolls?.[me.id];
@@ -1931,7 +1932,9 @@ export function PlayView() {
           }
           if (beerBroPickInstance) {
             const broInst = interveneItems.find((x) => x.instanceId === beerBroPickInstance);
-            const broCandidates = state.players.filter((p) => p.id !== pending.attackerId);
+            const broCandidates = state.players.filter(
+              (p) => p.id !== pending.attackerId && isPlayerActiveInMatch(p),
+            );
             if (!broInst) {
               return (
                 <div className={u.stack10}>
@@ -1974,7 +1977,9 @@ export function PlayView() {
           }
           if (interveneOtherTargetPickInstance) {
             const otInst = interveneItems.find((x) => x.instanceId === interveneOtherTargetPickInstance);
-            const otherTargetCandidates = state.players.filter((p) => p.id !== me.id);
+            const otherTargetCandidates = state.players.filter(
+              (p) => p.id !== me.id && isPlayerActiveInMatch(p),
+            );
             if (!otInst) {
               return (
                 <div className={u.stack10}>
@@ -2719,6 +2724,10 @@ export function PlayView() {
       );
     }
 
+    if (!isMyTurn && footerTurnCaption) {
+      return <WaitingTurnEmotePanel caption={footerTurnCaption} me={me} send={send} />;
+    }
+
     if (isMyTurn && !pending) {
       return (
         <div className={u.stack10}>
@@ -2860,13 +2869,13 @@ export function PlayView() {
         : null;
     const candidates =
       broPick && combatAttackerId
-        ? state.players.filter((p) => p.id !== combatAttackerId)
+        ? state.players.filter((p) => p.id !== combatAttackerId && isPlayerActiveInMatch(p))
         : meta.target === "other" && pvpDuelOpponentId
-          ? state.players.filter((p) => p.id === pvpDuelOpponentId)
+          ? state.players.filter((p) => p.id === pvpDuelOpponentId && isPlayerActiveInMatch(p))
           : meta.target === "other"
-            ? state.players.filter((p) => p.id !== me.id)
+            ? state.players.filter((p) => p.id !== me.id && isPlayerActiveInMatch(p))
             : meta.target === "self_or_other"
-              ? state.players
+              ? state.players.filter((p) => p.id === me.id || isPlayerActiveInMatch(p))
               : [];
     const chosen = needsTarget ? (itemTargetId ?? (healingTargetItem ? me.id : null)) : null;
     const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;

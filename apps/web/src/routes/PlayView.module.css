@@ -1538,3 +1538,74 @@
   opacity: 0.96;
 }
 
+.waitingTurnEmotePanel {
+  display: grid;
+  gap: 12px;
+}
+
+.waitingTurnEmoteRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.waitingTurnCaption {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.waitingTurnEmoteTrigger {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.waitingTurnEmoteTriggerIcon {
+  display: block;
+  filter: brightness(0) saturate(100%) invert(82%);
+  opacity: 0.92;
+}
+
+.waitingTurnEmoteTrigger:disabled,
+.waitingTurnEmoteTriggerCooldown {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.waitingTurnEmotePicker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.waitingTurnEmoteChoice {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.waitingTurnEmoteChoice:active {
+  transform: scale(0.96);
+}
+

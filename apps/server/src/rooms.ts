@@ -221,6 +221,7 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       lastDiceRollerId: room.state.lastDiceRollerId,
       sipNotices: room.state.sipNotices,
       tableItemPlayReveals: room.state.tableItemPlayReveals,
+      playerEmoteBursts: room.state.playerEmoteBursts,
       ...(includeLevels ? { levels: room.state.levels } : {}),
     },
   };

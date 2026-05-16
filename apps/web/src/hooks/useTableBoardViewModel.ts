@@ -1,5 +1,12 @@
 import { useMemo } from "react";
-import { BOARD_RING_GRID_SIZE, ringGridSizeFromTileCount, ringTileCount, type GameState, type Player } from "@bv/game-core";
+import {
+  BOARD_RING_GRID_SIZE,
+  isPlayerOnBoard,
+  ringGridSizeFromTileCount,
+  ringTileCount,
+  type GameState,
+  type Player,
+} from "@bv/game-core";
 import { ringRectDimsFromGridSize } from "../lib/tableBoard";
 
 type TableBoardViewModel = {
@@ -35,6 +42,7 @@ export function useTableBoardViewModel(state: GameState | null): TableBoardViewM
     const levels = state?.levels ?? [];
     const map = new Map<string, Player[]>();
     for (const p of ps) {
+      if (!isPlayerOnBoard(p)) continue;
       const nTiles = levels[p.levelIndex]?.tiles?.length ?? 0;
       const ti = nTiles <= 0 ? 0 : Math.min(Math.max(0, p.tileIndex), nTiles - 1);
       const key = `${p.levelIndex}-${ti}`;

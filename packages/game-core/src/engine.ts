@@ -51,6 +51,12 @@ import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 import {
+  EMOTE_COOLDOWN_MS,
+  isEmoteId,
+  prunePlayerEmoteBursts,
+} from "./emotes.js";
+import { errorIfInactiveOtherPlayerTarget, isPlayerActiveInMatch } from "./playerParticipation.js";
+import {
   autoPassReactorsWithoutPlayableItems,
   beginCombatReactionsPhase,
   itemPlayGoldCost,
@@ -71,6 +77,7 @@ import type {
   Pending,
   PenaltySipQueueEntry,
   Player,
+  PlayerEmoteBurst,
   ShopItem,
   TableItemPlaySidePayload,
   Tile,
@@ -170,6 +177,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     lastDiceRoll: null,
     lastDiceRollerId: null,
     sipNotices: [],
+    playerEmoteBursts: [],
   };
 }
 
@@ -1832,6 +1840,7 @@ export function startGame(
   next.lastDiceRoll = null;
   next.lastDiceRollerId = null;
   next.sipNotices = [];
+  next.playerEmoteBursts = [];
   clearTableItemPlay(next);
   log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
   if (bossMonster) {
@@ -2285,6 +2294,30 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state: next, events: ["state"] };
   }
 
+  if (action.type === "sendEmote") {
+    if (next.phase !== "playing") {
+      return { state, events: [], error: "Emotes kan bara skickas under spelet" };
+    }
+    const sender = next.players.find((x) => x.id === action.playerId);
+    if (!sender) return { state, events: [], error: "Spelaren hittades inte" };
+    if (!isEmoteId(action.emoteId)) {
+      return { state, events: [], error: "Okänd emote" };
+    }
+    const now = Date.now();
+    const pruned = prunePlayerEmoteBursts(next.playerEmoteBursts ?? [], now);
+    const lastFromSender = pruned
+      .filter((b) => b.playerId === action.playerId)
+      .reduce<PlayerEmoteBurst | null>((best, b) => (!best || b.at > best.at ? b : best), null);
+    if (lastFromSender && now - lastFromSender.at < EMOTE_COOLDOWN_MS) {
+      return { state, events: [], error: "Vänta lite innan nästa emote." };
+    }
+    next.playerEmoteBursts = prunePlayerEmoteBursts(
+      [...pruned, { playerId: action.playerId, emoteId: action.emoteId, at: now }],
+      now,
+    );
+    return { state: next, events: ["state"] };
+  }
+
   if (action.type === "brewerDownChoice" && next.pending?.type === "brewerDown") {
     const pending = next.pending;
     if (action.playerId !== pending.playerId) {
@@ -2422,6 +2455,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const teammate = next.players.find((x) => x.id === action.teammateId);
     if (!teammate) return { state, events: [], error: "Teammate not found" };
     if (teammate.id === pending.attackerId) return { state, events: [], error: "Du kan inte välja dig själv" };
+    if (!isPlayerActiveInMatch(teammate)) {
+      return { state, events: [], error: "Medkämpen är ute ur spelet" };
+    }
     pending.assistId = teammate.id;
     pending.reactors = combatReactorsFor(next, pending.attackerId, teammate.id);
     pending.reacted = {};
@@ -2617,6 +2653,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (user.eliminated) {
       return { state, events: [], error: "Du är ute ur spelet" };
+    }
+    if (action.targetPlayerId) {
+      const itemTarget = next.players.find((p) => p.id === action.targetPlayerId);
+      const inactiveErr = errorIfInactiveOtherPlayerTarget(itemTarget, user.id);
+      if (inactiveErr) return { state, events: [], error: inactiveErr };
     }
     if (next.pending?.type === "brewerDown" && HEALING_ANYTIME_ITEM_IDS.has(inst.itemId)) {
       return { state, events: [], error: "Vänta tills du valt efter stupad bryggare." };

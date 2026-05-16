@@ -97,6 +97,22 @@ export {
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
+  errorIfInactiveOtherPlayerTarget,
+  isPlayerActiveInMatch,
+  isPlayerOnBoard,
+} from "./playerParticipation.js";
+export {
+  EMOTE_COOLDOWN_MS,
+  EMOTE_DISPLAY_MS,
+  EMOTE_ICON_SRC,
+  EMOTE_IDS,
+  emoteBurstRotationDeg,
+  isEmoteId,
+  latestEmoteBurstForPlayer,
+  prunePlayerEmoteBursts,
+} from "./emotes.js";
+export type { EmoteId, PlayerEmoteBurst } from "./types.js";
+export {
   appendTextForGrantedItem,
   artKeyForGrantedItem,
   artKeyFromDuFickAppend,
