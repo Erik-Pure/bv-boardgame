@@ -113,6 +113,15 @@ describe("player emotes", () => {
     assert.equal(r.state.playerEmoteBursts?.[0]?.emoteId, "happy");
   });
 
+  it("sendEmote avvisas för eliminerad spelare", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1, eliminated: true, hp: 0 });
+    const state = playingState([p1, p2]);
+    const r = applyAction(state, { type: "sendEmote", playerId: "p2", emoteId: "happy" });
+    assert.match(String(r.error ?? ""), /emotes/i);
+    assert.equal(r.state.playerEmoteBursts?.length ?? 0, 0);
+  });
+
   it("sendEmote tillåts efter cooldown", () => {
     const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
     const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });

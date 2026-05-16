@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyAction, CONFIG_NUMERIC, DEFAULT_PLAYER_SESSION_STATS, MONSTERS } from "../dist/index.js";
+import {
+  applyAction,
+  CONFIG_NUMERIC,
+  DEFAULT_PLAYER_SESSION_STATS,
+  FINAL_BOSS_LIFE_TOTAL,
+  MONSTERS,
+} from "../dist/index.js";
 
 const bossId = "store_narcissius";
 const bossMonster = MONSTERS.find((m) => m.id === bossId);
@@ -100,5 +106,121 @@ describe("final boss between rounds", () => {
       assert.equal(pend.phase, "reactions");
       assert.equal(pend.monsterId, bossId);
     }
+  });
+});
+
+describe("final boss last life", () => {
+  it("boss_final_win confirmCard sets ended with winner and golden beer", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "T",
+      players: [p1, p2],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      levels: [
+        {
+          tiles: [
+            {
+              id: "b0",
+              type: "boss",
+              combatValue: bossMonster.strength,
+              bossName: bossMonster.name,
+            },
+            { id: "e1", type: "empty" },
+          ],
+        },
+      ],
+      pending: {
+        type: "card",
+        playerId: "p1",
+        cardId: "boss_final_win",
+        kind: "combat",
+        title: "Slutbossen besegrad!",
+        text: "A vinner spelet!",
+        artKey: bossMonster.artKey,
+        bossFinalWin: {
+          winnerName: "A",
+          bossName: bossMonster.name,
+          roundLabel: `RUNDA ${FINAL_BOSS_LIFE_TOTAL} AV ${FINAL_BOSS_LIFE_TOTAL}`,
+        },
+      },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: bossId,
+      finalBossLivesRemaining: 0,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+      lastDiceRoll: null,
+      lastDiceRollerId: null,
+      sipNotices: [],
+    };
+
+    assert.equal(state.phase, "playing");
+    assert.equal(state.pending.cardId, "boss_final_win");
+
+    const r1 = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r1.error, undefined);
+    assert.equal(r1.state.phase, "playing");
+    assert.notEqual(r1.state.bossFinaleExitStartedAt, null);
+
+    const r2 = applyAction(r1.state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r2.error, undefined);
+    assert.equal(r2.state.phase, "ended");
+    assert.equal(r2.state.winnerId, "p1");
+    assert.equal(r2.state.winnerName, "A");
+    assert.equal(r2.state.goldenBeerCarrierId, "p1");
+    assert.equal(r2.state.pending, null);
+  });
+
+  it("boss_final_win: first confirmCard starts exit, second ends game", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "T",
+      players: [p1],
+      turnOrder: ["p1"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "b0", type: "boss", combatValue: 1, bossName: "Boss" }] }],
+      pending: {
+        type: "card",
+        playerId: "p1",
+        cardId: "boss_final_win",
+        kind: "combat",
+        title: "Slutbossen besegrad!",
+        text: "A vinner spelet!",
+      },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: bossId,
+      finalBossLivesRemaining: 0,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+      lastDiceRoll: null,
+      lastDiceRollerId: null,
+      sipNotices: [],
+    };
+
+    const r1 = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r1.error, undefined);
+    assert.equal(r1.state.phase, "playing");
+    assert.equal(r1.state.pending?.cardId, "boss_final_win");
+    assert.notEqual(r1.state.bossFinaleExitStartedAt, null);
+    assert.equal(r1.state.winnerId, null);
+
+    const r2 = applyAction(r1.state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r2.error, undefined);
+    assert.equal(r2.state.phase, "ended");
+    assert.equal(r2.state.winnerId, "p1");
+    assert.equal(r2.state.bossFinaleExitStartedAt, null);
   });
 });

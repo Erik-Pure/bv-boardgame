@@ -119,6 +119,14 @@
       "effects": []
     },
     {
+      "id": "boss_final_win",
+      "kind": "combat",
+      "title": "Slutbossen besegrad!",
+      "text": "Spelet är vunnet. Bekräfta för resultat.",
+      "artKey": "combat/boss",
+      "effects": []
+    },
+    {
       "id": "choice_drink_or_damage",
       "kind": "event",
       "title": "Barkäbbel",

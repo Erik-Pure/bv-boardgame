@@ -2,7 +2,7 @@ import type { CardDef, EffectApplyOut } from "./types.js";
 import { applyEffects } from "./effects.js";
 import { getCard } from "./db.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./grantedItemText.js";
-import { mergePenaltySipQueue, pushSipNotice } from "../sipNotice.js";
+import { mergePenaltySipQueue, pushPlayerNotice, pushSipNotice } from "../sipNotice.js";
 import { formatSelfStatDeltas, formatTargetStatDeltas } from "../statDeltaText.js";
 import type {
   CombatLoseSummary,
@@ -496,6 +496,14 @@ export function handleCardOption(params: {
       rng,
       ignoreArmorOnDamage: true,
     });
+    pushPlayerNotice(
+      state,
+      target.id,
+      p.name,
+      "Peka argt",
+      `${p.name} pekade argt på dig. Du tar 1 skada.`,
+      "toast",
+    );
     grantKlunkWithXp(state, p, 1, { penaltyStraff: true });
     state.pending = {
       ...pending,
@@ -733,6 +741,19 @@ export function handleCardConfirm(params: {
     if (!start) return { handled: true };
     log(state, `${attacker.name} går in i nästa runda mot slutbossen.`);
     return { handled: true, startCombat: start };
+  }
+
+  if (pending.kind === "combat" && pending.cardId === "boss_final_win") {
+    const winner = state.players.find((x) => x.id === pending.playerId);
+    if (!winner) return { handled: true };
+    state.bossFinaleExitStartedAt = null;
+    state.phase = "ended";
+    state.winnerId = winner.id;
+    state.winnerName = winner.name;
+    state.goldenBeerCarrierId = winner.id;
+    log(state, `🏆 ${winner.name} har besegrat slutbossen och vinner spelet!`);
+    log(state, `${winner.name} får den gyllene ölen!`);
+    return { handled: true };
   }
 
   return { handled: false };

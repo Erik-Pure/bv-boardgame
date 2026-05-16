@@ -156,6 +156,142 @@
   }
 }
 
+.bossFinaleBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      ellipse 120% 90% at 50% 16%,
+      rgba(254, 121, 121, 0.72) 0%,
+      rgba(239, 68, 68, 0.54) 28%,
+      rgba(127, 29, 29, 0.44) 52%,
+      rgba(18, 4, 8, 0) 74%
+    ),
+    linear-gradient(180deg, rgba(60, 8, 12, 0.88) 0%, rgba(9, 2, 5, 0.94) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% 100%;
+  background-position: 50% 16%, 50% 50%;
+  animation: bossFinaleBackdropPulse 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes bossFinaleBackdropPulse {
+  0% {
+    box-shadow: inset 0 0 85px rgba(248, 113, 113, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 210px rgba(239, 68, 68, 0.62);
+  }
+  100% {
+    box-shadow: inset 0 0 85px rgba(248, 113, 113, 0.2);
+  }
+}
+
+.bossFinaleOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 138;
+  display: grid;
+  place-items: start center;
+  pointer-events: none;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)) 16px;
+  box-sizing: border-box;
+}
+
+.bossFinaleOverlayStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin-top: clamp(20px, 9vh, 96px);
+  animation: bossFinaleOverlayIn 720ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.bossFinaleOverlayStackExiting {
+  animation: bossFinaleOverlayOut 1800ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.bossFinaleBackdropExiting {
+  animation: bossFinaleBackdropFadeOut 1800ms ease-out forwards !important;
+}
+
+.bossFinaleRoundLabel {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(1.35rem, 6.5vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 24px rgba(239, 68, 68, 0.45);
+}
+
+.bossFinaleVictoryText {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(2.2rem, 11vw, 4.4rem);
+  line-height: 1.02;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fef08a;
+  -webkit-text-stroke: 3px rgba(0, 0, 0, 0.92);
+  paint-order: stroke fill;
+  text-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.85),
+    0 0 40px rgba(250, 204, 21, 0.5);
+}
+
+.bossFinaleWinnerText {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(1.25rem, 5.5vw, 1.85rem);
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  color: #f1f5f9;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
+}
+
+.bossFinaleBossName {
+  font-size: clamp(0.95rem, 4vw, 1.15rem);
+  opacity: 0.88;
+  color: #fca5a5;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+}
+
+@keyframes bossFinaleOverlayIn {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bossFinaleOverlayOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.02);
+  }
+}
+
+@keyframes bossFinaleBackdropFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .myTurnOverlayText {
     animation: none;
@@ -166,6 +302,18 @@
     transform: none;
   }
   .levelUpOverlayText {
+    animation: none;
+  }
+  .bossFinaleOverlayStack,
+  .bossFinaleOverlayStackExiting {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .bossFinaleOverlayStackExiting {
+    opacity: 0;
+  }
+  .bossFinaleBackdrop {
     animation: none;
   }
 }
@@ -1536,6 +1684,156 @@
 .moveChoiceTileIconImgMono {
   filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
   opacity: 0.96;
+}
+
+.waitingTurnEmoteStackedBody {
+  display: grid;
+  gap: 10px;
+}
+
+/* Flytande emote — vänster om botten-sheet, speglar panel-togglen till höger */
+.floatingEmoteBar {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 92;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 34px;
+  max-width: min(calc(100vw - 56px), 340px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(11, 18, 38, 0.86);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  width: 34px;
+  transition:
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease;
+}
+
+/* 40 trigger + 2+6 padding + 5×46 knappar + 4×6 gap (5 emotes) */
+.floatingEmoteBarOpen {
+  width: min(calc(100vw - 56px), calc(40px + 8px + 5 * 46px + 4 * 6px));
+  height: 52px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.floatingEmoteBarCooldown {
+  opacity: 0.5;
+}
+
+.floatingEmoteTrigger {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floatingEmoteBarOpen .floatingEmoteTrigger {
+  width: 40px;
+  height: 52px;
+  border-radius: 12px 0 0 12px;
+}
+
+.floatingEmoteTrigger:disabled {
+  cursor: not-allowed;
+}
+
+.floatingEmoteTriggerGlyph {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.floatingEmoteTriggerIcon,
+.floatingEmoteTriggerClose {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.floatingEmoteTriggerIcon {
+  display: block;
+  filter: brightness(0) saturate(100%) invert(82%);
+  opacity: 0.92;
+}
+
+.floatingEmoteTriggerIconHidden {
+  opacity: 0;
+  transform: scale(0.82);
+  pointer-events: none;
+}
+
+.floatingEmoteTriggerClose {
+  display: block;
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 0;
+  transform: scale(0.82);
+  pointer-events: none;
+}
+
+.floatingEmoteTriggerCloseVisible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.floatingEmoteChoices {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 2px;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease 0.04s;
+}
+
+.floatingEmoteBarOpen .floatingEmoteChoices {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.floatingEmoteChoice {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.floatingEmoteChoice img {
+  width: 40px;
+  height: 40px;
+}
+
+.floatingEmoteChoice:disabled {
+  cursor: default;
+}
+
+.floatingEmoteChoice:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .waitingTurnEmotePanel {

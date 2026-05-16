@@ -72,6 +72,7 @@ const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
 const HIDDEN_CATALOG_CARD_IDS = new Set<string>([
   "combat_monster",
   "boss_round_win",
+  "boss_final_win",
   "event_find_item_random",
 ]);
 

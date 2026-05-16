@@ -1,4 +1,5 @@
 import { createRng, rollDie } from "./rng.js";
+import { DEV_QUICK_BOSS_TEST } from "./devBossTest.js";
 import type { LevelBoard, Tile, TileType } from "./types.js";
 
 /** Yttre kant på “hålet” i mitten: 5×5 → 4·5−4 = 16 rutor per våning. */
@@ -48,6 +49,18 @@ function makeTile(
 /** Typfördelning per våning; summan ska bli `ringTileCount(BOARD_RING_GRID_SIZE)` (16). */
 function tileCountsForLevel(li: number): Record<TileType, number> {
   if (li === 0) {
+    if (DEV_QUICK_BOSS_TEST.enabled) {
+      return {
+        empty: 0,
+        event: 4,
+        combat: 3,
+        merchant: 1,
+        door: 0,
+        rest: 1,
+        treasure: 2,
+        boss: DEV_QUICK_BOSS_TEST.bossTilesOnLevel0,
+      };
+    }
     return {
       empty: 0,
       event: 6,
@@ -126,9 +139,12 @@ export function generateLevels(
     while (types.length < n) types.push(rng() < 0.6 ? "event" : "combat");
     const isFinalLevel = li === NUM_LEVELS - 1;
     if (!isFinalLevel) {
-      for (let i = 0; i < types.length; i++) {
-        if (types[i] === "boss") {
-          types[i] = "combat";
+      const keepBossOnThisLevel = DEV_QUICK_BOSS_TEST.enabled && li === 0;
+      if (!keepBossOnThisLevel) {
+        for (let i = 0; i < types.length; i++) {
+          if (types[i] === "boss") {
+            types[i] = "combat";
+          }
         }
       }
     } else if (!types.includes("boss")) {

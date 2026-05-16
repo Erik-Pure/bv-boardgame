@@ -111,6 +111,7 @@ export {
   latestEmoteBurstForPlayer,
   prunePlayerEmoteBursts,
 } from "./emotes.js";
+export { resolveIdleEmoteKind, type IdleEmoteKind } from "./idleEmoteKind.js";
 export type { EmoteId, PlayerEmoteBurst } from "./types.js";
 export {
   appendTextForGrantedItem,

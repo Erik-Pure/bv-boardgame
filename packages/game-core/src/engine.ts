@@ -1,4 +1,5 @@
 import { findBossTileIndexInLevel, generateLevels } from "./board.js";
+import { DEV_QUICK_BOSS_TEST } from "./devBossTest.js";
 import { brewerLevelFromXp, xpThresholdForBrewerLevel } from "./brewerXp.js";
 import { createRng, fnv1a32, pick, rollDie, stableStringify } from "./rng.js";
 import { applyEffects } from "./cards/effects.js";
@@ -14,6 +15,7 @@ import {
 import { CANMAN_DRAWS_INITIAL, createItemInstance } from "./itemInstance.js";
 import {
   FINAL_BOSS_IDS,
+  FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
   isStandardMonsterId,
   MONSTERS,
@@ -55,7 +57,11 @@ import {
   isEmoteId,
   prunePlayerEmoteBursts,
 } from "./emotes.js";
-import { errorIfInactiveOtherPlayerTarget, isPlayerActiveInMatch } from "./playerParticipation.js";
+import {
+  errorIfInactiveOtherPlayerTarget,
+  isPlayerActiveInMatch,
+  isPlayerOnBoard,
+} from "./playerParticipation.js";
 import {
   autoPassReactorsWithoutPlayableItems,
   beginCombatReactionsPhase,
@@ -173,6 +179,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     goldenBeerCarrierId: null,
     finalBossMonsterId: null,
     finalBossLivesRemaining: null,
+    bossFinaleExitStartedAt: null,
     treasureTaken: {},
     lastDiceRoll: null,
     lastDiceRollerId: null,
@@ -959,6 +966,7 @@ function showCard(
     choices?: Array<{ id: string; label: string }>;
     combatWin?: CombatWinSummary;
     combatLoss?: CombatLoseSummary;
+    bossFinalWin?: { winnerName: string; bossName: string; roundLabel: string };
     equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId?: string; newName: string };
     queuedPenaltySipNotices?: PenaltySipQueueEntry[];
   },
@@ -975,6 +983,7 @@ function showCard(
     choices: params.choices,
     combatWin: params.combatWin,
     combatLoss: params.combatLoss,
+    bossFinalWin: params.bossFinalWin,
     equipmentReplaceOffer: params.equipmentReplaceOffer,
     queuedPenaltySipNotices: params.queuedPenaltySipNotices,
   };
@@ -1634,12 +1643,22 @@ function finalizeCombatAfterRollPreview(
       });
     }
     if (tile.type === "boss") {
-      next.phase = "ended";
-      next.winnerId = p.id;
-      next.winnerName = p.name;
-      log(next, `🏆 ${p.name} har besegrat slutbossen och vinner spelet!`);
-      next.goldenBeerCarrierId = p.id;
-      log(next, `${p.name} får den gyllene ölen!`);
+      const bd = MONSTERS.find((m) => m.id === next.finalBossMonsterId);
+      showCard(next, {
+        playerId: p.id,
+        kind: "combat",
+        cardId: "boss_final_win",
+        title: "Slutbossen besegrad!",
+        text: `${p.name} vinner spelet!`,
+        artKey: bd?.artKey ?? "combat/boss",
+        bossFinalWin: {
+          winnerName: p.name,
+          bossName: tile.bossName ?? bd?.name ?? "Slutbossen",
+          roundLabel: `RUNDA ${FINAL_BOSS_LIFE_TOTAL} AV ${FINAL_BOSS_LIFE_TOTAL}`,
+        },
+      });
+      log(next, `🏆 ${p.name} har besegrat slutbossen!`);
+      return;
     }
   } else {
     const monsterId = pending.monsterId as MonsterId;
@@ -1803,13 +1822,17 @@ export function startGame(
   const bossRng = createRng(seed ^ 0x9e3779b9);
   const pickedBoss = FINAL_BOSS_IDS[Math.floor(bossRng() * FINAL_BOSS_IDS.length)]!;
   next.finalBossMonsterId = pickedBoss;
-  next.finalBossLivesRemaining = 3;
+  next.finalBossLivesRemaining = DEV_QUICK_BOSS_TEST.enabled
+    ? DEV_QUICK_BOSS_TEST.bossLives
+    : 3;
   const bossMonster = MONSTERS.find((m) => m.id === pickedBoss);
   if (bossMonster) {
     for (const lvl of next.levels) {
       for (const t of lvl.tiles) {
         if (t.type === "boss") {
-          t.combatValue = bossMonster.strength;
+          t.combatValue = DEV_QUICK_BOSS_TEST.enabled
+            ? DEV_QUICK_BOSS_TEST.bossCombatValue
+            : bossMonster.strength;
           t.bossName = bossMonster.name;
         }
       }
@@ -1836,6 +1859,7 @@ export function startGame(
   next.winnerId = null;
   next.winnerName = null;
   next.goldenBeerCarrierId = null;
+  next.bossFinaleExitStartedAt = null;
   next.treasureTaken = {};
   next.lastDiceRoll = null;
   next.lastDiceRollerId = null;
@@ -1844,9 +1868,12 @@ export function startGame(
   clearTableItemPlay(next);
   log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
   if (bossMonster) {
+    const lives = next.finalBossLivesRemaining ?? 3;
     log(
       next,
-      `Slutboss ${bossMonster.name} — tre liv, vinn tre rundor.`,
+      DEV_QUICK_BOSS_TEST.enabled
+        ? `[DEV] Snabb boss-test: ${DEV_QUICK_BOSS_TEST.bossTilesOnLevel0} boss på våning 1, ${lives} liv, styrka ${DEV_QUICK_BOSS_TEST.bossCombatValue}. Slutboss ${bossMonster.name}.`
+        : `Slutboss ${bossMonster.name} — ${lives} liv, vinn ${lives} ${lives === 1 ? "runda" : "rundor"}.`,
     );
   }
   const cur = currentPlayer(next);
@@ -2300,6 +2327,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     const sender = next.players.find((x) => x.id === action.playerId);
     if (!sender) return { state, events: [], error: "Spelaren hittades inte" };
+    if (!isPlayerOnBoard(sender)) {
+      return { state, events: [], error: "Du kan inte skicka emotes nu." };
+    }
     if (!isEmoteId(action.emoteId)) {
       return { state, events: [], error: "Okänd emote" };
     }
@@ -3657,7 +3687,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "lengraddad") {
-      const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
+      const combatFallbackTargetId =
+        next.pending?.type === "combat" && next.pending.phase === "reactions"
+          ? next.pending.attackerId
+          : undefined;
+      const pvpFallbackTargetId =
+        inPvpPreRoundItems && pvpPending?.type === "pvp"
+          ? user.id === pvpPending.attackerId
+            ? pvpPending.defenderId
+            : pvpPending.attackerId
+          : undefined;
+      const targetId = action.targetPlayerId ?? combatFallbackTargetId ?? pvpFallbackTargetId;
+      const target = targetId ? next.players.find((p) => p.id === targetId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
 
@@ -4361,6 +4402,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     if (pending.choices && pending.choices.length > 0) {
       return { state, events: [], error: "Välj ett alternativ först" };
+    }
+    if (pending.cardId === "boss_final_win" && !next.bossFinaleExitStartedAt) {
+      next.bossFinaleExitStartedAt = Date.now();
+      return { state: next, events: ["state"] };
     }
     flushPenaltySipQueue(next, pending.queuedPenaltySipNotices);
     const replaceOffer = pending.equipmentReplaceOffer;

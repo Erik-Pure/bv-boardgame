@@ -216,6 +216,7 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       goldenBeerCarrierId: room.state.goldenBeerCarrierId,
       finalBossMonsterId: room.state.finalBossMonsterId,
       finalBossLivesRemaining: room.state.finalBossLivesRemaining,
+      bossFinaleExitStartedAt: room.state.bossFinaleExitStartedAt,
       treasureTaken: room.state.treasureTaken,
       lastDiceRoll: room.state.lastDiceRoll,
       lastDiceRollerId: room.state.lastDiceRollerId,

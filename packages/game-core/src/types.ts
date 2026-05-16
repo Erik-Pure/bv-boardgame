@@ -323,6 +323,12 @@ export type Pending =
       choices?: Array<{ id: string; label: string }>;
       combatWin?: CombatWinSummary;
       combatLoss?: CombatLoseSummary;
+      /** Slutbossens sista liv: firande innan `phase: "ended"`. */
+      bossFinalWin?: {
+        winnerName: string;
+        bossName: string;
+        roundLabel: string;
+      };
       /** Efter skatt/händelse m.m.: ny utrustning när motsvarande slot redan är full. */
       equipmentReplaceOffer?: {
         slot: EquipmentSlot;
@@ -610,7 +616,7 @@ export interface PlayerEmoteBurst {
   at: number;
 }
 
-export type SipNoticeKind = "custom" | "duel_loss";
+export type SipNoticeKind = "custom" | "duel_loss" | "toast";
 
 export interface SipNoticeEntry {
   recipientId: string;
@@ -671,6 +677,8 @@ export interface GameState {
   finalBossMonsterId: MonsterId | null;
   /** Liv kvar för slutbossen (start 3); delas av alla spelare, minskar vid vunnet slag. */
   finalBossLivesRemaining: number | null;
+  /** Slutboss-seger: satt vid första confirmCard → bord animerar bort kort; andra confirm avslutar spelet. */
+  bossFinaleExitStartedAt: number | null;
   /** tileKey: `${levelIndex}-${tileIndex}` för skatter som tömts */
   treasureTaken: Record<string, true>;
   /** Genväg/Taproom till boss-ruta: kör tile utan att `encounterChoice` blockerar */

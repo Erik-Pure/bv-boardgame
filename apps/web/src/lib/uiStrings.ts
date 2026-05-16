@@ -114,6 +114,9 @@ export const sv = {
     waitTeamSecondRoll: "Väntar på lagkamratens tärning.",
     chooseBeerBroPartner: "Välj spelare som slår med angriparen (egen t6 + vapen):",
     attackerViewingEncounter: (name: string) => `${name} tittar på mötet…`,
+    bossFinaleVictory: "SEGER!",
+    bossFinaleWinner: (name: string) => `${name} vinner!`,
+    bossFinaleEnding: "Avslutar…",
     skipMonsterEncounter: "Undvik dålig batch (−2 pant)",
     theAttacker: "angriparen",
     yourD6: "Din t6",
@@ -165,6 +168,7 @@ export const sv = {
     itemSuffixBeerBomb: " (+3 spelarattack)",
     itemSuffixManopositiv: " (+4 spelarattack, −10 pant)",
     itemSuffixHangover: " (−3 spelarattack)",
+    itemSuffixLengraddad: " (−2 spelarattack)",
     itemSuffixMonsterHype: " (−2 attack)",
     itemSuffixYeast: " (−1 attack)",
     itemSuffixBeerBro: " (häng på i striden)",
@@ -284,7 +288,14 @@ export const sv = {
       const n = name.trim() || "—";
       return `${n}${n.endsWith("s") ? "" : "s"} tur`;
     },
+    /** Mobil: åskådare under pågående BvB. */
+    emoteCaptionSpectatingPvp: (attacker: string, defender: string) =>
+      `BvB: ${attacker} mot ${defender}`,
+    /** Mobil: efter ingripande-pass, väntar på att striden går vidare. */
+    emoteCaptionWaitingCombatContinue:
+      "Du har redan valt. Väntar på att striden fortsätter…",
     emoteOpenPickerAria: "Skicka emote",
+    emoteClosePickerAria: "Stäng emote-väljare",
     emotePickerAria: "Välj emote",
     emoteCooldown: "Vänta lite innan nästa emote",
     emoteSendAria: (id: string) => {
@@ -457,6 +468,9 @@ export const sv = {
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
     combatLosePenalties: "Påföljder",
     /** Mobil: när angriparen stänger förlust — du var stridshjälp eller ölkompis */
+    /** Mobil: målspelare när någon spelar Peka argt. */
+    pekaArgtDamageToast: (fromName: string) =>
+      `${fromName} pekade argt på dig. Du tar 1 skada.`,
     combatLoseAllyImpactToast: (role: "helpMate" | "beerBro", hpLost: number, klunksGained: number) => {
       const head = role === "helpMate" ? "Stridshjälp" : "Ölkompis i striden";
       const bits: string[] = [];

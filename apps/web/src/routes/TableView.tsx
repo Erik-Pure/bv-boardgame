@@ -63,9 +63,13 @@ import {
   TABLE_BOARD_MODAL_KEYFRAMES_CSS,
   TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
   TABLE_BOARD_OVERLAY_BG,
+  TABLE_BOSS_FINALE_OVERLAY_BG,
   TABLE_BOSS_OVERLAY_BG,
   TABLE_BOSS_OVERLAY_PULSE,
 } from "../components/table/tableConstants";
+import bossFinaleExitStyles from "../components/play/bossFinaleExit.module.css";
+import { bossFinaleExitCssVars } from "../lib/bossFinaleTiming";
+import { useBossFinaleExit } from "../lib/useBossFinaleExit";
 import {
   PLAYER_MARKER_TOKEN_H,
   PLAYER_MARKER_TOKEN_W,
@@ -1051,6 +1055,13 @@ function TableViewBody() {
     return () => window.clearTimeout(t);
   }, [tableCardPendingKey]);
   const pendingCard: PendingCard | null = state?.pending?.type === "card" ? state.pending : null;
+  const isBossFinalWinCard = pendingCard?.cardId === "boss_final_win";
+  const bossFinaleExit = useBossFinaleExit({
+    active: isBossFinalWinCard,
+    ready: tableCardModalReady,
+    resetKey: tableCardPendingKey,
+    exitTriggered: (state?.bossFinaleExitStartedAt ?? null) != null,
+  });
   const showTableRollEventCard =
     !!pendingCard &&
     pendingCard.kind === "event" &&
@@ -2043,6 +2054,7 @@ function TableViewBody() {
           zIndex={44}
           maxWidth={720}
           blockPointerUntilFlipped={false}
+          simpleEntrance={isBossFinalWinCard}
           cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
           faceInnerClassName={
@@ -2055,10 +2067,24 @@ function TableViewBody() {
               overlayContentScale > 1
                 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
                 : 70,
-            background: state.pending.cardId === "boss_round_win" ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
-            backgroundRepeat: state.pending.cardId === "boss_round_win" ? "no-repeat" : undefined,
-            backgroundSize: state.pending.cardId === "boss_round_win" ? "100% 100%, 100% 100%" : undefined,
-            backgroundPosition: state.pending.cardId === "boss_round_win" ? "50% 16%, 50% 50%" : undefined,
+            background:
+              state.pending.cardId === "boss_final_win"
+                ? TABLE_BOSS_FINALE_OVERLAY_BG
+                : state.pending.cardId === "boss_round_win"
+                  ? TABLE_BOSS_OVERLAY_BG
+                  : TABLE_BOARD_OVERLAY_BG,
+            backgroundRepeat:
+              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
+                ? "no-repeat"
+                : undefined,
+            backgroundSize:
+              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
+                ? "100% 100%, 100% 100%"
+                : undefined,
+            backgroundPosition:
+              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
+                ? "50% 16%, 50% 50%"
+                : undefined,
             animation:
               state.pending.cardId === "boss_round_win"
                 ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
@@ -2072,13 +2098,29 @@ function TableViewBody() {
             return (
           <div
             className={[
-              tableStyles.tableModalFrameBase,
-              eventStoryFrame ? tableStyles.tableModalFrameStory : tableStyles.tableModalFrameDefault,
-            ].join(" ")}
+              bossFinaleExitStyles.wrap,
+              bossFinaleExit.exiting && isBossFinalWinCard ? bossFinaleExitStyles.wrapExiting : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={bossFinaleExitCssVars()}
           >
-            <TablePendingCardContent pending={state.pending} viewerName={cardOwner?.name} />
-            {!eventStoryFrame ? (
-              <div className={tableStyles.pendingWaitingHint}>{sv.table.waitingConfirmPhone}</div>
+            <div
+              className={[
+                tableStyles.tableModalFrameBase,
+                eventStoryFrame ? tableStyles.tableModalFrameStory : tableStyles.tableModalFrameDefault,
+                bossFinaleExit.exiting && isBossFinalWinCard ? bossFinaleExitStyles.cardExit : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <TablePendingCardContent pending={state.pending} viewerName={cardOwner?.name} />
+              {!eventStoryFrame && !(bossFinaleExit.exiting && isBossFinalWinCard) ? (
+                <div className={tableStyles.pendingWaitingHint}>{sv.table.waitingConfirmPhone}</div>
+              ) : null}
+            </div>
+            {bossFinaleExit.starVisible && isBossFinalWinCard ? (
+              <div className={bossFinaleExitStyles.star} aria-hidden />
             ) : null}
           </div>
             );
@@ -2516,6 +2558,30 @@ function TablePendingCardContent(props: { pending: PendingCard; viewerName?: str
       <div className={tableStyles.centeredCardContent}>
         <CombatSheetFrame showSheetTitle={false}>
           <CombatLoseCardContent data={loseData} />
+        </CombatSheetFrame>
+      </div>
+    );
+  }
+  if (p.cardId === "boss_final_win") {
+    const artSrc = artImageSrcForPending(p.artKey, p.grantedItemId, { cardText: p.text, cardId: p.cardId });
+    const winnerName = p.bossFinalWin?.winnerName ?? p.text;
+    return (
+      <div className={tableStyles.centeredCardContent}>
+        <CombatSheetFrame showSheetTitle={false}>
+          <h2 className={tableStyles.bossFinalWinTitle}>{p.title}</h2>
+          <img
+            src={artSrc}
+            alt={sv.table.cardArtAlt}
+            className={tableStyles.bossFinalWinArt}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
+            }}
+          />
+          <p className={tableStyles.bossFinalWinVictory}>{sv.play.bossFinaleVictory}</p>
+          <p className={tableStyles.bossFinalWinWinner}>{sv.play.bossFinaleWinner(winnerName)}</p>
+          {p.bossFinalWin?.bossName ? (
+            <p className={tableStyles.bossFinalWinBossName}>{p.bossFinalWin.bossName}</p>
+          ) : null}
         </CombatSheetFrame>
       </div>
     );

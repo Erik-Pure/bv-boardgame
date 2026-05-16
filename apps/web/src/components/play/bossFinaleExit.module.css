@@ -1,0 +1,112 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  --boss-finale-exit-ms: 1800ms;
+  --boss-finale-star-ms: 750ms;
+}
+
+.wrapExiting {
+  overflow: visible;
+  z-index: 1;
+}
+
+.cardExit {
+  animation: bossFinaleCardExit var(--boss-finale-exit-ms) linear both;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.star {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: center / contain no-repeat url("/icons/circular-shine.svg");
+  filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.75));
+  animation: bossFinaleStar var(--boss-finale-star-ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+  z-index: 2;
+}
+
+/* Jämn vinkelhastighet (inga “stopp” vid 50 %) — scale krymper gradvis mot slutet. */
+@keyframes bossFinaleCardExit {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    opacity: 1;
+    transform: rotate(144deg) scale(0.88);
+  }
+  40% {
+    opacity: 1;
+    transform: rotate(288deg) scale(0.62);
+  }
+  60% {
+    opacity: 0.98;
+    transform: rotate(432deg) scale(0.38);
+  }
+  80% {
+    opacity: 0.85;
+    transform: rotate(576deg) scale(0.14);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(720deg) scale(0);
+  }
+}
+
+/* Stjärna: kort glimt när kortet redan är borta. */
+@keyframes bossFinaleStar {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.1) rotate(-18deg);
+  }
+  28% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15) rotate(4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35) rotate(16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardExit {
+    animation: bossFinaleCardExitReduced 700ms ease-out both;
+  }
+
+  .star {
+    animation: bossFinaleStarReduced 600ms ease-out both;
+  }
+}
+
+@keyframes bossFinaleCardExitReduced {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+@keyframes bossFinaleStarReduced {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}

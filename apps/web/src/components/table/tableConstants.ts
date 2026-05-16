@@ -17,6 +17,10 @@ export const TABLE_BOSS_OVERLAY_BG =
   "radial-gradient(ellipse 120% 90% at 50% 16%, rgba(254, 121, 121, 0.62) 0%, rgba(239, 68, 68, 0.44) 26%, rgba(127, 29, 29, 0.38) 50%, rgba(18, 4, 8, 0) 72%), linear-gradient(180deg, rgba(22, 3, 7, 0.94) 0%, rgba(4, 1, 3, 0.97) 100%)";
 export const TABLE_BOSS_OVERLAY_PULSE = "bvBossTableOverlayPulse 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite";
 
+/** Slutboss final seger: nästan svart dimning med svag guldglöd. */
+export const TABLE_BOSS_FINALE_OVERLAY_BG =
+  "radial-gradient(ellipse 95% 70% at 50% 32%, rgba(250, 204, 21, 0.22) 0%, rgba(239, 68, 68, 0.1) 38%, rgba(0, 0, 0, 0) 68%), linear-gradient(180deg, rgba(2, 2, 10, 0.98) 0%, rgba(0, 0, 0, 0.99) 100%)";
+
 /** Tärningsstorlek i monster-raden: samma för idle-spin och resultat. */
 export const TABLE_MONSTER_COMBAT_DICE_PX = 78;
 

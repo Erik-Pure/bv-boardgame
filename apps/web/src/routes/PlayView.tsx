@@ -67,7 +67,11 @@ import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
-import { WaitingTurnEmotePanel } from "../components/play/WaitingTurnEmotePanel";
+import { BossFinaleOverlay } from "../components/play/BossFinaleOverlay";
+import { bossFinaleExitTotalMs } from "../lib/useBossFinaleExit";
+import { FloatingEmoteControl } from "../components/play/FloatingEmoteControl";
+import { withIdleEmotes } from "../components/play/withIdleEmotes";
+import { resolveIdleEmoteContext } from "../lib/idleEmoteContext";
 import { CombatEnemyIntroWaiting } from "../components/play/CombatEnemyIntroWaiting";
 import { CombatRollPreviewSheet } from "../components/play/CombatRollPreviewSheet";
 import { CombatHitMitigationSheet } from "../components/play/CombatHitMitigationSheet";
@@ -503,6 +507,9 @@ export function PlayView() {
   const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
+  const lastToastSipNoticeRef = useRef<string | null>(null);
+  const bossFinaleFinishTimerRef = useRef<number | null>(null);
+  const [bossFinaleExitLocal, setBossFinaleExitLocal] = useState(false);
 
   const { status, clientRef } = useWsGameClient({
     roomCode: room,
@@ -1142,6 +1149,24 @@ export function PlayView() {
     if (state.pending?.type !== "card") return null;
     return state.pending.playerId === me.id ? state.pending : null;
   }, [state?.pending, state?.phase, me?.id]);
+  const bossFinalePending = useMemo(() => {
+    if (!state || state.phase !== "playing") return null;
+    if (state.pending?.type !== "card" || state.pending.cardId !== "boss_final_win") return null;
+    return state.pending;
+  }, [state?.pending, state?.phase]);
+  const bossFinaleExiting =
+    bossFinaleExitLocal || (state?.bossFinaleExitStartedAt ?? null) != null;
+  useEffect(() => {
+    if (!bossFinalePending) setBossFinaleExitLocal(false);
+  }, [bossFinalePending]);
+  useEffect(() => {
+    return () => {
+      if (bossFinaleFinishTimerRef.current != null) {
+        window.clearTimeout(bossFinaleFinishTimerRef.current);
+        bossFinaleFinishTimerRef.current = null;
+      }
+    };
+  }, []);
   const myEnemyIntroPending = useMemo(() => {
     if (!state || state.phase !== "playing" || !me) return null;
     if (state.pending?.type !== "combat" || state.pending.phase !== "enemyIntro") return null;
@@ -1160,7 +1185,10 @@ export function PlayView() {
   const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
   const levelUpOfferActiveForMe = !!myPending && pending?.type === "levelUpOffer";
   const hasBlockingSipNotice =
-    !!mySipNotice && !suppressSipNoticeForCombatLoseCard && !levelUpOfferActiveForMe;
+    !!mySipNotice &&
+    mySipNotice.noticeKind !== "toast" &&
+    !suppressSipNoticeForCombatLoseCard &&
+    !levelUpOfferActiveForMe;
 
   const send = (action: ClientAction) => {
     if (status !== "connected") {
@@ -1171,6 +1199,18 @@ export function PlayView() {
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
+
+  useEffect(() => {
+    if (!me || !mySipNotice || mySipNotice.noticeKind !== "toast") return;
+    const sig = `${mySipNotice.title ?? ""}|${mySipNotice.body ?? ""}|${mySipNotice.fromPlayerName}`;
+    if (lastToastSipNoticeRef.current === sig) return;
+    lastToastSipNoticeRef.current = sig;
+    const msg =
+      mySipNotice.body?.trim() ||
+      sv.play.pekaArgtDamageToast(mySipNotice.fromPlayerName || sv.sipNotice.fallbackFrom);
+    showToast(msg, 4500);
+    send({ type: "sipNoticeAck", playerId: me.id });
+  }, [mySipNotice, me?.id, showToast, send]);
 
   const autoCombatIntroAckSigRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1217,7 +1257,7 @@ export function PlayView() {
     };
   }, []);
 
-  const interaction = (() => {
+  const interactionInner = (() => {
     if (!state || !me) return null;
     if (state.phase === "lobby") {
       return (
@@ -1887,11 +1927,7 @@ export function PlayView() {
 
       if (isEligibleReactor && !hasAnyReaction && attacker) {
         if (hasPassed) {
-          return (
-            <div className={`${u.textCenter} ${u.o78}`}>
-              Du har redan valt. Väntar på att striden fortsätter…
-            </div>
-          );
+          return null;
         }
         return (
           <div className={u.stack10}>
@@ -2035,11 +2071,7 @@ export function PlayView() {
                           setBeerBroPickInstance(it.instanceId);
                           return;
                         }
-                        if (
-                          id === "lengraddad" ||
-                          id === "not_my_round" ||
-                          id === "spill_intentional"
-                        ) {
+                        if (id === "not_my_round" || id === "spill_intentional") {
                           setInterveneOtherTargetPickInstance(it.instanceId);
                           return;
                         }
@@ -2054,6 +2086,7 @@ export function PlayView() {
                             "manopositiv",
                             "get_lucky",
                             "hangover",
+                            "lengraddad",
                           ].includes(id)
                             ? attacker.id
                             : undefined;
@@ -2074,6 +2107,7 @@ export function PlayView() {
                       {String(it.itemId) === "monster_hype" ? sv.play.itemSuffixMonsterHype : ""}
                       {String(it.itemId) === "yeast_sabotage" ? sv.play.itemSuffixYeast : ""}
                       {String(it.itemId) === "beer_bro" ? sv.play.itemSuffixBeerBro : ""}
+                      {String(it.itemId) === "lengraddad" ? sv.play.itemSuffixLengraddad : ""}
                     </ArcadeButton>
                   ))}
               </div>
@@ -2091,11 +2125,7 @@ export function PlayView() {
           );
         }
         if (hasPassed) {
-          return (
-            <div className={`${u.textCenter} ${u.o78}`}>
-              Du har redan valt. Väntar på att striden fortsätter…
-            </div>
-          );
+          return null;
         }
         return (
           <div className={u.stack10}>
@@ -2225,7 +2255,7 @@ export function PlayView() {
 
     if (pending?.type === "pvp" && pending.phase === "preRoundItems") {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
-      if (!isParticipant) return null;
+      if (isParticipant) {
       const bestOf = pending.bestOf ?? 3;
       const meHasPvpItems = (me.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
       const myReadyExplicit = pending.roundItemReady?.[me.id] === true;
@@ -2263,11 +2293,12 @@ export function PlayView() {
           </div>
         </div>
       );
+      }
     }
 
     if (pending?.type === "pvp" && pending.phase === "awaitingRolls") {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
-      if (!isParticipant) return null;
+      if (isParticipant) {
       const myRoll = pending.rolls?.[me.id];
       return (
         <div className={u.stack10}>
@@ -2299,11 +2330,12 @@ export function PlayView() {
           </ArcadeButton>
         </div>
       );
+      }
     }
 
     if (pending?.type === "pvp" && pending.phase === "roundReveal") {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
-      if (!isParticipant) return null;
+      if (isParticipant) {
       const myAck = pending.roundRevealAcked?.[me.id] === true;
       const opponentId = pending.attackerId === me.id ? pending.defenderId : pending.attackerId;
       const opponent = state.players.find((p) => p.id === opponentId);
@@ -2363,6 +2395,7 @@ export function PlayView() {
           </div>
         </div>
       );
+      }
     }
 
     if (pending?.type === "door" && myPending) {
@@ -2724,10 +2757,6 @@ export function PlayView() {
       );
     }
 
-    if (!isMyTurn && footerTurnCaption) {
-      return <WaitingTurnEmotePanel caption={footerTurnCaption} me={me} send={send} />;
-    }
-
     if (isMyTurn && !pending) {
       return (
         <div className={u.stack10}>
@@ -2751,6 +2780,12 @@ export function PlayView() {
 
     return null;
   })();
+
+  const idleEmoteCtx =
+    state && me
+      ? resolveIdleEmoteContext(state, me, pending ?? null, !!isMyTurn, footerTurnCaption)
+      : null;
+  const interaction = withIdleEmotes(interactionInner, idleEmoteCtx);
 
   const cardOrSipActions = (() => {
     if (!me) return null;
@@ -2820,6 +2855,7 @@ export function PlayView() {
         <ArcadeButton
           variant="pink"
           fullWidth
+          disabled={myCardPending.cardId === "boss_final_win" && bossFinaleExiting}
           onClick={() => {
             if (myCardPending.cardId === "combat_win") {
               showXpGainPrompt(myCardPending.combatWin?.rewardXp ?? 0);
@@ -2827,16 +2863,37 @@ export function PlayView() {
               if (lootTitles && lootTitles.length > 0) {
                 showToast(sv.play.combatWinGrantedLootToast(lootTitles), Math.min(9000, 2800 + lootTitles.length * 1200));
               }
-            } else if (myCardPending.cardId === "combat_lose") {
+              send({ type: "confirmCard", playerId: me.id });
+              return;
+            }
+            if (myCardPending.cardId === "combat_lose") {
               const klunk = Math.max(0, Math.floor(myCardPending.combatLoss?.klunkGained ?? 0));
               const hpLoss = Math.max(0, Math.floor(myCardPending.combatLoss?.damage ?? 0));
               if (hpLoss === 0) suppressNextHpFlashRef.current = true;
               showXpGainPrompt(klunk * 10);
+              send({ type: "confirmCard", playerId: me.id });
+              return;
+            }
+            if (myCardPending.cardId === "boss_final_win") {
+              if (bossFinaleExiting) return;
+              if (bossFinaleFinishTimerRef.current != null) return;
+              const reducedMotion =
+                typeof window !== "undefined" &&
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              setBossFinaleExitLocal(true);
+              send({ type: "confirmCard", playerId: me.id });
+              bossFinaleFinishTimerRef.current = window.setTimeout(() => {
+                bossFinaleFinishTimerRef.current = null;
+                send({ type: "confirmCard", playerId: me.id });
+              }, bossFinaleExitTotalMs(reducedMotion));
+              return;
             }
             send({ type: "confirmCard", playerId: me.id });
           }}
         >
-          {sv.cardModal.continue}
+          {myCardPending.cardId === "boss_final_win" && bossFinaleExiting
+            ? sv.play.bossFinaleEnding
+            : sv.cardModal.continue}
         </ArcadeButton>
       </div>
     );
@@ -3020,6 +3077,11 @@ export function PlayView() {
   const bottomSheetPrimary =
     itemDetailSheet ?? equipDetailSheet ?? cardOrSipActions ?? sipNoticeAckSheet ?? interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;
+  const floatingEmoteBottom =
+    !bottomSheetVisible || interactionPanelCollapsed
+      ? "max(10px, env(safe-area-inset-bottom))"
+      : Math.max(10, (bottomSheetAnimatedHeight ?? 110) + 10);
+  const showFloatingEmote = !!me && state?.phase === "playing" && isPlayerActiveInMatch(me);
   const bottomSheetPrimaryKind = itemDetailSheet
     ? "item"
     : equipDetailSheet
@@ -3549,7 +3611,11 @@ export function PlayView() {
       </div>
 
       {/* Utanför .content så fixed-modaler inte fastnar under header (z 60) i .content:s stacking context */}
-      {state?.phase === "playing" && me && myPending && pending?.type === "card" && (
+      {state?.phase === "playing" &&
+        me &&
+        myPending &&
+        pending?.type === "card" &&
+        pending.cardId !== "boss_final_win" && (
         <CardModal
           title={pending.title}
           text={pending.text}
@@ -3563,6 +3629,7 @@ export function PlayView() {
           cardCoverId={lobbyCardCoverId}
           gameState={state}
           cardOwnerPlayerId={pending.playerId}
+          bossFinalWin={pending.bossFinalWin}
         />
       )}
       {state?.phase === "playing" && me && myPending && pending?.type === "levelUpOffer" && (
@@ -4218,6 +4285,10 @@ export function PlayView() {
         )}
       </div>
 
+      {showFloatingEmote ? (
+        <FloatingEmoteControl me={me} send={send} bottom={floatingEmoteBottom} />
+      ) : null}
+
       {bottomSheetVisible ? (
         <button
           type="button"
@@ -4311,6 +4382,28 @@ export function PlayView() {
         >
           <div className={styles.levelUpOverlayText}>Level up!</div>
         </div>
+      ) : null}
+      {bossFinalePending ? (
+        <>
+          <div
+            className={[
+              styles.bossFinaleBackdrop,
+              bossFinaleExiting ? styles.bossFinaleBackdropExiting : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          />
+          <BossFinaleOverlay
+            roundLabel={
+              bossFinalePending.bossFinalWin?.roundLabel ??
+              `RUNDA ${FINAL_BOSS_LIFE_TOTAL} AV ${FINAL_BOSS_LIFE_TOTAL}`
+            }
+            winnerName={bossFinalePending.bossFinalWin?.winnerName ?? bossFinalePending.text}
+            bossName={bossFinalePending.bossFinalWin?.bossName}
+            exiting={bossFinaleExiting}
+          />
+        </>
       ) : null}
 
       {showResponsibleReminder && (
@@ -5126,7 +5219,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   beer_bro: "combat_bro",
   split_the_g: "other",
   shuffle: "other",
-  lengraddad: "other",
+  lengraddad: "combat",
   canman: "passive",
   not_my_round: "other",
   spill_intentional: "other",
@@ -6440,6 +6533,7 @@ function CardModal(props: {
   cardId: string;
   combatWin?: CombatWinSummary;
   combatLoss?: CombatLoseSummary;
+  bossFinalWin?: { winnerName: string; bossName: string; roundLabel: string };
   /** Kortägarens visningsnamn (ersätter "Du" i vinst/förlust om det behövs). */
   viewerName?: string;
   cardCoverId?: string | null;
