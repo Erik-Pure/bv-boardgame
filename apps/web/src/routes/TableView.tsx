@@ -2057,11 +2057,7 @@ function TableViewBody() {
           simpleEntrance={isBossFinalWinCard}
           cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
-          faceInnerClassName={
-            isEventStoryCardPending(state.pending)
-              ? cardFlipShellStyles.faceInnerNoVerticalOverflow
-              : undefined
-          }
+          faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             paddingTop:
               overlayContentScale > 1

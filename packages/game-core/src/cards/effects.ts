@@ -16,12 +16,16 @@ function newInstanceId(rng: () => number): string {
 
 const RANDOM_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
 
-type RandomEquipRoll =
+export type RandomEquipRoll =
   | { kind: "equipped"; name: string; slot: EquipmentSlot }
   | { kind: "offer"; name: string; slot: EquipmentSlot; catalogId: string };
 
 /** Tom slot → utrusta direkt; upptagen slot → erbjud byte (hanteras efter kort i motorn). */
-function tryGrantRandomEquipmentOrOffer(player: Player, rng: () => number, baseMaxHp: number): RandomEquipRoll | null {
+export function tryGrantRandomEquipmentOrOffer(
+  player: Player,
+  rng: () => number,
+  baseMaxHp: number,
+): RandomEquipRoll | null {
   const slot = pick(rng, RANDOM_REWARD_EQUIPMENT_SLOTS);
   const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
   if (pool.length === 0) return null;

@@ -1299,6 +1299,56 @@ export function PlayView() {
     if (pending?.type === "brewerDown") return null;
     if (pending?.type === "card" && myPending) return null; // handled as modal
 
+    const stealEquipOffer =
+      pending?.type === "combat" && pending.postReactionEquipmentOffer?.playerId === me.id
+        ? pending.postReactionEquipmentOffer
+        : null;
+    const catalogEquipOffer =
+      pending?.type === "equipmentReplaceOffer" && myPending ? pending : null;
+    const equipOffer = catalogEquipOffer ?? stealEquipOffer;
+    if (equipOffer) {
+      const slot = equipOffer.slot;
+      return (
+        <div className={u.stack12}>
+          <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
+            {sv.play.lootEquipmentReplaceTitle}
+          </div>
+          <div className={u.flexCenterFullWidth}>
+            <div className={u.box96}>
+              <PictureImg
+                sources={equipmentImageSources(equipOffer.newName, slot)}
+                alt=""
+                className={u.fillContain}
+              />
+            </div>
+          </div>
+          <div className={`${u.textCenter} ${u.fs14} ${u.lineHeight145} ${u.colorE8}`}>
+            {sv.play.merchantReplaceBody(
+              capitalizeWord(equipmentSlotSv(slot)),
+              merchantEquippedName(me, slot),
+              equipOffer.newName,
+            )}
+          </div>
+          <div className={u.stack8}>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: true })}
+            >
+              {sv.play.merchantReplaceConfirm}
+            </ArcadeButton>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: false })}
+            >
+              {sv.play.lootEquipmentReplaceDecline}
+            </ArcadeButton>
+          </div>
+        </div>
+      );
+    }
+
     if (pending?.type === "encounterChoice" && pending.moverId === me.id) {
       if (pending.phase === "choosePvpOpponent") {
         return (
@@ -2429,55 +2479,6 @@ export function PlayView() {
       );
     }
 
-    const stealEquipOffer =
-      pending?.type === "combat" && pending.postReactionEquipmentOffer?.playerId === me.id
-        ? pending.postReactionEquipmentOffer
-        : null;
-    const catalogEquipOffer =
-      pending?.type === "equipmentReplaceOffer" && myPending ? pending : null;
-    const equipOffer = catalogEquipOffer ?? stealEquipOffer;
-    if (equipOffer) {
-      const slot = equipOffer.slot;
-      return (
-        <div className={u.stack12}>
-          <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
-            {sv.play.lootEquipmentReplaceTitle}
-          </div>
-          <div className={u.flexCenterFullWidth}>
-            <div className={u.box96}>
-              <PictureImg
-                sources={equipmentImageSources(equipOffer.newName, slot)}
-                alt=""
-                className={u.fillContain}
-              />
-            </div>
-          </div>
-          <div className={`${u.textCenter} ${u.fs14} ${u.lineHeight145} ${u.colorE8}`}>
-            {sv.play.merchantReplaceBody(
-              capitalizeWord(equipmentSlotSv(slot)),
-              merchantEquippedName(me, slot),
-              equipOffer.newName,
-            )}
-          </div>
-          <div className={u.stack8}>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: true })}
-            >
-              {sv.play.merchantReplaceConfirm}
-            </ArcadeButton>
-            <ArcadeButton
-              variant="gray"
-              fullWidth
-              onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: false })}
-            >
-              {sv.play.lootEquipmentReplaceDecline}
-            </ArcadeButton>
-          </div>
-        </div>
-      );
-    }
 
     if (pending?.type === "levelUpOffer" && myPending) {
       return (

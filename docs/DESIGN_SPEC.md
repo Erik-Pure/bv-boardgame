@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.60 |
-| Senast uppdaterad | 2026-05-16 |
+| Version | 0.61 |
+| Senast uppdaterad | 2026-05-15 |
 
 ---
 
@@ -66,6 +66,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
 - **Manuell överstyring:** efter auto-fokus ska spelare vid bordet kunna **pana/zooma fritt** tills nästa auto-fokus.
 - **Kort över brädet (bord):** föremålskort i reaktionssolfjädern animerar in **nerifrån bakom turbannern**; mörk overlay bakom kort/strid är nu **betydligt mörkare** för bättre fokus på modalinnehållet (inkl. bossvariant).
+- **Bordskortmodal (skatt/händelse):** kortets **framsida** ska **fylla samma korthyta** som **baksidan** (samma proportioner som övriga bordskort, t.ex. 560px-kortet); innehållet ska inte krympa vertikalt jämfört med kortbak. **Monsterstrid** på bordet använder fortfarande inbäddat monsterkort i stridspanelen (§2.1 monsterresultat).
 - **Monsterstridens resultat på bordet:** när spelaren trycker **Fortsätt** efter ett monster-slag ska bordet behålla **samma monsterkort/modal**. Tärningarna fadear bort, kortet rätas upp/flyttas direkt till resultatläge och kortets baksida flippar till vinst-/förlustresultatet. Använd inte en separat resultatmodal som kan blinka eller byta storlek. Resultatytan ska matcha mobilens mörka bakgrund, sakna extra hörntitel (t.ex. “Dålig batch”) och centrera texten.
 - **Presentationsskala på bordet (`/table`, TV/projektor):** modalinnehåll (kort som väntar på mobilbekräftelse, brewer-down, strids- och PvB-paneler) kan **skalas upp** utifrån **visualViewport** / fönster så text och kort läses på avstånd. **Kortaste kant** ca **720 px → skala 1**, linjärt upp mot **max ca 1,48** vid ca **1120 px** (justeras i kod: `S_MAX`, ramp `SHORT_START`/`SHORT_END`). Ett **höjd-tak** sänker skalan om kort-ytan annars skulle spänna över nästan hela höjden (`HEIGHT_FRAC` × höjd / ungefärlig korthöjd). **Dimningen** (fullskärms-overlay) skalas **inte**; endast innehållet får `transform: scale(…)` med **`transform-origin: top center`** så förstoringen inte klipper titeln upptill. **Placering:** `place-items: start center` (överkant); vid skala > 1 används **extra `padding-top`** med `max(84px, safe-area + 56px)` mot skärmkant/notch.
 - **Lobby och spelet slut på bordet:** pan/zoom på brädesviewport är **avstängda** i faserna `lobby` och `ended`, så att **`setPointerCapture`** på viewport inte stjäl pekaren — knappen **Avsluta spelet** i resultatmodalen ska få **klick** och navigera till startsidan.
@@ -229,7 +230,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Fasta vinstvärden per monster:** varje monster har nu **fast pant** och **fast antal rewards** vid seger (inga intervall/chansrull i resultatet).
 - **Nya slumpmonster (solo, i leken):** **Enhörningsryttare** (styrka 6; förlust 4 HP och 2 straffklunkar totalt med global flat; vinst 5 pant + 2 skatter), **Färgglada gubbar** (styrka 4; förlust 2 HP och 1 straffklunk totalt; vinst 3 pant + 1 skatt), **Transporter** (styrka 4; förlust 3 HP och 1 straffklunk totalt; vinst 4 pant + 1 skatt), **Demonkrigare** (styrka 5; förlust 3 HP och 1 klunk; vinst 6 pant + 2 skatter), **Busiga buskar** (styrka 2; förlust 1 HP och 1 klunk; vinst 4 pant + 1 skatt), **Solen** (styrka 2; förlust 2 HP och 1 klunk; vinst 2 pant + 2 skatter).
 - **Nytt team battle-monster:** **Cowboys** (styrka 7; förlust 3 HP och 1 straffklunk totalt; vinst 5 pant + 1 skatt). **Special:** vid seger får båda stridande **+5 HP** (cap vid max HP).
-- **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Utrustning som droppar ska inte oavsiktligt skriva över redan fylld slot.
+- **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Om mottagaren redan har utrustning i den slumpade slotten ska spelet erbjuda **bytesval** (ta emot och kasta befintligt, eller avböj) — **inte** tyst byta eller falla tillbaka till item. Flera utrustningsbelöningar efter samma strid hanteras **i kö** tills alla val är klara (§11).
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus.
 
 **Särskilda monster (val som spelaren gör):**
@@ -278,7 +279,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
 - **Tärningsrond (mobil):** ingen extra ledtext före “Slå din tärning” i väntan på BvB-slag (undvik redundant “klarrunda”-copy).
 - **Rondresultat (mobil, copy):** visa kort och spelarcentrerad info: **“Rond N”** samt **“Du vann ronden” / “Du förlorade ronden”**; visa inte separat rad för totaler, matchställning eller global “Vinnare: …” i just detta steg.
-- **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen.
+- **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen. **Stjäla utrustning:** om vinnaren redan har något i samma slot gäller samma **bytesval** som §11; vid **avböj** förstörs den stulna pjäsen (den returneras **inte** till förloraren).
 - **Skydd mot stöld (t.ex. Solbrillor):** har förloraren `preventTheft` på tillbehör ska vinnaren **inte** erbjudas val att ta utrustning — bara **pant**, **straffklunk** och **HP-skada** (implementation + mobil-UI); pantbyte ska fortfarande gälla.
 - **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
 - **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
@@ -322,6 +323,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/BvB-fönster och ingripande); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
 - **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** (`decks.item` i `cards.json` — alla listade `item_*`-kort ska finnas där för att kunna slumpas) eller (slump, om ledig utrustningsslot) **utrustning** från **`EQUIPMENT_CATALOG`** — samma idé som blandad monsterloot och stridsbelöning. När spelaren är på **sista brädnivån** dras varken **Genväg** eller **Taproom-nyckel** ur slump-poolen (de är meningslösa utan nästa våning). **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
+- **Riggat spel** (`rigged_game`): spelas **utanför strid** mot **annan spelares** utrustning; kostar **5 pant**. Stjäl pjäsen i vald slot. Har tjuven redan utrustning där → **bytesval** (§11); vid avböj **förstörs** den stulna pjäsen. Offret tappar slotten när stölden triggas; pjäsen hålls i **escrow** tills tjuven bestämt sig.
+- **En enkel stöld** (`not_my_round`): **stridsreaktion** med samma stöld- och byteslogik som **Riggat spel** (mål: motståndare i striden).
 
 ---
 
@@ -338,7 +341,15 @@ Hård cap per spelare:
 | Hjälm | 1 |
 | Accessory | 1 |
 
-Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” införs).
+Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld ska spelaren normalt få ett **bytesval** (ta emot nytt och kasta befintligt, eller **avböj** och behålla det gamla). Automatiskt byte utan val gäller bara där reglerna uttryckligen säger det (t.ex. köp i handeln som byter på plats).
+
+**Bytesval vid upptagen slot (implementation):**
+
+- **Monsterstrid / team battle / ölkompis / stridshjälp:** slumpad utrustning i belöning ger **inte** item-fallback om slotten är full; mottagaren får **erbjudande om byte** (`equipmentReplaceOffer`). Vid **flera** väntande byten efter samma stridsvinst hanteras de **i kö** (`combatEquipReplaceQueue`) tills alla är avklarade.
+- **Skatt/händelse med `randomItem`** och motsvarande korteffekter: samma princip — ledig slot utrustar direkt, annars bytesval efter kortbekräftelse.
+- **BvB-byte (stjäla utrustning)** samt **Riggat spel** / **En enkel stöld** (§10.1): om mottagaren/tjuven redan har utrustning i samma slot.
+- **Avböj:** spelaren behåller sin nuvarande utrustning; den **inkommande** pjäsen **förstörs** (lämnas **inte** automatiskt tillbaka till tidigare ägare vid stöld). Vid stöld hålls den stulna pjäsen i **escrow** (`stolenEquipmentEscrow`) tills valet är klart.
+- **Under pågående bytesval:** spelaren ska inte kunna störa flödet med t.ex. **Vaska** eller **muta** förrän valet är avklarat.
 
 **Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. Under bilden visas en **kompakt effektlista** (samma princip som Panta burkar / kortkatalog) **och** valfri **`rulesText`** per katalogpost (smaktext / särregler, t.ex. **Solbrillor**, **Svart bälte**, burk-setet). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
 
@@ -350,7 +361,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 **Monsterförlust-klunk (badge):** reduktion av straffklunk vid monsterförlust visas som en **kompakt** etikett (**`−N`**) bredvid klunk-ikonen, i linje med övriga talbadges.
 
-**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
+**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **översikt:** pant-ikon-badge med **kvarvarande flaskor**; **försäljning** i handeln ger pant = kvarvarande Tom flaska-vinster om synergin är aktiv), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
 
 **Utrustningsbilder (webben):** när unik art finns som **WebP** med tillhörande **AVIF** används `<picture>` med **WebP som `img`-fallback** (inte längre en separat PNG-fallback med samma basnamn om den saknas).
 
@@ -460,6 +471,7 @@ Ny utrustning i samma slot **ersätter** befintlig (om inte senare “stash” i
 
 - När ett kort visar **eftereffekter** (pant / HP / klunkar — i äldre byggen kan etiketten fortfarande säga “Gold”) ska **endast rader där värdet faktiskt ändrats** visas — undvik “Pant: 5 → 5” som ger intryck av förändring utan effekt.
 - När ett kort ger **slumpat föremål/utrustning** (`event_find_item_*`, `treasure_item_*`) ska texten börja med **föremåls-/utrustningsnamn** följt av **vad den gör** (effekt/rulesText), i stället för generisk “du hittade något användbart”-copy.
+- **Bordsvy (`/table`):** skatt- och händelsekort i modal ska ha samma **visuella korthyjd** som andra bordskort; framsidans innehåll fyller ramen utan extra vertikal klippning jämfört med baksidan (§2.1).
 
 ---
 
@@ -580,4 +592,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.58 | 2026-05-10 | §2: toasts för monsterskatter vid vinst och för ölkompis/stridshjälp vid vinst/förlust; §9.1: Demonkrigare utan pant-modal om spelaren saknar 10 pant; stridshjälp tar HP + straffklunk vid förlust (som lagrisk); §13.1: eliminerade behålls i roster efter `leaveGame` för full resultatlista (`purgeSlot` vid bordskick) |
 | 0.59 | 2026-05-15 | §10.2 **Helande brygd** 5 pant i handeln; §10.1/`decks.item` förtydligat; §11 **Störtkruka**, **VIB Member**, **Plastback**; §12 omstart ger **startföremål** som vid spelstart + **startpant** (inte tom förråd); **Livförsäkring** 10 pant för fullt liv |
 | 0.60 | 2026-05-16 | §2 **turväntan + emotes** på mobil (`Veras tur`, fem emotes, cooldown); §2.1 eliminerade/lämnat i turbanner och utan pjäs, **emote-overlay** ovanför banner; `playerParticipation` + servervalidering av inaktiva mål (föremål, medkämpe, ingripande) |
+| 0.61 | 2026-05-15 | §9.1/§11: stridsloot och slump-utrustning med **bytesval** vid full slot (kö efter strid); §9.2/§10.1 **Riggat spel** och **En enkel stöld** med escrow och förstörd stulen utrustning vid avböj; §11 **Plastback**-badge (pant + kvarvarande flaskor), försäljning; §2/§16.1 bordskortmodal skatt/händelse matchar kortbaksans höjd |
 

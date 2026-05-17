@@ -345,9 +345,11 @@ export type Pending =
       /** Affär/skatt: utrustning från katalog */
       catalogId?: string;
       newName: string;
-      /** Stöld/PvP: konkret pjäs (ingen katalog); vid avböjan lämnas tillbaka till {@link returnVictimId} */
+      /** Stöld/PvP: konkret pjäs (ingen katalog); vid avböjan förstörs den (offret får inte tillbaka den) */
       incomingPiece?: Weapon | ArmorPiece | Helmet | Accessory;
       returnVictimId?: string;
+      /** Stridsloot-kö: mottagaren får välja byte även när det inte är deras tur. */
+      fromCombatLoot?: boolean;
     }
   | {
       type: "encounterChoice";
@@ -695,6 +697,25 @@ export interface GameState {
   tableItemPlayReveals?: TableItemPlayReveal[];
   /** Senaste emotes för turbanner (ballonger); rensas efter EMOTE_DISPLAY_MS. */
   playerEmoteBursts?: PlayerEmoteBurst[];
+  /**
+   * Stridsloot: byte-erbjudanden efter combat_win (alla mottagare), töms via equipmentReplaceDecision.
+   */
+  combatEquipReplaceQueue?: Array<{
+    playerId: string;
+    slot: EquipmentSlot;
+    catalogId: string;
+    newName: string;
+  }>;
+  /**
+   * Stulen utrustning som väntar på bytesval (stöld/PvP). Överlever om `pending` rensas eller skrivs över.
+   */
+  stolenEquipmentEscrow?: {
+    thiefId: string;
+    victimId: string;
+    slot: EquipmentSlot;
+    piece: Weapon | ArmorPiece | Helmet | Accessory;
+    pieceName: string;
+  };
 }
 
 export type ClientAction =

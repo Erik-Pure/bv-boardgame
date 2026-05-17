@@ -2,7 +2,7 @@ import { findBossTileIndexInLevel, generateLevels } from "./board.js";
 import { DEV_QUICK_BOSS_TEST } from "./devBossTest.js";
 import { brewerLevelFromXp, xpThresholdForBrewerLevel } from "./brewerXp.js";
 import { createRng, fnv1a32, pick, rollDie, stableStringify } from "./rng.js";
-import { applyEffects } from "./cards/effects.js";
+import { applyEffects, tryGrantRandomEquipmentOrOffer } from "./cards/effects.js";
 import { appendTextForGrantedItem, artKeyForGrantedItem } from "./cards/grantedItemText.js";
 import type { EffectApplyOut } from "./cards/types.js";
 import {
@@ -185,6 +185,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     lastDiceRollerId: null,
     sipNotices: [],
     playerEmoteBursts: [],
+    combatEquipReplaceQueue: undefined,
   };
 }
 
@@ -604,6 +605,72 @@ function cloneEquipmentIncomingPiece(
   return JSON.parse(JSON.stringify(piece)) as Weapon | ArmorPiece | Helmet | Accessory;
 }
 
+function setStolenEquipmentEscrow(
+  state: GameState,
+  thiefId: string,
+  victimId: string,
+  slot: EquipmentSlot,
+  piece: Weapon | ArmorPiece | Helmet | Accessory,
+): void {
+  state.stolenEquipmentEscrow = {
+    thiefId,
+    victimId,
+    slot,
+    piece: cloneEquipmentIncomingPiece(piece),
+    pieceName: piece.name ?? String(slot),
+  };
+}
+
+function clearStolenEquipmentEscrow(state: GameState): void {
+  state.stolenEquipmentEscrow = undefined;
+}
+
+/** Stulen utrustning som tjuven inte tar emot försvinner — lämnas aldrig tillbaka till offret. */
+function discardStolenEquipmentEscrow(state: GameState, thiefName?: string): boolean {
+  const esc = state.stolenEquipmentEscrow;
+  if (!esc) return false;
+  const thief = state.players.find((p) => p.id === esc.thiefId);
+  const who = thiefName ?? thief?.name ?? "Spelaren";
+  log(state, `${who} behåller sin gamla utrustning — ${esc.pieceName} förstörs.`);
+  clearStolenEquipmentEscrow(state);
+  return true;
+}
+
+function finishStealEquipmentReplaceDecision(
+  state: GameState,
+  thiefId: string,
+  accept: boolean,
+  offer: {
+    slot: EquipmentSlot;
+    newName: string;
+    incomingPiece?: Weapon | ArmorPiece | Helmet | Accessory;
+    returnVictimId?: string;
+  },
+): void {
+  const esc = state.stolenEquipmentEscrow;
+  const thief = state.players.find((p) => p.id === thiefId);
+  if (esc && esc.thiefId === thiefId) {
+    if (accept && thief) {
+      assignEquipmentPieceFromLoot(state, thief, esc.slot, esc.piece);
+      log(state, `${thief.name} byter ut sin ${esc.slot} mot ${esc.pieceName} (stöld).`);
+    } else {
+      discardStolenEquipmentEscrow(state, thief?.name);
+      return;
+    }
+    clearStolenEquipmentEscrow(state);
+    return;
+  }
+  if (accept && thief && offer.incomingPiece) {
+    assignEquipmentPieceFromLoot(state, thief, offer.slot, offer.incomingPiece);
+    log(state, `${thief.name} tar emot ${offer.newName} och kastar sin gamla ${offer.slot}-utrustning.`);
+  } else if (!accept && offer.incomingPiece) {
+    log(
+      state,
+      `${thief?.name ?? "Spelaren"} behåller sin gamla utrustning — ${offer.newName} förstörs.`,
+    );
+  }
+}
+
 /** +HP vid turstart för rustning med {@link ArmorPiece.healHpPerTurn} (t.ex. Öltunna). */
 function applyArmorHealHpPerTurnAtTurnStart(state: GameState, player: Player): void {
   const h = player.equipment.armor?.healHpPerTurn;
@@ -745,8 +812,6 @@ function randomEquippedSlot(p: Player, rng: () => number): "weapon" | "armor" | 
 }
 
 
-const COMBAT_REWARD_EQUIPMENT_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
-
 function newItemInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
 }
@@ -808,13 +873,47 @@ function grantRandomCombatRewardItem(
   return itemDisplayTitle(itemId);
 }
 
+type CombatRewardGrant = {
+  title: string;
+  replaceOffer?: { slot: EquipmentSlot; catalogId: string; newName: string };
+};
+
+function enqueueCombatEquipReplaceOffer(
+  state: GameState,
+  playerId: string,
+  offer: { slot: EquipmentSlot; catalogId: string; newName: string },
+): void {
+  const q = state.combatEquipReplaceQueue ?? [];
+  q.push({ playerId, ...offer });
+  state.combatEquipReplaceQueue = q;
+}
+
+function drainNextCombatEquipReplace(next: GameState): void {
+  if (next.stolenEquipmentEscrow) discardStolenEquipmentEscrow(next);
+  const q = next.combatEquipReplaceQueue;
+  if (!q?.length) {
+    next.combatEquipReplaceQueue = undefined;
+    return;
+  }
+  const head = q[0]!;
+  next.combatEquipReplaceQueue = q.length > 1 ? q.slice(1) : undefined;
+  next.pending = {
+    type: "equipmentReplaceOffer",
+    playerId: head.playerId,
+    slot: head.slot,
+    catalogId: head.catalogId,
+    newName: head.newName,
+    fromCombatLoot: true,
+  };
+}
+
 function grantRandomCombatReward(
   state: GameState,
   player: Player,
   rng: () => number,
   sourceName: string,
   winMonsterId?: MonsterId,
-): string {
+): CombatRewardGrant {
   if (winMonsterId === "bottling_bot" && rng() < 0.5) {
     const rallySlots: Array<"weapon" | "helmet"> = [];
     if (!player.equipment.weapon) rallySlots.push("weapon");
@@ -824,99 +923,36 @@ function grantRandomCombatReward(
       if (slot === "weapon") {
         player.equipment.weapon = { name: "Robotarm", power: 0, pvpDieBonus: 1 };
         log(state, `${player.name} får Robotarm efter segern mot ${sourceName}!`);
-        return "Robotarm";
-      } else {
-        player.equipment.helmet = { name: "Robothjälm", damageNegate: 1, combatBonus: 0 };
-        log(state, `${player.name} får Robothjälm efter segern mot ${sourceName}!`);
-        return "Robothjälm";
+        return { title: "Robotarm" };
       }
+      player.equipment.helmet = { name: "Robothjälm", damageNegate: 1, combatBonus: 0 };
+      log(state, `${player.name} får Robothjälm efter segern mot ${sourceName}!`);
+      return { title: "Robothjälm" };
     }
   }
-  // Mix item cards with equipment. If equipment slot is occupied, fall back to an item card.
   const equipmentRoll = rng() < 0.35;
   if (equipmentRoll) {
-    const slot = pick(rng, COMBAT_REWARD_EQUIPMENT_SLOTS);
-    if (!player.equipment[slot]) {
-      const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === slot);
-      if (pool.length > 0) {
-        const eq = pick(rng, pool);
-        if (slot === "weapon") {
-          player.equipment.weapon = {
-            name: eq.name,
-            power: eq.power ?? 1,
-            sipAttackBonus: eq.sipAttackBonus,
-            sipWeaponBonusGoldCost: eq.sipWeaponBonusGoldCost,
-            sipWeaponBonusKlunks: eq.sipWeaponBonusKlunks,
-            pvpDieBonus: eq.pvpDieBonus,
-            gainGoldOnWin: eq.gainGoldOnWin,
-            powerAtGold10: eq.powerAtGold10,
-            powerAtGold20: eq.powerAtGold20,
-            powerAtGold30: eq.powerAtGold30,
-            powerDynamicMax: eq.powerDynamicMax,
-            randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
-            breakOnWin: eq.breakOnWin,
-            monsterLossSipReduction: eq.monsterLossSipReduction,
-          };
-          syncPlastbackEmptyBottleSynergy(player);
-        } else if (slot === "armor") {
-          player.equipment.armor = {
-            name: eq.name,
-            bonusHp: eq.bonusHp ?? 0,
-            combatBonus: eq.combatBonus ?? 0,
-            damageNegate: eq.damageNegate,
-            bossDamageNegateBonus: eq.bossDamageNegateBonus,
-            negateAllOnce: eq.negateAllOnce,
-            pvpCannotBeChallenged: eq.pvpCannotBeChallenged,
-            pvpDieBonus: eq.pvpDieBonus,
-            gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
-            healHpPerTurn: eq.healHpPerTurn,
-          };
-          player.maxHp = maxHpFor(state, player);
-          player.hp = Math.min(player.hp, player.maxHp);
-          syncPlastbackEmptyBottleSynergy(player);
-        } else if (slot === "helmet") {
-          player.equipment.helmet = {
-            name: eq.name,
-            bonusHp: eq.bonusHp ?? 0,
-            combatBonus: eq.combatBonus ?? 0,
-            damageNegate: eq.damageNegate,
-            bossDamageNegateBonus: eq.bossDamageNegateBonus,
-            negateAllOnce: eq.negateAllOnce,
-            penaltySipExtra: eq.penaltySipExtra,
-            klunkAttackBonus10: eq.klunkAttackBonus10,
-            klunkAttackBonus20: eq.klunkAttackBonus20,
-            klunkAttackBonusMax: eq.klunkAttackBonusMax,
-            pvpDieBonus: eq.pvpDieBonus,
-          };
-          player.maxHp = maxHpFor(state, player);
-          player.hp = Math.min(player.hp, player.maxHp);
-          syncPlastbackEmptyBottleSynergy(player);
-        } else {
-          player.equipment.accessory = {
-            name: eq.name,
-            damageNegate: eq.damageNegate,
-            combatBonus: eq.combatBonus,
-            penaltySipExtra: eq.penaltySipExtra,
-            moveBonus: eq.moveBonus,
-            gainGoldPerCombat: eq.gainGoldPerCombat,
-            gainKlunkPerCombat: eq.gainKlunkPerCombat,
-            gainGoldPerPenaltyKlunk: eq.gainGoldPerPenaltyKlunk,
-            preventTheft: eq.preventTheft,
-            levelUpDiscountGold: eq.levelUpDiscountGold,
-            canSkipMonsterEncounter: eq.canSkipMonsterEncounter,
-            pvpDieBonus: eq.pvpDieBonus,
-            ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
-            deathContinueCost: eq.deathContinueCost,
-            merchantDiscountGold: eq.merchantDiscountGold,
-          };
-          syncPlastbackEmptyBottleSynergy(player);
-        }
-        log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${eq.name}.`);
-        return eq.name;
-      }
+    const equipRoll = tryGrantRandomEquipmentOrOffer(player, rng, state.config.maxHp);
+    if (equipRoll?.kind === "equipped") {
+      log(state, `${player.name} hittar utrustning efter segern mot ${sourceName}: ${equipRoll.name}.`);
+      return { title: equipRoll.name };
+    }
+    if (equipRoll?.kind === "offer") {
+      log(
+        state,
+        `${player.name} hittar utrustning efter segern mot ${sourceName}: ${equipRoll.name} (byte erbjuds).`,
+      );
+      return {
+        title: equipRoll.name,
+        replaceOffer: {
+          slot: equipRoll.slot,
+          catalogId: equipRoll.catalogId,
+          newName: equipRoll.name,
+        },
+      };
     }
   }
-  return grantRandomCombatRewardItem(state, player, rng, sourceName);
+  return { title: grantRandomCombatRewardItem(state, player, rng, sourceName) };
 }
 
 export function computeMonsterDamage(
@@ -1546,23 +1582,26 @@ function finalizeCombatAfterRollPreview(
     const attackerGrantedRewardTitles: string[] = [];
     const beerBroGrantedRewardTitles: string[] = [];
     const helpMateGrantedRewardTitles: string[] = [];
+    const applyCombatRewardGrant = (recipient: Player, titles: string[]) => {
+      const grant = grantRandomCombatReward(next, recipient, rng, pending.enemyName, winMonsterId);
+      titles.push(grant.title);
+      if (grant.replaceOffer) {
+        enqueueCombatEquipReplaceOffer(next, recipient.id, grant.replaceOffer);
+      }
+    };
     if (attackerItemCount > 0) {
       for (let i = 0; i < attackerItemCount; i++) {
-        attackerGrantedRewardTitles.push(grantRandomCombatReward(next, p, rng, pending.enemyName, winMonsterId));
+        applyCombatRewardGrant(p, attackerGrantedRewardTitles);
       }
       if (assistMate) {
         for (let i = 0; i < attackerItemCount; i++) {
-          beerBroGrantedRewardTitles.push(
-            grantRandomCombatReward(next, assistMate, rng, pending.enemyName, winMonsterId),
-          );
+          applyCombatRewardGrant(assistMate, beerBroGrantedRewardTitles);
         }
       }
     }
     if (helperItemCount > 0 && helpMate) {
       for (let i = 0; i < helperItemCount; i++) {
-        helpMateGrantedRewardTitles.push(
-          grantRandomCombatReward(next, helpMate, rng, pending.enemyName, winMonsterId),
-        );
+        applyCombatRewardGrant(helpMate, helpMateGrantedRewardTitles);
       }
     }
 
@@ -1865,6 +1904,7 @@ export function startGame(
   next.lastDiceRollerId = null;
   next.sipNotices = [];
   next.playerEmoteBursts = [];
+  next.combatEquipReplaceQueue = undefined;
   clearTableItemPlay(next);
   log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
   if (bossMonster) {
@@ -3650,6 +3690,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.equipment.accessory?.preventTheft) {
         return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
       }
+      if (next.stolenEquipmentEscrow?.thiefId === user.id) {
+        discardStolenEquipmentEscrow(next, user.name);
+      }
       const slot = randomEquippedSlot(target, rng);
       if (!slot) return { state, events: [], error: "Målet har ingen utrustning att stjäla" };
       const piece = target.equipment[slot]!;
@@ -3662,23 +3705,53 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         target.maxHp = maxHpFor(next, target);
         if (target.hp > target.maxHp) target.hp = target.maxHp;
       }
-      user.equipment[slot] = { ...(piece as any) };
-      if (slot === "armor" || slot === "helmet") {
-        user.maxHp = maxHpFor(next, user);
-        if (user.hp > user.maxHp) user.hp = user.maxHp;
+      const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
+      const thiefOccupied =
+        (slot === "weapon" && !!user.equipment.weapon) ||
+        (slot === "armor" && !!user.equipment.armor) ||
+        (slot === "helmet" && !!user.equipment.helmet) ||
+        (slot === "accessory" && !!user.equipment.accessory);
+      if (thiefOccupied) {
+        setStolenEquipmentEscrow(next, user.id, target.id, slot, incomingClone);
+        next.pending = {
+          type: "equipmentReplaceOffer",
+          playerId: user.id,
+          slot,
+          newName: piece.name ?? String(slot),
+          incomingPiece: incomingClone,
+          returnVictimId: target.id,
+        };
+        log(
+          next,
+          `${user.name} spelar Riggat spel och rycker ${piece.name ?? slot} (${slot}) från ${target.name} — välj om du tar emot den (du har redan något där, −${playCost} pant).`,
+        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "Riggat spel",
+            `${user.name} har tagit din ${piece.name ?? slot}.`,
+          );
+        }
+      } else {
+        assignEquipmentPieceFromLoot(next, user, slot, incomingClone);
+        log(
+          next,
+          `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name} (−${playCost} pant).`,
+        );
+        if (shouldSendDirectTargetNotices) {
+          pushPlayerNotice(
+            next,
+            target.id,
+            user.name,
+            "Riggat spel",
+            `${user.name} tog ${piece.name ?? slot} från dig med Riggat spel.`,
+          );
+        }
       }
       user.gold -= playCost;
       recordPantSpent(next, user.id, playCost);
-      log(next, `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name} (−${playCost} pant).`);
-      if (shouldSendDirectTargetNotices) {
-        pushPlayerNotice(
-          next,
-          target.id,
-          user.name,
-          "Riggat spel",
-          `${user.name} tog ${piece.name ?? slot} från dig med Riggat spel.`,
-        );
-      }
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
@@ -3782,6 +3855,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           if (next.pending?.type !== "combat") {
             return { state, events: [], error: "Ogiltigt spelläge för bytesmodal." };
           }
+          setStolenEquipmentEscrow(next, user.id, target.id, slot, incomingClone);
           next.pending.postReactionEquipmentOffer = {
             playerId: user.id,
             slot,
@@ -3811,7 +3885,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
             target.id,
             user.name,
             "En enkel stöld",
-            `${user.name} har tagit din ${piece.name ?? slot} och måste välja om hen tar emot den.`,
+            `${user.name} har tagit din ${piece.name ?? slot}.`,
           );
         }
       }
@@ -3911,11 +3985,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Kan bara användas under ett pågående batchmöte" };
       }
       if (pending.attackerId !== user.id) return { state, events: [], error: "Endast angriparen kan skippa mötet" };
+      if (pending.postReactionEquipmentOffer) {
+        return {
+          state,
+          events: [],
+          error: "Välj hur du hanterar den stulna utrustningen först.",
+        };
+      }
       log(next, `${user.name} spelar Vaska och skippar den dåliga batchen.`);
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
       appendCombatReactionItemPlay(next, "early_night", user.id, undefined);
+      discardStolenEquipmentEscrow(next, user.name);
       next.pending = null;
       endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
@@ -3927,6 +4009,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Kan bara användas under ett pågående batchmöte" };
       }
       if (pending.attackerId !== user.id) return { state, events: [], error: "Endast angriparen kan välja bort mötet" };
+      if (pending.postReactionEquipmentOffer) {
+        return {
+          state,
+          events: [],
+          error: "Välj hur du hanterar den stulna utrustningen först.",
+        };
+      }
       user.gold -= playCost;
       recordPantSpent(next, user.id, playCost);
       log(next, `${user.name} mutar sig ur batchmötet (${pending.enemyName}) och betalar ${playCost} pant.`);
@@ -3934,6 +4023,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
       appendCombatReactionItemPlay(next, "bribes", user.id, undefined);
+      discardStolenEquipmentEscrow(next, user.name);
       next.pending = null;
       endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
@@ -4261,6 +4351,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         ? [...pending.weaponSipDeferredPenalties]
         : undefined,
       getLuckyRiskPlayerIds: pending.getLuckyRiskPlayerIds,
+      postReactionEquipmentOffer: pending.postReactionEquipmentOffer,
     };
 
     return { state: next, events: ["state"] };
@@ -4439,6 +4530,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       };
       return { state: next, events: ["state"] };
     }
+    drainNextCombatEquipReplace(next);
     if (next.phase === "playing") {
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
@@ -4528,17 +4620,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       const thief = next.players.find((x) => x.id === action.playerId);
       if (!thief) return { state, events: [], error: "Player not found" };
-      const victim = next.players.find((x) => x.id === postOffer.returnVictimId);
-      if (action.accept) {
-        assignEquipmentPieceFromLoot(next, thief, postOffer.slot, postOffer.incomingPiece);
-        log(next, `${thief.name} byter ut sin ${postOffer.slot} mot ${postOffer.newName} (stöld).`);
-      } else if (victim) {
-        assignEquipmentPieceFromLoot(next, victim, postOffer.slot, postOffer.incomingPiece);
-        log(
-          next,
-          `${thief.name} behåller sin gamla utrustning — ${postOffer.newName} lämnas tillbaka till ${victim.name}.`,
-        );
-      }
+      finishStealEquipmentReplaceDecision(next, action.playerId, action.accept, postOffer);
       combatP.postReactionEquipmentOffer = undefined;
       next.pending = combatP;
       return { state: next, events: ["state"] };
@@ -4552,7 +4634,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte ditt val" };
     }
     const lootOffer = !!(erPending.incomingPiece && erPending.returnVictimId);
-    if (!lootOffer && action.playerId !== cp.id) {
+    if (!lootOffer && !erPending.fromCombatLoot && action.playerId !== cp.id) {
       return { state, events: [], error: "Inte din tur" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
@@ -4567,27 +4649,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const item = catalogEquipmentToMerchantShopItem(eq, eq.id);
         equipShopLikeItemToPlayer(p, item, next.config.maxHp);
         log(next, `${p.name} byter ut ${erPending.slot} mot ${erPending.newName}.`);
-      } else if (erPending.incomingPiece) {
-        assignEquipmentPieceFromLoot(next, p, erPending.slot, erPending.incomingPiece);
-        log(next, `${p.name} tar emot ${erPending.newName} och kastar sin gamla ${erPending.slot}-utrustning.`);
+      } else if (erPending.incomingPiece || next.stolenEquipmentEscrow) {
+        finishStealEquipmentReplaceDecision(next, action.playerId, true, erPending);
       } else {
         return { state, events: [], error: "Ogiltigt bytesval" };
       }
+    } else if (lootOffer || next.stolenEquipmentEscrow) {
+      finishStealEquipmentReplaceDecision(next, action.playerId, false, erPending);
     } else {
-      if (erPending.returnVictimId && erPending.incomingPiece) {
-        const victim = next.players.find((x) => x.id === erPending.returnVictimId);
-        if (victim) {
-          assignEquipmentPieceFromLoot(next, victim, erPending.slot, erPending.incomingPiece);
-          log(
-            next,
-            `${p.name} behåller sin gamla utrustning — ${erPending.newName} lämnas tillbaka till ${victim.name}.`,
-          );
-        }
-      } else {
-        log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
-      }
+      log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
     }
     next.pending = null;
+    drainNextCombatEquipReplace(next);
     if (next.phase === "playing") {
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending) endTurnOrOfferLevelUp(next, turnPid);
@@ -4991,6 +5064,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           (slot === "helmet" && !!winner.equipment.helmet) ||
           (slot === "accessory" && !!winner.equipment.accessory);
         if (winnerOccupied) {
+          setStolenEquipmentEscrow(next, winner.id, loser.id, slot, incomingClone);
           deferredEquipReplace = {
             type: "equipmentReplaceOffer",
             playerId: winner.id,
@@ -5008,7 +5082,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
             loser.id,
             winner.name,
             "Du förlorade duellen",
-            `${winner.name} tog din ${piece.name ?? slot} och måste välja om hen tar emot den (du har tom slot tills valet är klart).`,
+            `${winner.name} tog din ${piece.name ?? slot}.`,
             "duel_loss",
           );
         } else {
@@ -5113,8 +5187,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 }
 
 function queueFirstBrewerDownIfNeeded(state: GameState): void {
-  if (endGameIfSingleBrewerAlive(state)) return;
   if (state.pending) return;
+  if (endGameIfSingleBrewerAlive(state)) return;
   const victim = state.players.find((pl) => pl.hp <= 0 && !pl.eliminated);
   if (!victim) return;
   bumpKnockdown(state, victim.id);
@@ -5152,6 +5226,7 @@ function endGameIfSingleBrewerAlive(state: GameState): boolean {
   if (remaining.length === 1) {
     const winner = remaining[0]!;
     state.phase = "ended";
+    discardStolenEquipmentEscrow(state);
     state.pending = null;
     state.winnerId = winner.id;
     state.winnerName = winner.name;
@@ -5160,6 +5235,7 @@ function endGameIfSingleBrewerAlive(state: GameState): boolean {
   }
   if (remaining.length === 0) {
     state.phase = "ended";
+    discardStolenEquipmentEscrow(state);
     state.pending = null;
     state.winnerId = null;
     state.winnerName = null;

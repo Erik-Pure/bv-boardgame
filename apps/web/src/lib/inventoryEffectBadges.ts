@@ -18,6 +18,26 @@ import {
   type Weapon,
 } from "@bv/game-core";
 
+const PLASTBACK_ACCESSORY_NAME = "Plastback";
+const TOM_FLASKA_WEAPON_NAME = "Tom flaska";
+const PLASTBACK_FULL_FLASK_COUNT = 6;
+
+/** Kvarvarande Tom flaska-vinster när Plastback + Tom flaska är utrustade. */
+export function plastbackFlasksRemaining(player?: Player): number | null {
+  if (!player) return null;
+  const w = player.equipment.weapon;
+  if (
+    player.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME ||
+    w?.name !== TOM_FLASKA_WEAPON_NAME ||
+    w.breakOnWin !== true
+  ) {
+    return null;
+  }
+  const n = w.breakWinsRemaining;
+  if (typeof n !== "number" || n <= 0) return null;
+  return n;
+}
+
 export const ITEM_EFFECT_BADGE_ICONS = {
   heart: "/icons/heart-icon.svg",
   monster: "/icons/monster-icon.svg",
@@ -189,12 +209,24 @@ export function equipmentInventoryEffectBadges(
   if (merchantDisc > 0) {
     badges.push({ icon: "pant", label: `−${merchantDisc}` });
   }
+  if (piece.name === PLASTBACK_ACCESSORY_NAME) {
+    const flasks = plastbackFlasksRemaining(player);
+    if (flasks != null) {
+      badges.push({ icon: "pant", label: String(flasks) });
+    } else if (!player) {
+      badges.push({ icon: "pant", label: String(PLASTBACK_FULL_FLASK_COUNT) });
+    }
+  }
   const bwr =
     "breakWinsRemaining" in piece && typeof (piece as Weapon).breakWinsRemaining === "number"
       ? (piece as Weapon).breakWinsRemaining
       : undefined;
   if (typeof bwr === "number" && bwr > 0 && (piece as Weapon).breakOnWin) {
-    badges.push({ icon: "attack", label: String(bwr) });
+    const plastbackShowsFlasks =
+      piece.name === TOM_FLASKA_WEAPON_NAME && player?.equipment.accessory?.name === PLASTBACK_ACCESSORY_NAME;
+    if (!plastbackShowsFlasks) {
+      badges.push({ icon: "attack", label: String(bwr) });
+    }
   }
   return badges;
 }

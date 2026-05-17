@@ -92,7 +92,7 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     parts.push(`Nivå upp: −${it.levelUpDiscountGold} pant`);
   }
   if (typeof it.merchantDiscountGold === "number" && it.merchantDiscountGold > 0) {
-    parts.push(`Handel: −${it.merchantDiscountGold} pant på varje rad`);
+    parts.push(`Handel: −${it.merchantDiscountGold} billigare i affären`);
   }
   if (it.canSkipMonsterEncounter) parts.push("Kan välja att undvika monsterstrid");
   if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {

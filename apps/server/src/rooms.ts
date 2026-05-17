@@ -217,6 +217,8 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       finalBossMonsterId: room.state.finalBossMonsterId,
       finalBossLivesRemaining: room.state.finalBossLivesRemaining,
       bossFinaleExitStartedAt: room.state.bossFinaleExitStartedAt,
+      combatEquipReplaceQueue: room.state.combatEquipReplaceQueue,
+      stolenEquipmentEscrow: room.state.stolenEquipmentEscrow,
       treasureTaken: room.state.treasureTaken,
       lastDiceRoll: room.state.lastDiceRoll,
       lastDiceRollerId: room.state.lastDiceRollerId,
