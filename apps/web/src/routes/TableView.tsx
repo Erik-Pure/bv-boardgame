@@ -2091,6 +2091,8 @@ function TableViewBody() {
           {(() => {
             const pCard = state.pending;
             const eventStoryFrame = isEventStoryCardPending(pCard);
+            const isTreasureTableModal =
+              pCard.kind === "treasure" && !pCard.cardId.startsWith("treasure_item_");
             return (
           <div
             className={[
@@ -2105,6 +2107,7 @@ function TableViewBody() {
               className={[
                 tableStyles.tableModalFrameBase,
                 eventStoryFrame ? tableStyles.tableModalFrameStory : tableStyles.tableModalFrameDefault,
+                isTreasureTableModal ? tableStyles.tableModalFrameTreasure : "",
                 bossFinaleExit.exiting && isBossFinalWinCard ? bossFinaleExitStyles.cardExit : "",
               ]
                 .filter(Boolean)
