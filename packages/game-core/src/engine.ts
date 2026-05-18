@@ -45,6 +45,7 @@ import { PLASTBACK_ACCESSORY_NAME, syncPlastbackEmptyBottleSynergy, TOM_FLASKA_W
 import {
   flushPenaltySipQueue,
   mergePenaltySipQueue,
+  playerHasPendingSipNotice,
   pushPlayerNotice,
   pushSipNotice,
   weaponBoostPenaltySipNoticeBody,
@@ -1778,6 +1779,17 @@ function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance =
   return true;
 }
 
+/** Erbjud nivåval efter sista straffklunk-modalen om spelaren fortfarande är på tur. */
+function tryOfferLevelUpAfterSipAck(state: GameState, playerId: string): void {
+  if (state.pending || state.phase !== "playing") return;
+  if (playerHasPendingSipNotice(state, playerId)) return;
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p || !canOfferLevelUp(state, p)) return;
+  const cp = currentPlayer(state);
+  if (!cp || cp.id !== playerId) return;
+  maybeCreateLevelUpOffer(state, p, true);
+}
+
 function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
   if (state.phase !== "playing") return;
   // Solfjädern ska inte leva kvar när vi går vidare i turn flow.
@@ -1787,6 +1799,7 @@ function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
     advanceTurn(state);
     return;
   }
+  if (playerHasPendingSipNotice(state, cp.id)) return;
   if (maybeCreateLevelUpOffer(state, cp, true)) return;
   advanceTurn(state);
 }
@@ -2358,6 +2371,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const idx = list.findIndex((n) => n.recipientId === action.playerId);
     if (idx < 0) return { state, events: [], error: "Ingen straffklunk att stänga" };
     next.sipNotices = [...list.slice(0, idx), ...list.slice(idx + 1)];
+    tryOfferLevelUpAfterSipAck(next, action.playerId);
     return { state: next, events: ["state"] };
   }
 

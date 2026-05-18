@@ -427,13 +427,14 @@ function MonsterCatalogCard(props: {
         {m.rulesText ? (
           <>
             <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
-            <div style={CARD_FLAVOUR_TEXT_STYLE}>
-              <TextWithBoldNumbers value={m.rulesText} />
-            </div>
+            <CardRichText text={m.rulesText} style={CARD_FLAVOUR_TEXT_STYLE} />
           </>
         ) : null}
         {tagline ? (
-          <div style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35 }}>{tagline}</div>
+          <CardRichText
+            text={tagline}
+            style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35, fontStyle: "normal" }}
+          />
         ) : null}
         {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}
       </div>

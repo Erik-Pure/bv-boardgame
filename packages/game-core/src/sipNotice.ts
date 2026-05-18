@@ -1,5 +1,9 @@
 import type { GameState, PenaltySipQueueEntry, SipNoticeKind } from "./types.js";
 
+export function playerHasPendingSipNotice(state: GameState, playerId: string): boolean {
+  return (state.sipNotices ?? []).some((n) => n.recipientId === playerId);
+}
+
 /** Textrad för sip-modal när klunk för vapen-extraattack köats till efter stridskortet. */
 export function weaponBoostPenaltySipNoticeBody(
   weaponName: string | undefined,

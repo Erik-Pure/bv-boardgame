@@ -41,6 +41,7 @@ import {
   type SipNoticeKind,
   type TileType,
   type Weapon,
+  getCard,
   getCardDefById,
 } from "@bv/game-core";
 import {
@@ -1185,12 +1186,10 @@ export function PlayView() {
 
   /** Straffklunk efter monsterförlust: visa Vaskad-kortet först, sedan sip-modal (motorn lägger sip i kö före kortet). */
   const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
-  const levelUpOfferActiveForMe = !!myPending && pending?.type === "levelUpOffer";
   const hasBlockingSipNotice =
     !!mySipNotice &&
     mySipNotice.noticeKind !== "toast" &&
-    !suppressSipNoticeForCombatLoseCard &&
-    !levelUpOfferActiveForMe;
+    !suppressSipNoticeForCombatLoseCard;
 
   const send = (action: ClientAction) => {
     if (status !== "connected") {
@@ -3191,7 +3190,11 @@ export function PlayView() {
         state.pending?.type === "card" &&
         state.pending.playerId === own.player.id &&
         (state.pending.cardId === "combat_win" || state.pending.cardId === "combat_lose");
-      if (ownCombatResultCardOpen) {
+      const sipBlocksLevelCelebration =
+        (state.sipNotices ?? []).some(
+          (n) => n.recipientId === own.player.id && n.noticeKind !== "toast",
+        );
+      if (ownCombatResultCardOpen || sipBlocksLevelCelebration) {
         setQueuedLevelUpOverlay(own.curr);
         return;
       }
@@ -3224,6 +3227,7 @@ export function PlayView() {
       state.pending.playerId === me.id &&
       (state.pending.cardId === "combat_win" || state.pending.cardId === "combat_lose");
     if (ownCombatResultCardOpen) return;
+    if (hasBlockingSipNotice) return;
     showToast(`Level up! Du nådde bryggnivå ${queuedLevelUpOverlay}.`);
     const isMobile =
       typeof window !== "undefined" && window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
@@ -3239,7 +3243,15 @@ export function PlayView() {
       }, 3400);
     }
     setQueuedLevelUpOverlay(null);
-  }, [queuedLevelUpOverlay, state, me, showToast, showResponsibleReminder, showMobileTutorial]);
+  }, [
+    queuedLevelUpOverlay,
+    state,
+    me,
+    hasBlockingSipNotice,
+    showToast,
+    showResponsibleReminder,
+    showMobileTutorial,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -3635,7 +3647,11 @@ export function PlayView() {
           bossFinalWin={pending.bossFinalWin}
         />
       )}
-      {state?.phase === "playing" && me && myPending && pending?.type === "levelUpOffer" && (
+      {state?.phase === "playing" &&
+        me &&
+        myPending &&
+        pending?.type === "levelUpOffer" &&
+        !hasBlockingSipNotice && (
         <CardFlipModalShell
           zIndex={112}
           backdropZIndex={60}
@@ -4811,9 +4827,10 @@ export function PlayView() {
                     className={styles.itemModalArtImage}
                   />
                 </div>
-                <div style={{ opacity: 0.9, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-                  {itemMetaForView(inst.itemId).text}
-                </div>
+                <CardRichText
+                  text={itemMetaForView(inst.itemId).text}
+                  style={{ opacity: 0.9, color: "#e5e7eb", fontSize: 15, lineHeight: 1.45 }}
+                />
               </div>
             )}
           </Modal>
@@ -5917,9 +5934,15 @@ function EquipmentInventoryEffectBadges(props: {
 
 function itemMeta(itemId: any): { title: string; text: string; target: ItemUseTarget } {
   const id = String(itemId);
-  const row = (sv.items as Record<string, { title: string; text: string } | undefined>)[id];
-  if (row) return { title: row.title, text: row.text, target: ITEM_TARGET[id] ?? "self" };
-  return { title: id, text: "", target: "self" };
+  const target = ITEM_TARGET[id] ?? "self";
+  try {
+    const card = getCard(`item_${id}`);
+    return { title: card.title, text: card.text, target };
+  } catch {
+    const row = (sv.items as Record<string, { title: string; text: string } | undefined>)[id];
+    if (row) return { title: row.title, text: row.text, target };
+    return { title: id, text: "", target };
+  }
 }
 
 function itemTitle(itemId: any): string {

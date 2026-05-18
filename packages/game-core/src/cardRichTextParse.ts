@@ -1,5 +1,5 @@
-/** Ikon-typer som webben mappar till SVG (pant, HP, klunk, stridsreaktion, tärning). */
-export type CardRichIconKind = "pant" | "hp" | "klunk" | "combat" | "dice";
+/** Ikon-typer som webben mappar till SVG (pant, HP, klunk, stridsreaktion/attack, tärning). */
+export type CardRichIconKind = "pant" | "hp" | "klunk" | "combat" | "combatPos" | "combatNeg" | "dice";
 
 export type CardRichSegment =
   | { type: "text"; value: string; bold?: boolean }
@@ -9,26 +9,53 @@ export type CardRichLine = CardRichSegment[];
 
 type IconPlacement = "before" | "after";
 
-type IconRule = { kind: CardRichIconKind; pattern: RegExp; placement: IconPlacement };
+type KeywordRule = {
+  pattern: RegExp;
+  icon?: { kind: CardRichIconKind; placement: IconPlacement };
+};
 
-const ICON_RULES: IconRule[] = [
-  { kind: "combat", pattern: /stridsreaktion/gi, placement: "before" },
-  { kind: "klunk", pattern: /straffklunk(?:ar)?/gi, placement: "after" },
-  { kind: "klunk", pattern: /\bklunk(?:ar)?\b/gi, placement: "after" },
-  { kind: "pant", pattern: /\bpant\b/gi, placement: "after" },
-  { kind: "hp", pattern: /\bHP\b/g, placement: "after" },
-  { kind: "hp", pattern: /\bskada\b/gi, placement: "after" },
+const KEYWORD_RULES: KeywordRule[] = [
+  { pattern: /stridsreaktion/gi },
+  { pattern: /\battack\b/gi, icon: { kind: "combat", placement: "after" } },
+  { pattern: /straffklunk(?:ar)?/gi, icon: { kind: "klunk", placement: "after" } },
+  { pattern: /\bklunk(?:ar)?\b/gi, icon: { kind: "klunk", placement: "after" } },
+  { pattern: /\bpant\b/gi, icon: { kind: "pant", placement: "after" } },
+  { pattern: /\bHP\b/g, icon: { kind: "hp", placement: "after" } },
+  { pattern: /\bskada\b/gi, icon: { kind: "hp", placement: "after" } },
 ];
 
-type MatchSpan = { start: number; end: number; kind: CardRichIconKind };
+type MatchSpan = {
+  start: number;
+  end: number;
+  icon?: { kind: CardRichIconKind; placement: IconPlacement };
+};
 
-function findIconMatches(line: string): MatchSpan[] {
+/** +N attack → grön ikon; −N attack → röd (samma som tidigare combat). */
+function combatIconKindBeforeAttack(line: string, attackStart: number): "combatPos" | "combatNeg" {
+  const before = line.slice(0, attackStart);
+  if (/[−-]\s*\d+\s*$/.test(before)) return "combatNeg";
+  if (/\+\s*\d+\s*$/.test(before)) return "combatPos";
+  return "combatNeg";
+}
+
+function findKeywordMatches(line: string): MatchSpan[] {
   const raw: MatchSpan[] = [];
-  for (const rule of ICON_RULES) {
+  for (const rule of KEYWORD_RULES) {
     const re = new RegExp(rule.pattern.source, rule.pattern.flags);
     let m: RegExpExecArray | null;
     while ((m = re.exec(line)) !== null) {
-      raw.push({ start: m.index, end: m.index + m[0].length, kind: rule.kind });
+      const icon =
+        rule.icon?.kind === "combat"
+          ? {
+              kind: combatIconKindBeforeAttack(line, m.index),
+              placement: rule.icon.placement,
+            }
+          : rule.icon;
+      raw.push({
+        start: m.index,
+        end: m.index + m[0].length,
+        icon,
+      });
     }
   }
   raw.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
@@ -58,16 +85,12 @@ export function parseCardRichTextLine(line: string): CardRichLine {
   if (lineNeedsLeadingDiceIcon(line)) {
     segments.push({ type: "icon", kind: "dice" });
   }
-  const matches = findIconMatches(line);
+  const matches = findKeywordMatches(line);
   if (matches.length === 0) {
     if (line.length > 0 || segments.length === 0) {
       segments.push({ type: "text", value: line });
     }
     return markDiceLineTextBold(segments);
-  }
-  const placementByKind = new Map<CardRichIconKind, IconPlacement>();
-  for (const rule of ICON_RULES) {
-    if (!placementByKind.has(rule.kind)) placementByKind.set(rule.kind, rule.placement);
   }
   let cursor = 0;
   for (const m of matches) {
@@ -75,12 +98,13 @@ export function parseCardRichTextLine(line: string): CardRichLine {
       segments.push({ type: "text", value: line.slice(cursor, m.start) });
     }
     const word = line.slice(m.start, m.end);
-    const placement = placementByKind.get(m.kind) ?? "before";
-    if (placement === "after") {
+    if (!m.icon) {
       segments.push({ type: "text", value: word, bold: true });
-      segments.push({ type: "icon", kind: m.kind });
+    } else if (m.icon.placement === "after") {
+      segments.push({ type: "text", value: word, bold: true });
+      segments.push({ type: "icon", kind: m.icon.kind });
     } else {
-      segments.push({ type: "icon", kind: m.kind });
+      segments.push({ type: "icon", kind: m.icon.kind });
       segments.push({ type: "text", value: word, bold: true });
     }
     cursor = m.end;

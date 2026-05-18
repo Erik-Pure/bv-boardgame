@@ -277,12 +277,21 @@ function eventCardOutcomeToasts(
   if (rolledDie != null) {
     if (pending.cardId === "event_happyhour") {
       if (rolledDie === 1) {
-        return [{ text: "Happy hour: alla andra får +1 pant.", category: "pvp", iconKinds: ["pant"] }];
+        return [{ text: "Happy hour: alla andra får +2 pant.", category: "pvp", iconKinds: ["pant"] }];
+      }
+      if (rolledDie <= 3) {
+        return [{ text: `${selfName} får +5 pant.`, category: "pvp", iconKinds: ["pant"] }];
       }
       if (rolledDie <= 5) {
-        return [{ text: `${selfName} får +2 pant.`, category: "pvp", iconKinds: ["pant"] }];
+        return [{ text: "Happy hour: alla får +5 pant.", category: "pvp", iconKinds: ["pant"] }];
       }
-      return [{ text: "Happy hour: alla läker 1 HP.", category: "pvp", iconKinds: ["hp"] }];
+      return [
+        {
+          text: `${selfName} får +10 pant och +5 HP.`,
+          category: "pvp",
+          iconKinds: ["pant", "hp"],
+        },
+      ];
     }
     if (pending.cardId === "event_rotasoptunna") {
       return [{ text: `${selfName} slog ${rolledDie} och får +${rolledDie * 2} pant.`, category: "pvp", iconKinds: ["pant"] }];
@@ -318,7 +327,7 @@ function eventCardOutcomeToasts(
       if (rolledDie === 1) return [{ text: `${selfName} tar 2 skada.`, category: "pvp", iconKinds: ["hp"] }];
       if (rolledDie <= 3) return [{ text: `${selfName} får 1 straffklunk.`, category: "sip", iconKinds: ["klunk"] }];
       if (rolledDie <= 5) return [{ text: `${selfName} får +3 pant.`, category: "pvp", iconKinds: ["pant"] }];
-      return [{ text: `${selfName} får ett slumpmässigt item.`, category: "reward", iconKinds: ["attack"] }];
+      return [{ text: `${selfName} får slumpad utrustning.`, category: "reward", iconKinds: ["attack"] }];
     }
     if (pending.cardId === "event_pantad") {
       if (rolledDie < 5) return [{ text: `${selfName} slog ${rolledDie}: ingen pant överfördes.`, category: "pvp", iconKinds: ["pant"] }];

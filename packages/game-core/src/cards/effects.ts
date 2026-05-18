@@ -167,6 +167,24 @@ export function applyEffects(params: {
       if (out.grantedItemId || out.grantedEquipmentName || out.equipmentReplaceOffer) {
         out.item = (out.item ?? 0) + 1;
       }
+    } else if (e.type === "randomEquipment") {
+      const equipRoll = tryGrantRandomEquipmentOrOffer(
+        params.player,
+        params.rng,
+        params.state.config.maxHp,
+      );
+      if (equipRoll?.kind === "equipped") {
+        out.grantedEquipmentName = equipRoll.name;
+        out.grantedEquipmentSlot = equipRoll.slot;
+        out.item = (out.item ?? 0) + 1;
+      } else if (equipRoll?.kind === "offer") {
+        out.equipmentReplaceOffer = {
+          slot: equipRoll.slot,
+          catalogId: equipRoll.catalogId,
+          newName: equipRoll.name,
+        };
+        out.item = (out.item ?? 0) + 1;
+      }
     } else if (e.type === "nextCombatMod") {
       params.player.nextCombatModifier = (params.player.nextCombatModifier ?? 0) + e.amount;
       out.nextCombatMod = (out.nextCombatMod ?? 0) + e.amount;

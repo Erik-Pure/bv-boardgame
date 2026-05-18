@@ -3,6 +3,8 @@ import { CardArtAttribution } from "./CardArtAttribution";
 import { artAttributionLabel, artImageSources } from "../lib/cardArt";
 import { FINAL_BOSS_LIFE_TOTAL } from "@bv/game-core";
 import { monsterSpecialRulesForDisplay } from "../lib/monsterCardCopy";
+import { CARD_BODY_TEXT_STYLE } from "../lib/cardTypography";
+import { CardRichText } from "./CardRichText";
 import { PictureImg } from "./PictureImg";
 import styles from "./MonsterEncounterCard.module.css";
 
@@ -381,13 +383,18 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
             marginTop: 14,
             paddingTop: 12,
             borderTop: "1px solid rgba(255,255,255,0.12)",
-            fontSize: "clamp(12px, 4.1cqw, 15px)",
-            lineHeight: 1.45,
-            whiteSpace: "pre-wrap",
-            opacity: 0.95,
+            textAlign: "left",
           }}
         >
-          {rulesForDisplay}
+          <CardRichText
+            text={rulesForDisplay}
+            style={{
+              ...CARD_BODY_TEXT_STYLE,
+              color: "#fff",
+              opacity: 0.95,
+              fontSize: "clamp(12px, 4.1cqw, 15px)",
+            }}
+          />
         </div>
       ) : null}
       {fill ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}

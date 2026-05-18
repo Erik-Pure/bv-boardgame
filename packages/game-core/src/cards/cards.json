@@ -332,7 +332,7 @@
       "id": "item_weak_beer",
       "kind": "item",
       "title": "Druckit för mycket",
-      "text": "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte batchen.",
+      "text": "Stridsreaktion: −2 attack",
       "artKey": "item/weak",
       "effects": []
     },
@@ -340,7 +340,7 @@
       "id": "item_light_beer",
       "kind": "item",
       "title": "Energidryck",
-      "text": "Stridsreaktion: +1 på vald spelares attack.",
+      "text": "Stridsreaktion: +1 attack.",
       "artKey": "item/light-beer",
       "effects": []
     },
@@ -348,7 +348,7 @@
       "id": "item_folk_beer",
       "kind": "item",
       "title": "8-bit beer",
-      "text": "Stridsreaktion: +2 på vald spelares attack.",
+      "text": "Stridsreaktion: +2 attack.",
       "artKey": "item/8-bit-beer",
       "effects": []
     },
@@ -356,7 +356,7 @@
       "id": "item_tripwire",
       "kind": "item",
       "title": "Halt golv",
-      "text": "Stridsreaktion: −1 på vald spelares attack.",
+      "text": "Stridsreaktion: −1 attack.",
       "artKey": "item/tripwire",
       "effects": []
     },
@@ -390,7 +390,7 @@
       "id": "item_double_hops",
       "kind": "item",
       "title": "En hjälpande hand",
-      "text": "Stridsreaktion: +2 på vald spelares attack. Påverkar spelare, inte batchen.",
+      "text": "Stridsreaktion: +2 attack",
       "artKey": "item/hops",
       "effects": []
     },
@@ -398,7 +398,7 @@
       "id": "item_beer_bomb",
       "kind": "item",
       "title": "Ölbomb",
-      "text": "Stridsreaktion: +3 på vald spelares attack.",
+      "text": "Stridsreaktion: +3 attack.",
       "artKey": "item/beer-bomb",
       "effects": []
     },
@@ -414,7 +414,7 @@
       "id": "item_hangover",
       "kind": "item",
       "title": "Baksmälla",
-      "text": "Stridsreaktion: −3 på vald spelares attack.",
+      "text": "Stridsreaktion: −3 attack.",
       "artKey": "item/hangover",
       "effects": []
     },
@@ -422,7 +422,7 @@
       "id": "item_monster_hype",
       "kind": "item",
       "title": "Okontrollerad jäsning",
-      "text": "Stridsreaktion: −2 på vald spelares attack",
+      "text": "Stridsreaktion: −2 attack.",
       "artKey": "item/hype",
       "effects": []
     },
@@ -430,7 +430,7 @@
       "id": "item_yeast_sabotage",
       "kind": "item",
       "title": "Skakad öl",
-      "text": "Stridsreaktion: −1 på vald spelares attack",
+      "text": "Stridsreaktion: −1 attack. Om påverkad spelare förlorar en strid får den stå över en tur på grund av öl i ögat.",
       "artKey": "item/sabotage",
       "effects": []
     },
@@ -543,9 +543,10 @@
       "title": "Happy hour",
       "text": "Slå tärningen.",
       "rollOutcomes": [
-        { "range": "1", "text": "Alla andra får +1 pant." },
-        { "range": "2–5", "text": "Du får +2 pant." },
-        { "range": "6", "text": "Alla får 1 HP." }
+        { "range": "1", "text": "Alla andra får +2 pant." },
+        { "range": "2–3", "text": "Du får +5 pant." },
+        { "range": "4–5", "text": "Alla får +5 pant." },
+        { "range": "6", "text": "Du får +10 pant och +5 HP." }
       ],
       "artKey": "event/happyhour",
       "effects": [],
@@ -563,7 +564,7 @@
       "title": "Rota i soporna",
       "text": "Slå tärningen.",
       "rollOutcomes": [
-        { "range": "1–6", "text": "Få tärningssiffran ×2 pant." }
+        { "range": "1–6", "text": "Få tärningsslag ×2 i pant." }
       ],
       "artKey": "event/rotasoptunna",
       "effects": [],
@@ -604,7 +605,7 @@
         { "range": "1", "text": "Ta 2 skada." },
         { "range": "2–3", "text": "+1 straffklunk." },
         { "range": "4–5", "text": "+3 pant." },
-        { "range": "6", "text": "Få ett slumpmässigt föremål." }
+        { "range": "6", "text": "Få slumpad utrustning." }
       ],
       "artKey": "event/snurraflaskan",
       "effects": [],
@@ -667,7 +668,7 @@
       "id": "item_lengraddad",
       "kind": "item",
       "title": "Lengräddad",
-      "text": "Stridsreaktion: −2 på vald spelares attack.",
+      "text": "Stridsreaktion: −2 attack.",
       "artKey": "item/lengraddad",
       "effects": []
     },
@@ -707,7 +708,7 @@
       "id": "item_get_lucky",
       "kind": "item",
       "title": "Get Lucky",
-      "text": "Betala 5 pant: +4 på vald spelares attack. Vid förlust tar du dubbel skada.",
+      "text": "Betala 5 pant: +4 attack. Vid förlust tar du dubbel skada.",
       "artKey": "item/getlucky",
       "effects": []
     },
@@ -715,7 +716,7 @@
       "id": "item_manopositiv",
       "kind": "item",
       "title": "Manopositiv",
-      "text": "Stridsreaktion: betala 10 pant för +4 på vald spelares attack.",
+      "text": "Stridsreaktion: betala 10 pant för +4 attack.",
       "artKey": "item/manopositiv",
       "effects": []
     },

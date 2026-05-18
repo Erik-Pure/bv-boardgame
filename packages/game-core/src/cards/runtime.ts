@@ -549,11 +549,14 @@ export function handleCardOption(params: {
   if (pending.kind === "event" && pending.cardId === "event_happyhour" && choiceId === "roll") {
     const die = rollDie(rng, 6);
     if (die === 1) {
-      for (const pl of state.players) if (pl.id !== p.id) pl.gold += 1;
+      for (const pl of state.players) if (pl.id !== p.id) pl.gold += 2;
+    } else if (die <= 3) {
+      p.gold += 5;
     } else if (die <= 5) {
-      p.gold += 2;
+      for (const pl of state.players) pl.gold += 5;
     } else {
-      for (const pl of state.players) pl.hp = Math.min(pl.maxHp, pl.hp + 1);
+      p.gold += 10;
+      p.hp = Math.min(p.maxHp, p.hp + 5);
     }
     state.pending = {
       ...pending,
@@ -591,7 +594,7 @@ export function handleCardOption(params: {
     if (die === 1) applyEffects({ state, player: p, effects: [{ type: "damage", amount: 2, source: "snurraflaskan" }], rng, out: effectOut, ignoreArmorOnDamage: true });
     else if (die <= 3) applyEffects({ state, player: p, effects: [{ type: "klunkar", amount: 1 }], rng, out: effectOut });
     else if (die <= 5) applyEffects({ state, player: p, effects: [{ type: "gold", amount: 3 }], rng, out: effectOut });
-    else applyEffects({ state, player: p, effects: [{ type: "randomItem" }], rng, out: effectOut });
+    else applyEffects({ state, player: p, effects: [{ type: "randomEquipment" }], rng, out: effectOut });
     state.pending = {
       ...pending,
       choices: undefined,

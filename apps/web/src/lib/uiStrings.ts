@@ -598,27 +598,27 @@ export const sv = {
     sip_card: { title: "Ölprovning", text: "Ge +1 klunk till ett mål." },
     weak_beer: {
       title: "Druckit för mycket",
-      text: "Stridsreaktion: −2 på vald spelares attack.",
+      text: "Stridsreaktion: −2 attack.",
     },
     light_beer: {
       title: "Energidryck",
-      text: "Stridsreaktion: +1 på vald spelares attack.",
+      text: "Stridsreaktion: +1 attack.",
     },
     folk_beer: {
       title: "8-bit beer",
-      text: "Stridsreaktion: +2 på vald spelares attack.",
+      text: "Stridsreaktion: +2 attack.",
     },
     tripwire: {
       title: "Halt golv",
-      text: "Stridsreaktion: −1 på vald spelares attack.",
+      text: "Stridsreaktion: −1 attack.",
     },
     double_hops: {
       title: "En hjälpande hand",
-      text: "Stridsreaktion: +2 på vald spelares attack.",
+      text: "Stridsreaktion: +2 attack.",
     },
     beer_bomb: {
       title: "Ölbomb",
-      text: "Stridsreaktion: +3 på vald spelares attack.",
+      text: "Stridsreaktion: +3 attack.",
     },
     beard_back: {
       title: "Skägget rakt bak",
@@ -626,7 +626,7 @@ export const sv = {
     },
     hangover: {
       title: "Baksmälla",
-      text: "Stridsreaktion: −3 på vald spelares attack.",
+      text: "Stridsreaktion: −3 attack.",
     },
     pretzel_snack: {
       title: "Pretzel",
@@ -635,11 +635,11 @@ export const sv = {
     coin_purse: { title: "Pantpåse", text: "+4 pant." },
     monster_hype: {
       title: "Okontrollerad jäsning",
-      text: "Stridsreaktion: −2 på vald spelares attack. Påverkar spelare, inte batchens styrka.",
+      text: "Stridsreaktion: −2 attack. Påverkar spelare, inte batchen.",
     },
     yeast_sabotage: {
       title: "Skakad öl",
-      text: "Stridsreaktion: −1 på vald spelares attack. Om påverkad spelare förlorar en strid får den stå över en tur på grund av öl i ögat.",
+      text: "Stridsreaktion: −1 attack. Om påverkad spelare förlorar en strid får den stå över en tur på grund av öl i ögat.",
     },
     beer_bro: {
       title: "Ölkompis",
@@ -648,7 +648,7 @@ export const sv = {
     split_the_g: { title: "Split the G", text: "Ta hälften av en annan spelares pant (avrundat nedåt)." },
     lengraddad: {
       title: "Lengräddad",
-      text: "Spela på en annan spelare: −2 attack — nästa monsterstrid (vid ingripande) eller målduellant under BvB-förberedelse.",
+      text: "Spela på en annan spelare: −2 attack",
     },
     canman: {
       title: "Canman",

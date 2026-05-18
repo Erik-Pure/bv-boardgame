@@ -9,6 +9,8 @@ export type Effect =
   | { type: "item"; itemId: string }
   /** Slumpa loot (oftast föremål från `decks.item`, ibland utrustning om slot är tom). */
   | { type: "randomItem" }
+  /** Slumpa utrustning från katalogen (utrusta direkt eller byteserbjudande). */
+  | { type: "randomEquipment" }
   | { type: "nextCombatMod"; amount: number };
 
 /** Resultatmetadata från {@link applyEffects} (siffror + `grantedItemId` vid `randomItem`). */

@@ -44,6 +44,26 @@ describe("cardRichTextParse", () => {
     assert.match(line[hpIdx[1] - 1].value, /HP/);
   });
 
+  it("inserts red combat icon after negative attack", () => {
+    const line = parseCardRichTextLine("Stridsreaktion: −2 attack.");
+    assert.deepEqual(iconKinds(line), ["combatNeg"]);
+    const idx = line.findIndex((s) => s.type === "icon" && s.kind === "combatNeg");
+    assert.equal(line[idx - 1]?.type, "text");
+    assert.match(line[idx - 1].value, /attack/i);
+  });
+
+  it("inserts green combat icon after positive attack", () => {
+    const line = parseCardRichTextLine("Stridsreaktion: +2 attack.");
+    assert.deepEqual(iconKinds(line), ["combatPos"]);
+  });
+
+  it("stridsreaktion is bold without icon; attack keeps signed combat icon", () => {
+    const line = parseCardRichTextLine("Stridsreaktion: +3 attack.");
+    assert.deepEqual(iconKinds(line), ["combatPos"]);
+    const strText = line.find((s) => s.type === "text" && /stridsreaktion/i.test(s.value));
+    assert.equal(strText?.bold, true);
+  });
+
   it("matches plain klunk (not only klunkar)", () => {
     const line = parseCardRichTextLine("Ta 1 klunk.");
     assert.ok(iconKinds(line).includes("klunk"));

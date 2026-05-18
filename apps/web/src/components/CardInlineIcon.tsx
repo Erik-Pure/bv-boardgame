@@ -6,6 +6,8 @@ const ICON_SRC: Record<CardRichIconKind, string> = {
   hp: "/icons/heart-icon.svg",
   klunk: "/icons/klunk-icon.svg",
   combat: "/icons/combat-icon.svg",
+  combatPos: "/icons/combat-icon.svg",
+  combatNeg: "/icons/combat-icon.svg",
   dice: "/icons/dice-icon.svg",
 };
 
@@ -14,6 +16,8 @@ const ICON_COLOR: Record<CardRichIconKind, string> = {
   hp: "#f472b6",
   klunk: "#facc15",
   combat: "#f87171",
+  combatPos: "#4ade80",
+  combatNeg: "#f87171",
   dice: "#e5e7eb",
 };
 
