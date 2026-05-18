@@ -18,6 +18,13 @@ import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/invento
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
 import { PictureImg } from "../components/PictureImg";
+import { CardRichText, TextWithBoldNumbers } from "../components/CardRichText";
+import {
+  CARD_BODY_TEXT_STYLE,
+  CARD_EVENT_TITLE_STYLE,
+  CARD_FLAVOUR_TEXT_STYLE,
+  CARD_ITEM_DETAIL_TEXT_STYLE,
+} from "../lib/cardTypography";
 import catalogStyles from "./CardsCatalog.module.css";
 
 const KIND_ORDER: CardKind[] = ["event", "item", "combat", "treasure", "rest", "empty"];
@@ -44,12 +51,17 @@ const CATALOG_SECTION_LABEL: CSSProperties = {
   fontWeight: 700,
 };
 
-const CATALOG_BODY_TEXT: CSSProperties = {
-  fontSize: 12,
-  opacity: 0.88,
-  lineHeight: 1.5,
-  whiteSpace: "pre-wrap",
+/** Motverkar `#root { text-align: center }` — all korttext i översikten vänsterjusteras. */
+const CATALOG_CARD_BODY_WRAP: CSSProperties = {
+  padding: "10px 12px 12px",
+  display: "grid",
+  flex: 1,
+  textAlign: "left",
 };
+
+function catalogCardUsesEventTitle(kind: CardKind): boolean {
+  return kind === "event" || kind === "rest" || kind === "treasure";
+}
 
 /** Föremål som främst saboterar andra eller sänker attack i strid — sorteras under "Negativa" i översikten. */
 const NEGATIVE_ITEM_CARD_IDS = new Set<string>([
@@ -406,7 +418,7 @@ function MonsterCatalogCard(props: {
         />
         <CatalogImageBadgeStrip badges={monsterOverviewBadges(m)} />
       </div>
-      <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
+      <div style={{ ...CATALOG_CARD_BODY_WRAP, gap: 6 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{m.name}</div>
         <div style={{ fontSize: 12, opacity: 0.8 }}>
           Styrka {m.strength}
@@ -415,7 +427,9 @@ function MonsterCatalogCard(props: {
         {m.rulesText ? (
           <>
             <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
-            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{m.rulesText}</div>
+            <div style={CARD_FLAVOUR_TEXT_STYLE}>
+              <TextWithBoldNumbers value={m.rulesText} />
+            </div>
           </>
         ) : null}
         {tagline ? (
@@ -471,13 +485,15 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
         />
         <CatalogImageBadgeStrip badges={equipmentShopCatalogBadges(item)} />
       </div>
-      <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
+      <div style={{ ...CATALOG_CARD_BODY_WRAP, gap: 6 }}>
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{item.name}</div>
-        <div style={{ fontSize: 12, opacity: 0.82, lineHeight: 1.4 }}>{formatShopItemEffectSummary(item)}</div>
+        <div style={CARD_ITEM_DETAIL_TEXT_STYLE}>{formatShopItemEffectSummary(item)}</div>
         {item.rulesText ? (
           <>
             <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
-            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{item.rulesText}</div>
+            <div style={CARD_FLAVOUR_TEXT_STYLE}>
+              <TextWithBoldNumbers value={item.rulesText} />
+            </div>
           </>
         ) : null}
         <div style={{ fontSize: 11, opacity: 0.65 }}>
@@ -492,6 +508,7 @@ function CatalogCard({ card }: { card: CardDef }) {
   const sources = artImageSources(card.artKey);
   const attr = artAttributionLabel(card.artKey);
   const overviewBadges = cardDefOverviewBadges(card);
+  const eventLayout = catalogCardUsesEventTitle(card.kind);
   return (
     <article
       style={{
@@ -505,7 +522,7 @@ function CatalogCard({ card }: { card: CardDef }) {
     >
       <div
         style={{
-          aspectRatio: "16/10",
+          aspectRatio: eventLayout ? "4 / 3" : "16 / 10",
           background: "rgba(0,0,0,0.35)",
           display: "grid",
           placeItems: "center",
@@ -523,18 +540,22 @@ function CatalogCard({ card }: { card: CardDef }) {
         />
         <CatalogImageBadgeStrip badges={overviewBadges} />
       </div>
-      <div style={{ padding: "10px 12px 12px", display: "grid", gap: 6, flex: 1 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{card.title}</div>
+      <div style={{ ...CATALOG_CARD_BODY_WRAP, gap: 8 }}>
+        <div style={eventLayout ? CARD_EVENT_TITLE_STYLE : { fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>
+          {card.title}
+        </div>
         {card.flavourText ? (
           <>
             <div style={CATALOG_SECTION_LABEL}>Smaktext</div>
-            <div style={{ ...CATALOG_BODY_TEXT, fontStyle: "italic", opacity: 0.85 }}>{card.flavourText}</div>
+            <div style={CARD_FLAVOUR_TEXT_STYLE}>
+              <TextWithBoldNumbers value={card.flavourText} />
+            </div>
           </>
         ) : null}
         {card.text ? (
           <>
             <div style={CATALOG_SECTION_LABEL}>{card.flavourText ? "Regler" : "Korttext"}</div>
-            <div style={CATALOG_BODY_TEXT}>{card.text}</div>
+            <CardRichText text={card.text} rollOutcomes={card.rollOutcomes} style={CARD_BODY_TEXT_STYLE} />
           </>
         ) : null}
         {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}

@@ -118,7 +118,15 @@ export {
   artKeyForGrantedItem,
   artKeyFromDuFickAppend,
 } from "./cards/grantedItemText.js";
-export { allCards, getCard, itemDisplayTitle } from "./cards/db.js";
-export type { CardDef, CardChoice, CardKind, Effect } from "./cards/types.js";
+export { allCards, getCard, getCardDefById, itemDisplayTitle } from "./cards/db.js";
+export type { CardDef, CardChoice, CardKind, CardRollOutcomeRow, Effect } from "./cards/types.js";
+export {
+  parseCardRichText,
+  parseCardRichTextLine,
+  shouldShowCardRollOutcomeTable,
+  type CardRichIconKind,
+  type CardRichLine,
+  type CardRichSegment,
+} from "./cardRichTextParse.js";
 export { monsterEncounterCardPreviewFromState } from "./cards/runtime.js";
 export { shortcutDisplayPantGold } from "./shortcutDisplayCost.js";

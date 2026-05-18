@@ -358,8 +358,6 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "armor",
     name: "Öltunna",
     price: 13,
-    bonusHp: 0,
-    damageNegate: 0,
     healHpPerTurn: 1,
     rulesText: "+1 HP varje tur",
   },

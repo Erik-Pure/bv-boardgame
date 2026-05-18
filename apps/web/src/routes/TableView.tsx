@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   brewerKlunkProgressRatio,
   brewerLevel,
+  getCardDefById,
   isPlayerOnBoard,
   prunePlayerEmoteBursts,
   type GameState,
@@ -32,6 +33,7 @@ import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
 import { TreasureCardContent } from "../components/TreasureCardContent";
+import { CardRichText } from "../components/CardRichText";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
@@ -2421,7 +2423,11 @@ function TableEventStoryCardFrame(props: {
             className={tableStyles.eventCardArt}
           />
         </div>
-        <div className={tableStyles.eventCardBody}>{props.card.text}</div>
+        <CardRichText
+          className={tableStyles.eventCardBody}
+          text={props.card.text}
+          rollOutcomes={getCardDefById(props.card.cardId)?.rollOutcomes}
+        />
         {props.showWaitingHint ? (
           <div className={tableStyles.eventCardHint}>{sv.table.waitingConfirmPhone}</div>
         ) : null}

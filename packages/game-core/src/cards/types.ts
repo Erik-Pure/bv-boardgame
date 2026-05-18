@@ -37,11 +37,21 @@ export interface CardChoice {
   effects: Effect[];
 }
 
+/** En rad i utfallstabellen för tärningshändelser (visas före slag). */
+export interface CardRollOutcomeRow {
+  /** T.ex. "1", "2–3", "5+" */
+  range: string;
+  /** Brödtext för raden (rik text med ikoner i UI). */
+  text: string;
+}
+
 export interface CardDef {
   id: string;
   kind: CardKind;
   title: string;
   text: string;
+  /** Om satt: visa utfallista före tärningsslag (tillsammans med kort `text` som intro). */
+  rollOutcomes?: CardRollOutcomeRow[];
   /** Valfri smaktext — visas före {@link text} i kortkatalogen när den sätts. */
   flavourText?: string;
   artKey?: string;

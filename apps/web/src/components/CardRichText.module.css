@@ -1,0 +1,51 @@
+.root {
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.line + .line {
+  margin-top: 0.35em;
+}
+
+.inlineLine {
+  display: inline;
+}
+
+.num,
+.iconKeyword {
+  font-weight: 700;
+}
+
+.rollBlock {
+  display: grid;
+  gap: 10px;
+}
+
+.rollIntro {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.rollList {
+  margin: 0;
+  padding: 0 0 0 1.1em;
+  list-style: disc;
+}
+
+.rollItem {
+  margin: 0 0 6px;
+  padding: 0;
+}
+
+.rollItem:last-child {
+  margin-bottom: 0;
+}
+
+.rollRange {
+  font-weight: 700;
+}
+
+.rollItemBody {
+  display: inline;
+}

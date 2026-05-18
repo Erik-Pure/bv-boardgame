@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.61 |
-| Senast uppdaterad | 2026-05-15 |
+| Version | 0.62 |
+| Senast uppdaterad | 2026-05-17 |
 
 ---
 
@@ -466,12 +466,14 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **`/cards`** i webbappen listar **kort** från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata. Vissa poster **döljs i katalogen** men finns kvar i data för spelet: **`combat_monster`** / **`boss_round_win`** (system/boss-mellanrunda — spelet använder andra lägen), samt **alla kort med typ `treasure`** (skatt visas vid skattrutor i spel, inte som separat katalogsektion).
 - **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett.
 - **Monster** från **`monsters.ts`** delas i tre sektioner: **vanliga (solo)**, **team battle** (badge) och **slutbossar** (badge + kort tagline-text). Avsett för design, QA och snabb överblick. Länk från **startsidan**.
+- **Typografi i katalogen** ska spegla spelkort: brödtext **15px** / radavstånd **1.45**; rubrik på händelse/skatt/vila i **Permanent Marker 22px**; händelsebild **4:3**, övriga kort **16:10**. Korttext **vänsterjusterad** (motverkar global centrerad layout).
 
 ### 16.1 Kortmodal och tydlighet
 
 - När ett kort visar **eftereffekter** (pant / HP / klunkar — i äldre byggen kan etiketten fortfarande säga “Gold”) ska **endast rader där värdet faktiskt ändrats** visas — undvik “Pant: 5 → 5” som ger intryck av förändring utan effekt.
 - När ett kort ger **slumpat föremål/utrustning** (`event_find_item_*`, `treasure_item_*`) ska texten börja med **föremåls-/utrustningsnamn** följt av **vad den gör** (effekt/rulesText), i stället för generisk “du hittade något användbart”-copy.
 - **Bordsvy (`/table`):** skatt- och händelsekort i modal ska ha samma **visuella korthyjd** som andra bordskort; framsidans innehåll fyller ramen utan extra vertikal klippning jämfört med baksidan (§2.1).
+- **Kortbrödtext (fas 1 — händelsekort):** **`CardRichText`** (parser i `game-core`, rendering i webben) i mobil, bord och katalog. **Inline-ikoner** är visuellt stöd — **orden i texten behålls** (ikon + ord, inte ersättning). **Ikonplacering:** efter ordet för **pant**, **klunk** / **straffklunk**, **HP** och **skada**; före ordet för **stridsreaktion**; ledande **tärningsikon** på rader som börjar med *Slå tärning* eller *Tärning:*. **Ingen ikon** för *läker* — bara **HP** och **skada** markerar liv/skada. **Typografi:** brödtext **15px**; händelse/skatt/vila-rubrik **Permanent Marker 22px** (delad `cardTypography`). **Fetstil:** alla **siffror** samt **nyckelord med ikon** (och hela texten på tärningsrader med tärningsikon); tärningsutfallsintervall i listan (t.ex. `1–3`) är redan feta. Tärningshändelser med flera utfall använder **`rollOutcomes`** i `cards.json`: kort intro + **punktlista** med intervall före slag; efter slag visas resultatraden som tidigare (`Tärning: N`) utan utfallstabell.
 
 ---
 
@@ -593,4 +595,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.59 | 2026-05-15 | §10.2 **Helande brygd** 5 pant i handeln; §10.1/`decks.item` förtydligat; §11 **Störtkruka**, **VIB Member**, **Plastback**; §12 omstart ger **startföremål** som vid spelstart + **startpant** (inte tom förråd); **Livförsäkring** 10 pant för fullt liv |
 | 0.60 | 2026-05-16 | §2 **turväntan + emotes** på mobil (`Veras tur`, fem emotes, cooldown); §2.1 eliminerade/lämnat i turbanner och utan pjäs, **emote-overlay** ovanför banner; `playerParticipation` + servervalidering av inaktiva mål (föremål, medkämpe, ingripande) |
 | 0.61 | 2026-05-15 | §9.1/§11: stridsloot och slump-utrustning med **bytesval** vid full slot (kö efter strid); §9.2/§10.1 **Riggat spel** och **En enkel stöld** med escrow och förstörd stulen utrustning vid avböj; §11 **Plastback**-badge (pant + kvarvarande flaskor), försäljning; §2/§16.1 bordskortmodal skatt/händelse matchar kortbaksans höjd |
+| 0.62 | 2026-05-17 | §16.1/§16.2: **CardRichText** (ikoner efter pant/klunk/HP/skada, tärning ledande, fet siffror + ikonord); **`rollOutcomes`** på tärningshändelser; katalog vänsterjusterad text + speltypografi (15px / Permanent Marker 22px) |
 

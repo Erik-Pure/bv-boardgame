@@ -13,6 +13,11 @@ export function getCard(id: string): CardDef {
   return c;
 }
 
+/** Slår upp kortdefinition utan att kasta (t.ex. UI för rik korttext). */
+export function getCardDefById(id: string): CardDef | undefined {
+  return byId.get(id);
+}
+
 /** Visningsnamn för ett inventory-`itemId` (samma titel som på kortet `item_${itemId}`). */
 export function itemDisplayTitle(itemId: string): string {
   try {

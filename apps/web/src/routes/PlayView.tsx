@@ -41,6 +41,7 @@ import {
   type SipNoticeKind,
   type TileType,
   type Weapon,
+  getCardDefById,
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
@@ -78,6 +79,7 @@ import { CombatHitMitigationSheet } from "../components/play/CombatHitMitigation
 import styles from "./PlayView.module.css";
 import u from "../styles/uiPrimitives.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
+import { CardRichText } from "../components/CardRichText";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
@@ -6736,17 +6738,15 @@ function CardModal(props: {
                   }}
                 />
               </div>
-              <div
+              <CardRichText
+                text={props.text}
+                rollOutcomes={getCardDefById(props.cardId)?.rollOutcomes}
                 style={{
                   opacity: 0.98,
                   color: "#e5e7eb",
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.45,
                   fontSize: 15,
                 }}
-              >
-                {props.text}
-              </div>
+              />
               <div
                 style={{
                   opacity: 0.62,

@@ -18,7 +18,7 @@
       "id": "event_spill",
       "kind": "event",
       "title": "Spill!",
-      "text": "Du halkar i ett spill. Ta 2 skada och tappa 2 pant.",
+      "text": "Du halkar på spilld öl. Ta 2 skada och tappa 2 pant.",
       "artKey": "event/spill",
       "effects": [
         {
@@ -36,7 +36,7 @@
       "id": "event_klunk",
       "kind": "event",
       "title": "Ölprovning",
-      "text": "Du åker på en straffklunk. +1 klunk.",
+      "text": "Du åker på en straffklunk.",
       "artKey": "event/klunk",
       "effects": [
         {
@@ -221,7 +221,7 @@
       "id": "event_loser_wins",
       "kind": "event",
       "title": "Norrländskt vemod",
-      "text": "Du tar 2 klunkar. Spelaren med minst HP läker 2 HP.",
+      "text": "Du tar 2 klunkar. Spelaren med minst liv får 2 HP.",
       "artKey": "event/loser-wins",
       "effects": []
     },
@@ -265,7 +265,7 @@
       "id": "event_round_on_me",
       "kind": "event",
       "title": "Jag bjuder på rundan!",
-      "text": "Du känner dig generös. Alla (inklusive du) läker 1 HP. Du betalar ut 1 pant till varje annan spelare.",
+      "text": "Du känner dig generös. Alla läker 1 HP. Du betalar ut 1 pant till varje annan spelare.",
       "artKey": "event/round",
       "effects": []
     },
@@ -422,7 +422,7 @@
       "id": "item_monster_hype",
       "kind": "item",
       "title": "Okontrollerad jäsning",
-      "text": "Stridsreaktion: −2 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte batchens styrka.",
+      "text": "Stridsreaktion: −2 på vald spelares attack",
       "artKey": "item/hype",
       "effects": []
     },
@@ -430,7 +430,7 @@
       "id": "item_yeast_sabotage",
       "kind": "item",
       "title": "Skakad öl",
-      "text": "Stridsreaktion: −1 på vald spelares attack (angripare om du inte väljer). Påverkar spelare, inte batchens styrka.",
+      "text": "Stridsreaktion: −1 på vald spelares attack",
       "artKey": "item/sabotage",
       "effects": []
     },
@@ -472,7 +472,7 @@
       "id": "event_baksmallebonus",
       "kind": "event",
       "title": "Baksmällebonus",
-      "text": "Om du har 5+ klunkar: läker 3 HP. Annars: +1 HP.",
+      "text": "Om du har 5 eller fler klunkar: få 3 HP. Annars: 1 HP.",
       "artKey": "event/baksmallebonus",
       "effects": []
     },
@@ -480,7 +480,7 @@
       "id": "event_burkbonanza",
       "kind": "event",
       "title": "Burkbonanza",
-      "text": "Få +1 pant per klunk du har (max +15 pant).",
+      "text": "Få +1 pant per klunk (max +15 pant).",
       "artKey": "event/burkbonanza",
       "effects": []
     },
@@ -503,7 +503,11 @@
       "id": "event_pantad",
       "kind": "event",
       "title": "Pantad",
-      "text": "Slå tärningen. Vid 5+ ger du bort hälften av din pant till den fattigaste spelaren.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "5+", "text": "Ge bort hälften av din pant till den fattigaste spelaren." },
+        { "range": "1–4", "text": "Inget händer." }
+      ],
       "artKey": "event/pantad",
       "effects": [],
       "choices": [
@@ -518,7 +522,11 @@
       "id": "event_dubbelinget",
       "kind": "event",
       "title": "Dubbelt eller inget",
-      "text": "Slå tärningen. 1–3 = förlora 12 pant (eller all pant om du har mindre än 12). 4–6 = få 12 pant.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1–3", "text": "Förlora 12 pant" },
+        { "range": "4–6", "text": "Få 12 pant." }
+      ],
       "artKey": "event/dubbelinget",
       "effects": [],
       "choices": [
@@ -533,7 +541,12 @@
       "id": "event_happyhour",
       "kind": "event",
       "title": "Happy hour",
-      "text": "Slå tärningen: 1 = alla andra får +1 pant, 2-5 = du får +2 pant, 6 = alla (inklusive du) läker 1 HP.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1", "text": "Alla andra får +1 pant." },
+        { "range": "2–5", "text": "Du får +2 pant." },
+        { "range": "6", "text": "Alla får 1 HP." }
+      ],
       "artKey": "event/happyhour",
       "effects": [],
       "choices": [
@@ -548,7 +561,10 @@
       "id": "event_rotasoptunna",
       "kind": "event",
       "title": "Rota i soporna",
-      "text": "Slå tärning och få lika mycket pant x2.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1–6", "text": "Få tärningssiffran ×2 pant." }
+      ],
       "artKey": "event/rotasoptunna",
       "effects": [],
       "choices": [
@@ -563,7 +579,12 @@
       "id": "event_fastnatipant",
       "kind": "event",
       "title": "Fastnat i pantmaskinen",
-      "text": "Slå tärningen: 1-2 tappa 5 pant, 3-4 tappa 10 pant, 5-6 få 10 pant.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1–2", "text": "Tappa 5 pant." },
+        { "range": "3–4", "text": "Tappa 10 pant." },
+        { "range": "5–6", "text": "Få 10 pant." }
+      ],
       "artKey": "event/fastnatipant",
       "effects": [],
       "choices": [
@@ -578,7 +599,13 @@
       "id": "event_snurraflaskan",
       "kind": "event",
       "title": "Snurra flaskan",
-      "text": "Slå tärningen: 1 = ta 2 skada, 2-3 = +1 klunk, 4-5 = +3 pant, 6 = få ett slumpmässigt item.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1", "text": "Ta 2 skada." },
+        { "range": "2–3", "text": "+1 straffklunk." },
+        { "range": "4–5", "text": "+3 pant." },
+        { "range": "6", "text": "Få ett slumpmässigt föremål." }
+      ],
       "artKey": "event/snurraflaskan",
       "effects": [],
       "choices": [
@@ -593,7 +620,12 @@
       "id": "event_fastnatikylen",
       "kind": "event",
       "title": "Fastnat i kylen",
-      "text": "Slå tärningen: 1-2 stå över nästa drag, 3 = inget händer, 4-6 få 5 pant.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1–2", "text": "Stå över nästa drag." },
+        { "range": "3", "text": "Inget händer." },
+        { "range": "4–6", "text": "Få 5 pant." }
+      ],
       "artKey": "event/fastnatikylen",
       "effects": [],
       "choices": [
@@ -608,7 +640,11 @@
       "id": "event_fummel",
       "kind": "event",
       "title": "Fummel",
-      "text": "Slå tärningen. Du fumlar med dina prylar och tappar slumpmässig utrustning på 5-6.",
+      "text": "Slå tärningen.",
+      "rollOutcomes": [
+        { "range": "1–4", "text": "Du fumlar men behåller dina prylar." },
+        { "range": "5–6", "text": "Tappa slumpmässig utrustning." }
+      ],
       "artKey": "event/fummel",
       "effects": [],
       "choices": [
@@ -631,7 +667,7 @@
       "id": "item_lengraddad",
       "kind": "item",
       "title": "Lengräddad",
-      "text": "Använd på en annan spelare: −2 attack för målet — nästa monsterstrid (reaktionsfas), eller den aktuella BvB-ronden om du spelar det under duellens förberedelse.",
+      "text": "Stridsreaktion: −2 på vald spelares attack.",
       "artKey": "item/lengraddad",
       "effects": []
     },
@@ -647,7 +683,7 @@
       "id": "item_not_my_round",
       "kind": "item",
       "title": "En enkel stöld",
-      "text": "Använd på en annan spelare: stjäl slumpmässigt ett item eller utrustning.",
+      "text": "Använd på en annan spelare: stjäl slumpmässigt föremål eller utrustning.",
       "artKey": "item/not-my-round",
       "effects": []
     },
@@ -671,7 +707,7 @@
       "id": "item_get_lucky",
       "kind": "item",
       "title": "Get Lucky",
-      "text": "Betala 5 pant: +4 på vald spelares attack. Vid förlust tar du dubbel HP-skada.",
+      "text": "Betala 5 pant: +4 på vald spelares attack. Vid förlust tar du dubbel skada.",
       "artKey": "item/getlucky",
       "effects": []
     },
@@ -695,7 +731,7 @@
       "id": "item_taproom_key",
       "kind": "item",
       "title": "Taproom-nyckel",
-      "text": "Använd på din tur: gå upp en våning för 10 pant mindre än Genväg — eller på sista våningen gå direkt till slutbossens ruta för 10 pant mindre än Genvägs-priset för den våningen.",
+      "text": "Använd på din tur: gå upp en våning för pantkostnaden — eller använd på sista våningen gå direkt till slutbossen ruta",
       "artKey": "item/taproom-key",
       "effects": []
     },
@@ -735,7 +771,7 @@
       "id": "item_charity",
       "kind": "item",
       "title": "Skänk till välgörenhet",
-      "text": "På din tur: varje skänkt pant ger 1 HP (upp till max HP). Du skänker högst lika många pant som HP du saknar, och aldrig mer pant än du fyller på.",
+      "text": "På din tur: varje skänkt pant ger 1 HP (upp till max).",
       "artKey": "item/charity",
       "effects": []
     },
