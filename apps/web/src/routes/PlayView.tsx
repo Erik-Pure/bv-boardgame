@@ -3790,6 +3790,7 @@ export function PlayView() {
           customTitle={mySipNotice.title}
           customBody={mySipNotice.body}
           noticeKind={mySipNotice.noticeKind ?? "custom"}
+          imageEquipmentName={mySipNotice.equipmentName}
         />
       )}
 
@@ -6401,6 +6402,7 @@ function SipNoticeCardModal(props: {
   customTitle?: string;
   customBody?: string;
   noticeKind?: SipNoticeKind;
+  imageEquipmentName?: string;
 }) {
   const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
   const count = Math.max(1, Math.floor(props.klunkCount));
@@ -6408,6 +6410,9 @@ function SipNoticeCardModal(props: {
   const duelLoss = props.noticeKind === "duel_loss";
   const title = props.customTitle?.trim() || sv.sipNotice.title;
   const body = props.customBody?.trim();
+  const equipmentArtSrc = props.imageEquipmentName
+    ? equipmentUniqueImageSrc(props.imageEquipmentName)
+    : null;
   return (
     <div
       style={{
@@ -6487,6 +6492,18 @@ function SipNoticeCardModal(props: {
               }}
             />
           </div>
+        ) : equipmentArtSrc ? (
+          <img
+            src={equipmentArtSrc}
+            alt=""
+            aria-hidden
+            style={{
+              width: "clamp(88px, 32cqw, 130px)",
+              height: "clamp(88px, 32cqw, 130px)",
+              objectFit: "contain",
+              filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.35))",
+            }}
+          />
         ) : !hasCustom ? (
           <img
             src="/icons/klunk.svg"

@@ -287,6 +287,8 @@ export type PenaltySipQueueEntry = {
   noticeTitle?: string;
   /** Egen brödtext; om satt används {@link pushPlayerNotice} vid flush (t.ex. vapen-klunk före slag). */
   noticeBody?: string;
+  /** Utrustningsnamn för bild i sip-modalen (t.ex. Ölsejdel). */
+  noticeEquipmentName?: string;
   noticeKind?: "custom" | "duel_loss";
 };
 
@@ -631,6 +633,8 @@ export interface SipNoticeEntry {
   body?: string;
   /** Mobil-UI-variant för anpassade notices (t.ex. duell-förlust). */
   noticeKind?: SipNoticeKind;
+  /** Utrustningsnamn för bild under rubriken (t.ex. vapen vid straffklunk efter klunk-bonus). */
+  equipmentName?: string;
 }
 
 /** Sidokort i solfjäder: stulet/förstört inventory eller utrustning (bredvid spelat kort). */

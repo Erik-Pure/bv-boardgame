@@ -16,7 +16,7 @@ export function weaponBoostPenaltySipNoticeBody(
   const namnIFras = w.toLowerCase() === "ölsejdel" ? "ölsejdeln" : w;
   const fiende = enemyName.trim() || "monstret";
   const xp = n * 10;
-  return `${klunkPhrase} från ${namnIFras} — du valde extraattack (klunk) före tärningsslaget mot ${fiende}. +${xp} XP.`;
+  return `${klunkPhrase} från ${namnIFras}. +${xp} XP.`;
 }
 
 /** Kombinera köposter när flera val/geändringar ger straffklunk på samma kort. */
@@ -43,6 +43,7 @@ export function flushPenaltySipQueue(state: GameState, entries: PenaltySipQueueE
         body,
         e.noticeKind ?? "custom",
         e.klunkCount,
+        e.noticeEquipmentName,
       );
     } else {
       pushSipNotice(state, e.recipientId, e.fromPlayerName, e.klunkCount);
@@ -69,10 +70,12 @@ export function pushPlayerNotice(
   body: string,
   noticeKind: SipNoticeKind = "custom",
   klunkCount?: number,
+  equipmentName?: string,
 ): void {
   state.sipNotices ??= [];
   const n =
     klunkCount != null ? Math.max(1, Math.floor(klunkCount)) : undefined;
+  const artName = equipmentName?.trim();
   state.sipNotices.push({
     recipientId,
     fromPlayerName,
@@ -80,5 +83,6 @@ export function pushPlayerNotice(
     body,
     noticeKind,
     ...(n != null ? { klunkCount: n } : {}),
+    ...(artName ? { equipmentName: artName } : {}),
   });
 }

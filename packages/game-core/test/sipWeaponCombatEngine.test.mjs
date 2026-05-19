@@ -204,7 +204,7 @@ describe("combat sip weapon (two-step + deferred straffklunk)", () => {
     assert.ok(s.sipNotices.length >= 1);
     const notice = s.sipNotices[0];
     assert.ok(notice?.body?.includes("ölsejdeln"));
-    assert.ok(notice?.body?.includes("extraattack"));
+    assert.ok(notice?.body?.includes("XP"));
   });
 
   it("pant sip weapon: gold unchanged on choose, deducted on combatRoll", () => {

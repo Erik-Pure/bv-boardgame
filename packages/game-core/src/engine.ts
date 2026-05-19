@@ -2372,6 +2372,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (idx < 0) return { state, events: [], error: "Ingen straffklunk att stänga" };
     next.sipNotices = [...list.slice(0, idx), ...list.slice(idx + 1)];
     tryOfferLevelUpAfterSipAck(next, action.playerId);
+    if (!next.pending && next.phase === "playing") {
+      const cpAfterSip = currentPlayer(next);
+      if (
+        cpAfterSip?.id === action.playerId &&
+        !playerHasPendingSipNotice(next, action.playerId)
+      ) {
+        endTurnOrOfferLevelUp(next, action.playerId);
+      }
+    }
     return { state: next, events: ["state"] };
   }
 
@@ -4243,6 +4252,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
                 sipPay.klunks,
                 pending.enemyName ?? "",
               ),
+              noticeEquipmentName: roller.equipment.weapon?.name,
             },
           ]);
           sipBoost = sipBonus;
@@ -5261,13 +5271,17 @@ function endGameIfSingleBrewerAlive(state: GameState): boolean {
 
 function advanceTurn(state: GameState): void {
   if (state.phase !== "playing") return;
+  const orderLen = state.turnOrder.length;
+  if (orderLen === 0) return;
   const anyAlive = state.turnOrder.some((id) => {
     const pl = state.players.find((p) => p.id === id);
     return pl && !pl.eliminated && !pl.leftVoluntarily;
   });
   if (!anyAlive) return;
-  for (let i = 0; i < state.turnOrder.length; i++) {
-    state.currentTurnIndex = (state.currentTurnIndex + 1) % state.turnOrder.length;
+  const maxSkipQueued = state.players.reduce((m, p) => Math.max(m, p.skippedTurns ?? 0), 0);
+  const maxAttempts = orderLen * Math.max(1, maxSkipQueued + 1);
+  for (let i = 0; i < maxAttempts; i++) {
+    state.currentTurnIndex = (state.currentTurnIndex + 1) % orderLen;
     const n = currentPlayer(state);
     if (!n) continue;
     if (n.eliminated || n.leftVoluntarily) {
@@ -5281,6 +5295,6 @@ function advanceTurn(state: GameState): void {
     }
     log(state, `— ${n.name}'s turn —`);
     applyArmorHealHpPerTurnAtTurnStart(state, n);
-    break;
+    return;
   }
 }
