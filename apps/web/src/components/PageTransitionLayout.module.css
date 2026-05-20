@@ -1,0 +1,152 @@
+.viewport {
+  min-height: 100svh;
+  width: 100%;
+}
+
+/* --- Enter --- */
+
+.entering.toHostLobby {
+  animation: pageEnterForward 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entering.toTable {
+  animation: pageEnterImmersive 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entering.fromTable {
+  animation: pageEnterBack 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entering.default {
+  animation: pageEnterFade 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Exit --- */
+
+.exiting.toHostLobby {
+  animation: pageExitBack 260ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+.exiting.toTable {
+  animation: pageExitToTable 300ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+.exiting.fromTable {
+  animation: pageExitForward 260ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+.exiting.default {
+  animation: pageExitFade 240ms ease both;
+}
+
+@keyframes pageEnterForward {
+  from {
+    opacity: 0;
+    transform: translate3d(28px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pageEnterImmersive {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes pageEnterBack {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pageEnterFade {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pageExitBack {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-20px, 0, 0);
+  }
+}
+
+@keyframes pageExitToTable {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+}
+
+@keyframes pageExitForward {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(20px, 0, 0);
+  }
+}
+
+@keyframes pageExitFade {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entering.toHostLobby,
+  .entering.toTable,
+  .entering.fromTable,
+  .entering.default,
+  .exiting.toHostLobby,
+  .exiting.toTable,
+  .exiting.fromTable,
+  .exiting.default {
+    animation: pageEnterReduced 1ms linear both;
+  }
+}
+
+@keyframes pageEnterReduced {
+  from {
+    opacity: 0.98;
+  }
+  to {
+    opacity: 1;
+  }
+}

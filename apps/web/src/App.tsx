@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, useLocation } from "react-router-dom";
 import "./App.css";
+import { PageTransitionLayout } from "./components/PageTransitionLayout";
 import { CardsCatalog } from "./routes/CardsCatalog";
 import { GameRules } from "./routes/GameRules";
 import { Home } from "./routes/Home";
@@ -19,11 +20,27 @@ function ScrollToTopOnRouteChange() {
   return null;
 }
 
+function RouteLoadingFallback() {
+  return (
+    <div
+      style={{
+        minHeight: "100svh",
+        display: "grid",
+        placeItems: "center",
+        color: "var(--text-h, #f3f4f6)",
+        opacity: 0.85,
+      }}
+    >
+      Laddar…
+    </div>
+  );
+}
+
 function App() {
   return (
-    <Suspense fallback={<div style={{ minHeight: "100svh", display: "grid", placeItems: "center" }}>Laddar…</div>}>
+    <Suspense fallback={<RouteLoadingFallback />}>
       <ScrollToTopOnRouteChange />
-      <Routes>
+      <PageTransitionLayout>
         <Route path="/" element={<Home />} />
         <Route path="/join" element={<JoinGame />} />
         <Route path="/rules" element={<GameRules />} />
@@ -33,7 +50,7 @@ function App() {
         <Route path="/table" element={<TableView />} />
         <Route path="/play" element={<PlayView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </PageTransitionLayout>
     </Suspense>
   );
 }

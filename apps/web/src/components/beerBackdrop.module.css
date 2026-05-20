@@ -16,3 +16,8 @@
   pointer-events: none;
   background: rgba(0, 0, 0, 0.45);
 }
+
+/** Mobil slutresultat: ingen video — mörk stillbilds-scrim i stället. */
+.scrimNarrow {
+  background: rgba(0, 0, 0, 0.62);
+}
