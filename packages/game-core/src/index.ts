@@ -5,6 +5,7 @@ export type {
   ClientAction,
   CombatLoseSummary,
   CombatWinSummary,
+  DifficultyPreset,
   Equipment,
   EquipmentSlot,
   GameConfig,

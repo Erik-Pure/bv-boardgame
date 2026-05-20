@@ -50,7 +50,7 @@ export const ITEM_EFFECT_BADGE_ICONS = {
 } as const;
 
 export function effectBadgeIconFilter(
-  icon: keyof typeof ITEM_EFFECT_BADGE_ICONS,
+  _icon: keyof typeof ITEM_EFFECT_BADGE_ICONS,
   labelTone?: "danger" | boolean,
   size: "sm" | "md" = "sm",
 ): string | undefined {
