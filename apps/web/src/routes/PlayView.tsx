@@ -46,6 +46,7 @@ import {
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
+  effectBadgeIconFilter,
   equipmentInventoryEffectBadges,
   itemInventoryEffectBadge,
   ITEM_EFFECT_BADGE_ICONS,
@@ -69,6 +70,7 @@ import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { UserMenuIcon } from "../components/UserMenuIcon";
 import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeammateSheet";
+import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
 import { BossFinaleOverlay } from "../components/play/BossFinaleOverlay";
 import { bossFinaleExitTotalMs } from "../lib/useBossFinaleExit";
 import { FloatingEmoteControl } from "../components/play/FloatingEmoteControl";
@@ -3668,7 +3670,7 @@ export function PlayView() {
               width: "100%",
               borderRadius: 18,
               border: "1px solid rgba(255,255,255,0.18)",
-              background: "rgba(11,18,38,0.94)",
+              background: "var(--modal-panel-bg)",
               overflow: "hidden",
               boxShadow: "0 18px 56px rgba(0,0,0,0.55)",
             }}
@@ -3814,7 +3816,7 @@ export function PlayView() {
               padding: 22,
               borderRadius: 16,
               border: "1px solid #ffffff22",
-              background: "#0b1226",
+              background: "var(--modal-panel-bg)",
               color: "#fff",
               textAlign: "center",
               display: "grid",
@@ -3836,14 +3838,13 @@ export function PlayView() {
                   {sv.play.brewerDownTitle}
                 </div>
                 <img
-                  src="/icons/skull-icon.svg"
+                  src="/icons/gameover.svg"
                   alt=""
                   draggable={false}
                   style={{
-                    width: "min(112px, 36vw)",
+                    width: "min(180px, 52vw)",
                     height: "auto",
                     margin: "0 auto",
-                    filter: "brightness(0) invert(1)",
                   }}
                 />
                 <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
@@ -3932,28 +3933,29 @@ export function PlayView() {
             justifyContent: "center",
             padding: "max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
             boxSizing: "border-box",
-            background: "rgba(7, 11, 24, 0.94)",
-            backdropFilter: "blur(10px)",
+            overflow: "hidden",
+            background: "transparent",
           }}
         >
+          <BeerBackdropLayers />
           <div
             style={{
+              position: "relative",
+              zIndex: 2,
               width: "min(560px, 100%)",
               maxHeight: "min(90dvh, 100%)",
               overflow: "auto",
               WebkitOverflowScrolling: "touch",
               borderRadius: 16,
-              border: "1px solid #ffffff2e",
-              background: "linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
+              border: "1px solid #ffffff22",
+              background: "var(--modal-panel-bg)",
               padding: "clamp(20px, 5vw, 28px)",
               color: "#f8fafc",
-              boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
+              boxShadow: "0 24px 56px rgba(0, 0, 0, 0.45)",
             }}
           >
-            <h2 style={{ marginTop: 0, textAlign: "center", fontFamily: "var(--heading)", fontWeight: 500 }}>
-              {sv.play.gameOver}
-            </h2>
-            <p style={{ textAlign: "center", marginBottom: 16 }}>
+            <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
+            <p className={u.gameOverWinnerLine}>
               {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
             </p>
             <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
@@ -5505,9 +5507,7 @@ function ItemModalEffectBadge({
           style={{
             display: "block",
             objectFit: "contain",
-            filter: danger
-              ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
-              : "brightness(0) invert(1)",
+            filter: effectBadgeIconFilter(b.icon, danger, "md"),
           }}
         />
       </span>
@@ -5537,9 +5537,7 @@ function ItemModalEffectBadge({
         style={{
           display: "block",
           objectFit: "contain",
-          filter: danger
-            ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
-            : "brightness(0) invert(1)",
+          filter: effectBadgeIconFilter(b.icon, danger, "md"),
         }}
       />
       <span
@@ -5608,9 +5606,7 @@ function EquipmentModalEffectBadge(props: {
               style={{
                 display: "block",
                 objectFit: "contain",
-                filter: danger
-                  ? "brightness(0) invert(1) drop-shadow(0 0 5px rgba(248,113,113,0.95))"
-                  : "brightness(0) invert(1)",
+                filter: effectBadgeIconFilter(b.icon, danger, "md"),
               }}
             />
             <span
@@ -5732,9 +5728,7 @@ function ItemInventoryEffectBadge({
             width: "clamp(12px, 3.4vw, 15px)",
             height: "clamp(12px, 3.4vw, 15px)",
             objectFit: "contain",
-            filter: danger
-              ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
-              : "brightness(0) invert(1)",
+            filter: effectBadgeIconFilter(b.icon, danger),
           }}
         />
       </span>
@@ -5766,9 +5760,7 @@ function ItemInventoryEffectBadge({
           width: "clamp(12px, 3.4vw, 15px)",
           height: "clamp(12px, 3.4vw, 15px)",
           objectFit: "contain",
-          filter: danger
-            ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
-            : "brightness(0) invert(1)",
+          filter: effectBadgeIconFilter(b.icon, danger),
         }}
       />
       <span
@@ -5908,9 +5900,7 @@ function EquipmentInventoryEffectBadges(props: {
                 width: "clamp(12px, 3.4vw, 15px)",
                 height: "clamp(12px, 3.4vw, 15px)",
                 objectFit: "contain",
-                filter: danger
-                  ? "brightness(0) invert(1) drop-shadow(0 0 4px rgba(248,113,113,0.9))"
-                  : "brightness(0) invert(1)",
+                filter: effectBadgeIconFilter(b.icon, danger),
               }}
             />
             <span
@@ -6015,7 +6005,7 @@ function Modal(props: {
           width: "100%",
           borderRadius: 16,
           border: "1px solid #ffffff22",
-          background: "#0b1226",
+          background: "var(--modal-panel-bg)",
           padding: 14,
           textAlign: centered ? "center" : "left",
           color: "#ffffff",
@@ -6377,7 +6367,7 @@ function EnemyIntroModal(props: {
             boxSizing: "border-box",
             borderRadius: 16,
             border: "1px solid #ffffff22",
-            background: "#0b1226",
+            background: "var(--modal-panel-bg)",
             padding: 16,
             color: "#ffffff",
             textAlign: "center",
@@ -6438,7 +6428,7 @@ function SipNoticeCardModal(props: {
           maxHeight: "min(82dvh, 620px)",
           borderRadius: 16,
           border: "1px solid #ffffff22",
-          background: "#0b1226",
+          background: "var(--modal-panel-bg)",
           boxShadow: "0 24px 56px rgba(0,0,0,0.5)",
           color: "#ffffff",
           padding: 22,
@@ -6664,7 +6654,7 @@ function CardModal(props: {
             : {
                 borderRadius: 16,
                 border: "1px solid #ffffff22",
-                background: "#0b1226",
+                background: "var(--modal-panel-bg)",
                 padding: useMonsterLayout && mon ? 0 : 16,
                 textAlign: centeredCombatOutcome ? "center" : "left",
                 color: "#ffffff",
@@ -6705,7 +6695,7 @@ function CardModal(props: {
             <div
               className={monsterCardFrameStyles.inner}
               style={{
-                background: "#0b1226",
+                background: "var(--modal-panel-bg)",
                 padding: 12,
                 color: "#fff",
                 display: "flex",

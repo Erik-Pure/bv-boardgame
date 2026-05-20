@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { BossCombatBackdropLayers } from "./BossCombatBackdropLayers";
 import styles from "./CardFlipModalShell.module.css";
 import { cardCoverToBackUrls } from "../lib/cardBackArt";
 
@@ -158,8 +159,12 @@ export function CardFlipModalShell(props: {
   instantFront?: boolean;
   /** @see CardFlipScene `cardCoverId` */
   cardCoverId?: string | null;
-  /** Slutboss: röd pulserande gradient bakom möteskortet. */
+  /** Slutboss: röd pulserande gradient bakom möteskortet (mobil m.m.). */
   bossPulsingBackdrop?: boolean;
+  /** Slutboss på bordet: flammor + röd puls (använd inte på mobil). */
+  bossFlamesBackdrop?: boolean;
+  /** Bord: flammor utan röd puls (t.ex. stupad bryggare). */
+  flamesBackdrop?: boolean;
   /** Enkel modal-animation utan kort-baksida/flip (fade + slide-up). */
   simpleEntrance?: boolean;
   /** Bord/TV: skala innehåll (inte hela dimningen) för läsbarhet på avstånd. */
@@ -176,6 +181,7 @@ export function CardFlipModalShell(props: {
   const stackAbove = props.aboveScene != null;
   const cs = props.contentScale;
   const useScaleWrapper = cs != null && cs !== 1;
+  const hasFlamesBackdrop = props.bossFlamesBackdrop || props.flamesBackdrop;
 
   const flexStackStyle: CSSProperties = {
     display: "flex",
@@ -248,7 +254,8 @@ export function CardFlipModalShell(props: {
       <div
         className={[
           styles.overlayBackdrop,
-          props.bossPulsingBackdrop ? styles.overlayBoss : "",
+          hasFlamesBackdrop ? styles.overlayBossHost : "",
+          props.bossPulsingBackdrop && !hasFlamesBackdrop ? styles.overlayBoss : "",
           props.backdropClassName ?? "",
         ]
           .filter(Boolean)
@@ -258,7 +265,11 @@ export function CardFlipModalShell(props: {
           ...props.backdropStyle,
         }}
         onMouseDown={props.onBackdropMouseDown}
-      />
+      >
+        {hasFlamesBackdrop ? (
+          <BossCombatBackdropLayers showPulse={props.bossFlamesBackdrop === true} />
+        ) : null}
+      </div>
       <div
         className={[styles.overlayContent, props.className].filter(Boolean).join(" ")}
         style={{

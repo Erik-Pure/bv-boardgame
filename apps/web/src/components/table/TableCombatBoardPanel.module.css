@@ -34,7 +34,7 @@
 .panelInnerCard {
   border-radius: 16px;
   border: 1px solid #ffffff22;
-  background: rgba(11, 18, 38, 0.94);
+  background: var(--modal-panel-bg);
   padding: 16px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   transform-origin: top center;

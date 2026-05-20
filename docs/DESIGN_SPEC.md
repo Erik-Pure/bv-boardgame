@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.62 |
-| Senast uppdaterad | 2026-05-17 |
+| Version | 0.63 |
+| Senast uppdaterad | 2026-05-20 |
 
 ---
 
@@ -70,6 +70,11 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Monsterstridens resultat på bordet:** när spelaren trycker **Fortsätt** efter ett monster-slag ska bordet behålla **samma monsterkort/modal**. Tärningarna fadear bort, kortet rätas upp/flyttas direkt till resultatläge och kortets baksida flippar till vinst-/förlustresultatet. Använd inte en separat resultatmodal som kan blinka eller byta storlek. Resultatytan ska matcha mobilens mörka bakgrund, sakna extra hörntitel (t.ex. “Dålig batch”) och centrera texten.
 - **Presentationsskala på bordet (`/table`, TV/projektor):** modalinnehåll (kort som väntar på mobilbekräftelse, brewer-down, strids- och PvB-paneler) kan **skalas upp** utifrån **visualViewport** / fönster så text och kort läses på avstånd. **Kortaste kant** ca **720 px → skala 1**, linjärt upp mot **max ca 1,48** vid ca **1120 px** (justeras i kod: `S_MAX`, ramp `SHORT_START`/`SHORT_END`). Ett **höjd-tak** sänker skalan om kort-ytan annars skulle spänna över nästan hela höjden (`HEIGHT_FRAC` × höjd / ungefärlig korthöjd). **Dimningen** (fullskärms-overlay) skalas **inte**; endast innehållet får `transform: scale(…)` med **`transform-origin: top center`** så förstoringen inte klipper titeln upptill. **Placering:** `place-items: start center` (överkant); vid skala > 1 används **extra `padding-top`** med `max(84px, safe-area + 56px)` mot skärmkant/notch.
 - **Lobby och spelet slut på bordet:** pan/zoom på brädesviewport är **avstängda** i faserna `lobby` och `ended`, så att **`setPointerCapture`** på viewport inte stjäl pekaren — knappen **Avsluta spelet** i resultatmodalen ska få **klick** och navigera till startsidan.
+- **Videobakgrunder (bord, `public/video/`):** komprimerade loopande MP4/WebM (1280p) — **`beer_bg`** (lobby, slutresultat) och **`flames_bg`** (slutboss-strid, stupad bryggare på bord). Originalfiler kan ligga kvar i repo men serveras via de komprimerade varianterna. Över videon: **mörk scrim** (~45 % på öl, ~26 % under boss-flammor) så text/kort läses.
+- **Lobby på bordet:** fullskärms-**ölvideo** bakom lobbykortet; kortet är **halvtransparent med blur** (glas) så QR och kod syns mot videon.
+- **Slutboss på bordet:** **flammor + röd pulserande gradient** ligger i en **persistent backdrop** i `TableView` under hela strids-sessionen (samma videoinstans vid fasbyte intro → reaktioner → tärning → resultat på kort; `key` = strids-session). Stridspanelen ovanpå har **transparent** overlay utan ny fade per fas. **Mobil (`/play`):** endast **röd puls** vid boss-intro — **ingen** eldvideo.
+- **Stupad bryggare på bordet:** samma **eldvideo utan röd puls** i modal-backdrop (`flamesBackdrop`); ikon **`gameover.svg`** (större på bord än tidigare dödskalle). Mobil behåller vanlig mörk backdrop.
+- **Slutresultat på bordet:** **ölvideo** bakom modal; panel och höjdpunktskort använder **`var(--modal-panel-bg)`** (samma som övriga modaler). Resultatmodal **bredare** på bord (~**860px** max). **Poängtabellen** har variant **`table`** med **större** typsnitt och ikoner; rubrikerna *Spelet är slut* / *Vinnare:* är **måttligt** större (inte fullskärms-TV-storlek). `boss_round_win`-kort kan fortfarande ha egen flammor-backdrop efter rundan.
 - **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
 - **BvB-tärningar på bordet:** visa **fast tärning direkt per spelare** så fort den spelarens kast finns. Endast sidan som ännu inte kastat ska fortsätta med idle-spin under `awaitingRolls`/reveal-delay. Undvik blink/flicker när en sida redan har resultat.
 - **Team battle-overlay på bordet:** vid övergången från **välj medkämpe** till nästa stridsfas ska overlayn vara renderingsstabil (ingen helsvart vy). Stridspanelen måste hantera fasbytet utan att bryta Reacts hook-ordning eller unmounta hela board-vyn.
@@ -114,7 +119,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Max antal spelare:** 8.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
-- **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`.
+- **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`. Under pågående lobby på bordet: **ölvideo** i bakgrunden och **glas-panel** för kod/QR (§2.1).
 
 ### 4.2 Pre-game inställningsvy (värd)
 
@@ -126,6 +131,7 @@ När värden väljer **Skapa lobby** visas först en separat sida för förkonfi
 - **Fler inställningar:** max HP, startpant och tillåtna kort (`item`/`event`) via expanderbara paneler.
 - **Fler inställningar:** inkluderar även **reaktionstimer** i sekunder (0–30) för stridsreaktioner.
 - Valen sparas i lobby-config och används av servern när lobbyn skapas/startas.
+- **Värd-UI (pre-game):** horisontell logotyp, **segmenterade knappar** för svårighetsgrad (ikoner per nivå, guld aktiv-stil), **Hardcore** centrerat under, **Avancerade inställningar** i expanderbara underpaneler (bräde, utseende, tillgänglighet, spelvärden, tillåtna kort). Ingen separat **Avbryt**-knapp i vyn.
 
 ### 4.1 Mobilvy i lobby (väntan på start)
 
@@ -361,7 +367,9 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 
 **Monsterförlust-klunk (badge):** reduktion av straffklunk vid monsterförlust visas som en **kompakt** etikett (**`−N`**) bredvid klunk-ikonen, i linje med övriga talbadges.
 
-**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **översikt:** pant-ikon-badge med **kvarvarande flaskor**; **försäljning** i handeln ger pant = kvarvarande Tom flaska-vinster om synergin är aktiv), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
+**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **översikt:** **pant-ikon**-badge med **antal kvarvarande flaskor** (0 om Tom flaska redan förbrukad); **försäljning** i handeln ger pant = kvarvarande Tom flaska-vinster om synergin är aktiv), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
+
+**Global modal-bakgrund:** paneler som ska matcha spelkort/modaler använder CSS-variabeln **`--modal-panel-bg`** (`radial-gradient` mörkgrå → svart) i `index.css`.
 
 **Utrustningsbilder (webben):** när unik art finns som **WebP** med tillhörande **AVIF** används `<picture>` med **WebP som `img`-fallback** (inte längre en separat PNG-fallback med samma basnamn om den saknas).
 
@@ -380,6 +388,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Hardcore mode:** om aktivt tillåts ingen omstart; spelaren elimineras vid 0 HP.
 - **Respawn-plats (nuvarande implementation):** **start-ruta** på nivå 1 (index 0).
 - **Livförsäkring (tillbehör):** om spelaren dör och har **Livförsäkring** utrustad kan den i *stupad bryggare*-läget välja att betala **10 pant** för att fortsätta med **fullt liv** (om pant räcker), utan att nollställa position/utrustning/inventory.
+- **Stupad bryggare (presentation):** mobil och bord använder **`/icons/gameover.svg`** som huvudillustration (inte vit inverterad dödskalle). På **bordet** kan **eldvideo** ligga i backdrop under panelen (§2.1); mobil utan eldvideo.
 
 ---
 
@@ -402,11 +411,11 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
   - level 5 vid **1380 XP**
 - Efter sista explicita tröskeln fortsätter skalan linjärt med samma differens som mellan de två sista nivåerna.
 - Visas i **mobil-header** som progress mot nästa visad bryggnivå och som nivåsiffra i nivå-ringen.
-- **Resultatlista** när partiet är **slut** visas som **tabell** på både `/table` och mobil (`/play`): **namn**, **bryggnivå** (samma ring och `lvl`-ram som i mobil-header), **antal stupad bryggare** (gånger spelaren triggat stupad bryggare vid 0 HP), **monster V/F** (vunna respektive förlorade monsterstrider), **förbrukade föremål**, samt **klunkar**, **pant** och **HP**. Under tabellen visas **badge-rader** (“bäst i klassen”) per statistiktyp där värdet är större än noll; **delad förstaplats** listar alla berörda spelare.
+- **Resultatlista** när partiet är **slut** visas som **tabell** på både `/table` och mobil (`/play`): **namn**, **bryggnivå** (samma ring och `lvl`-ram som i mobil-header), **antal stupad bryggare** (gånger spelaren triggat stupad bryggare vid 0 HP), **monster V/F** (vunna respektive förlorade monsterstrider), **förbrukade föremål**, samt **klunkar**, **pant** och **HP**. Under tabellen visas **badge-rader** (“bäst i klassen”) per statistiktyp där värdet är större än noll; **delad förstaplats** listar alla berörda spelare. På **`/table`** använder tabellen variant **`table`** med **större** celltext och kolumnikoner (~28px) för läsbarhet på avstånd; modalen är **bredare** och bakgrund kan vara **ölvideo** med panel i **`--modal-panel-bg`** (§2.1).
 - **Eliminerade spelare och resultatlista:** när en spelare väljer **ge upp** från stupad bryggare (`eliminated`) och mobilen skickar **`leaveGame`**, ska servern **inte ta bort** spelaren ur **`players`**-listan under pågående eller avslutat parti — slotten behålls som **spök-spelare** med stats så **alla** fortfarande syns i sluttabellen och spotlight/jämförelser. **Undantag:** om **bordet** uttryckligen **kickar** en spelare (`tableKickPlayer` med `purgeSlot`) tas spelaren bort helt ur roster-state som tidigare.
 - **Boss:** varje **vunnen runda** mot slutbossen (även när bossen har flera liv kvar) räknas som **+1 monsterseger** i sessionsstatistiken, så siffran följer spelupplevelsen av flera stridsrundor.
 - **Persistens:** sessionsstatistik lever i **`GameState`** under partiet; långsiktig lagring per konto/aggressionsfil är **inte** krav i nuvarande implementation.
-- **Slutmodal spotlight:** ovanför rubriken *«Spelet är slut»* visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
+- **Slutmodal spotlight:** under rubrik/vinnare visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Karusellkorten använder **`--modal-panel-bg`** (inte blågrå slate-panel). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
 - **Spenderad pant (`goldSpent` i state):** räknar pant som lämnar spelaren till **spelets sinkholes** (handel, avgifter för föremål/strider/korteffekter, livförsäkring, undvikande av möten där pant tas utan motpartssaldo m.m.). Pant som bara **överförs till annan spelares saldo** (BvB-byte, hjälpkontraktsbetalning, spelare-mot-spelare-stöldkort m.m.) räknas **inte** som spenderad i denna statistik.
 - **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
 - **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
@@ -596,4 +605,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.60 | 2026-05-16 | §2 **turväntan + emotes** på mobil (`Veras tur`, fem emotes, cooldown); §2.1 eliminerade/lämnat i turbanner och utan pjäs, **emote-overlay** ovanför banner; `playerParticipation` + servervalidering av inaktiva mål (föremål, medkämpe, ingripande) |
 | 0.61 | 2026-05-15 | §9.1/§11: stridsloot och slump-utrustning med **bytesval** vid full slot (kö efter strid); §9.2/§10.1 **Riggat spel** och **En enkel stöld** med escrow och förstörd stulen utrustning vid avböj; §11 **Plastback**-badge (pant + kvarvarande flaskor), försäljning; §2/§16.1 bordskortmodal skatt/händelse matchar kortbaksans höjd |
 | 0.62 | 2026-05-17 | §16.1/§16.2: **CardRichText** (ikoner efter pant/klunk/HP/skada, tärning ledande, fet siffror + ikonord); **`rollOutcomes`** på tärningshändelser; katalog vänsterjusterad text + speltypografi (15px / Permanent Marker 22px) |
+| 0.63 | 2026-05-20 | **`--modal-panel-bg`** globalt; **videobakgrunder** `beer_bg` / `flames_bg` (lobby, slutresultat, persistent boss-backdrop på bord, stupad bryggare bord); lobby glas-panel; värd-lobby segmenterad svårighet + avancerade inställningar; slutresultat bred modal + tabellvariant `table`; **gameover.svg**; Plastback-badge (pant + flaskor); boss eld endast bord (mobil röd puls) |
 

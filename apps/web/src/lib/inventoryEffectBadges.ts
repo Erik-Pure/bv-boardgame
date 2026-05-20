@@ -34,8 +34,8 @@ export function plastbackFlasksRemaining(player?: Player): number | null {
     return null;
   }
   const n = w.breakWinsRemaining;
-  if (typeof n !== "number" || n <= 0) return null;
-  return n;
+  if (typeof n === "number") return Math.max(0, n);
+  return PLASTBACK_FULL_FLASK_COUNT;
 }
 
 export const ITEM_EFFECT_BADGE_ICONS = {
@@ -48,6 +48,18 @@ export const ITEM_EFFECT_BADGE_ICONS = {
   bvb: "/icons/bvb-icon.svg",
   level: "/icons/lvlup.svg",
 } as const;
+
+export function effectBadgeIconFilter(
+  icon: keyof typeof ITEM_EFFECT_BADGE_ICONS,
+  labelTone?: "danger" | boolean,
+  size: "sm" | "md" = "sm",
+): string | undefined {
+  const glow = size === "md" ? "5px" : "4px";
+  const danger = labelTone === "danger" || labelTone === true;
+  return danger
+    ? `brightness(0) invert(1) drop-shadow(0 0 ${glow} rgba(248,113,113,0.95))`
+    : "brightness(0) invert(1)";
+}
 
 export type EffectBadgeData = {
   icon: keyof typeof ITEM_EFFECT_BADGE_ICONS;
@@ -211,11 +223,10 @@ export function equipmentInventoryEffectBadges(
   }
   if (piece.name === PLASTBACK_ACCESSORY_NAME) {
     const flasks = plastbackFlasksRemaining(player);
-    if (flasks != null) {
-      badges.push({ icon: "pant", label: String(flasks) });
-    } else if (!player) {
-      badges.push({ icon: "pant", label: String(PLASTBACK_FULL_FLASK_COUNT) });
-    }
+    badges.push({
+      icon: "pant",
+      label: String(flasks ?? PLASTBACK_FULL_FLASK_COUNT),
+    });
   }
   const bwr =
     "breakWinsRemaining" in piece && typeof (piece as Weapon).breakWinsRemaining === "number"

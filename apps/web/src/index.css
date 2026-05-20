@@ -13,6 +13,7 @@
   --social-bg: rgba(47, 48, 58, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  --modal-panel-bg: radial-gradient(circle at bottom, #1a1a1a, #000);
 
   --sans: "Saira Semi Condensed", system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: "Permanent Marker", "Saira Semi Condensed", system-ui, 'Segoe UI', Roboto, sans-serif;

@@ -215,7 +215,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
       <div
         className={styles.inner}
         style={{
-          background: framed ? "#0b1226" : "rgba(11, 18, 38, 0.97)",
+          background: "var(--modal-panel-bg)",
           padding: framed ? 12 : 10,
           color: "#fff",
           overflow: "visible",

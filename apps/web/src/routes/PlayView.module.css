@@ -1294,7 +1294,7 @@
   max-height: calc(100dvh - 28px);
   border-radius: 16px;
   border: 1px solid #ffffff22;
-  background: #0b1226;
+  background: var(--modal-panel-bg);
   color: #fff;
   padding: 10px;
   box-sizing: border-box;

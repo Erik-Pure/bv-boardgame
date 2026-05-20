@@ -3,14 +3,28 @@
   margin: 20px auto;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(4, 9, 22, 0.92);
+  background: var(--modal-panel-bg, linear-gradient(#1a1a1a, #000));
   padding: 18px 16px;
   box-sizing: border-box;
   color: #fff;
 }
 
+.logoHeader {
+  display: block;
+  width: min(100%, 520px);
+  margin: 0 auto 16px;
+}
+
+.logoImg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .title {
-  margin: 0 0 34px;
+  margin: 0 0 20px;
+  font-size: clamp(1.35rem, 4.5vw, 1.65rem);
+  text-align: center;
 }
 
 .stack {
@@ -19,10 +33,10 @@
   text-align: left;
 }
 
-.topGrid {
+.heroBlock {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 4px;
 }
 
 .field {
@@ -32,10 +46,112 @@
 }
 
 .fieldLabel {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
-  opacity: 0.92;
+  opacity: 0.88;
   text-align: left;
+}
+
+.difficultyGroup {
+  display: flex;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  overflow: visible;
+}
+
+.difficultyBtn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 124px;
+  padding: 28px 6px;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.difficultyBtn:first-child {
+  border-radius: 13px 0 0 13px;
+}
+
+.difficultyBtn:last-child {
+  border-right: none;
+  border-radius: 0 13px 13px 0;
+}
+
+.difficultyBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Samma aktiv-stil som .coverBtnSelected (guldkant + guldtext). */
+.difficultyBtnSelected {
+  position: relative;
+  z-index: 1;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fcd34d;
+}
+
+.difficultyBtnSelected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(251, 191, 36, 0.95);
+  pointer-events: none;
+}
+
+.difficultyIcon {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.difficultyBtnSelected .difficultyIcon {
+  animation: difficultyIconSpin 10s linear infinite;
+}
+
+@keyframes difficultyIconSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .difficultyBtnSelected .difficultyIcon {
+    animation: none;
+  }
+}
+
+.difficultyLabel {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(15px, 4.2vw, 20px);
+  font-weight: 400;
+  line-height: 1.12;
+  text-align: center;
+  opacity: 0.95;
+  max-width: 100%;
+  padding: 0 2px;
+}
+
+.difficultyBtnSelected .difficultyLabel {
+  color: #fcd34d;
 }
 
 .inlineCheck {
@@ -45,44 +161,139 @@
   text-align: left;
 }
 
-.hardcoreRow {
-  padding-top: 34px;
+.hardcoreCenter {
+  justify-content: center;
+  margin-top: 2px;
 }
 
 .hardcoreLabel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: #ef4444;
   font-weight: 700;
+  font-size: clamp(16px, 4vw, 19px);
 }
 
 .hardcoreIcon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   filter: brightness(0) saturate(100%) invert(49%) sepia(80%) saturate(2057%) hue-rotate(332deg) brightness(96%)
     contrast(95%) drop-shadow(0 0 4px rgba(239, 68, 68, 0.45));
 }
 
-.section {
+.sectionAdvanced {
   margin-top: 4px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 
-.summary {
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 20px;
-  opacity: 0.95;
-}
-
-.sectionBody {
-  margin-top: 10px;
-  display: grid;
+.summaryAdvanced {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.05rem, 3.8vw, 1.25rem);
+  opacity: 0.92;
+}
+
+.summaryAdvanced::-webkit-details-marker {
+  display: none;
+}
+
+.summaryAdvanced::marker {
+  content: none;
+}
+
+.summaryAdvanced::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid rgba(255, 255, 255, 0.55);
+  transition: transform 140ms ease;
+}
+
+.sectionAdvanced[open] > .summaryAdvanced::before {
+  transform: rotate(90deg);
+}
+
+.advancedSectionBody {
+  margin-top: 12px;
+}
+
+.nestedSections {
+  display: grid;
+  gap: 8px;
+}
+
+.sectionNested {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  padding: 5px 8px;
+}
+
+.summaryNested {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+  font-weight: 600;
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+.summaryNested::-webkit-details-marker {
+  display: none;
+}
+
+.summaryNested::marker {
+  content: none;
+}
+
+.summaryNested::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid rgba(255, 255, 255, 0.45);
+  transition: transform 140ms ease;
+}
+
+.sectionNested[open] > .summaryNested::before {
+  transform: rotate(90deg);
+}
+
+.nestedSectionBody {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.fieldHint {
+  font-weight: 600;
+  opacity: 0.6;
+  font-size: 0.92em;
+}
+
+.cardToggleHint {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.72;
 }
 
 .boardGrid {
@@ -90,58 +301,44 @@
 }
 
 .appearanceGrid {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .coverBtn {
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px;
   cursor: pointer;
   text-align: left;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
 .coverBtnSelected {
   border: 2px solid rgba(251, 191, 36, 0.95);
-  background: rgba(251, 191, 36, 0.12);
-  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 10px 24px rgba(0, 0, 0, 0.35);
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.28);
 }
 
 .coverImg {
   width: 100%;
   aspect-ratio: 5 / 7;
   object-fit: cover;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   display: block;
 }
 
 .coverLabel {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #e2e8f0;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  opacity: 0.9;
 }
 
 .coverLabelSelected {
   color: #fcd34d;
-}
-
-.perfPanel {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.02);
-  display: grid;
-  gap: 10px;
-}
-
-.perfTitle {
-  font-size: 15px;
-  font-weight: 800;
-  opacity: 0.92;
 }
 
 .cardsInner {
@@ -171,9 +368,9 @@
 }
 
 .divider {
-  margin-top: 42px;
-  padding-top: 22px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
   display: grid;
   gap: 8px;
 }

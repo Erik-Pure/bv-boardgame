@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { allCards, CONFIG_NUMERIC, clampConfigNumber } from "@bv/game-core";
+import { allCards, CONFIG_NUMERIC, clampConfigNumber, type DifficultyPreset } from "@bv/game-core";
 import { useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import {
@@ -8,7 +8,6 @@ import {
   subscribeBoardPerformancePrefs,
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
-  writeBoardPreventSleepEnabled,
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
 import { defaultLobbyConfigDraft, saveLobbyConfigDraft } from "../lib/lobbyConfigDraft";
@@ -41,11 +40,33 @@ function clampReactionSeconds(n: number): number {
   return clampConfigNumber("reactionSeconds", n);
 }
 
-function Section(props: { title: string; children: ReactNode }) {
+const DIFFICULTY_OPTIONS: Array<{
+  id: DifficultyPreset;
+  label: string;
+  iconSrc: string;
+}> = [
+  { id: "lattol", label: sv.play.lobbyDifficultyLattol, iconSrc: "/icons/lvl1.svg" },
+  { id: "folkol", label: sv.play.lobbyDifficultyFolkol, iconSrc: "/icons/lvl2.svg" },
+  { id: "starkol", label: sv.play.lobbyDifficultyStarkol, iconSrc: "/icons/lvl3.svg" },
+  { id: "imperial", label: sv.play.lobbyDifficultyImperial, iconSrc: "/icons/lvl5.svg" },
+];
+
+function AdvancedSection(props: { title: string; children: ReactNode }) {
   return (
-    <details className={styles.section}>
-      <summary className={styles.summary}>{props.title}</summary>
-      <div className={styles.sectionBody}>{props.children}</div>
+    <details className={styles.sectionAdvanced}>
+      <summary className={styles.summaryAdvanced}>{props.title}</summary>
+      <div className={styles.advancedSectionBody}>
+        <div className={styles.nestedSections}>{props.children}</div>
+      </div>
+    </details>
+  );
+}
+
+function SubSection(props: { title: string; children: ReactNode }) {
+  return (
+    <details className={styles.sectionNested}>
+      <summary className={styles.summaryNested}>{props.title}</summary>
+      <div className={styles.nestedSectionBody}>{props.children}</div>
     </details>
   );
 }
@@ -55,17 +76,8 @@ export function HostLobbySetup() {
   const roomCode = useMemo(() => randomCode(), []);
   const [cfg, setCfg] = useState(defaultLobbyConfigDraft);
   const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
-  const [wakeLockAvailable, setWakeLockAvailable] = useState(false);
 
   useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    setWakeLockAvailable(
-      typeof (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<unknown> } }).wakeLock
-        ?.request === "function",
-    );
-  }, []);
 
   const disabledSet = new Set(cfg.disabledCardIds);
   const byKind = {
@@ -86,24 +98,39 @@ export function HostLobbySetup() {
 
   return (
     <div className={styles.root}>
+      <picture className={styles.logoHeader}>
+        <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
+        <source srcSet="/icons/bmm-logo-horisontal.webp" type="image/webp" />
+        <img
+          src="/icons/bmm-logo-horisontal.png"
+          alt="Bryggmästarnas Mästare"
+          draggable={false}
+          className={styles.logoImg}
+        />
+      </picture>
       <h1 className={styles.title}>Lobbyinställningar</h1>
 
       <div className={styles.stack}>
-        <div className={styles.topGrid}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Svårighetsgrad</span>
-            <select
-              value={cfg.difficulty}
-              onChange={(e) => setCfg((v) => ({ ...v, difficulty: e.target.value as typeof v.difficulty }))}
-              style={lobbyFieldControlStyle}
-            >
-              <option value="lattol">Lättöl</option>
-              <option value="folkol">Folköl (standard)</option>
-              <option value="starkol">Starköl</option>
-              <option value="imperial">Imperial</option>
-            </select>
-          </label>
-          <label className={`${styles.inlineCheck} ${styles.hardcoreRow}`}>
+        <div className={styles.heroBlock}>
+          <div className={styles.fieldLabel}>{sv.play.lobbyDifficulty}</div>
+          <div className={styles.difficultyGroup} role="group" aria-label={sv.play.lobbyDifficulty}>
+            {DIFFICULTY_OPTIONS.map((opt) => {
+              const selected = cfg.difficulty === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={selected}
+                  className={`${styles.difficultyBtn} ${selected ? styles.difficultyBtnSelected : ""}`}
+                  onClick={() => setCfg((v) => ({ ...v, difficulty: opt.id }))}
+                >
+                  <img src={opt.iconSrc} alt="" aria-hidden draggable={false} className={styles.difficultyIcon} />
+                  <span className={styles.difficultyLabel}>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <label className={`${styles.inlineCheck} ${styles.hardcoreCenter}`}>
             <input
               type="checkbox"
               checked={cfg.hardcore}
@@ -122,37 +149,38 @@ export function HostLobbySetup() {
             </span>
           </label>
         </div>
-        <Section title="Bräde">
-          <div className={`${styles.stack} ${styles.boardGrid}`}>
-            <label className={styles.field}>
-              <span>Brädstorlek</span>
-              <select
-                value={cfg.boardSize}
-                onChange={(e) => setCfg((v) => ({ ...v, boardSize: e.target.value as typeof v.boardSize }))}
-                style={lobbyFieldControlStyle}
-              >
-                <option value="default">Standard</option>
-                <option value="large">Stor</option>
-                <option value="xlarge">Extra stor</option>
-              </select>
-            </label>
-            <label className={styles.field}>
-              <span>Antal nivåer</span>
-              <select
-                value={cfg.levelCount}
-                onChange={(e) => setCfg((v) => ({ ...v, levelCount: Number(e.target.value) as 2 | 3 | 4 | 5 }))}
-                style={lobbyFieldControlStyle}
-              >
-                <option value={2}>2</option>
-                <option value={3}>3 (standard)</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-              </select>
-            </label>
-          </div>
-        </Section>
-        <Section title={sv.play.lobbyAppearance}>
-          <div className={`${styles.stack} ${styles.appearanceGrid}`}>
+        <AdvancedSection title={sv.play.lobbyAdvancedSettings}>
+          <SubSection title="Bräde">
+            <div className={`${styles.stack} ${styles.boardGrid}`}>
+              <label className={styles.field}>
+                <span>{sv.play.lobbyBoardSize}</span>
+                <select
+                  value={cfg.boardSize}
+                  onChange={(e) => setCfg((v) => ({ ...v, boardSize: e.target.value as typeof v.boardSize }))}
+                  style={lobbyFieldControlStyle}
+                >
+                  <option value="default">{sv.play.lobbyBoardSizeDefault}</option>
+                  <option value="large">{sv.play.lobbyBoardSizeLarge}</option>
+                  <option value="xlarge">{sv.play.lobbyBoardSizeXLarge}</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{sv.play.lobbyLevelCount}</span>
+                <select
+                  value={cfg.levelCount}
+                  onChange={(e) => setCfg((v) => ({ ...v, levelCount: Number(e.target.value) as 2 | 3 | 4 | 5 }))}
+                  style={lobbyFieldControlStyle}
+                >
+                  <option value={2}>2</option>
+                  <option value={3}>3 (standard)</option>
+                  <option value={4}>4</option>
+                  <option value={5}>5</option>
+                </select>
+              </label>
+            </div>
+          </SubSection>
+          <SubSection title={sv.play.lobbyAppearance}>
+            <div className={`${styles.stack} ${styles.appearanceGrid}`}>
               {cardBackOptions.map((opt) => {
                 const selected = cfg.cardCover === opt.id;
                 return (
@@ -172,95 +200,95 @@ export function HostLobbySetup() {
                   </button>
                 );
               })}
-          </div>
-        </Section>
-        <Section title="Fler inställningar">
-          <div className={styles.stack}>
-            <div className={styles.perfPanel}>
-              <div className={styles.perfTitle}>{sv.table.settingsTitle}</div>
-              <label className={styles.inlineCheck}>
-                <input
-                  type="checkbox"
-                  checked={boardPerf.boardPanEnabled}
-                  onChange={(e) => {
-                    writeBoardPanEnabled(e.target.checked);
-                    setBoardPerf(readBoardPerformancePrefs());
-                  }}
-                  style={checkboxStyle}
-                />
-                <span>{sv.table.settingsBoardPan}</span>
-              </label>
-              <label className={styles.inlineCheck}>
-                <input
-                  type="checkbox"
-                  checked={boardPerf.boardAnimationsEnabled}
-                  onChange={(e) => {
-                    writeBoardAnimationsEnabled(e.target.checked);
-                    setBoardPerf(readBoardPerformancePrefs());
-                  }}
-                  style={checkboxStyle}
-                />
-                <span>{sv.table.settingsBoardAnimations}</span>
-              </label>
-              <label className={styles.inlineCheck}>
-                <input
-                  type="checkbox"
-                  checked={boardPerf.preventSleepEnabled}
-                  onChange={(e) => {
-                    writeBoardPreventSleepEnabled(e.target.checked);
-                    setBoardPerf(readBoardPerformancePrefs());
-                  }}
-                  style={checkboxStyle}
-                  disabled={!wakeLockAvailable}
-                  aria-label={sv.table.wakeLockToggle}
-                />
-                <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
-              </label>
             </div>
-            <label className={styles.field}>
-              <span style={{ fontSize: 17, fontWeight: 700, opacity: 0.92 }}>
-                Max HP <span style={{ fontWeight: 600, opacity: 0.65 }}>(6–30)</span>
-              </span>
-              <input
-                type="number"
-                min={CONFIG_NUMERIC.maxHp.min}
-                max={CONFIG_NUMERIC.maxHp.max}
-                value={cfg.maxHp}
-                onChange={(e) => setCfg((v) => ({ ...v, maxHp: Number(e.target.value) }))}
-                onBlur={() => setCfg((v) => ({ ...v, maxHp: clampMaxHp(v.maxHp) }))}
-                style={lobbyFieldControlStyle}
-              />
-            </label>
-            <label className={styles.field}>
-              <span style={{ fontSize: 17, fontWeight: 700, opacity: 0.92 }}>
-                Startpant <span style={{ fontWeight: 600, opacity: 0.65 }}>(0–50)</span>
-              </span>
-              <input
-                type="number"
-                min={CONFIG_NUMERIC.startPant.min}
-                max={CONFIG_NUMERIC.startPant.max}
-                value={cfg.startPant}
-                onChange={(e) => setCfg((v) => ({ ...v, startPant: Number(e.target.value) }))}
-                onBlur={() => setCfg((v) => ({ ...v, startPant: clampStartPant(v.startPant) }))}
-                style={lobbyFieldControlStyle}
-              />
-            </label>
-            <label className={styles.field}>
-              <span style={{ fontSize: 17, fontWeight: 700, opacity: 0.92 }}>
-                Reaktionstimer <span style={{ fontWeight: 600, opacity: 0.65 }}>(0–30 sek)</span>
-              </span>
-              <input
-                type="number"
-                min={CONFIG_NUMERIC.reactionSeconds.min}
-                max={CONFIG_NUMERIC.reactionSeconds.max}
-                value={cfg.reactionSeconds}
-                onChange={(e) => setCfg((v) => ({ ...v, reactionSeconds: Number(e.target.value) }))}
-                onBlur={() => setCfg((v) => ({ ...v, reactionSeconds: clampReactionSeconds(v.reactionSeconds) }))}
-                style={lobbyFieldControlStyle}
-              />
-            </label>
-            <details className={styles.section}>
-              <summary>Tillåtna kort</summary>
+          </SubSection>
+          <SubSection title={sv.play.lobbyAccessibility}>
+              <div className={styles.stack}>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.boardPanEnabled}
+                    onChange={(e) => {
+                      writeBoardPanEnabled(e.target.checked);
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{sv.table.settingsBoardPan}</span>
+                </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.boardAnimationsEnabled}
+                    onChange={(e) => {
+                      writeBoardAnimationsEnabled(e.target.checked);
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{sv.table.settingsBoardAnimations}</span>
+                </label>
+              </div>
+            </SubSection>
+            <SubSection title={sv.play.lobbyGameValues}>
+              <div className={styles.stack}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>
+                    {sv.play.lobbyMaxHp}{" "}
+                    <span className={styles.fieldHint}>
+                      ({CONFIG_NUMERIC.maxHp.min}–{CONFIG_NUMERIC.maxHp.max})
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    min={CONFIG_NUMERIC.maxHp.min}
+                    max={CONFIG_NUMERIC.maxHp.max}
+                    value={cfg.maxHp}
+                    onChange={(e) => setCfg((v) => ({ ...v, maxHp: Number(e.target.value) }))}
+                    onBlur={() => setCfg((v) => ({ ...v, maxHp: clampMaxHp(v.maxHp) }))}
+                    style={lobbyFieldControlStyle}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>
+                    {sv.play.lobbyStartPant}{" "}
+                    <span className={styles.fieldHint}>
+                      ({CONFIG_NUMERIC.startPant.min}–{CONFIG_NUMERIC.startPant.max})
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    min={CONFIG_NUMERIC.startPant.min}
+                    max={CONFIG_NUMERIC.startPant.max}
+                    value={cfg.startPant}
+                    onChange={(e) => setCfg((v) => ({ ...v, startPant: Number(e.target.value) }))}
+                    onBlur={() => setCfg((v) => ({ ...v, startPant: clampStartPant(v.startPant) }))}
+                    style={lobbyFieldControlStyle}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>
+                    {sv.play.lobbyReactionSeconds}{" "}
+                    <span className={styles.fieldHint}>
+                      ({CONFIG_NUMERIC.reactionSeconds.min}–{CONFIG_NUMERIC.reactionSeconds.max} sek)
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    min={CONFIG_NUMERIC.reactionSeconds.min}
+                    max={CONFIG_NUMERIC.reactionSeconds.max}
+                    value={cfg.reactionSeconds}
+                    onChange={(e) => setCfg((v) => ({ ...v, reactionSeconds: Number(e.target.value) }))}
+                    onBlur={() =>
+                      setCfg((v) => ({ ...v, reactionSeconds: clampReactionSeconds(v.reactionSeconds) }))
+                    }
+                    style={lobbyFieldControlStyle}
+                  />
+                </label>
+              </div>
+            </SubSection>
+            <SubSection title={sv.play.lobbyAllowedCards}>
+              <p className={styles.cardToggleHint}>{sv.play.lobbyCardToggleHint}</p>
               <div className={styles.cardsInner}>
                 {(["item", "event"] as const).map((kind) => (
                   <div key={kind} className={styles.cardsKind}>
@@ -288,9 +316,8 @@ export function HostLobbySetup() {
                   </div>
                 ))}
               </div>
-            </details>
-          </div>
-        </Section>
+            </SubSection>
+        </AdvancedSection>
       </div>
 
       <div className={styles.divider}>
@@ -319,9 +346,6 @@ export function HostLobbySetup() {
           }}
         >
           Starta lobby
-        </ArcadeButton>
-        <ArcadeButton variant="gray" fullWidth onClick={() => nav("/")}>
-          Avbryt
         </ArcadeButton>
       </div>
     </div>

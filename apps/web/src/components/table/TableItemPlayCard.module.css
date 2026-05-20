@@ -4,7 +4,7 @@
   border: 2px solid #64748b;
   overflow: hidden;
   box-sizing: border-box;
-  background: #0b1226;
+  background: var(--modal-panel-bg);
   display: flex;
   flex-direction: column;
   min-height: min(50vh, 420px);

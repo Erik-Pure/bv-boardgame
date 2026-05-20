@@ -108,7 +108,7 @@ export function Home() {
             width: "100%",
             borderRadius: 16,
             border: "1px solid #ffffff22",
-            background: "#0b1226",
+            background: "var(--modal-panel-bg)",
             padding: "22px 18px 24px",
             textAlign: "center",
             color: "#ffffff",

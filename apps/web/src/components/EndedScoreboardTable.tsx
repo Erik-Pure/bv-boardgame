@@ -14,13 +14,15 @@ function ScoreboardIconHeader(props: {
   alignLeft?: boolean;
   /** true: SVG med egna färger (klunk/pant/hp). false: vit silhuett (övriga kolumner). */
   colored?: boolean;
+  iconPx?: number;
 }) {
+  const px = props.iconPx ?? 18;
   const imgClass = props.colored
     ? [styles.headerIconColored, props.alignLeft ? styles.headerIconColoredLeft : ""].filter(Boolean).join(" ")
     : [styles.headerIcon, props.alignLeft ? styles.headerIconLeft : ""].filter(Boolean).join(" ");
   return (
     <th scope="col" aria-label={props.ariaLabel} className={styles.iconHeaderCell}>
-      <img src={props.src} alt="" aria-hidden width={18} height={18} draggable={false} className={imgClass} />
+      <img src={props.src} alt="" aria-hidden width={px} height={px} draggable={false} className={imgClass} />
     </th>
   );
 }
@@ -51,11 +53,18 @@ function sortEndedPlayers(players: Player[], winnerId: string | null | undefined
   });
 }
 
-export function EndedScoreboardTable(props: { players: Player[]; winnerId: string | null | undefined }) {
+export function EndedScoreboardTable(props: {
+  players: Player[];
+  winnerId: string | null | undefined;
+  /** Bordsvy / TV: större typsnitt och ikoner. */
+  variant?: "default" | "table";
+}) {
   const sorted = sortEndedPlayers(props.players, props.winnerId);
+  const table = props.variant === "table";
+  const iconPx = table ? 28 : 18;
 
   return (
-    <div className={styles.wrap}>
+    <div className={[styles.wrap, table ? styles.wrapTable : ""].filter(Boolean).join(" ")}>
       <div className={styles.tableScroll}>
         <table className={styles.table}>
           <caption className={styles.srOnly}>{sv.play.scoreboardTableCaption}</caption>
@@ -72,15 +81,15 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
           </colgroup>
           <thead>
             <tr className={styles.headerRow}>
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColName} src="/icons/player-marker.svg" alignLeft />
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColLevel} src="/icons/lvlup.svg" />
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColKnockdowns} src="/icons/skull-icon.svg" />
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColMonsterWl} src="/icons/monster-icon.svg" />
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColPvpWl} src="/icons/bvb-icon.svg" />
-              <ScoreboardIconHeader ariaLabel={sv.play.scoreboardColItems} src="/icons/reward-icon.svg" />
-              <ScoreboardIconHeader colored ariaLabel={sv.play.scoreboardColKlunk} src="/icons/klunk.svg" />
-              <ScoreboardIconHeader colored ariaLabel={sv.play.scoreboardColPant} src="/icons/pant.svg" />
-              <ScoreboardIconHeader colored ariaLabel={sv.play.scoreboardColHp} src="/icons/hp.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColName} src="/icons/player-marker.svg" alignLeft />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColLevel} src="/icons/lvlup.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColKnockdowns} src="/icons/skull-icon.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColMonsterWl} src="/icons/monster-icon.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColPvpWl} src="/icons/bvb-icon.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColItems} src="/icons/reward-icon.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} colored ariaLabel={sv.play.scoreboardColKlunk} src="/icons/klunk.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} colored ariaLabel={sv.play.scoreboardColPant} src="/icons/pant.svg" />
+              <ScoreboardIconHeader iconPx={iconPx} colored ariaLabel={sv.play.scoreboardColHp} src="/icons/hp.svg" />
             </tr>
           </thead>
           <tbody>
@@ -126,7 +135,7 @@ export function EndedScoreboardTable(props: { players: Player[]; winnerId: strin
                       ariaLabel={sv.play.scoreboardBrewerLevelAria(uiLevel)}
                       level={uiLevel}
                       ratio={ratio}
-                      size="compact"
+                      size={table ? "default" : "compact"}
                     />
                   </td>
                   <td className={styles.statCell}>{s.knockdownCount}</td>

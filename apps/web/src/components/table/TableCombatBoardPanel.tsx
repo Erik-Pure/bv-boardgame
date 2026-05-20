@@ -29,8 +29,6 @@ import {
   TABLE_BOARD_MODAL_CARD_ANIMATION,
   TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
   TABLE_BOARD_OVERLAY_BG,
-  TABLE_BOSS_OVERLAY_BG,
-  TABLE_BOSS_OVERLAY_PULSE,
   TABLE_MONSTER_COMBAT_DICE_PX,
 } from "./tableConstants";
 import combatStyles from "./TableCombatBoardPanel.module.css";
@@ -48,7 +46,7 @@ const HOLD_CARD_RESET_MS = 700;
 
 /** Matchar mobil `PlayView` `CardModal` innehållsyta (combat win/lose); ramen kommer från `.faceBack`. */
 const PLAY_COMBAT_OUTCOME_SURFACE: CSSProperties = {
-  background: "#0b1226",
+  background: "var(--modal-panel-bg)",
   borderRadius: 16,
   color: "#ffffff",
 };
@@ -301,8 +299,6 @@ function TableCombatBoardPanelInner(props: {
     pending.phase === "helpAwaitCard" ||
     pending.phase === "rollPreview" ||
     pending.phase === "chooseHitMitigation";
-  /** Slutboss: röd overlay under intro + tärnings-/resultatfas (reactions → rollPreview → chooseHitMitigation). */
-  const bossCombatPulse = isFinalBossCombat && (pending.phase === "enemyIntro" || diceBesideCardPhases);
   const finalBossRoundLabel = (() => {
     if (!isFinalBossCombat) return null;
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
@@ -323,15 +319,9 @@ function TableCombatBoardPanelInner(props: {
       pending.phase === "rollPreview" ||
       pending.phase === "chooseHitMitigation");
 
-  const overlayDynamics: CSSProperties = {
-    background: bossCombatPulse ? TABLE_BOSS_OVERLAY_BG : TABLE_BOARD_OVERLAY_BG,
-    backgroundRepeat: bossCombatPulse ? "no-repeat" : undefined,
-    backgroundSize: bossCombatPulse ? "100% 100%, 100% 100%" : undefined,
-    backgroundPosition: bossCombatPulse ? "50% 16%, 50% 50%" : undefined,
-    animation: bossCombatPulse
-      ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
-      : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
-  };
+  const overlayDynamics: CSSProperties = isFinalBossCombat
+    ? { background: "transparent" }
+    : { background: TABLE_BOARD_OVERLAY_BG, animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION };
 
   const phaseLine =
     pending.phase === "chooseTeammate"
@@ -729,7 +719,6 @@ function TableCombatBoardPanelInner(props: {
         maxWidth={400}
         blockPointerUntilFlipped={false}
         cardCoverId={state.config.cardCover}
-        style={overlayDynamics}
         aboveScene={combatBoardBossHeaderLines}
         contentScale={combatBlockScale}
       >
@@ -757,23 +746,25 @@ function TableCombatBoardPanelInner(props: {
     </div>
   );
 
+  const overlayPanel = combatBlockScale !== 1 ? (
+    <div
+      style={{
+        transform: `scale(${combatBlockScale})`,
+        transformOrigin: "top center",
+        width: "100%",
+        display: "grid",
+        justifyItems: "center",
+      }}
+    >
+      {panelBody}
+    </div>
+  ) : (
+    panelBody
+  );
+
   return (
     <div className={combatStyles.overlayHost} style={overlayDynamics}>
-      {combatBlockScale !== 1 ? (
-        <div
-          style={{
-            transform: `scale(${combatBlockScale})`,
-            transformOrigin: "top center",
-            width: "100%",
-            display: "grid",
-            justifyItems: "center",
-          }}
-        >
-          {panelBody}
-        </div>
-      ) : (
-        panelBody
-      )}
+      {overlayPanel}
     </div>
   );
 }

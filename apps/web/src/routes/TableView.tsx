@@ -8,10 +8,14 @@ import {
   getCardDefById,
   isPlayerOnBoard,
   prunePlayerEmoteBursts,
+  isFinalBossMonsterId,
   type GameState,
+  type MonsterId,
   type Player,
   type TileType,
 } from "@bv/game-core";
+import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
+import { BossCombatBackdropLayers } from "../components/BossCombatBackdropLayers";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
 import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
@@ -66,8 +70,6 @@ import {
   TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
   TABLE_BOARD_OVERLAY_BG,
   TABLE_BOSS_FINALE_OVERLAY_BG,
-  TABLE_BOSS_OVERLAY_BG,
-  TABLE_BOSS_OVERLAY_PULSE,
 } from "../components/table/tableConstants";
 import bossFinaleExitStyles from "../components/play/bossFinaleExit.module.css";
 import { bossFinaleExitCssVars } from "../lib/bossFinaleTiming";
@@ -1117,6 +1119,26 @@ function TableViewBody() {
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
 
+  const finalBossTableBackdropActive = useMemo(() => {
+    if (state?.pending?.type === "combat" && isFinalBossMonsterId(state.pending.monsterId as MonsterId)) {
+      return true;
+    }
+    const holdPending = monsterResultHoldover?.preAck.pending;
+    return (
+      holdPending?.type === "combat" && isFinalBossMonsterId(holdPending.monsterId as MonsterId)
+    );
+  }, [state?.pending, monsterResultHoldover]);
+
+  /** Behåll samma videoinstans under resultat-holdover (pending är då kort, inte combat). */
+  const tableBossBackdropSessionKey = useMemo(() => {
+    if (tableCombatSessionKey) return tableCombatSessionKey;
+    const holdPending = monsterResultHoldover?.preAck.pending;
+    if (holdPending?.type === "combat") {
+      return `${holdPending.attackerId}-${holdPending.levelIndex}-${holdPending.tileIndex}-${holdPending.monsterId}`;
+    }
+    return null;
+  }, [tableCombatSessionKey, monsterResultHoldover]);
+
   const baseShowTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
 
   const moveTargets = useMemo(() => {
@@ -1795,6 +1817,19 @@ function TableViewBody() {
             <>
           {state?.phase === "lobby" ? (
             <div role="dialog" aria-label={sv.table.lobby} className={tableStyles.modalBackdropLobby}>
+              <video
+                className={tableStyles.lobbyBgVideo}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                aria-hidden
+              >
+                <source src="/video/beer_bg.webm" type="video/webm" />
+                <source src="/video/beer_bg_1280.mp4" type="video/mp4" />
+              </video>
+              <div className={tableStyles.lobbyBgScrim} aria-hidden />
               <div className={tableStyles.modalCardLobby}>
                 <picture>
                   <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
@@ -1836,12 +1871,13 @@ function TableViewBody() {
             </div>
           ) : state?.phase === "ended" ? (
             <div role="dialog" aria-label={sv.play.gameOver} className={tableStyles.modalBackdropEnded}>
+              <BeerBackdropLayers />
               <div className={tableStyles.modalCardEnded}>
                 <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
                 <p className={u.gameOverWinnerLine}>
                   {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
-                <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
+                <EndedScoreboardTable variant="table" players={state.players} winnerId={state.winnerId} />
                 <EndedSpotlightCarousel players={state.players} />
                 <div className={u.mt20w100}>
                   <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
@@ -1983,6 +2019,16 @@ function TableViewBody() {
 
       <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
 
+      {finalBossTableBackdropActive && tableBossBackdropSessionKey ? (
+        <div
+          key={tableBossBackdropSessionKey}
+          className={tableStyles.finalBossCombatBackdrop}
+          aria-hidden
+        >
+          <BossCombatBackdropLayers />
+        </div>
+      ) : null}
+
       {showTableCombatBoardPanel && state ? (
         <TableCombatBoardPanel
           state={state}
@@ -2000,13 +2046,15 @@ function TableViewBody() {
           cardCoverId={state.config.cardCover}
           blockPointerUntilFlipped={false}
           contentScale={overlayContentScale}
+          flamesBackdrop
+          backdropStyle={{ animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION }}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             paddingTop:
               overlayContentScale > 1
                 ? "max(84px, calc(env(safe-area-inset-top, 0px) + 56px))"
                 : 70,
-            background: TABLE_BOARD_OVERLAY_BG,
+            background: "transparent",
             animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
           className={tableStyles.overlayTopCenter}
@@ -2031,7 +2079,7 @@ function TableViewBody() {
                   }}
                 >
                   <img
-                    src="/icons/skull-icon.svg"
+                    src="/icons/gameover.svg"
                     alt=""
                     draggable={false}
                     className={tableStyles.brewerDownSkull}
@@ -2068,6 +2116,12 @@ function TableViewBody() {
           simpleEntrance={isBossFinalWinCard}
           cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
+          bossFlamesBackdrop={state.pending.cardId === "boss_round_win"}
+          backdropStyle={
+            state.pending.cardId === "boss_round_win"
+              ? { animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION }
+              : undefined
+          }
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
           style={{
             paddingTop:
@@ -2078,24 +2132,17 @@ function TableViewBody() {
               state.pending.cardId === "boss_final_win"
                 ? TABLE_BOSS_FINALE_OVERLAY_BG
                 : state.pending.cardId === "boss_round_win"
-                  ? TABLE_BOSS_OVERLAY_BG
+                  ? "transparent"
                   : TABLE_BOARD_OVERLAY_BG,
-            backgroundRepeat:
-              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
-                ? "no-repeat"
-                : undefined,
-            backgroundSize:
-              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
-                ? "100% 100%, 100% 100%"
-                : undefined,
-            backgroundPosition:
-              state.pending.cardId === "boss_round_win" || state.pending.cardId === "boss_final_win"
-                ? "50% 16%, 50% 50%"
-                : undefined,
+            backgroundRepeat: state.pending.cardId === "boss_final_win" ? "no-repeat" : undefined,
+            backgroundSize: state.pending.cardId === "boss_final_win" ? "100% 100%, 100% 100%" : undefined,
+            backgroundPosition: state.pending.cardId === "boss_final_win" ? "50% 16%, 50% 50%" : undefined,
             animation:
-              state.pending.cardId === "boss_round_win"
-                ? `${TABLE_BOARD_MODAL_OVERLAY_ANIMATION}, ${TABLE_BOSS_OVERLAY_PULSE}`
-                : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
+              state.pending.cardId === "boss_final_win"
+                ? TABLE_BOARD_MODAL_OVERLAY_ANIMATION
+                : state.pending.cardId === "boss_round_win"
+                  ? undefined
+                  : TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
           }}
           className={tableStyles.overlayTopCenter}
         >

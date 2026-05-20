@@ -3,6 +3,7 @@ import type { CardDef, Effect } from "@bv/game-core";
 import {
   type EffectBadgeData,
   formatSigned,
+  effectBadgeIconFilter,
   ITEM_EFFECT_BADGE_ICONS,
   itemInventoryEffectBadge,
 } from "./inventoryEffectBadges";
@@ -162,9 +163,7 @@ export function CatalogImageBadgeStrip({ badges }: { badges: EffectBadgeData[] }
               style={{
                 display: "block",
                 objectFit: "contain",
-                filter: danger
-                  ? "brightness(0) invert(1) drop-shadow(0 0 3px rgba(248,113,113,0.85))"
-                  : "brightness(0) invert(1)",
+                filter: effectBadgeIconFilter(b.icon, danger, "sm"),
               }}
             />
             <span
