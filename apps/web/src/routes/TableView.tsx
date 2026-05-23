@@ -8,14 +8,12 @@ import {
   getCardDefById,
   isPlayerOnBoard,
   prunePlayerEmoteBursts,
-  isFinalBossMonsterId,
   type GameState,
-  type MonsterId,
   type Player,
   type TileType,
 } from "@bv/game-core";
 import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
-import { BossCombatBackdropLayers } from "../components/BossCombatBackdropLayers";
+import { FinalBossCombatBackdrop } from "../components/FinalBossCombatBackdrop";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
 import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
@@ -50,7 +48,14 @@ import {
 import { TableBoardCameraViewport } from "../components/table/TableBoardCameraViewport";
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import turnBannerStyles from "./turnBanner.module.css";
-import { parseLegacyCombatLoseText, parseLegacyCombatWinText, resolveCombatLossViewer, resolveCombatWinViewer } from "../lib/combatUi";
+import {
+  finalBossCombatBackdropSessionKey,
+  parseLegacyCombatLoseText,
+  parseLegacyCombatWinText,
+  resolveCombatLossViewer,
+  resolveCombatWinViewer,
+  shouldShowFinalBossCombatBackdrop,
+} from "../lib/combatUi";
 import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
@@ -783,7 +788,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     }
     const currLevels = new Map<string, number>();
     for (const p of state.players) {
-      currLevels.set(p.id, Math.max(1, brewerLevel(p)));
+      currLevels.set(p.id, brewerDisplayLevelForTable(p));
     }
     const prev = prevBrewerLevelsRef.current;
     prevBrewerLevelsRef.current = currLevels;
@@ -792,8 +797,8 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     const leveled = state.players
       .map((p) => ({
         player: p,
-        prev: prev.get(p.id) ?? Math.max(1, brewerLevel(p)),
-        curr: currLevels.get(p.id) ?? Math.max(1, brewerLevel(p)),
+        prev: prev.get(p.id) ?? brewerDisplayLevelForTable(p),
+        curr: currLevels.get(p.id) ?? brewerDisplayLevelForTable(p),
       }))
       .filter((x) => x.curr > x.prev);
     if (leveled.length === 0) return;
@@ -1119,25 +1124,21 @@ function TableViewBody() {
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
 
-  const finalBossTableBackdropActive = useMemo(() => {
-    if (state?.pending?.type === "combat" && isFinalBossMonsterId(state.pending.monsterId as MonsterId)) {
-      return true;
-    }
-    const holdPending = monsterResultHoldover?.preAck.pending;
-    return (
-      holdPending?.type === "combat" && isFinalBossMonsterId(holdPending.monsterId as MonsterId)
-    );
-  }, [state?.pending, monsterResultHoldover]);
+  const holdoverCombatMonsterId =
+    monsterResultHoldover?.preAck.pending?.type === "combat"
+      ? monsterResultHoldover.preAck.pending.monsterId
+      : null;
 
-  /** Behåll samma videoinstans under resultat-holdover (pending är då kort, inte combat). */
-  const tableBossBackdropSessionKey = useMemo(() => {
-    if (tableCombatSessionKey) return tableCombatSessionKey;
-    const holdPending = monsterResultHoldover?.preAck.pending;
-    if (holdPending?.type === "combat") {
-      return `${holdPending.attackerId}-${holdPending.levelIndex}-${holdPending.tileIndex}-${holdPending.monsterId}`;
-    }
-    return null;
-  }, [tableCombatSessionKey, monsterResultHoldover]);
+  const finalBossTableBackdropActive = useMemo(
+    () => shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId),
+    [state, holdoverCombatMonsterId],
+  );
+
+  /** Behåll samma videoinstans under hela striden (inkl. boss_round_win mellan rundor). */
+  const tableBossBackdropSessionKey = useMemo(
+    () => finalBossCombatBackdropSessionKey(state, tableCombatSessionKey, holdoverCombatMonsterId),
+    [state, tableCombatSessionKey, holdoverCombatMonsterId],
+  );
 
   const baseShowTableCombatBoardPanel = state?.pending?.type === "combat" || showMonsterCombatOutcomeOnCard;
 
@@ -2020,13 +2021,7 @@ function TableViewBody() {
       <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
 
       {finalBossTableBackdropActive && tableBossBackdropSessionKey ? (
-        <div
-          key={tableBossBackdropSessionKey}
-          className={tableStyles.finalBossCombatBackdrop}
-          aria-hidden
-        >
-          <BossCombatBackdropLayers />
-        </div>
+        <FinalBossCombatBackdrop sessionKey={tableBossBackdropSessionKey} variant="table" />
       ) : null}
 
       {showTableCombatBoardPanel && state ? (
@@ -2116,9 +2111,11 @@ function TableViewBody() {
           simpleEntrance={isBossFinalWinCard}
           cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
-          bossFlamesBackdrop={state.pending.cardId === "boss_round_win"}
+          bossFlamesBackdrop={
+            state.pending.cardId === "boss_round_win" && !finalBossTableBackdropActive
+          }
           backdropStyle={
-            state.pending.cardId === "boss_round_win"
+            state.pending.cardId === "boss_round_win" && !finalBossTableBackdropActive
               ? { animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION }
               : undefined
           }

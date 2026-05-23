@@ -5,6 +5,7 @@ import {
   monsterLossKlunkTotal,
   type CombatLoseSummary,
   type CombatWinSummary,
+  type GameState,
   type MonsterId,
   type Pending,
 } from "@bv/game-core";
@@ -126,4 +127,33 @@ export function monsterEncounterCardPropsFromCombatPending(
     framed: true,
     fillAvailableHeight: false,
   };
+}
+
+export function isFinalBossSessionActive(
+  state: Pick<GameState, "finalBossMonsterId"> | null | undefined,
+): boolean {
+  return !!state?.finalBossMonsterId && isFinalBossMonsterId(state.finalBossMonsterId);
+}
+
+/** Flammor + puls under pågående slutboss-strid (inkl. boss_round_win mellan rundor). */
+export function shouldShowFinalBossCombatBackdrop(
+  state: Pick<GameState, "pending" | "finalBossMonsterId"> | null | undefined,
+  holdoverCombatMonsterId?: string | null,
+): boolean {
+  if (!isFinalBossSessionActive(state)) return false;
+  const p = state?.pending;
+  if (p?.type === "combat" && isFinalBossMonsterId(p.monsterId as MonsterId)) return true;
+  if (p?.type === "card" && p.cardId === "boss_round_win") return true;
+  if (holdoverCombatMonsterId && isFinalBossMonsterId(holdoverCombatMonsterId as MonsterId)) return true;
+  return false;
+}
+
+export function finalBossCombatBackdropSessionKey(
+  state: Pick<GameState, "finalBossMonsterId" | "pending"> | null | undefined,
+  combatSessionKey?: string | null,
+  holdoverCombatMonsterId?: string | null,
+): string | null {
+  if (!shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId)) return null;
+  if (combatSessionKey) return combatSessionKey;
+  return `final-boss-${state!.finalBossMonsterId}`;
 }

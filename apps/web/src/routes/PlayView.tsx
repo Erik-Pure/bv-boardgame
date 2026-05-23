@@ -84,6 +84,7 @@ import u from "../styles/uiPrimitives.module.css";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { CardRichText } from "../components/CardRichText";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
+import { FinalBossCombatBackdrop } from "../components/FinalBossCombatBackdrop";
 import { TeamBattleIntroCard } from "../components/TeamBattleIntroCard";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { createLogger } from "../lib/logger";
@@ -93,11 +94,13 @@ import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.cs
 import { PictureImg } from "../components/PictureImg";
 import {
   combatLossKlunksForDisplay,
+  finalBossCombatBackdropSessionKey,
   monsterEncounterCardPropsFromCombatPending,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
   resolveCombatLossViewer,
   resolveCombatWinViewer,
+  shouldShowFinalBossCombatBackdrop,
 } from "../lib/combatUi";
 import { sv, wsStatusLabel, capitalizeWord, equipmentSlotSv, tileTypeSv } from "../lib/uiStrings";
 import { isRingTopEdgeTile, moveChoiceDirectionHints } from "../lib/moveChoiceDirectionHints";
@@ -142,7 +145,8 @@ const POSITIVE_HELP_ITEM_IDS = [
 type MobileTutorialStep = {
   title: string;
   body: ReactNode;
-  imageSrc: string;
+  imageSrc?: string;
+  showLogo?: boolean;
 };
 
 /** «Din tur»-overlay: en bokstav i taget fades in (behåll sr-text på föräldern). */
@@ -185,6 +189,25 @@ const CONTRACT_ICON_PANT_COLOR = "#d1d5db";
 const CONTRACT_ICON_REWARD_COLOR = "#facc15";
 
 const MOBILE_TUTORIAL_STEPS: MobileTutorialStep[] = [
+  {
+    title: "Välkommen till Bryggmästarnas Mästare!",
+    body: (
+      <>
+        <p className={styles.tutorialParaSpaced}>
+          <b className={styles.tutorialEmphasis}>
+            <TutorialInlineIcon src="/icons/monster-icon.svg" color="#ef4444" gap="0 5px 0 0" />
+            Rädda de dåliga batcherna
+          </b>{" "}
+          för att samla XP och klättra i nivå – först att <b>besegra slutbossen på sista nivån vinner!</b>
+        </p>
+        <p className={styles.tutorialParaSpaced}>
+        <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#fff" gap="0 5px 0 0" />Sabotera eller samarbeta med dina motståndare på vägen 
+        </p>
+    
+      </>
+    ),
+    showLogo: true,
+  },
   {
     title: "Slå och välj väg",
     body: (
@@ -1177,6 +1200,21 @@ export function PlayView() {
     if (state.pending?.type !== "combat" || state.pending.phase !== "enemyIntro") return null;
     return state.pending.attackerId === me.id ? state.pending : null;
   }, [state?.pending, state?.phase, me?.id]);
+
+  const playCombatSessionKey =
+    state?.pending?.type === "combat"
+      ? `${state.pending.attackerId}-${state.pending.levelIndex}-${state.pending.tileIndex}-${state.pending.monsterId}`
+      : null;
+
+  const finalBossPlayBackdropActive = useMemo(
+    () => shouldShowFinalBossCombatBackdrop(state),
+    [state],
+  );
+
+  const finalBossPlayBackdropSessionKey = useMemo(
+    () => finalBossCombatBackdropSessionKey(state, playCombatSessionKey),
+    [state, playCombatSessionKey],
+  );
 
   const canSkipMonsterEncounter =
     !!myEnemyIntroPending && me?.equipment?.accessory?.canSkipMonsterEncounter === true;
@@ -3628,6 +3666,9 @@ export function PlayView() {
       </div>
 
       {/* Utanför .content så fixed-modaler inte fastnar under header (z 60) i .content:s stacking context */}
+      {finalBossPlayBackdropActive && finalBossPlayBackdropSessionKey ? (
+        <FinalBossCombatBackdrop sessionKey={finalBossPlayBackdropSessionKey} variant="play" />
+      ) : null}
       {state?.phase === "playing" &&
         me &&
         myPending &&
@@ -3775,7 +3816,10 @@ export function PlayView() {
               : undefined
           }
           bossWinLootDash={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
-          bossPulsingBackdrop={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
+          bossPulsingBackdrop={
+            isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId) &&
+            !finalBossPlayBackdropActive
+          }
           teammateName={
             myEnemyIntroPending.assistId
               ? state.players.find((p) => p.id === myEnemyIntroPending.assistId)?.name
@@ -4492,18 +4536,32 @@ export function PlayView() {
               }
             >
               <div
-                className={styles.tutorialBodyGrid}
+                className={[
+                  styles.tutorialBodyGrid,
+                  tutorialStep.showLogo ? styles.tutorialBodyGridIntro : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
-                <div
-                  className={styles.tutorialImageCard}
-                >
-                  <img
-                    src={tutorialStep.imageSrc}
-                    alt=""
-                    draggable={false}
-                    className={styles.tutorialImage}
-                  />
-                </div>
+                {tutorialStep.showLogo ? (
+                  <div className={styles.tutorialLogoWrap}>
+                    <img
+                      src="/icons/bmm-logo.png"
+                      alt="Bryggmästarnas Mästare"
+                      draggable={false}
+                      className={styles.tutorialLogo}
+                    />
+                  </div>
+                ) : tutorialStep.imageSrc ? (
+                  <div className={styles.tutorialImageCard}>
+                    <img
+                      src={tutorialStep.imageSrc}
+                      alt=""
+                      draggable={false}
+                      className={styles.tutorialImage}
+                    />
+                  </div>
+                ) : null}
                 <div className={styles.tutorialStepTitle}>
                   {tutorialStep.title}
                 </div>
