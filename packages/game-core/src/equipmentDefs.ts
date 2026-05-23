@@ -111,7 +111,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Keps",
     price: 7,
     damageNegate: 1,
-    rulesText: "Skärmen skyddar — lite mindre HP-skada per träff.",
+    rulesText: "",
   },
   {
     id: "eh_cap_back",
