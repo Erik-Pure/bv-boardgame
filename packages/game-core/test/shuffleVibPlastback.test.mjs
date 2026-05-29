@@ -129,6 +129,53 @@ describe("VIB / Plastback / Shuffle", () => {
     assert.equal((t.inventory ?? []).length, 0);
   });
 
+  it("useItem shuffle blockeras mot Solbrillor (preventTheft)", () => {
+    const sh = createItemInstance("shuffle", "inst_shuffle");
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 25,
+      inventory: [sh],
+    });
+    const p2 = mkPlayer({
+      id: "p2",
+      name: "B",
+      isHost: false,
+      tileIndex: 1,
+      equipment: { accessory: { name: "Solbrillor", preventTheft: true } },
+    });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "T",
+      players: [p1, p2],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "e0", type: "empty" }, { id: "e1", type: "empty" }] }],
+      pending: null,
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: "store_narcissius",
+      finalBossLivesRemaining: 3,
+      treasureTaken: {},
+      lastDiceRoll: null,
+      lastDiceRollerId: null,
+      sipNotices: [],
+    };
+    const r = applyAction(state, {
+      type: "useItem",
+      playerId: "p1",
+      instanceId: "inst_shuffle",
+      targetPlayerId: "p2",
+    });
+    assert.ok(r.error);
+    assert.match(r.error, /bestulen/i);
+  });
+
   it("sellAccessory ger pant från breakWinsRemaining", () => {
     const p1 = mkPlayer({
       id: "p1",

@@ -107,6 +107,17 @@ export {
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
+  ATTACKER_SELF_NEGATIVE_COMBAT_ITEM_IDS,
+  attackerCannotSelfNegativeCombatItem,
+} from "./combatItemRestrictions.js";
+export {
+  COMBAT_ITEM_BASE_ATTACK_MODS,
+  combatItemAttackModForBoardLevel,
+} from "./combatItemMods.js";
+export { scaledCombatMod } from "./scaledCombatMod.js";
+export { inventoryItemSellPrice } from "./itemSellPrice.js";
+export { XP_PER_KLUNK, PENALTY_XP_PER_KLUNK, grantKlunkWithXp } from "./klunkGrant.js";
+export {
   errorIfInactiveOtherPlayerTarget,
   isPlayerActiveInMatch,
   isPlayerOnBoard,

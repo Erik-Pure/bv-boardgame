@@ -1,8 +1,24 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const webRoot = dirname(fileURLToPath(import.meta.url));
+const webPkg = JSON.parse(readFileSync(join(webRoot, "package.json"), "utf8")) as { version: string };
+
+function resolveBuildId(): string {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
+  if (sha && sha.length >= 7) return sha.slice(0, 7);
+  return process.env.NODE_ENV === "production" ? "" : "dev";
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(webPkg.version),
+    __APP_BUILD_ID__: JSON.stringify(resolveBuildId()),
+  },
   plugins: [react()],
   server: {
     port: 5173,

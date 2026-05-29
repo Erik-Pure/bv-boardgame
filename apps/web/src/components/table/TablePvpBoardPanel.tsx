@@ -1,29 +1,25 @@
 import { memo, useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
-import type { GameState, Player } from "@bv/game-core";
+import type { GameState } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { sv } from "../../lib/uiStrings";
 import { PVP_TABLE_REVEAL_DELAY_MS } from "./tableConstants";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 import styles from "./TablePvpBoardPanel.module.css";
 
-/** Samma som serverns BvB-tärnings-tillägg från utrustning (`pvpDieBonus` per del). */
-function equipmentPvpDieBonusTotal(p: Player): number {
+/** Föremål + utrustning som påverkar t6-totalen — uppdelat för tydlighet på brädet. */
+function pvpTablePreviewAttackParts(state: GameState, playerId: string): { equipment: number; items: number } {
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p) return { equipment: 0, items: 0 };
+  const pend = state.pending?.type === "pvp" ? state.pending : null;
+  const items = pend?.pvpAttackMods?.[playerId] ?? 0;
   const e = p.equipment;
-  return (
+  const equipment =
     (e.weapon?.pvpDieBonus ?? 0) +
     (e.armor?.pvpDieBonus ?? 0) +
     (e.helmet?.pvpDieBonus ?? 0) +
-    (e.accessory?.pvpDieBonus ?? 0)
-  );
-}
-
-/** Föremål + utrustning som påverkar t6-totalen innan (och utan) kastat värde — uppdateras direkt på brädet. */
-function pvpTablePreviewAttackMod(state: GameState, playerId: string): number {
-  const p = state.players.find((x) => x.id === playerId);
-  if (!p) return 0;
-  const pend = state.pending?.type === "pvp" ? state.pending : null;
-  const item = pend?.pvpAttackMods?.[playerId] ?? 0;
-  return item + equipmentPvpDieBonusTotal(p);
+    (e.accessory?.pvpDieBonus ?? 0) +
+    (p.brewerPvpBonus ?? 0);
+  return { equipment, items };
 }
 
 function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabled?: boolean }) {
@@ -39,6 +35,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
   const awaiting = pending?.phase === "awaitingRolls";
   const roundReveal = pending?.phase === "roundReveal";
   const preRound = pending?.phase === "preRoundItems";
+  const chooseLoot = pending?.phase === "chooseLoot";
+  /** Tärningar snurrar bara medan spelare väntar på kast — inte efter avgjord rond/match. */
+  const diceMaySpin = awaiting && boardAnimationsEnabled;
   const bestOf = pending?.bestOf ?? 1;
   const showPvpMatchMeta = bestOf > 1;
   const wins = pending?.wins ?? { attacker: 0, defender: 0 };
@@ -61,11 +60,11 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     const t = window.setTimeout(() => setPvpRevealReady(true), PVP_TABLE_REVEAL_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [revealKey]);
-  const showRollingReveal = !!rt && !pvpRevealReady;
+  const showRollingReveal = roundReveal && !!rt && !pvpRevealReady;
   const attackerHasRoll = !!ra;
   const defenderHasRoll = !!rd;
-  const attackerShowRolling = (awaiting || showRollingReveal) && !attackerHasRoll;
-  const defenderShowRolling = (awaiting || showRollingReveal) && !defenderHasRoll;
+  const attackerShowRolling = (awaiting && !attackerHasRoll) || (showRollingReveal && !attackerHasRoll);
+  const defenderShowRolling = (awaiting && !defenderHasRoll) || (showRollingReveal && !defenderHasRoll);
   if (!pending || !attacker || !defender) return null;
 
   function PvpFighterColumn(props2: {
@@ -79,6 +78,8 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     revealSpinKey?: string;
     /** Live +X / −X bredvid tärning före kast (föremål + utrustning BvB). */
     previewAttackMod: number;
+    previewEquipmentMod?: number;
+    previewItemMod?: number;
     diceSpinning: boolean;
   }) {
     const rollMod = props2.roll ? props2.roll.total - props2.roll.die : 0;
@@ -88,6 +89,20 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     const modValue = props2.roll ? rollMod : previewMod;
     const hasMod = props2.roll ? hasRollMod : showPreviewMod;
     const modLabel = modValue > 0 ? `+${modValue}` : `${modValue}`;
+    const breakdown =
+      props2.previewEquipmentMod != null &&
+      props2.previewItemMod != null &&
+      (props2.previewEquipmentMod !== 0 || props2.previewItemMod !== 0) ? (
+        <div className={styles.smallHint} style={{ fontSize: 11, opacity: 0.85 }}>
+          {props2.previewEquipmentMod !== 0
+            ? `utr ${props2.previewEquipmentMod > 0 ? "+" : ""}${props2.previewEquipmentMod}`
+            : null}
+          {props2.previewEquipmentMod !== 0 && props2.previewItemMod !== 0 ? " · " : null}
+          {props2.previewItemMod !== 0
+            ? `kort ${props2.previewItemMod > 0 ? "+" : ""}${props2.previewItemMod}`
+            : null}
+        </div>
+      ) : null;
     return (
       <div className={styles.fighterCol}>
         <div className={styles.roleLabel}>{props2.role}</div>
@@ -144,12 +159,15 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             </div>
           </div>
         )}
+        {breakdown}
       </div>
     );
   }
 
-  const attackerPreviewMod = pvpTablePreviewAttackMod(state, attacker.id);
-  const defenderPreviewMod = pvpTablePreviewAttackMod(state, defender.id);
+  const attackerParts = pvpTablePreviewAttackParts(state, attacker.id);
+  const defenderParts = pvpTablePreviewAttackParts(state, defender.id);
+  const attackerPreviewMod = attackerParts.equipment + attackerParts.items;
+  const defenderPreviewMod = defenderParts.equipment + defenderParts.items;
 
   const panelInner = (
     <div
@@ -182,6 +200,8 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <div className={styles.phaseLineGold}>{sv.table.pvpRoundResultPhase}</div>
         ) : preRound ? (
           <div className={styles.phaseLineMuted}>{sv.table.pvpPrepPhase}</div>
+        ) : chooseLoot ? (
+          <div className={styles.phaseLineGold}>{sv.table.winnerChoosesLoot}</div>
         ) : (
           <div className={styles.spacer8} />
         )}
@@ -191,6 +211,8 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <div className={styles.hint16}>{tieRound ? sv.table.pvpTieRerollHint : sv.table.pvpRoundResultHint}</div>
         ) : preRound ? (
           <div className={styles.hint16}>{sv.table.pvpPrepPhaseHint}</div>
+        ) : chooseLoot ? (
+          <div className={styles.spacerMb8} />
         ) : (
           <div className={styles.spacerMb8} />
         )}
@@ -204,7 +226,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${attacker.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${attacker.id}` : undefined}
             previewAttackMod={attackerPreviewMod}
-            diceSpinning={boardAnimationsEnabled}
+            previewEquipmentMod={attackerParts.equipment}
+            previewItemMod={attackerParts.items}
+            diceSpinning={diceMaySpin}
           />
           <div className={styles.vsBadge}>VS</div>
           <PvpFighterColumn
@@ -216,7 +240,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${defender.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${defender.id}` : undefined}
             previewAttackMod={defenderPreviewMod}
-            diceSpinning={boardAnimationsEnabled}
+            previewEquipmentMod={defenderParts.equipment}
+            previewItemMod={defenderParts.items}
+            diceSpinning={diceMaySpin}
           />
         </div>
         {rt && pvpRevealReady ? (

@@ -57,6 +57,7 @@ export function pvpEquipmentDieBonusTotal(p: Player): number {
     (e.weapon?.pvpDieBonus ?? 0) +
     (e.armor?.pvpDieBonus ?? 0) +
     (e.helmet?.pvpDieBonus ?? 0) +
-    (e.accessory?.pvpDieBonus ?? 0)
+    (e.accessory?.pvpDieBonus ?? 0) +
+    (p.brewerPvpBonus ?? 0)
   );
 }

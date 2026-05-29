@@ -886,6 +886,19 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
         expiresAt: now + TABLE_TOAST_TTL_MS,
       });
     }
+    const helpMateId = p.combatWin.helpMatePlayerId;
+    const helpMateTitles = p.combatWin.helpMateGrantedRewardTitles ?? [];
+    if (helpMateId && helpMateTitles.length > 0) {
+      const helpMateName = playersById.get(helpMateId)?.name ?? "Hjälparen";
+      incoming.push({
+        id: `${key}:help-mate-loot`,
+        text: `Belöning till ${helpMateName}: ${helpMateTitles.join(", ")}`,
+        category: "reward",
+        iconKinds: ["attack"],
+        createdAt: now,
+        expiresAt: now + TABLE_TOAST_TTL_MS,
+      });
+    }
     if (incoming.length > 0) {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }

@@ -68,6 +68,11 @@ import { formatSelfStatDeltas } from "./statDeltaText.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 import {
+  attackerCannotSelfNegativeCombatItem,
+} from "./combatItemRestrictions.js";
+import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
+import { inventoryItemSellPrice } from "./itemSellPrice.js";
+import {
   EMOTE_COOLDOWN_MS,
   isEmoteId,
   prunePlayerEmoteBursts,
@@ -1806,6 +1811,7 @@ function maybeCreateLevelUpOffer(
   offTurn = false,
 ): boolean {
   if (state.phase !== "playing") return false;
+  if ((p.pendingBrewerPerkLevels ?? 0) > 0) return false;
   if (offTurn) {
     if (state.offTurnPersonalPending) return false;
   } else if (state.pending) {
@@ -2097,14 +2103,20 @@ function shortcutTaproomGoldCostForFloor(levelIndex: number, itemId: ItemId): nu
   return itemId === "taproom_key" ? Math.max(0, base - 10) : base;
 }
 
-function merchantAdjustedPrice(item: ShopItem): number {
+function merchantAdjustedPrice(item: ShopItem, levelIndex = 0): number {
   if (item.slot === "heal") return item.price;
-  return Math.max(1, Math.ceil(item.price * MERCHANT_PRICE_MULTIPLIER));
+  const base = Math.max(1, Math.ceil(item.price * MERCHANT_PRICE_MULTIPLIER));
+  const level = Math.max(0, Math.floor(levelIndex));
+  if (item.slot === "inventory" || item.slot === "gold") {
+    return Math.max(1, Math.ceil(base * (1 + level * 0.15)));
+  }
+  return base;
 }
 
 export function rollMerchantItems(
   rng: () => number,
   disabledCardIds?: ReadonlySet<string>,
+  playerLevelIndex = 0,
 ): ShopItem[] {
   const items: ShopItem[] = [
     {
@@ -2115,18 +2127,18 @@ export function rollMerchantItems(
       healAmount: 3,
     },
   ];
-  const catalog = [...EQUIPMENT_CATALOG];
+  const catalog = [...merchantEquipmentPoolForLevel(playerLevelIndex)];
   shuffleArrayInPlace(catalog, rng);
   for (const it of catalog.slice(0, 2)) {
     const shopItem = catalogEquipmentToMerchantShopItem(it, it.id);
-    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem) });
+    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem, playerLevelIndex) });
   }
   const combatPool = filterMerchantSellableCombatItems(disabledCardIds);
   if (combatPool.length > 0) {
     items.push(combatItemToMerchantShopItem(pick(rng, combatPool)));
   } else if (catalog[2]) {
     const shopItem = catalogEquipmentToMerchantShopItem(catalog[2], catalog[2].id);
-    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem) });
+    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem, playerLevelIndex) });
   }
   shuffleArrayInPlace(items, rng);
   return items.slice(0, MERCHANT_SHELF_SLOTS);
@@ -2192,6 +2204,67 @@ function markCombatReactorUsedItemIfNeeded(state: GameState, reactorId: string):
     return;
   }
   pending.reacted[reactorId] = "pass";
+}
+
+function applyPlayableItemAttackMod(
+  state: GameState,
+  user: Player,
+  targetId: string,
+  itemId: string,
+): number {
+  const pending = state.pending;
+  const mod = combatItemAttackModForBoardLevel(itemId, user.levelIndex);
+  if (mod == null || mod === 0) return 0;
+  if (pending?.type === "pvp" && pending.phase === "preRoundItems") {
+    pending.pvpAttackMods ??= {};
+    pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + mod;
+    return mod;
+  }
+  if (pending?.type === "combat") {
+    pending.attackMods ??= {};
+    pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + mod;
+    return mod;
+  }
+  return 0;
+}
+
+function merchantEquipmentPoolForLevel(levelIndex: number) {
+  const level = Math.max(0, Math.floor(levelIndex));
+  const maxPrice = level <= 0 ? 10 : level === 1 ? 12 : level === 2 ? 16 : 99;
+  const minPrice = level >= 2 ? 6 : 0;
+  const filtered = EQUIPMENT_CATALOG.filter((eq) => eq.price >= minPrice && eq.price <= maxPrice);
+  return filtered.length >= 2 ? filtered : [...EQUIPMENT_CATALOG];
+}
+
+function rollSingleMerchantShelfItem(
+  rng: () => number,
+  disabledCardIds: ReadonlySet<string> | undefined,
+  levelIndex: number,
+  existingIds: ReadonlySet<string>,
+): ShopItem | null {
+  const roll = rng();
+  if (roll < 0.25) {
+    const id = "h-rest";
+    if (existingIds.has(id)) return null;
+    return { id, slot: "heal", name: "Helande brygd", price: 5, healAmount: 3 };
+  }
+  if (roll < 0.65) {
+    const pool = merchantEquipmentPoolForLevel(levelIndex).filter((eq) => !existingIds.has(eq.id));
+    if (pool.length === 0) return null;
+    const it = pick(rng, pool);
+    const shopItem = catalogEquipmentToMerchantShopItem(it, it.id);
+    const priced = { ...shopItem, price: merchantAdjustedPrice(shopItem, levelIndex) };
+    return priced;
+  }
+  const combatPool = filterMerchantSellableCombatItems(disabledCardIds);
+  if (combatPool.length > 0) {
+    const itemId = pick(rng, combatPool);
+    const shopItem = combatItemToMerchantShopItem(itemId);
+    const id = `c-${itemId}-${Math.floor(rng() * 1e6)}`;
+    if (existingIds.has(id)) return null;
+    return { ...shopItem, id, price: shopItem.price };
+  }
+  return null;
 }
 
 function resolveTileLanding(state: GameState, p: Player, rng: () => number): void {
@@ -2332,7 +2405,7 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
       state.pending = {
         type: "merchant",
-        items: rollMerchantItems(rng, disabledCardIds),
+        items: rollMerchantItems(rng, disabledCardIds, p.levelIndex),
         playerId: p.id,
       };
       log(state, `${p.name} kommer till Panta burkar.`);
@@ -2599,7 +2672,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     p.gold -= SKIP_MONSTER_ENCOUNTER_GOLD_COST;
     recordPantSpent(next, p.id, SKIP_MONSTER_ENCOUNTER_GOLD_COST);
-    log(next, `${p.name} undviker batchmötet (${pending.enemyName}) och betalar ${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant.`);
+    log(next, `${p.name} undviker batchmötet (${pending.enemyName}) — ingen XP, ingen loot (−${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant).`);
     next.pending = null;
     endTurnOrOfferLevelUp(next, p.id);
     return { state: next, events: ["state"] };
@@ -2701,6 +2774,29 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       next.pending.phase === "helpAwaitRequesterDecision" ||
       next.pending.phase === "helpAwaitCard")
   ) {
+    return { state: next, events: ["state"] };
+  }
+
+  if (
+    action.type === "combatCancelHelpRequest" &&
+    next.pending?.type === "combat" &&
+    (next.pending.phase === "helpChooseHelper" ||
+      next.pending.phase === "helpAwaitDecision" ||
+      next.pending.phase === "helpAwaitRequesterDecision" ||
+      next.pending.phase === "helpAwaitCard")
+  ) {
+    const pending = next.pending;
+    if (action.playerId !== pending.attackerId) {
+      return { state, events: [], error: "Bara angriparen kan avbryta hjälpbegäran" };
+    }
+    pending.helpCandidateIds = undefined;
+    pending.helpSelectedHelperId = undefined;
+    pending.helpAccepted = undefined;
+    pending.helpUsedPositiveItem = undefined;
+    pending.helpContract = undefined;
+    pending.helpProposedContract = undefined;
+    pending.phase = "reactions";
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} avbröt hjälpbegäran.`);
     return { state: next, events: ["state"] };
   }
 
@@ -2849,6 +2945,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inCombatReactions && !playerCanCombatIntervene(user)) {
       return { state, events: [], error: "Du kan inte ingripa när du är ute ur spelet" };
     }
+    if (
+      combatPending &&
+      (combatPending.phase === "reactions" || combatPending.phase === "enemyIntro") &&
+      attackerCannotSelfNegativeCombatItem(inst.itemId, combatPending.attackerId, user.id)
+    ) {
+      return { state, events: [], error: "Du kan inte sabotera din egen strid med det här föremålet." };
+    }
     const skipHelpAwaitCardRules =
       HEALING_ANYTIME_ITEM_IDS.has(inst.itemId) &&
       inCombatHelpAwaitCard &&
@@ -2961,16 +3064,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 2;
+        applyPlayableItemAttackMod(next, user, targetId, "weak_beer");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Druckit för mycket: −2 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 2;
+        applyPlayableItemAttackMod(next, user, targetId, "weak_beer");
         log(next, `${user.name} spelar Druckit för mycket: −2 attack i striden.`);
         // Mark this reactor as having acted (so attacker can roll once everyone either acted or passed).
         combatPending.reacted ??= {};
@@ -3003,16 +3104,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 1;
+        applyPlayableItemAttackMod(next, user, targetId, "light_beer");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Energidryck: +1 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 1;
+        applyPlayableItemAttackMod(next, user, targetId, "light_beer");
         log(next, `${user.name} spelar Energidryck: +1 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3048,16 +3147,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 2;
+        applyPlayableItemAttackMod(next, user, targetId, "folk_beer");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar 8-bit beer: +2 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 2;
+        applyPlayableItemAttackMod(next, user, targetId, "folk_beer");
         log(next, `${user.name} spelar 8-bit beer: +2 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3089,16 +3186,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 1;
+        applyPlayableItemAttackMod(next, user, targetId, "tripwire");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Halt golv: −1 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 1;
+        applyPlayableItemAttackMod(next, user, targetId, "tripwire");
         log(next, `${user.name} spelar Halt golv: −1 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3130,16 +3225,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 2;
+        applyPlayableItemAttackMod(next, user, targetId, "double_hops");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar En hjälpande hand: +2 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 2;
+        applyPlayableItemAttackMod(next, user, targetId, "double_hops");
         log(next, `${user.name} spelar En hjälpande hand: +2 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3175,16 +3268,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 3;
+        applyPlayableItemAttackMod(next, user, targetId, "beer_bomb");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Ölbomb: +3 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 3;
+        applyPlayableItemAttackMod(next, user, targetId, "beer_bomb");
         log(next, `${user.name} spelar Ölbomb: +3 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3308,16 +3399,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 3;
+        applyPlayableItemAttackMod(next, user, targetId, "hangover");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Baksmälla: −3 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 3;
+        applyPlayableItemAttackMod(next, user, targetId, "hangover");
         log(next, `${user.name} spelar Baksmälla: −3 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3345,16 +3434,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 5;
+        applyPlayableItemAttackMod(next, user, targetId, "paidassasin");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Hejduk på ${next.players.find((p) => p.id === targetId)?.name ?? "spelaren"}: −5 attack i BvB-ronden (−${playCost} pant).`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 5;
+        applyPlayableItemAttackMod(next, user, targetId, "paidassasin");
         log(next, `${user.name} spelar Hejduk på ${next.players.find((p) => p.id === targetId)?.name ?? "spelaren"}: −5 attack i striden (−${playCost} pant).`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3626,16 +3713,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 2;
+        applyPlayableItemAttackMod(next, user, targetId, "monster_hype");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i BvB-ronden.`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 2;
+        applyPlayableItemAttackMod(next, user, targetId, "monster_hype");
         log(next, `${user.name} spelar Okontrollerad jäsning: −2 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3668,8 +3753,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
         pending.pvpYeastSabotageVictimId = targetId;
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) - 1;
+        applyPlayableItemAttackMod(next, user, targetId, "yeast_sabotage");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Skakad öl: −1 attack i BvB-ronden.`);
@@ -3677,8 +3761,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = action.targetPlayerId ?? combatPending.attackerId;
         combatPending.yeastSabotageVictimId = targetId;
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) - 1;
+        applyPlayableItemAttackMod(next, user, targetId, "yeast_sabotage");
         log(next, `${user.name} spelar Skakad öl: −1 attack i striden.`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
@@ -3757,6 +3840,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       if (target.eliminated || target.leftVoluntarily) {
         return { state, events: [], error: "Målet är inte tillgängligt." };
+      }
+      if (target.equipment.accessory?.preventTheft) {
+        return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
       }
       const cost = itemPlayGoldCost("shuffle");
       if (cost > 0 && user.gold < cost) {
@@ -3879,7 +3965,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           return { state, events: [], error: "Lengräddad måste spelas på en duellant." };
         }
         pvpPending.pvpAttackMods ??= {};
-        pvpPending.pvpAttackMods[target.id] = (pvpPending.pvpAttackMods[target.id] ?? 0) - 2;
+        applyPlayableItemAttackMod(next, user, target.id, "lengraddad");
         pvpPending.roundItemReady ??= {};
         pvpPending.roundItemReady[user.id] = false;
         log(next, `${user.name} spelar Lengräddad på ${target.name}: −2 attack i BvB-ronden.`);
@@ -4897,7 +4983,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     if (lead === "chooseLoot") {
       pending.phase = "chooseLoot";
-      pending.rolls = {};
     } else if (lead === "nextRound") {
       const prevRound = pvpRoundWithDefaults(pending);
       const nr = savedNextRound ?? prevRound + 1;
@@ -5093,7 +5178,42 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     log(next, `${p.name} buys ${item.name} (${pay}g).`);
     // One purchase per shelf row during the current merchant visit.
     next.pending.items = next.pending.items.filter((_, idx) => idx !== itemIdx);
+    const existingIds = new Set(next.pending.items.map((row) => row.id));
+    const restock = rollSingleMerchantShelfItem(
+      rng,
+      new Set(next.config.disabledCardIds ?? []),
+      p.levelIndex,
+      existingIds,
+    );
+    if (restock) next.pending.items.push(restock);
     // Keep merchant open so player can buy multiple things before leaving explicitly.
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "sellInventoryItem") {
+    if (next.phase !== "playing") return { state, events: [], error: "Spelet är slut" };
+    const cp = currentPlayer(next);
+    if (!cp || cp.id !== action.playerId) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    if (next.pending?.type === "combat" || next.pending?.type === "pvp") {
+      return { state, events: [], error: "Du kan inte sälja föremål mitt i strid" };
+    }
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    const inv = p.inventory ?? [];
+    const idx = inv.findIndex((it) => it.instanceId === action.instanceId);
+    if (idx < 0) return { state, events: [], error: "Föremålet hittades inte" };
+    const inst = inv[idx]!;
+    if (inst.itemId === "canman") {
+      return { state, events: [], error: "Det här föremålet kan inte säljas." };
+    }
+    const pant = inventoryItemSellPrice(inst.itemId);
+    inv.splice(idx, 1);
+    p.inventory = inv;
+    p.gold += pant;
+    log(next, `${p.name} säljer ${itemDisplayTitle(inst.itemId)} för ${pant} pant.`);
+    recordItemConsumed(next, p.id, inst.itemId);
     return { state: next, events: ["state"] };
   }
 
@@ -5329,7 +5449,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const disabledCardIds = new Set(next.config.disabledCardIds ?? []);
     next.pending = {
       type: "merchant",
-      items: rollMerchantItems(rng, disabledCardIds),
+      items: rollMerchantItems(rng, disabledCardIds, cp.levelIndex),
       playerId: cp.id,
     };
     return { state: next, events: ["state"] };

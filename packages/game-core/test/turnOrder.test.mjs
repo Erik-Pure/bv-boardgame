@@ -115,7 +115,7 @@ describe("turn order", () => {
     const state = twoPlayerState({
       currentTurnIndex: 1,
       players: [
-        mkPlayer({ id: "p1", xp: 110, brewerPerkLevelsClaimed: 0 }),
+        mkPlayer({ id: "p1", xp: 115, brewerPerkLevelsClaimed: 0 }),
         mkPlayer({ id: "p2", name: "B", color: "#222", isHost: false, xp: 0 }),
       ],
     });

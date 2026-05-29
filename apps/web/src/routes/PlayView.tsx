@@ -45,6 +45,9 @@ import {
   getCard,
   getCardDefById,
   klunkBurstCountForSipNotice,
+  attackerCannotSelfNegativeCombatItem,
+  inventoryItemSellPrice,
+  PENALTY_XP_PER_KLUNK,
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
@@ -60,6 +63,7 @@ import {
 import { isGameState, mergeGameStateDelta } from "../lib/gameTypes";
 import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
+import { usePlaySfxSync } from "../hooks/usePlaySfxSync";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
 import { playTableSfx } from "../lib/tableSfx";
 import { subscribeTurnVibration, vibrateMyTurn } from "../lib/turnVibration";
@@ -579,6 +583,7 @@ export function PlayView() {
   const [bottomSheetHeightInstant, setBottomSheetHeightInstant] = useState(false);
   const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
+  const [merchantDetailItem, setMerchantDetailItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
   const allyCombatOutcomeAckRef = useRef<Set<string>>(new Set());
   const [allyCombatOutcomeDismissedKey, setAllyCombatOutcomeDismissedKey] = useState<string | null>(
@@ -606,6 +611,7 @@ export function PlayView() {
   });
 
   const me = findMe(state, myId);
+  usePlaySfxSync({ state, meId: me?.id ?? null });
   const lobbyCardCoverId = state?.config.cardCover;
 
   const iAmEliminated = useMemo(() => {
@@ -925,7 +931,10 @@ export function PlayView() {
   }, [sheetFlashGen]);
 
   useEffect(() => {
-    if (pending?.type !== "merchant") setMerchantReplaceItem(null);
+    if (pending?.type !== "merchant") {
+      setMerchantReplaceItem(null);
+      setMerchantDetailItem(null);
+    }
   }, [pending?.type]);
 
   useEffect(() => {
@@ -1137,6 +1146,14 @@ export function PlayView() {
       return false;
     }
     if (inPvpPreRoundItems) return PVP_PRE_ROUND_ITEM_IDS.has(itemId);
+    if (
+      pending?.type === "combat" &&
+      (pending.phase === "reactions" || pending.phase === "enemyIntro") &&
+      pending.attackerId === me?.id &&
+      attackerCannotSelfNegativeCombatItem(itemId, pending.attackerId, me.id)
+    ) {
+      return false;
+    }
     if (isMyTurn) return (target !== "combat" && target !== "combat_bro") || inCombat;
     if (inCombatReactions) return target === "combat" || target === "combat_bro";
     return false;
@@ -1374,7 +1391,7 @@ export function PlayView() {
     const duelLoss = mySipNotice.noticeKind === "duel_loss";
     if (!hasCustom && !duelLoss) {
       const count = Math.max(1, Math.floor(mySipNotice.klunkCount ?? 1));
-      showXpGainPrompt(count * 10);
+      showXpGainPrompt(count * PENALTY_XP_PER_KLUNK);
     }
     if (klunkBurstCountForSipNotice(mySipNotice) != null) {
       playTableSfx("klunk", { enabled: readBoardPerformancePrefs().boardSfxEnabled });
@@ -1463,19 +1480,29 @@ export function PlayView() {
               <span>{sv.play.brewerPerkShield}</span>
             </span>
           </ArcadeButton>
-          <ArcadeButton
-            variant="pink"
-            fullWidth
-            onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "hp" })}
-          >
-            <span className={styles.turnChoicePantaLabel}>
-              <TutorialInlineIcon src="/icons/hp.svg" color="#f8fafc" gap="0" />
-              <span>{sv.play.brewerPerkHp}</span>
-            </span>
-          </ArcadeButton>
-        </div>
-      );
-    }
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "hp" })}
+            >
+              <span className={styles.turnChoicePantaLabel}>
+                <TutorialInlineIcon src="/icons/hp.svg" color="#f8fafc" gap="0" />
+                <span>{sv.play.brewerPerkHp}</span>
+              </span>
+            </ArcadeButton>
+            <ArcadeButton
+              variant="blue"
+              fullWidth
+              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "pvp" })}
+            >
+              <span className={styles.turnChoicePantaLabel}>
+                <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#f8fafc" gap="0" />
+                <span>{sv.play.brewerPerkPvp}</span>
+              </span>
+            </ArcadeButton>
+          </div>
+        );
+      }
     if (pending?.type === "card" && myPending) return null; // handled as modal
 
     const stealEquipOffer =
@@ -1672,6 +1699,13 @@ export function PlayView() {
                 </ArcadeButton>
               ))
             )}
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+            >
+              {sv.play.combatHelpCancel}
+            </ArcadeButton>
           </div>
         );
       }
@@ -1771,8 +1805,19 @@ export function PlayView() {
         );
       }
       return (
-        <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.combatHelpWaitDecision(helperName)}
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o82}`}>
+            {sv.play.combatHelpWaitDecision(helperName)}
+          </div>
+          {pending.attackerId === me.id ? (
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+            >
+              {sv.play.combatHelpCancel}
+            </ArcadeButton>
+          ) : null}
         </div>
       );
     }
@@ -1848,6 +1893,13 @@ export function PlayView() {
             >
               {sv.play.combatHelpRequesterDecline}
             </ArcadeButton>
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+            >
+              {sv.play.combatHelpCancel}
+            </ArcadeButton>
           </div>
         );
       }
@@ -1901,8 +1953,19 @@ export function PlayView() {
         );
       }
       return (
-        <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.combatHelpWaitHelperCard(helperName)}
+        <div className={u.stack10}>
+          <div className={`${u.textCenter} ${u.o82}`}>
+            {sv.play.combatHelpWaitHelperCard(helperName)}
+          </div>
+          {pending.attackerId === me.id ? (
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+            >
+              {sv.play.combatHelpCancel}
+            </ArcadeButton>
+          ) : null}
         </div>
       );
     }
@@ -2737,6 +2800,41 @@ export function PlayView() {
         }
         send({ type: "merchantBuy", playerId: me.id, itemId: it.id });
       };
+      if (merchantDetailItem) {
+        const detail = merchantDetailItem;
+        const price = effectiveMerchantBuyPrice(me, detail.price);
+        const kindLabel = isShopItemEquipment(detail)
+          ? sv.play.merchantItemKindEquipment
+          : detail.slot === "gold"
+            ? sv.play.merchantItemKindGold
+            : sv.play.merchantItemKindConsumable;
+        const effectSummary = formatShopItemEffectSummary(detail);
+        return (
+          <div className={u.stack10}>
+            <div className={`${u.textCenter} ${u.fs15} ${u.o92}`}>{kindLabel}</div>
+            <div className={`${u.textCenter} ${u.fs18} ${u.fw700}`}>{detail.name}</div>
+            {effectSummary !== "—" ? (
+              <div className={`${u.textCenter} ${u.o85}`}>{effectSummary}</div>
+            ) : null}
+            <div className={u.grid2Equal10}>
+              <ArcadeButton variant="gray" fullWidth onClick={() => setMerchantDetailItem(null)}>
+                {sv.play.merchantDetailBack}
+              </ArcadeButton>
+              <ArcadeButton
+                variant="pink"
+                fullWidth
+                disabled={me.gold < price}
+                onClick={() => {
+                  setMerchantDetailItem(null);
+                  requestMerchantBuy(detail);
+                }}
+              >
+                {sv.play.merchantDetailBuy} ({price} pant)
+              </ArcadeButton>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className={u.stack10Relative}>
           {merchantReplaceItem && isShopItemEquipment(merchantReplaceItem) ? (
@@ -2834,7 +2932,7 @@ export function PlayView() {
                 return (
                   <ArcadeButton
                     key={it.id}
-                    onClick={() => requestMerchantBuy(it)}
+                    onClick={() => setMerchantDetailItem(it)}
                     variant="merchant"
                     fullWidth
                     disabled={cantAfford}
@@ -3088,7 +3186,7 @@ export function PlayView() {
               const hpLoss = Math.max(0, Math.floor(impact.hpLost));
               const klunk = Math.max(0, Math.floor(impact.klunksGained));
               if (hpLoss === 0) suppressNextHpFlashRef.current = true;
-              if (klunk > 0) showXpGainPrompt(klunk * 10);
+              if (klunk > 0) showXpGainPrompt(klunk * PENALTY_XP_PER_KLUNK);
             }
           }}
         >
@@ -3155,7 +3253,7 @@ export function PlayView() {
               const klunk = Math.max(0, Math.floor(myCardPending.combatLoss?.klunkGained ?? 0));
               const hpLoss = Math.max(0, Math.floor(myCardPending.combatLoss?.damage ?? 0));
               if (hpLoss === 0) suppressNextHpFlashRef.current = true;
-              showXpGainPrompt(klunk * 10);
+              showXpGainPrompt(klunk * PENALTY_XP_PER_KLUNK);
               send({ type: "confirmCard", playerId: me.id });
               return;
             }
@@ -3289,7 +3387,27 @@ export function PlayView() {
             {sv.play.modalClose}
           </ArcadeButton>
         ) : (
-          <div className={u.grid2Equal10}>
+          <div className={u.stack10}>
+            {isMyTurn &&
+            state.pending?.type !== "combat" &&
+            state.pending?.type !== "pvp" &&
+            inst.itemId !== "canman" ? (
+              <ArcadeButton
+                variant="pink"
+                fullWidth
+                onClick={() => {
+                  send({
+                    type: "sellInventoryItem",
+                    playerId: me.id,
+                    instanceId: inst.instanceId,
+                  });
+                  setItemDetail(null);
+                }}
+              >
+                {sv.play.sellInventoryItem(inventoryItemSellPrice(inst.itemId))}
+              </ArcadeButton>
+            ) : null}
+            <div className={u.grid2Equal10}>
             <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
               {sv.play.modalClose}
             </ArcadeButton>
@@ -3318,6 +3436,7 @@ export function PlayView() {
             >
               {sv.play.use}
             </ArcadeButton>
+            </div>
           </div>
         )}
       </div>
@@ -3475,6 +3594,9 @@ export function PlayView() {
       .filter((x) => x.curr > x.prev);
     if (leveled.length === 0) return;
     const own = me ? leveled.find((x) => x.player.id === me.id) : null;
+    const pvpRoundRevealOpen = state.pending?.type === "pvp" && state.pending.phase === "roundReveal";
+    const allyOutcomeBlocksCelebration =
+      !!allyCombatOutcome && allyCombatOutcomeDismissedKey !== allyCombatOutcome.key;
     if (own) {
       const ownCombatResultCardOpen =
         state.pending?.type === "card" &&
@@ -3484,11 +3606,11 @@ export function PlayView() {
         (state.sipNotices ?? []).some(
           (n) => n.recipientId === own.player.id && n.noticeKind !== "toast",
         );
-      if (ownCombatResultCardOpen || sipBlocksLevelCelebration) {
+      if (ownCombatResultCardOpen || sipBlocksLevelCelebration || pvpRoundRevealOpen || allyOutcomeBlocksCelebration) {
         setQueuedLevelUpOverlay(own.curr);
         return;
       }
-      showToast(`Level up! Du nådde bryggnivå ${own.curr}.`);
+      showToast(sv.play.levelUpBrewerToast(own.curr));
       const isMobile =
         typeof window !== "undefined" && window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
       if (isMobile && !showResponsibleReminder && !showMobileTutorial) {
@@ -3506,19 +3628,22 @@ export function PlayView() {
     }
     const first = leveled[0];
     if (first) {
-      showToast(`${first.player.name} nådde bryggnivå ${first.curr}.`);
+      showToast(sv.play.levelUpBrewerToast(first.curr));
     }
-  }, [state, me, showToast, showResponsibleReminder, showMobileTutorial]);
+  }, [state, me, showToast, showResponsibleReminder, showMobileTutorial, allyCombatOutcome, allyCombatOutcomeDismissedKey]);
 
   useEffect(() => {
     if (queuedLevelUpOverlay == null || !state || !me) return;
+    const pvpRoundRevealOpen = state.pending?.type === "pvp" && state.pending.phase === "roundReveal";
+    const allyOutcomeBlocksCelebration =
+      !!allyCombatOutcome && allyCombatOutcomeDismissedKey !== allyCombatOutcome.key;
     const ownCombatResultCardOpen =
       state.pending?.type === "card" &&
       state.pending.playerId === me.id &&
       (state.pending.cardId === "combat_win" || state.pending.cardId === "combat_lose");
-    if (ownCombatResultCardOpen) return;
+    if (ownCombatResultCardOpen || pvpRoundRevealOpen || allyOutcomeBlocksCelebration) return;
     if (hasBlockingSipNotice) return;
-    showToast(`Level up! Du nådde bryggnivå ${queuedLevelUpOverlay}.`);
+    showToast(sv.play.levelUpBrewerToast(queuedLevelUpOverlay));
     const isMobile =
       typeof window !== "undefined" && window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
     if (isMobile && !showResponsibleReminder && !showMobileTutorial) {
@@ -3541,6 +3666,8 @@ export function PlayView() {
     showToast,
     showResponsibleReminder,
     showMobileTutorial,
+    allyCombatOutcome,
+    allyCombatOutcomeDismissedKey,
   ]);
 
   useEffect(() => {

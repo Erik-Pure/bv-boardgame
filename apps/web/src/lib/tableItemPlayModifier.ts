@@ -8,7 +8,12 @@ export type ItemPlayModifierBadge = {
   isNegative?: boolean;
 };
 
-export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadge | null {
+import { combatItemAttackModForBoardLevel } from "@bv/game-core";
+
+export function tableItemPlayModifierBadge(
+  itemId: string,
+  boardLevelIndex = 0,
+): ItemPlayModifierBadge | null {
   const ICON = {
     combat: "/icons/combat-icon.svg",
     pant: "/icons/pant-icon.svg",
@@ -28,10 +33,11 @@ export function tableItemPlayModifierBadge(itemId: string): ItemPlayModifierBadg
     paidassasin: -5,
     monster_hype: -2,
     yeast_sabotage: -1,
+    lengraddad: -2,
   };
   if (itemId in attack) {
-    const n = attack[itemId]!;
-    return { iconSrc: ICON.combat, value: n > 0 ? `+${n}` : String(n), isNegative: n < 0 };
+    const scaled = combatItemAttackModForBoardLevel(itemId, boardLevelIndex) ?? attack[itemId]!;
+    return { iconSrc: ICON.combat, value: scaled > 0 ? `+${scaled}` : String(scaled), isNegative: scaled < 0 };
   }
 
   switch (itemId) {

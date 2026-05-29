@@ -596,6 +596,8 @@ export interface Player {
   brewerAttackBonus?: number;
   /** Permanent sköld (skademinskning) från bryggnivåperk. */
   brewerShieldBonus?: number;
+  /** Permanent +1 BvB-tärning från bryggnivåperk. */
+  brewerPvpBonus?: number;
   /** Extra max-HP från bryggnivåperk (+2 per val). */
   brewerHpBonus?: number;
   /** Antal bryggnivåer där perk redan valts (undviker retroaktiva val). */
@@ -792,7 +794,7 @@ export type ClientAction =
   | { type: "merchantBuy"; playerId: string; itemId: string | null }
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
-  | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" }
+  | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" | "pvp" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
   /** Valt innan `combatRoll` när vapnet har `sipAttackBonus` (mobil tvåsteg + bord). */
@@ -806,6 +808,7 @@ export type ClientAction =
   | { type: "chooseCombatHitMitigation"; playerId: string; choice: "sip" | "no_sip" }
   | { type: "combatReact"; playerId: string; choice: "intervene" | "pass" }
   | { type: "combatRequestHelp"; playerId: string }
+  | { type: "combatCancelHelpRequest"; playerId: string }
   | { type: "combatChooseHelper"; playerId: string; helperId: string }
   | {
       type: "combatHelperDecision";
@@ -818,6 +821,7 @@ export type ClientAction =
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean }
   /** Sälj tillbehöret Plastback (pant = kvarvarande Tom flaska-vinster om synergi). */
   | { type: "sellAccessory"; playerId: string }
+  | { type: "sellInventoryItem"; playerId: string; instanceId: string }
   | { type: "sendEmote"; playerId: string; emoteId: EmoteId };
 
 export interface ApplyResult {

@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
+import { PictureImg } from "../components/PictureImg";
+import { appVersionLabel } from "../lib/buildInfo";
+import { publicRasterSources } from "../lib/publicRasterSources";
 import { sv } from "../lib/uiStrings";
 import styles from "./Home.module.css";
 
@@ -63,6 +66,15 @@ export function Home() {
         <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={() => nav("/host-lobby")}>
           {sv.home.createLobby}
         </ArcadeButton>
+        <figure className={styles.explainerFigure}>
+          <PictureImg
+            className={styles.explainerImg}
+            sources={publicRasterSources("/icons/bmm-explainer.png")}
+            alt={sv.home.explainerAlt}
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
       </div>
 
       <nav
@@ -99,6 +111,10 @@ export function Home() {
           Logga in
         </Link>
       </nav>
+    </div>
+
+    <div className={styles.versionBadge} title="Deployad version">
+      {appVersionLabel()}
     </div>
 
     {ageGateOpen ? (

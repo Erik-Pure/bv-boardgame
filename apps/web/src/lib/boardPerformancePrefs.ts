@@ -3,6 +3,7 @@ const STORAGE_ANIM = "bv.boardAnimationsEnabled";
 const STORAGE_TOKEN_ANIM = "bv.tokenMoveAnimationsEnabled";
 const STORAGE_PREVENT_SLEEP = "bv.boardPreventSleepEnabled";
 const STORAGE_SFX = "bv.boardSfxEnabled";
+const STORAGE_MOBILE_SFX = "bv.mobileSfxEnabled";
 
 export const BOARD_PERF_PREFS_EVENT = "bv-board-performance-prefs";
 
@@ -14,6 +15,8 @@ export type BoardPerformancePrefs = {
   preventSleepEnabled: boolean;
   /** Ljudeffekter på brädet (tärning, klunk, kort m.m.). */
   boardSfxEnabled: boolean;
+  /** Ljudeffekter på mobil (/play) — lägre latens vid spel mot bräd. */
+  mobileSfxEnabled: boolean;
 };
 
 function readBool(key: string, defaultValue: boolean): boolean {
@@ -34,7 +37,8 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
     boardAnimationsEnabled: readBool(STORAGE_ANIM, true),
     tokenMoveAnimationsEnabled: readBool(STORAGE_TOKEN_ANIM, true),
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, false),
-    boardSfxEnabled: readBool(STORAGE_SFX, true),
+    boardSfxEnabled: readBool(STORAGE_SFX, false),
+    mobileSfxEnabled: readBool(STORAGE_MOBILE_SFX, true),
   };
 }
 
@@ -66,6 +70,10 @@ export function writeBoardPreventSleepEnabled(value: boolean): void {
 
 export function writeBoardSfxEnabled(value: boolean): void {
   writeBool(STORAGE_SFX, value);
+}
+
+export function writeMobileSfxEnabled(value: boolean): void {
+  writeBool(STORAGE_MOBILE_SFX, value);
 }
 
 export function subscribeBoardPerformancePrefs(onChange: () => void): () => void {

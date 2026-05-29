@@ -111,7 +111,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Keps",
     price: 7,
     damageNegate: 1,
-    rulesText: "",
+    rulesText: "Tar bort 1 skada när du förlorar mot en dålig batch.",
   },
   {
     id: "eh_cap_back",
@@ -217,7 +217,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Mantel",
     price: 9,
     canSkipMonsterEncounter: true,
-    rulesText: "Skippa dålig batch. En dramatikens mästare. Ena sekunden är du där, nästa är du i kebabkön.",
+    rulesText: "Skippa dålig batch (−2 pant). Ingen XP, ingen loot.",
   },
   {
     id: "ex_four_clover",

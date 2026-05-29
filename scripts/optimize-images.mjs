@@ -5,7 +5,10 @@ import sharp from "sharp";
 const ROOT = path.resolve(process.cwd());
 const PUBLIC_DIR = path.join(ROOT, "apps/web/public");
 
-const TARGET_DIRS = ["monsters", "event", "items", "equipment", "cardbg"];
+const TARGET_DIRS = ["monsters", "event", "items", "equipment", "cardbg", "icons"];
+
+/** PNG i icons/ komprimeras på plats (metadata bort, zlib) vid --write. */
+const PNG_RECOMPRESS_DIRS = new Set(["icons"]);
 
 const FORMATS = [
   { format: "webp", ext: "webp", options: { quality: 78 } },
@@ -38,6 +41,20 @@ async function convertFile(srcAbs, format, destAbs, options) {
   else await img.avif(options).toFile(destAbs);
 }
 
+async function recompressPngInPlace(srcAbs) {
+  const tmp = `${srcAbs}.opt.tmp`;
+  await sharp(srcAbs, { failOn: "none" })
+    .rotate()
+    .png({ compressionLevel: 9, effort: 10 })
+    .toFile(tmp);
+  await fs.rename(tmp, srcAbs);
+}
+
+function topLevelPublicDir(srcAbs) {
+  const rel = path.relative(PUBLIC_DIR, srcAbs);
+  return rel.split(path.sep)[0] ?? "";
+}
+
 function parseArgs(argv) {
   const flags = new Set(argv.slice(2));
   const wantCheck = flags.has("--check");
@@ -50,12 +67,16 @@ async function main() {
   const { wantCheck, wantWrite, forceOverwrite } = parseArgs(process.argv);
   const jobs = [];
   const missing = [];
+  const pngRecompress = [];
 
   for (const d of TARGET_DIRS) {
     const dirAbs = path.join(PUBLIC_DIR, d);
     const files = await listPngFiles(dirAbs);
     for (const srcAbs of files) {
       const baseNoExt = srcAbs.slice(0, -".png".length);
+      if (wantWrite && PNG_RECOMPRESS_DIRS.has(topLevelPublicDir(srcAbs))) {
+        pngRecompress.push(srcAbs);
+      }
       for (const f of FORMATS) {
         const destAbs = `${baseNoExt}.${f.ext}`;
         const destExists = await exists(destAbs);
@@ -64,6 +85,12 @@ async function main() {
         if (wantCheck && !destExists) missing.push(rel);
         if (wantWrite) jobs.push(convertFile(srcAbs, f.format, destAbs, f.options));
       }
+    }
+  }
+
+  if (wantWrite) {
+    for (const srcAbs of pngRecompress) {
+      await recompressPngInPlace(srcAbs);
     }
   }
 

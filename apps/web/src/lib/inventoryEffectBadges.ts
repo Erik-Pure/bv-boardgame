@@ -210,8 +210,7 @@ export function equipmentInventoryEffectBadges(
       : typeof catalog?.gainGoldPerPenaltyKlunk === "number"
         ? Math.max(0, Math.floor(catalog.gainGoldPerPenaltyKlunk))
         : 0;
-  const skipPenaltyKlunkEffectBadge =
-    catalog?.id === "ex_totebag" || piece.name === "Tygkasse";
+  const skipPenaltyKlunkEffectBadge = false;
   if (gainGoldPerPenaltyKlunk > 0 && !skipPenaltyKlunkEffectBadge) {
     badges.push({
       icon: "pant",

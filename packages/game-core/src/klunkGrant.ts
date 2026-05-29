@@ -3,6 +3,7 @@ import type { GameState, Player } from "./types.js";
 import { recordTotalKlunksGained } from "./sessionStats.js";
 
 export const XP_PER_KLUNK = 10;
+export const PENALTY_XP_PER_KLUNK = 5;
 
 /** Lägger till klunkar + XP. Vid straffklunk kan tillbehör ge extra pant per klunk (`gainGoldPerPenaltyKlunk`). */
 export function grantKlunkWithXp(
@@ -16,7 +17,8 @@ export function grantKlunkWithXp(
   const xpBefore = player.xp;
   player.klunkar += add;
   recordTotalKlunksGained(state, player.id, add);
-  player.xp += add * XP_PER_KLUNK;
+  const xpPerKlunk = options?.penaltyStraff === true ? PENALTY_XP_PER_KLUNK : XP_PER_KLUNK;
+  player.xp += add * xpPerKlunk;
   recordBrewerLevelUpsAfterXp(state, player, xpBefore);
   if (options?.penaltyStraff === true) {
     const bonusPer = player.equipment.accessory?.gainGoldPerPenaltyKlunk ?? 0;

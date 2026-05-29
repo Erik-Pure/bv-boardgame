@@ -2,7 +2,7 @@ import { brewerLevelFromXp } from "./brewerXp.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import type { GameState, Pending, Player } from "./types.js";
 
-export type BrewerPerkChoice = "attack" | "shield" | "hp";
+export type BrewerPerkChoice = "attack" | "shield" | "hp" | "pvp";
 
 /** Säkerställ att äldre sparade partier inte får retroaktiva val. */
 export function normalizeBrewerPerkProgress(p: Player): void {
@@ -14,6 +14,7 @@ export function normalizeBrewerPerkProgress(p: Player): void {
   }
   p.brewerAttackBonus = Math.max(0, Math.floor(p.brewerAttackBonus ?? 0));
   p.brewerShieldBonus = Math.max(0, Math.floor(p.brewerShieldBonus ?? 0));
+  p.brewerPvpBonus = Math.max(0, Math.floor(p.brewerPvpBonus ?? 0));
   p.brewerHpBonus = Math.max(0, Math.floor(p.brewerHpBonus ?? 0));
   if (typeof p.pendingBrewerPerkLevels === "number" && p.pendingBrewerPerkLevels < 0) {
     p.pendingBrewerPerkLevels = 0;
@@ -173,6 +174,8 @@ export function applyBrewerPerkChoice(
     p.brewerAttackBonus = (p.brewerAttackBonus ?? 0) + 1;
   } else if (choice === "shield") {
     p.brewerShieldBonus = (p.brewerShieldBonus ?? 0) + 1;
+  } else if (choice === "pvp") {
+    p.brewerPvpBonus = (p.brewerPvpBonus ?? 0) + 1;
   } else {
     p.brewerHpBonus = (p.brewerHpBonus ?? 0) + 2;
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);

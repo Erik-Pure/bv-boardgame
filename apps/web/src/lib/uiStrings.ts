@@ -64,6 +64,7 @@ export const sv = {
     subtitle: "De dåliga batcherna",
     primaryJoin: "Gå med i ett spel",
     createLobby: "Skapa lobby",
+    explainerAlt: "Översikt: så spelar ni Bryggmästarnas Mästare med mobil och storskärm",
     footerCards: "Kortkatalog",
     footerRules: "Spelets regler",
     /** Första besöket på startsidan — åldersgräns 18+. */
@@ -143,6 +144,7 @@ export const sv = {
     waitIntervene: "Väntar på att andra spelare ingriper…",
     rollCombat: "Slå tärning",
     combatHelpRequest: "Be om hjälp",
+    combatHelpCancel: "Avbryt hjälpbegäran",
     combatHelpChooseHelper: "Välj vem du vill be om hjälp",
     combatHelpNoCandidates: "Ingen kan hjälpa till just nu.",
     combatHelpWaitAttackerChoose: (name: string) => `Väntar på att ${name} väljer hjälpare…`,
@@ -234,6 +236,7 @@ export const sv = {
     stay: "Stanna",
     levelUpPrompt: (levelDisplay: number) =>
       `Som bryggmästare kan du stiga till nivå ${levelDisplay}. Gör du det?`,
+    levelUpBrewerToast: (level: number) => `Bryggnivå ${level}! Du steg i bryggnivå.`,
     levelUpProgressTitle: (brewerLevel: number) => `Bryggnivå ${brewerLevel}`,
     levelUpProgressAria: (brewerLevel: number) =>
       `Bryggnivå ${brewerLevel}, XP mot nästa bryggnivå.`,
@@ -260,6 +263,15 @@ export const sv = {
     brewerPerkAttack: "+1 styrka",
     brewerPerkShield: "+1 sköld",
     brewerPerkHp: "+2 HP",
+    brewerPerkPvp: "+1 BvB-tärning",
+    merchantItemKindEquipment: "Utrustning · permanent",
+    merchantItemKindConsumable: "Föremål · engångsanvändning",
+    merchantItemKindGold: "Pant · direkt",
+    merchantDetailBuy: "Köp",
+    merchantDetailBack: "Tillbaka",
+    sellInventoryItem: (pant: number) => `Sälj (${pant} pant)`,
+    pvpArmorDamageHint:
+      "Rustning hjälper dig vinna BvB-duellen. Den stoppar bara skada om motståndaren väljer HP-straff efteråt.",
     merchantReplaceBody: (slot: string, currentName: string, newName: string) =>
       `Du har redan ${currentName} som ${slot}. Vill du byta mot ${newName}? Den gamla utrustningen ersätts.`,
     merchantReplaceConfirm: "Ja, byt ut",
@@ -713,8 +725,8 @@ export const sv = {
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
     spill_intentional: { title: "Spilla med flit", text: "Betala 2 pant och förstör slumpmässigt föremål eller utrustning för en spelare." },
-    early_night: { title: "Vaska", text: "Skippa dålig batch." },
-    bribes: { title: "Mutor", text: "Undvik en strid för 10 pant." },
+    early_night: { title: "Vaska", text: "Skippa dålig batch. Ingen XP, ingen loot." },
+    bribes: { title: "Mutor", text: "Undvik en strid för 10 pant. Ingen XP, ingen loot." },
     paidassasin: {
       title: "Hejduk",
       text: "Betala 15 pant och sätt −5 attack på en spelare i strid eller i BvB-ronden.",
