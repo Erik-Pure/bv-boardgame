@@ -96,8 +96,13 @@ async function testControllerAndTableInterop() {
       action: { type: "setReady", playerId: pid, ready: true },
     }),
   );
-  const deltaFromTable = await waitForMessage(table.inbox, (m) => m?.type === "stateDelta");
-  assert(deltaFromTable.patch?.players?.some?.((p) => p.id === pid && p.ready === true), "table did not observe ready=true");
+  const deltaFromTable = await waitForMessage(
+    table.inbox,
+    (m) =>
+      m?.type === "stateDelta" &&
+      m.patch?.players?.some?.((p) => p.id === pid && p.ready === true),
+  );
+  assert(deltaFromTable, "table did not observe ready=true");
 
   const beforeCount = table.inbox.filter((m) => m?.type === "stateDelta").length;
   controller.ws.send(
