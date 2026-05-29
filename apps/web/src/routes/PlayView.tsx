@@ -62,6 +62,7 @@ import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
 import { playTableSfx } from "../lib/tableSfx";
+import { subscribeTurnVibration, vibrateMyTurn } from "../lib/turnVibration";
 import { EffectBadgePillStrip } from "../components/EffectBadgePillStrip";
 import { clearRememberedPlayerId, type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
@@ -625,6 +626,8 @@ export function PlayView() {
     setShowMobileTutorial(false);
     setMobileTutorialStep(0);
   }, [room]);
+
+  useEffect(() => subscribeTurnVibration(), []);
 
   const dismissResponsibleReminder = useCallback(() => {
     try {
@@ -3437,6 +3440,7 @@ export function PlayView() {
     if (typeof window !== "undefined" && !window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches) return;
 
     setShowMyTurnOverlay(true);
+    vibrateMyTurn();
     myTurnOverlayTimerRef.current = window.setTimeout(() => {
       setShowMyTurnOverlay(false);
       myTurnOverlayTimerRef.current = null;
