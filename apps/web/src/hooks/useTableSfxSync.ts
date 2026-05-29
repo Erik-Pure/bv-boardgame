@@ -47,10 +47,6 @@ function lastCombatReactionPlaySeq(state: GameState): number | null {
   return plays[plays.length - 1]!.playSeq;
 }
 
-function itemPlayTargetsOtherPlayer(actorId: string, targetPlayerId?: string): boolean {
-  return !!targetPlayerId && targetPlayerId !== actorId;
-}
-
 /** Nytt föremål i state — spela ljud när seq ökar (prev null/-1 = inga spelade än). */
 function syncItemPlaySeq(
   curr: number | null,

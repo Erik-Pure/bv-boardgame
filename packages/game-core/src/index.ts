@@ -14,6 +14,7 @@ export type {
   CombatReactionItemPlay,
   TableItemPlayReveal,
   TableItemPlaySidePayload,
+  ItemId,
   ItemInstance,
   LevelBoard,
   LogEntry,

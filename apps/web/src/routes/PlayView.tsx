@@ -3347,13 +3347,15 @@ export function PlayView() {
   const brewerPerkPrioritized = needsBrewerPerkChoice;
   const personalPromptPrioritized =
     personalTurnPrompt?.type === "levelUpOffer";
+  /** Bryggbonus / vånings-nivå upp trumfar kort-Fortsätt och straffklunk-ack (DESIGN_SPEC). */
+  const turnPromptSheet =
+    brewerPerkPrioritized || personalPromptPrioritized ? interaction : null;
 
   const bottomSheetPrimary =
     itemDetailSheet ??
     equipDetailSheet ??
+    turnPromptSheet ??
     cardOrSipActions ??
-    (brewerPerkPrioritized ? interaction : null) ??
-    (personalPromptPrioritized ? interaction : null) ??
     sipNoticeAckSheet ??
     interaction;
   const bottomSheetVisible = pending?.type !== "brewerDown" && !!bottomSheetPrimary;

@@ -212,6 +212,8 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       turnOrder: room.state.turnOrder,
       currentTurnIndex: room.state.currentTurnIndex,
       pending: room.state.pending,
+      deferredPending: room.state.deferredPending ?? null,
+      offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
       log: room.state.log,
       winnerId: room.state.winnerId,
       winnerName: room.state.winnerName,
