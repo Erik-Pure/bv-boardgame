@@ -17,6 +17,7 @@ import { grantKlunkWithXp } from "../klunkGrant.js";
 import { recordPantSpent } from "../sessionStats.js";
 import { beginCombatReactionsPhase } from "../combatReactionAutopass.js";
 import { combatReactorsFor } from "../combatReactors.js";
+import { isPlayerActiveInMatch } from "../playerParticipation.js";
 import { rollDie } from "../rng.js";
 import {
   finalBossCardTagline,
@@ -314,13 +315,20 @@ export function resolveEventCardOnLand(params: {
   }
   if (card.id === "event_loser_wins") {
     grantKlunkWithXp(state, p, 2, { penaltyStraff: true });
-    let lowest = state.players[0]!;
-    for (const pl of state.players) if (pl.hp < lowest.hp) lowest = pl;
-    const beforeLow = lowest.hp;
-    lowest.hp = Math.min(lowest.maxHp, lowest.hp + 2);
+    const activePlayers = state.players.filter(isPlayerActiveInMatch);
+    let lowest: Player | null = activePlayers[0] ?? null;
+    for (const pl of activePlayers) {
+      if (!lowest || pl.hp < lowest.hp) lowest = pl;
+    }
     log(state, `Händelse: ${card.title}`);
-    const lowHpLine =
-      beforeLow !== lowest.hp ? `\n${lowest.name}: HP ${beforeLow} → ${lowest.hp}.` : "";
+    let lowHpLine = "";
+    if (lowest) {
+      const beforeLow = lowest.hp;
+      lowest.hp = Math.min(lowest.maxHp, lowest.hp + 2);
+      if (beforeLow !== lowest.hp) {
+        lowHpLine = `\n${lowest.name}: HP ${beforeLow} → ${lowest.hp}.`;
+      }
+    }
     const yourSipsLine =
       beforeKlunk !== p.klunkar ? `\nDina klunkar: ${beforeKlunk} → ${p.klunkar}.` : "";
     showCard(state, {

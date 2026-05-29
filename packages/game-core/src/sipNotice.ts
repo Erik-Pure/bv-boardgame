@@ -1,4 +1,5 @@
-import type { GameState, PenaltySipQueueEntry, SipNoticeKind } from "./types.js";
+import { recordPlayerKlunkBurst } from "./klunkBursts.js";
+import type { GameState, PenaltySipQueueEntry, SipNoticeEntry, SipNoticeKind } from "./types.js";
 
 export function playerHasPendingSipNotice(state: GameState, playerId: string): boolean {
   return (state.sipNotices ?? []).some((n) => n.recipientId === playerId);
@@ -49,6 +50,29 @@ export function flushPenaltySipQueue(state: GameState, entries: PenaltySipQueueE
       pushSipNotice(state, e.recipientId, e.fromPlayerName, e.klunkCount);
     }
   }
+}
+
+/**
+ * Antal klunk-ikoner på brädet när mottagaren stänger straffklunk-modalen (sipNoticeAck).
+ * Toast och duell-förlust utan klunk ger null.
+ */
+export function klunkBurstCountForSipNotice(notice: SipNoticeEntry): number | null {
+  if (notice.noticeKind === "toast" || notice.noticeKind === "duel_loss") return null;
+  const hasCustomCopy = !!(notice.title?.trim() || notice.body?.trim());
+  if (!hasCustomCopy) {
+    return Math.max(1, Math.floor(notice.klunkCount ?? 1));
+  }
+  if (notice.klunkCount != null && notice.klunkCount > 0) {
+    return Math.max(1, Math.floor(notice.klunkCount));
+  }
+  return null;
+}
+
+/** Bräd-tv: klunk-ballong + ljud när modalen stängs (mobil sipNoticeAck). */
+export function recordKlunkBurstForSipNoticeAck(state: GameState, notice: SipNoticeEntry): void {
+  const n = klunkBurstCountForSipNotice(notice);
+  if (n == null) return;
+  recordPlayerKlunkBurst(state, notice.recipientId, n);
 }
 
 export function pushSipNotice(

@@ -1,10 +1,8 @@
-import type { CSSProperties } from "react";
 import type { CardDef, Effect } from "@bv/game-core";
+import { EffectBadgePillStrip } from "../components/EffectBadgePillStrip";
 import {
   type EffectBadgeData,
   formatSigned,
-  effectBadgeIconFilter,
-  ITEM_EFFECT_BADGE_ICONS,
   itemInventoryEffectBadge,
 } from "./inventoryEffectBadges";
 
@@ -119,68 +117,21 @@ export function cardDefOverviewBadges(card: CardDef): EffectBadgeData[] {
   return badges;
 }
 
-const pill: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 3,
-  padding: "3px 6px",
-  borderRadius: 999,
-  background: "rgba(11,18,38,0.92)",
-  border: "1px solid rgba(255,255,255,0.2)",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.45)",
-};
-
 /** Överlägg på kortbilden (höger botten), samma stil som inventory-brickor. */
 export function CatalogImageBadgeStrip({ badges }: { badges: EffectBadgeData[] }) {
   if (badges.length === 0) return null;
   return (
-    <span
-      aria-hidden
+    <EffectBadgePillStrip
+      badges={badges}
       style={{
         position: "absolute",
         right: 6,
         bottom: 6,
         left: 6,
-        display: "flex",
-        flexWrap: "wrap",
         justifyContent: "flex-end",
-        gap: 5,
         pointerEvents: "none",
         zIndex: 2,
       }}
-    >
-      {badges.map((b, idx) => {
-        const src = ITEM_EFFECT_BADGE_ICONS[b.icon];
-        const danger = b.labelTone === "danger";
-        return (
-          <span key={`${idx}-${b.icon}-${b.label}`} style={pill}>
-            <img
-              src={src}
-              alt=""
-              width={14}
-              height={14}
-              draggable={false}
-              style={{
-                display: "block",
-                objectFit: "contain",
-                filter: effectBadgeIconFilter(b.icon, danger, "sm"),
-              }}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                fontVariantNumeric: "tabular-nums",
-                color: danger ? "#fca5a5" : "#f8fafc",
-                lineHeight: 1,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {b.label}
-            </span>
-          </span>
-        );
-      })}
-    </span>
+    />
   );
 }

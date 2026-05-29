@@ -112,9 +112,13 @@ export function GameRules() {
 
       {sectionTitle("🎲 1. Spelets gång")}
       {tutorialImage("/tutorial/tut4.png", "Snabbguide: slå och välj väg")}
-      <p>Varje tur består av rörelse och handling:</p>
+      <p>Varje tur börjar med ett val — sedan handling på rutorna du når:</p>
       <p style={{ marginTop: 12 }}>
         <strong>Förflyttning:</strong> Slå rörelsetärningen och flytta exakt så många steg tärningen visar i valfri riktning.
+      </p>
+      <p style={{ marginTop: 12 }}>
+        <strong>Panta burkar:</strong> I stället för att slå tärningen kan du handla (kräver minst 5 pant). Pjäsen står kvar;
+        tur avslutas när du lämnar butiken.
       </p>
       <p style={{ marginTop: 12 }}>
         <strong>Förberedelser:</strong> Innan du landar på en ruta får du spela föremål från handen för att förbättra dina odds
@@ -156,15 +160,16 @@ export function GameRules() {
           <strong>Vila:</strong> Återhämtning av HP så att du orkar fortsätta bryggandet.
         </li>
         <li>
-          {inlineIcon("/icons/panta-icon.svg", "#fb923c")}
-          <strong>Panta burkar:</strong> Butik där du byter in din pant mot utrustning eller sabotage.
-        </li>
-        <li>
           {inlineIcon("/icons/monster-icon.svg", "#ef4444")}
           {inlineIcon("/icons/bvb-icon.svg", "#d1d5db")}
           <strong>Dålig batch / BvB:</strong> Strid mot en misslyckad brygd eller utmana en medspelare (Bryggare mot Bryggare).
         </li>
       </ul>
+      <p style={{ marginTop: 12, opacity: 0.88, fontSize: 15 }}>
+        <strong>Handel:</strong> Det finns ingen affärsruta på brädet — butiken nås via{" "}
+        {inlineIcon("/icons/panta-icon.svg", "#fb923c")}
+        <strong>Panta burkar</strong> i början av din tur (se avsnitt 1).
+      </p>
 
       {sectionTitle("⚔️ 4. Strider, mutor och sabotage")}
       {tutorialImage("/tutorial/tut2.png", "Snabbguide: dåliga batchar, mutor och sabotage")}

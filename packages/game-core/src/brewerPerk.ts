@@ -1,0 +1,185 @@
+import { brewerLevelFromXp } from "./brewerXp.js";
+import { playerMaxHpFromBase } from "./playerMaxHp.js";
+import type { GameState, Pending, Player } from "./types.js";
+
+export type BrewerPerkChoice = "attack" | "shield" | "hp";
+
+/** Säkerställ att äldre sparade partier inte får retroaktiva val. */
+export function normalizeBrewerPerkProgress(p: Player): void {
+  const lvl = brewerLevelFromXp(p.xp ?? 0);
+  if (typeof p.brewerPerkLevelsClaimed !== "number" || p.brewerPerkLevelsClaimed < 0) {
+    p.brewerPerkLevelsClaimed = lvl;
+  } else if (p.brewerPerkLevelsClaimed > lvl) {
+    p.brewerPerkLevelsClaimed = lvl;
+  }
+  p.brewerAttackBonus = Math.max(0, Math.floor(p.brewerAttackBonus ?? 0));
+  p.brewerShieldBonus = Math.max(0, Math.floor(p.brewerShieldBonus ?? 0));
+  p.brewerHpBonus = Math.max(0, Math.floor(p.brewerHpBonus ?? 0));
+  if (typeof p.pendingBrewerPerkLevels === "number" && p.pendingBrewerPerkLevels < 0) {
+    p.pendingBrewerPerkLevels = 0;
+  }
+}
+
+export function pendingBelongsToPlayer(pending: Pending, playerId: string): boolean {
+  switch (pending.type) {
+    case "moveChoice":
+    case "card":
+    case "merchant":
+    case "door":
+    case "levelUpOffer":
+    case "brewerPerkChoice":
+    case "equipmentReplaceOffer":
+    case "brewerDown":
+      return pending.playerId === playerId;
+    case "encounterChoice":
+      return pending.moverId === playerId;
+    case "combat":
+      return pending.attackerId === playerId || pending.assistId === playerId;
+    case "pvp":
+      return (
+        pending.attackerId === playerId ||
+        pending.defenderId === playerId ||
+        pending.winnerId === playerId ||
+        pending.loserId === playerId
+      );
+    default:
+      return false;
+  }
+}
+
+function brewerPerkPromptFor(p: Player): Extract<Pending, { type: "brewerPerkChoice" }> {
+  return {
+    type: "brewerPerkChoice",
+    playerId: p.id,
+    levelsRemaining: p.pendingBrewerPerkLevels ?? 0,
+  };
+}
+
+function isBrewerPerkOpenFor(state: GameState, playerId: string): boolean {
+  if (state.pending?.type === "brewerPerkChoice" && state.pending.playerId === playerId) {
+    return true;
+  }
+  if (
+    state.offTurnPersonalPending?.type === "brewerPerkChoice" &&
+    state.offTurnPersonalPending.playerId === playerId
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Efter XP-ökning: bokför oupplösta bryggnivåer som väntar på perk-val. */
+export function recordBrewerLevelUpsAfterXp(
+  state: GameState,
+  p: Player,
+  xpBefore: number,
+): void {
+  normalizeBrewerPerkProgress(p);
+  const beforeLvl = brewerLevelFromXp(xpBefore);
+  const afterLvl = brewerLevelFromXp(p.xp);
+  if (afterLvl <= beforeLvl) return;
+  const claimed = p.brewerPerkLevelsClaimed ?? 0;
+  const fromLevel = Math.max(beforeLvl, claimed);
+  const owed = afterLvl - fromLevel;
+  if (owed <= 0) return;
+  p.pendingBrewerPerkLevels = (p.pendingBrewerPerkLevels ?? 0) + owed;
+  tryOpenBrewerPerkChoice(state, p.id);
+}
+
+/**
+ * Öppna bryggbonus-val direkt vid nivå-upp. Pausar spelarens egna `pending` (kort/strid m.m.)
+ * i `deferredPending` tills valet är klart; annars `offTurnPersonalPending` om någon annan har turen.
+ */
+export function tryOpenBrewerPerkChoice(
+  state: GameState,
+  playerId: string,
+  log?: (s: GameState, msg: string) => void,
+  _opts?: { offTurn?: boolean },
+): boolean {
+  if (state.phase !== "playing") return false;
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p || (p.pendingBrewerPerkLevels ?? 0) <= 0) return false;
+  if (isBrewerPerkOpenFor(state, playerId)) return true;
+
+  const prompt = brewerPerkPromptFor(p);
+  const cur = state.pending;
+  const turnId = state.turnOrder[state.currentTurnIndex];
+
+  if (!cur) {
+    if (turnId === playerId) {
+      state.pending = prompt;
+    } else {
+      const off = state.offTurnPersonalPending;
+      if (off && off.playerId !== playerId) return false;
+      state.offTurnPersonalPending = prompt;
+    }
+    log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
+    return true;
+  }
+
+  if (cur.type === "brewerPerkChoice") {
+    if (cur.playerId === playerId) return true;
+    const off = state.offTurnPersonalPending;
+    if (off && off.playerId !== playerId) return false;
+    state.offTurnPersonalPending = prompt;
+    log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
+    return true;
+  }
+
+  if (pendingBelongsToPlayer(cur, playerId)) {
+    state.deferredPending = cur;
+    state.pending = prompt;
+    log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
+    return true;
+  }
+
+  const off = state.offTurnPersonalPending;
+  if (off) {
+    if (off.playerId !== playerId) return false;
+    if (off.type === "brewerPerkChoice") return true;
+  }
+  state.offTurnPersonalPending = prompt;
+  log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
+  return true;
+}
+
+/** Stäng bryggbonus-prompt; återställ ev. pausad `pending`. Returnerar true om något återställdes. */
+export function finishBrewerPerkChoicePrompt(state: GameState, playerId: string): boolean {
+  if (
+    state.offTurnPersonalPending?.type === "brewerPerkChoice" &&
+    state.offTurnPersonalPending.playerId === playerId
+  ) {
+    state.offTurnPersonalPending = null;
+    return false;
+  }
+  if (state.pending?.type === "brewerPerkChoice" && state.pending.playerId === playerId) {
+    if (state.deferredPending) {
+      state.pending = state.deferredPending;
+      state.deferredPending = null;
+      return true;
+    }
+    state.pending = null;
+    return false;
+  }
+  return false;
+}
+
+export function applyBrewerPerkChoice(
+  p: Player,
+  choice: BrewerPerkChoice,
+  baseMaxHp: number,
+): void {
+  if (choice === "attack") {
+    p.brewerAttackBonus = (p.brewerAttackBonus ?? 0) + 1;
+  } else if (choice === "shield") {
+    p.brewerShieldBonus = (p.brewerShieldBonus ?? 0) + 1;
+  } else {
+    p.brewerHpBonus = (p.brewerHpBonus ?? 0) + 2;
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
+    p.hp = Math.min(p.maxHp, p.hp + 2);
+  }
+  p.brewerPerkLevelsClaimed = (p.brewerPerkLevelsClaimed ?? 0) + 1;
+  if ((p.pendingBrewerPerkLevels ?? 0) > 0) {
+    p.pendingBrewerPerkLevels = (p.pendingBrewerPerkLevels ?? 0) - 1;
+  }
+}

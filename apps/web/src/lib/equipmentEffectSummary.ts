@@ -1,4 +1,5 @@
 import type { ShopItem } from "@bv/game-core";
+import { formatInventoryItemShopEffectSummary } from "./inventoryEffectBadges";
 
 /**
  * Kort svensk beskrivning av affärsrad / katalograd så att siffror stämmer med spelet.
@@ -11,6 +12,9 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   }
   if (it.slot === "gold" && typeof it.goldAmount === "number") {
     return `+${it.goldAmount} pant`;
+  }
+  if (it.slot === "inventory" && it.inventoryItemId) {
+    return formatInventoryItemShopEffectSummary(it.inventoryItemId);
   }
 
   const parts: string[] = [];

@@ -25,6 +25,8 @@ export interface Room {
   state: GameState;
   conns: Set<ClientConn>;
   broadcastQueued: boolean;
+  /** Ytterligare broadcast begärd medan en köad redan väntar (snabba lobby-joins). */
+  broadcastQueuedAgain?: boolean;
   lastActivityAt: number;
   stateSeq: number;
   levelsSignature: string;
@@ -225,6 +227,7 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       sipNotices: room.state.sipNotices,
       tableItemPlayReveals: room.state.tableItemPlayReveals,
       playerEmoteBursts: room.state.playerEmoteBursts,
+      playerKlunkBursts: room.state.playerKlunkBursts,
       ...(includeLevels ? { levels: room.state.levels } : {}),
     },
   };
@@ -240,11 +243,18 @@ export function broadcastState(room: Room): void {
 }
 
 export function scheduleBroadcastState(room: Room): void {
-  if (room.broadcastQueued) return;
+  if (room.broadcastQueued) {
+    room.broadcastQueuedAgain = true;
+    return;
+  }
   room.broadcastQueued = true;
   setTimeout(() => {
     room.broadcastQueued = false;
     broadcastState(room);
+    if (room.broadcastQueuedAgain) {
+      room.broadcastQueuedAgain = false;
+      scheduleBroadcastState(room);
+    }
   }, 16).unref?.();
 }
 
@@ -442,6 +452,10 @@ export function joinRoom(params: {
   };
   room.conns.add(conn);
   room.lastActivityAt = Date.now();
+  if (addFreshLobbySlot && room.state.phase === "lobby") {
+    room.stateSeq += 1;
+    broadcastState(room);
+  }
   return { conn, room };
 }
 

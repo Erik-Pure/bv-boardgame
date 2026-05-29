@@ -1,8 +1,12 @@
+.root,
+.root * {
+  pointer-events: none;
+}
+
 .root {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  pointer-events: none;
 }
 
 .rootTable {

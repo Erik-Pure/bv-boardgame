@@ -118,6 +118,10 @@ export const sv = {
     bossFinaleWinner: (name: string) => `${name} vinner!`,
     bossFinaleEnding: "Avslutar…",
     skipMonsterEncounter: "Undvik dålig batch (−2 pant)",
+    skipMonsterEncounterToast: (playerName: string, enemyName: string) =>
+      `${playerName} undviker ${enemyName} (−2 pant)`,
+    beerBroUnavailableTeamBattle: "Ölkompis kan inte användas i team battle — välj medkämpe i stället.",
+    beerBroAlreadyHelping: "En Ölkompis hjälper redan i den här striden.",
     theAttacker: "angriparen",
     yourD6: "Din t6",
     beerBroD6: "Ölkompis t6",
@@ -131,6 +135,9 @@ export const sv = {
     fullDamageNoSip: (n: number) => `Full skada (${n}), ingen klunk`,
     /** Kapten Interrobang / Transporter: sekundär knapp utan pant/kompensation */
     takeFullDamageHp: (n: number) => `Ta full skada (${n} skada)`,
+    /** När spelaren inte har pant för Kapten Interrobang / Transporter. */
+    hitMitigationPantOnlyFullDamage: (cost: number) =>
+      `Du har inte ${cost} pant — ta full skada.`,
     waitAttackerChoose: (name: string) => `Väntar på att ${name} väljer…`,
     attackModifier: (m: number) => `Attackmodifierare: ${m}`,
     waitIntervene: "Väntar på att andra spelare ingriper…",
@@ -179,6 +186,7 @@ export const sv = {
     encounterChoose: "Möte — bryggare mot bryggare. Välj:",
     /** Prefix när rörelseval leder till ruta med annan bryggare; kombineras med ruttyp, t.ex. «BvB / Händelse». */
     moveChoiceBvbLabel: "BvB",
+    moveChoiceMerchant: "Panta burkar",
     pvpChooseOpponent: "BvB — välj motståndare:",
     /** Mötesval: inget parentestext om inga giltiga namn (extremt fall). */
     pvpBothRollVersus: (opponentNamesCommaSeparated: string) =>
@@ -244,23 +252,34 @@ export const sv = {
     },
     levelUpNow: "Stig till nästa nivå nu",
     levelUpStayForTile: "Stanna kvar (en tur till)",
+    brewerPerkTitle: "Bryggnivå upp!",
+    brewerPerkPrompt: (levelsRemaining: number) =>
+      levelsRemaining > 1
+        ? `Välj bonus (${levelsRemaining} kvar).`
+        : "Välj en permanent bonus:",
+    brewerPerkAttack: "+1 styrka",
+    brewerPerkShield: "+1 sköld",
+    brewerPerkHp: "+2 HP",
     merchantReplaceBody: (slot: string, currentName: string, newName: string) =>
       `Du har redan ${currentName} som ${slot}. Vill du byta mot ${newName}? Den gamla utrustningen ersätts.`,
     merchantReplaceConfirm: "Ja, byt ut",
     merchantReplaceCancel: "Avbryt",
     lootEquipmentReplaceTitle: "Ny utrustning — vill du byta?",
+    equipmentReplaceCurrentEffects: "Nuvarande",
+    equipmentReplaceNewEffects: "Ny utrustning",
     lootEquipmentReplaceDecline: "Nej, behåll det jag har",
     merchantCantAfford: "Du har inte råd.",
+    merchantShopCollapsedHint: "Minimerad — visa panelen för att se vad du kan köpa.",
     /** Plastback: argument = pant vid försäljning (0 om ingen Tom flaska-synergi). */
     sellPlastbackAccessory: (pant: number) =>
       pant > 0 ? `Sälj Plastback (+${pant} pant)` : "Sälj Plastback",
     leave: "Lämna",
     pvpChooseLoot: "BvB — välj byte",
-    takePantMax5: "Ta pant (max 5)",
+    takePantMax10: "Ta pant (max 10)",
     givePenaltyKlunk: "Straffklunk (+1)",
     pvpDeal2Damage: "Ge förloraren 2 skada",
     takeSlot: (slot: string) => `Ta ${slot}`,
-    /** BvB-byte: visar faktiskt borttaget pantbelopp (max 5). */
+    /** BvB-byte: visar faktiskt borttaget pantbelopp (max 10). */
     pvpLootTakePant: (amount: number) => `Ta pant (${amount})`,
     /** BvB-byte: klunkar motståndaren får (inkl. hjälm/tillbehör-straffbonus). */
     pvpLootPenaltyKlunk: (klunkar: number) =>
@@ -594,6 +613,7 @@ export const sv = {
     settingsBoardPan: "Panorering på brädet (drag och mushjul)",
     settingsBoardAnimations: "Animationer på brädet (mjuk kamera, tärningssnurr m.m.)",
     settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
+    settingsBoardSfx: "Ljudeffekter på brädet",
     settingsClose: "Stäng",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */
     merchantShopping: (playerName: string) => `${playerName} handlar`,

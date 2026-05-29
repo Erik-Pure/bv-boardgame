@@ -2,6 +2,7 @@ const STORAGE_PAN = "bv.boardPanEnabled";
 const STORAGE_ANIM = "bv.boardAnimationsEnabled";
 const STORAGE_TOKEN_ANIM = "bv.tokenMoveAnimationsEnabled";
 const STORAGE_PREVENT_SLEEP = "bv.boardPreventSleepEnabled";
+const STORAGE_SFX = "bv.boardSfxEnabled";
 
 export const BOARD_PERF_PREFS_EVENT = "bv-board-performance-prefs";
 
@@ -11,6 +12,8 @@ export type BoardPerformancePrefs = {
   tokenMoveAnimationsEnabled: boolean;
   /** Skärmlås / “inaktivera sömnläge” i bordsvyn — sparas mellan matcher. */
   preventSleepEnabled: boolean;
+  /** Ljudeffekter på brädet (tärning, klunk, kort m.m.). */
+  boardSfxEnabled: boolean;
 };
 
 function readBool(key: string, defaultValue: boolean): boolean {
@@ -31,6 +34,7 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
     boardAnimationsEnabled: readBool(STORAGE_ANIM, true),
     tokenMoveAnimationsEnabled: readBool(STORAGE_TOKEN_ANIM, true),
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, false),
+    boardSfxEnabled: readBool(STORAGE_SFX, true),
   };
 }
 
@@ -58,6 +62,10 @@ export function writeTokenMoveAnimationsEnabled(value: boolean): void {
 
 export function writeBoardPreventSleepEnabled(value: boolean): void {
   writeBool(STORAGE_PREVENT_SLEEP, value);
+}
+
+export function writeBoardSfxEnabled(value: boolean): void {
+  writeBool(STORAGE_SFX, value);
 }
 
 export function subscribeBoardPerformancePrefs(onChange: () => void): () => void {

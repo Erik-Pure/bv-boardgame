@@ -43,7 +43,8 @@ export function monsterCombatEquipmentAttackBonus(p: Player): number {
     effectiveWeaponPiecePower(p.equipment.weapon, p.gold) +
     (p.equipment.armor?.combatBonus ?? 0) +
     helmetAttackBonus(p) +
-    (p.equipment.accessory?.combatBonus ?? 0)
+    (p.equipment.accessory?.combatBonus ?? 0) +
+    (p.brewerAttackBonus ?? 0)
   );
 }
 

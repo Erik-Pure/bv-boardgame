@@ -3,7 +3,6 @@ import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
   monsterCombatEquipmentAttackBonus,
-  playerCanCombatIntervene,
   type GameState,
   type MonsterId,
   type Player,
@@ -286,10 +285,6 @@ function TableCombatBoardPanelInner(props: {
   const attacker = state.players.find((p) => p.id === pending.attackerId);
   const isFinalBossCombat = isFinalBossMonsterId(pending.monsterId as MonsterId);
   const need = pending.need + (pending.needMod ?? 0);
-  const reactorNames = (pending.reactors ?? [])
-    .map((id) => playersById.get(id))
-    .filter((p): p is Player => !!p && playerCanCombatIntervene(p))
-    .map((p) => p.name);
   const showMonsterCard = pending.monsterId !== "boss";
   const diceBesideCardPhases =
     pending.phase === "reactions" ||
@@ -299,6 +294,11 @@ function TableCombatBoardPanelInner(props: {
     pending.phase === "helpAwaitCard" ||
     pending.phase === "rollPreview" ||
     pending.phase === "chooseHitMitigation";
+  /** Hjälpflöde: ingen slag ännu — rotera (inte previewDie ?? 1 / döskalle). */
+  const combatBoardDiceSpinning =
+    diceBesideCardPhases &&
+    pending.phase !== "rollPreview" &&
+    pending.phase !== "chooseHitMitigation";
   const finalBossRoundLabel = (() => {
     if (!isFinalBossCombat) return null;
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
@@ -596,7 +596,7 @@ function TableCombatBoardPanelInner(props: {
                   </div>
                 ) : null}
                 <div className={combatStyles.diceGlowCircle}>
-                  {pending.phase === "reactions" ? (
+                  {combatBoardDiceSpinning ? (
                     <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
                   ) : (
                     <div className={combatStyles.flexCenterGap10}>
@@ -655,14 +655,14 @@ function TableCombatBoardPanelInner(props: {
 
   const reactionsAndDice = hold ? null : (
     <>
-      {pending.phase === "reactions" && reactorNames.length > 0 && (
+      {pending.phase === "reactions" && (pending.reactors?.length ?? 0) > 0 && (
         <div
           className={
             showMonsterCard && monsterDiceHeroLayout ? combatStyles.hintLine13OnCard : combatStyles.hintLine13TightTop
           }
           style={{ marginTop: monsterDiceHeroLayout ? 2 : 12 }}
         >
-          <b>{sv.table.canIntervene}</b> {reactorNames.join(", ")}
+          {sv.play.waitIntervene}
         </div>
       )}
       {pending.phase === "helpChooseHelper" ? (

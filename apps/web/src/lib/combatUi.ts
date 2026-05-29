@@ -135,7 +135,15 @@ export function isFinalBossSessionActive(
   return !!state?.finalBossMonsterId && isFinalBossMonsterId(state.finalBossMonsterId);
 }
 
-/** Flammor + puls under pågående slutboss-strid (inkl. boss_round_win mellan rundor). */
+function isBossCombatOutcomeCard(
+  p: Extract<Pending, { type: "card" }>,
+): boolean {
+  if (p.cardId === "boss_round_win" || p.cardId === "boss_final_win") return true;
+  if (p.cardId === "combat_lose" && p.title?.startsWith("Boss:")) return true;
+  return false;
+}
+
+/** Flammor + puls under pågående slutboss-strid (hela encounter tills spelet avgörs). */
 export function shouldShowFinalBossCombatBackdrop(
   state: Pick<GameState, "pending" | "finalBossMonsterId"> | null | undefined,
   holdoverCombatMonsterId?: string | null,
@@ -143,17 +151,37 @@ export function shouldShowFinalBossCombatBackdrop(
   if (!isFinalBossSessionActive(state)) return false;
   const p = state?.pending;
   if (p?.type === "combat" && isFinalBossMonsterId(p.monsterId as MonsterId)) return true;
-  if (p?.type === "card" && p.cardId === "boss_round_win") return true;
+  if (p?.type === "card" && p.kind === "combat") {
+    if (isBossCombatOutcomeCard(p)) return true;
+    if (
+      (p.cardId === "combat_win" || p.cardId === "combat_lose") &&
+      holdoverCombatMonsterId &&
+      isFinalBossMonsterId(holdoverCombatMonsterId as MonsterId)
+    ) {
+      return true;
+    }
+  }
   if (holdoverCombatMonsterId && isFinalBossMonsterId(holdoverCombatMonsterId as MonsterId)) return true;
+  return false;
+}
+
+/**
+ * Mobil (/play): ingen helskärms-eld/röd overlay — den täckte föremål/utrustning och störde tärningsslag.
+ * Slutboss-känsla på mobil: pulserande bakgrund på möteskortet (`bossPulsingBackdrop`), inte fixed video.
+ */
+export function shouldShowFinalBossCombatBackdropOnPlay(
+  _state: Pick<GameState, "pending" | "finalBossMonsterId"> | null | undefined,
+  _playerId?: string | null | undefined,
+): boolean {
   return false;
 }
 
 export function finalBossCombatBackdropSessionKey(
   state: Pick<GameState, "finalBossMonsterId" | "pending"> | null | undefined,
-  combatSessionKey?: string | null,
+  _combatSessionKey?: string | null,
   holdoverCombatMonsterId?: string | null,
 ): string | null {
   if (!shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId)) return null;
-  if (combatSessionKey) return combatSessionKey;
-  return `final-boss-${state!.finalBossMonsterId}`;
+  /** En nyckel per slutboss-encounter så videon inte mountas om mellan rundor/kort. */
+  return `final-boss-fight-${state!.finalBossMonsterId}`;
 }

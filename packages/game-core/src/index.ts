@@ -65,8 +65,16 @@ export {
   levelUpCostsForTargetLevel,
   lobbyAddPlayer,
   penaltySipTotalForPlayer,
+  PVP_BEST_OF,
+  PVP_LOOT_MAX_PANT,
+  pvpLootPantStealAmount,
+  rollMerchantItems,
   startGame,
 } from "./engine.js";
+export {
+  MERCHANT_SELLABLE_COMBAT_ITEM_IDS,
+  MERCHANT_INVENTORY_ITEM_PRICE,
+} from "./merchantCombatItems.js";
 export {
   FINAL_BOSS_IDS,
   FINAL_BOSS_LIFE_TOTAL,
@@ -113,7 +121,16 @@ export {
   prunePlayerEmoteBursts,
 } from "./emotes.js";
 export { resolveIdleEmoteKind, type IdleEmoteKind } from "./idleEmoteKind.js";
-export type { EmoteId, PlayerEmoteBurst } from "./types.js";
+export type { EmoteId, PlayerEmoteBurst, PlayerKlunkBurst } from "./types.js";
+export {
+  KLUNK_BURST_DISPLAY_MS,
+  KLUNK_BURST_ICON_SRC,
+  klunkBurstRotationDeg,
+  latestKlunkBurstForPlayer,
+  prunePlayerKlunkBursts,
+  recordPlayerKlunkBurst,
+} from "./klunkBursts.js";
+export { klunkBurstCountForSipNotice } from "./sipNotice.js";
 export {
   appendTextForGrantedItem,
   artKeyForGrantedItem,

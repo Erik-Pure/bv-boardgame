@@ -415,6 +415,9 @@ wss.on("connection", (ws, req) => {
         };
         ws.send(JSON.stringify(ack));
         sendStateSnapshot(res.conn, res.room);
+        if (res.room.state.phase === "lobby") {
+          scheduleBroadcastState(res.room);
+        }
         touchRoom(res.room);
         log.debug("helloAck + stateSnapshot", res.room.code, res.conn.playerId);
         return;

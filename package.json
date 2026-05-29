@@ -19,7 +19,10 @@
     "load:check:server": "npm run -w server load:check",
     "optimize:images": "node scripts/optimize-images.mjs",
     "optimize:images:force": "node scripts/optimize-images.mjs --force",
-    "optimize:images:check": "node scripts/optimize-images.mjs --check"
+    "optimize:images:check": "node scripts/optimize-images.mjs --check",
+    "optimize:sfx": "node scripts/optimize-sfx.mjs",
+    "optimize:sfx:force": "node scripts/optimize-sfx.mjs --force",
+    "optimize:sfx:check": "node scripts/optimize-sfx.mjs --check"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

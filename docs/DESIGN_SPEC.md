@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.63 |
-| Senast uppdaterad | 2026-05-20 |
+| Version | 0.64 |
+| Senast uppdaterad | 2026-05-21 |
 
 ---
 
@@ -42,13 +42,15 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Interaktionspanelens stabilitet:** korta överlagrade lägen som **straffklunk / Skål!** ska inte trigga om panelens slide-up-animation eller höjd-tween från föregående innehåll. När panelens primära innehållstyp byter (t.ex. strid/handling → straffklunk-ack) ska första layouten efter bytet vara **instant** så panelen inte “hackar”.
 
-**Modal-prioritering i mobil (`/play`):** om **nivå upp** (`levelUpOffer`) och **straffklunk-notis** skulle konkurrera samtidigt för samma spelare ska **nivå upp prioriteras**. Straffklunk-notisen köas/visas först efter att nivå upp-flödet är klart, så knapplager och overlays inte hamnar omlott.
+**Modal-prioritering i mobil (`/play`):** **bryggbonus** (`brewerPerkChoice`) trumfar alla andra modaler för den spelaren (vinst/förlust-kort, straffklunk, strid m.m.) eftersom valet påverkar strid och tur direkt; motorn pausar egna `pending` i `deferredPending` tills buffen är vald. Därefter **vånings-nivå upp** (`levelUpOffer`) före straffklunk-notis. Bryggbonus erbjuds direkt vid XP-bryggnivå-upp, även utanför tur. **Efter vinst/förlust-kort:** turen går vidare till nästa spelare **innan** straffklunk / bryggbonus / nivå-upp-modalen — den som ska välja tar sin tid **utanför tur** medan andra kan spela. Personliga val utanför tur lagras i `offTurnPersonalPending` (inte i global `pending`) så nästa spelares `rollMove` / handlare inte blockeras och inte skriver över motståndarens modal.
 
 **Föremålsmodal (mobil):** när ett föremål kräver målval (t.ex. **Sömnmedel**) används samma modal med den vanliga **Stäng**-knappen. Målvalssteget ska **inte** lägga till en extra **Tillbaka**-knapp; avbryt sker via Stäng.
 
 **Vald rad på mörk knapp (mobil):** när spelaren väljer bland alternativ som visas som **mörka pill-knappar** (t.ex. **Välj mål** / spelarnamn innan **Använd**, eller val av tärningsyta för **Ett sjätte ölsinne**) ska alla alternativ i listan ha **samma mörka grundstil**; den **aktiva** raden ska ha **tydlig guldtonad ram** och **guldtonad text** så valet inte förväxlas med ljusa sekundärknappar (**Stäng** m.m.).
 
 **Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
+
+**Snabbguide (mobil, `/play`):** efter **ansvarsfullhets-rutan** (en gång per rum och flik, `sessionStorage`) visas en **kort steg-för-steg-guide** innan spelet tar fart. Guiden har **fem steg** med **Tillbaka / Nästa / Hoppa över / Kör igång** och sidräknare. **Steg 1** visar **logotypen** (`bmm-logo.png`, utan ram, större marginal) och en **kort målsammanfattning** (något större text än övriga steg): välkomst, **Rädda de dåliga batcherna** (fetstil + monster-ikon) för XP och nivå, samt sabotera/samarbeta mot slutbossen. Övriga steg följer befintliga tutorial-bilder (rörelse, rutor, strid, nivåer/boss). Snabbguiden kan **öppnas igen** från **Inställningar** i spelvyn. Utförligare regler finns på **`/rules`** (startsida/länk), separat från snabbguiden.
 
 **Turväntan och emotes (mobil):** när det **inte är spelarens tur** och interaktionspanelen annars skulle vara **tom** (klassisk väntan på rörelsetärning — inte under strid, BvB eller annat panelinnehåll), visas **vems tur det är** i possessiv form (t.ex. *Veras tur*, samma namnregel som på bordet: *Anders tur* utan extra **s**). Brevid: en **emote-knapp** (`emote-icon.svg`, ljusgrå). Knappen expanderar val bland fem reaktioner: **förvånad, glad, ledsen, arg, kärlek** (`emote-*.svg`). **Cooldown** ca **5 s** (klient + server); spam ger toast (*Vänta lite innan nästa emote.*). Under strids-/BvB-väntan visas **inte** emote-väljaren — då gäller befintlig väntecopy.
 
@@ -72,9 +74,11 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Lobby och spelet slut på bordet:** pan/zoom på brädesviewport är **avstängda** i faserna `lobby` och `ended`, så att **`setPointerCapture`** på viewport inte stjäl pekaren — knappen **Avsluta spelet** i resultatmodalen ska få **klick** och navigera till startsidan.
 - **Videobakgrunder (bord, `public/video/`):** loopande **WebM + 1280p MP4** per bakgrund — **`beer_bg_*`** (lobby, slutresultat) och **`flames_bg_*`** (slutboss-strid, stupad bryggare på bord). Fullupplösta käll-`.mp4` ingår **inte** i repo (`.gitignore`). Över videon: **mörk scrim** (~45 % på öl, ~26 % under boss-flammor) så text/kort läses.
 - **Lobby på bordet:** fullskärms-**ölvideo** bakom lobbykortet; kortet är **halvtransparent med blur** (glas) så QR och kod syns mot videon.
-- **Slutboss på bordet:** **flammor + röd pulserande gradient** ligger i en **persistent backdrop** i `TableView` under hela strids-sessionen (samma videoinstans vid fasbyte intro → reaktioner → tärning → resultat på kort; `key` = strids-session). Stridspanelen ovanpå har **transparent** overlay utan ny fade per fas. **Mobil (`/play`):** endast **röd puls** vid boss-intro — **ingen** eldvideo.
+- **Slutboss (bord + mobil):** **flammor + röd pulserande gradient** ligger i en **persistent backdrop** (`FinalBossCombatBackdrop`) under **hela slutboss-striden** — intro, reaktioner, tärning, resultat på kort, samt kortet **`boss_round_win`** mellan rundor (samma videoinstans; `key` = strids-session eller `final-boss-<monsterId>`). Stridspanelen/kortmodalen ovanpå har **transparent** overlay utan ny fade per fas. Vid **`boss_round_win` på bordet** ska **inte** en andra eld-backdrop fadear in i kortmodalen när den persistenta redan är aktiv (undviker blink). Boss-intro på mobil kan fortfarande använda **röd puls** i intro-modal om persistent backdrop inte är aktiv ännu; under striden gäller samma eldvideo som på bordet.
 - **Stupad bryggare på bordet:** samma **eldvideo utan röd puls** i modal-backdrop (`flamesBackdrop`); ikon **`gameover.svg`** (större på bord än tidigare dödskalle). Mobil behåller vanlig mörk backdrop.
-- **Slutresultat på bordet:** **ölvideo** bakom modal; panel och höjdpunktskort använder **`var(--modal-panel-bg)`** (samma som övriga modaler). Resultatmodal **bredare** på bord (~**860px** max). **Poängtabellen** har variant **`table`** med **större** typsnitt och ikoner; rubrikerna *Spelet är slut* / *Vinnare:* är **måttligt** större (inte fullskärms-TV-storlek). `boss_round_win`-kort kan fortfarande ha egen flammor-backdrop efter rundan.
+- **Slutresultat på bordet:** **ölvideo** bakom modal; panel och höjdpunktskort använder **`var(--modal-panel-bg)`** (samma som övriga modaler). Resultatmodal **bredare** på bord (~**860px** max). **Poängtabellen** har variant **`table`** med **större** typsnitt och ikoner; rubrikerna *Spelet är slut* / *Vinnare:* är **måttligt** större (inte fullskärms-TV-storlek).
+- **Toasts på bordet (`/table`):** kortlivade meddelanden (t.ex. från spellogg, straffklunk, belöningar) visas i en **toast-rad** under turbannern. Vid **bryggnivå-upp** genereras toast med texten *«&lt;namn&gt; når bryggnivå N!»* där **N** är **samma visade bryggnivå** som i mobil-header och sidopanel (**intern `brewerLevel` + 1**, minst 1) — inte den råa XP-indexnivån.
+- **Ljudeffekter (`/table` + mobil, v1):** korta one-shots från `public/sfx/` (optimerade MP3; käll-WAV/OGG i `apps/web/sfx-source/`, genereras med `npm run optimize:sfx`). **Bräd-SFX köas** och spelas ett i taget (t.ex. gå → landningsljud → kort) så de inte överlappar. Ingen musik. **Brädet** (`/table`, avstängningsbart i bordsinställningar): **rörelsetärning / gå** (`roll1–7` vid `rollMove` och `chooseMove`), **stridstärning** (`dieroll1–3` vid monster-slag), **händelse- och skattruta** (`event1–4` vid landning; **lose** vid tom gömma, **cardflip** vid övrig skatt), **föremål** (`item1–3` vid solfjäder / stridsreaktion), **panta burkar** (`cans1–4` när affären öppnas), **dålig batch** (`badbatch1–3` vid monster-intro), **vinst mot monster** (`levelup.mp3` vid `combat_win`, `boss_round_win` och `boss_final_win`; uteblir vid parallell bryggnivå-upp från strids-XP på `combat_win`), **förlust mot monster** (`lose.m4a` vid `combat_lose`-kort), **skattkort** (`cardflip.mp3`), **händelsekort i modal** (`event.mp3` om landningsljud inte redan spelats), **bryggnivå upp** (`levelup.mp3` när visad bryggnivå ökar i övriga fall). **Straffklunk-ljud** (`klunk1–2`) endast på **mobilen** vid **Skål**; klunk-emoji på brädet vid `sipNoticeAck`. Strids-PvP, BvB och emotes utan dedikerade filer i v1.
 - **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
 - **BvB-tärningar på bordet:** visa **fast tärning direkt per spelare** så fort den spelarens kast finns. Endast sidan som ännu inte kastat ska fortsätta med idle-spin under `awaitingRolls`/reveal-delay. Undvik blink/flicker när en sida redan har resultat.
 - **Team battle-overlay på bordet:** vid övergången från **välj medkämpe** till nästa stridsfas ska overlayn vara renderingsstabil (ingen helsvart vy). Stridspanelen måste hantera fasbytet utan att bryta Reacts hook-ordning eller unmounta hela board-vyn.
@@ -119,6 +123,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Max antal spelare:** 8.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
+- **Synk vid anslutning:** när en ny spelare ansluter i lobby ska **alla** redan anslutna klienter (bord + mobil) få uppdaterad spelarlista via state-broadcast, inte bara den som just joinade.
 - **Bord (pre-game lobby):** utöver att visa lobbykoden ska spelare kunna skanna en **QR-kod** som öppnar **`/join?room=<kod>`** (samma webbhotell som bordet). Sidan **`/join`** ska kunna **förifylla lobbykoden** från query-parametern `room`. Under pågående lobby på bordet: **ölvideo** i bakgrunden och **glas-panel** för kod/QR (§2.1).
 
 ### 4.2 Pre-game inställningsvy (värd)
@@ -204,7 +209,7 @@ Varje ruta har en **typ** som avgör vad som händer när en spelare **landar** 
 | Typ | Beskrivning |
 |-----|-------------|
 | **Händelse (slump)** | Drar från en **händelsepool** (bra, dålig eller neutral): pant, skada, klunkar, flytta, stjäl kort, etc. |
-| **Affär / köpman** | Öppnar **handel** (i spelet: **Panta burkar**): spendera **pant** på items, hälsa, engångs-boosts eller sällsynt loot. Sortiment och priser följer **`EQUIPMENT_CATALOG`** (se §10.2). |
+| **Affär / köpman** | *(Utfasad som brädruta.)* **Panta burkar** nås i stället som **tredje val vid rörelse** (§10.2) — samma handel som tidigare, utan att flytta pjäsen. |
 | **Strid** | **Slumpat monster**; samma grundmekanik som §9.1 (tärning + vapen mot fiende). |
 | **Dörr / nivåbyte** | Utfasad i nuvarande build (historisk ruttyp). |
 | **Boss** | Slutboss på **sista våningen** (tredje planet, `levelIndex` 2). |
@@ -237,6 +242,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Nya slumpmonster (solo, i leken):** **Enhörningsryttare** (styrka 6; förlust 4 HP och 2 straffklunkar totalt med global flat; vinst 5 pant + 2 skatter), **Färgglada gubbar** (styrka 4; förlust 2 HP och 1 straffklunk totalt; vinst 3 pant + 1 skatt), **Transporter** (styrka 4; förlust 3 HP och 1 straffklunk totalt; vinst 4 pant + 1 skatt), **Demonkrigare** (styrka 5; förlust 3 HP och 1 klunk; vinst 6 pant + 2 skatter), **Busiga buskar** (styrka 2; förlust 1 HP och 1 klunk; vinst 4 pant + 1 skatt), **Solen** (styrka 2; förlust 2 HP och 1 klunk; vinst 2 pant + 2 skatter).
 - **Nytt team battle-monster:** **Cowboys** (styrka 7; förlust 3 HP och 1 straffklunk totalt; vinst 5 pant + 1 skatt). **Special:** vid seger får båda stridande **+5 HP** (cap vid max HP).
 - **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Om mottagaren redan har utrustning i den slumpade slotten ska spelet erbjuda **bytesval** (ta emot och kasta befintligt, eller avböj) — **inte** tyst byta eller falla tillbaka till item. Flera utrustningsbelöningar efter samma strid hanteras **i kö** tills alla val är klara (§11).
+- **Tur efter stridsvinst:** när vinnaren bekräftat **dålig batch**-vinstkortet (`combat_win`) går **turen vidare** till nästa spelare. **Bytesval** från stridsloot (`fromCombatLoot`) och eventuellt **nivåupp** hanteras **parallellt** på vinnarens mobil (`offTurnPersonalPending` för nivå — samma princip som efter straffklunk). Andra spelare ska kunna agera utan att vänta på bytesval/nivåbeslut. I team battle gäller samma för varje spelare i loot-kön.
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus.
 
 **Särskilda monster (val som spelaren gör):**
@@ -252,7 +258,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
   - **Solen:** vid förlust får angriparen *sol i ögonen* och **står över nästa tur**.
 - **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid **förlust** sker ingen utbetalning **och den accepterade hjälparen tar samma monster-HP-skada och straffklunk som angriparen i princip får i lagstrid** (egna rustnings-/vapenregler; mitigationsval för t.ex. Kapten Interrobang eller Sura bär följer angriparens val). **Ölkompis** i strid utan separat hjälpkontrakt hade redan motsvarande risk; copy/toast speglar båda på mobil.
 - **Bordspresentation av hjälpkort:** kort som spelas av hjälparen i hjälpfasen ska visas i samma stridskontext som reaktionskort (kort-fan/overlay) och rensas när striden/turen avslutas.
-- **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
+- **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. **Bordet** visar inte **vilka** som kan ingripa (hemligt); mobil visar bara generisk väntan för icke-ingripare. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
 - **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
 - **Lagstrid på mobil:** bredvid tärningen visas **endast din egen** attackmodifier (utrustning, kortbuffar, `nextCombatModifier` m.m.) — inte summan av båda stridande. **Storskärmsbrädet** kan fortfarande visa lagets **samlade** modifier enligt befintlig presentation.
 
@@ -277,7 +283,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Första valet (den som flyttade in):** **BvB** (båda slår tärning + vapen och jämför) **eller** **lös rutan** utan BvB (tile-effekter/kort/strid enligt ruttyp körs som vanligt).
 - **Flera motståndare på rutan:** efter att spelaren valt BvB ska den **välja vilken bryggare** som utmanas (lista med namn); därefter startar duellen mot vald motståndare.
 - **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst total vinner rundan.
-- **Rondformat (uppdaterat):** BvB spelas som **bäst av 3**. Första spelare till **2 rondvinster** vinner matchen och går vidare till byte.
+- **Rondformat (uppdaterat):** BvB spelas som **en rond** (default `bestOf: 1`). Fasmaskinen (föremålsfönster, rondresultat, matchställning) finns kvar så framtida kort kan höja till t.ex. bäst av 3.
 - **Föremålsfönster före varje rond:** innan båda slår tärning finns en förberedelsefas där båda duellanterna kan spela tillåtna PvP-föremål (buff på sig själv eller sabotage på motståndaren) och markerar **Klar**. När båda är klara startar slaget för rundan.
 - **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar; copy ska vara kortfattad (t.ex. bara att inga BvB-föremål finns — **ingen** extra mening om att man “inte behöver trycka Klar”).
 - **Tillåtna BvB-föremål:** klient och server ska hålla samma lista för förberedelsefasen. **Manopositiv** är tillåtet i BvB och måste därför både visas som spelbart och göra att **Klar**-knappen finns när spelaren har kortet (förutsatt 4 pant).
@@ -285,7 +291,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Rondresultat före nästa steg:** efter avslutat rondslag går duellen till en kort **rondresultatfas** där båda spelare bekräftar resultatet på mobilen innan matchen fortsätter till nästa rond eller byte.
 - **Tärningsrond (mobil):** ingen extra ledtext före “Slå din tärning” i väntan på BvB-slag (undvik redundant “klarrunda”-copy).
 - **Rondresultat (mobil, copy):** visa kort och spelarcentrerad info: **“Rond N”** samt **“Du vann ronden” / “Du förlorade ronden”**; visa inte separat rad för totaler, matchställning eller global “Vinnare: …” i just detta steg.
-- **Vinnare** väljer **ett** byte mot förloraren (pant, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen. **Stjäla utrustning:** om vinnaren redan har något i samma slot gäller samma **bytesval** som §11; vid **avböj** förstörs den stulna pjäsen (den returneras **inte** till förloraren).
+- **Vinnare** väljer **ett** byte mot förloraren (pant upp till **10**, straffklunk, skada, eller stjäla utrustning i en slot) enligt data/regler som redan finns i implementationen. **Stjäla utrustning:** om vinnaren redan har något i samma slot gäller samma **bytesval** som §11; vid **avböj** förstörs den stulna pjäsen (den returneras **inte** till förloraren).
 - **Skydd mot stöld (t.ex. Solbrillor):** har förloraren `preventTheft` på tillbehör ska vinnaren **inte** erbjudas val att ta utrustning — bara **pant**, **straffklunk** och **HP-skada** (implementation + mobil-UI); pantbyte ska fortfarande gälla.
 - **Förlorare — mobilnotis (byte efter duell):** notiser som beskriver att du **förlorade duellen** använder variant **`duel_loss`**: rubrik **“Du förlorade duellen”** (normal versalisering), **vit tum-ned-ikon i röd cirkel** mellan rubrik och brödtext, **lite mindre** brödtext än standard, ingen stor mottagarrad; bekräftelseknapp **“Fattar”** (andra anpassade notiser kan behålla **“Fattat”**). Samma kölogik som övriga straff-/sip-notiser där det är applicerbart.
 - **Förlorare:** definiera slutgiltigt i design (t.ex. ligga kvar på rutan) — dokumentera här när beslutet är helt låst till en känsla ni vill ha.
@@ -299,15 +305,16 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 
 - Spelare har **pant** (heltal ≥ 0) som huvudvaluta — **inte** “guld” i spelarens upplevelse.
 - **Startpant:** sätts i lobbyinställningar (default 5) och appliceras när partiet startar. **Respawn/omstart** använder samma konfigurerade startpant om omstart är tillåten.
-- **Affärer** nås via **affärsrutor** (§7.4) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
+- **Affärer** nås via **rörelseval** (§10.2) och ibland via **händelsekort**. Sortiment: köp **items**, **hälsa**, **engångs-boosts**, eller **karta/information** beroende på balans.
 - **Priser** kan skala med **nivå** eller **runda** så senare spel inte blir för lätta.
 - Pant kan också **förloras eller vinnas** via händelser och **BvB** (§9.2).
 - **Handlare (nuvarande flöde):** spelaren kan köpa **flera saker i samma besök** och lämnar handlaren explicit när den är klar. **Samma hyllpost kan inte köpas två gånger i samma besök**; köpt post tas bort direkt ur handlarens utbud.
 
-### 10.2 Panta burkar (affär på brädet)
+### 10.2 Panta burkar (affär vid rörelseval)
 
+- **Ingen affärsruta** på nya bräden — i början av sin tur väljer spelaren **antingen** att slå rörelsetärningen **eller** **Panta burkar** (`chooseMerchant`, kräver **minst 5 pant**). Pjäsen står kvar vid pant; tur avslutas när spelaren lämnar handeln.
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
-- **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln) och **tre slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**). Efter blandning visas **exakt fyra** erbjudanden.
+- **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln), **två slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**), och **ett slumpat stridsföremål** (+/− attack i strid — samma typer som **startföremål** vid spelstart, **7 pant** i handeln). Efter blandning visas **exakt fyra** erbjudanden. Föremål vars kort är inaktiverat i lobby (`disabledCardIds`) utesluts ur stridsföremål-poolen; om poolen då är tom ersätts fjärde platsen med en tredje utrustning.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
 
@@ -356,6 +363,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **BvB-byte (stjäla utrustning)** samt **Riggat spel** / **En enkel stöld** (§10.1): om mottagaren/tjuven redan har utrustning i samma slot.
 - **Avböj:** spelaren behåller sin nuvarande utrustning; den **inkommande** pjäsen **förstörs** (lämnas **inte** automatiskt tillbaka till tidigare ägare vid stöld). Vid stöld hålls den stulna pjäsen i **escrow** (`stolenEquipmentEscrow`) tills valet är klart.
 - **Under pågående bytesval:** spelaren ska inte kunna störa flödet med t.ex. **Vaska** eller **muta** förrän valet är avklarat.
+- **Bytesval-UI (mobil + handel):** vid erbjudande om byte ska **effektsammanfattning** visas för **nuvarande** och **ny** utrustning (samma typ av rader som i affären/katalogen), inte bara namn.
 
 **Detaljmodal (mobil / spelvy):** tryck på en utrustningsplats öppnar en modal med **unik art** där hela bilden ska synas (**centrerad**, `object-fit: contain` i ram). I rubrikraden visas **effektikoner** (samma som i översikten): t.ex. **`combat-icon.svg`** för attackmod, **`armor-icon.svg`** för försvar — **inte** slot-siluett som primär indikator. Under bilden visas en **kompakt effektlista** (samma princip som Panta burkar / kortkatalog) **och** valfri **`rulesText`** per katalogpost (smaktext / särregler, t.ex. **Solbrillor**, **Svart bälte**, burk-setet). Försvarstal i bricka/badge visas som **positiv siffra** (+N) så det inte misstas för extra skada. **Stäng** sker via **nedre interaktionspanelen** (ingen extra stäng-knapp i föremålsmodalens huvud).
 
@@ -402,7 +410,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 
 ### 13.1 Bryggnivå (progression i UI)
 
-- **Bryggnivå** beräknas från spelarens **XP** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`).
+- **Bryggnivå** beräknas från spelarens **XP** (implementation i `game-core`: `brewerLevel` / `brewerKlunkProgressRatio`). **Visad bryggnivå i UI** är **intern nivå + 1** (minst 1) — samma på mobil-header, bordets spelarrad/sidopanel, slutresultat, level-up-toasts på bordet och copy i snabbguide/mobil.
 - **XP-trösklar (nuvarande balans):**
   - level 1 vid **120 XP**
   - level 2 vid **300 XP**
@@ -418,7 +426,9 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Slutmodal spotlight:** under rubrik/vinnare visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Karusellkorten använder **`--modal-panel-bg`** (inte blågrå slate-panel). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
 - **Spenderad pant (`goldSpent` i state):** räknar pant som lämnar spelaren till **spelets sinkholes** (handel, avgifter för föremål/strider/korteffekter, livförsäkring, undvikande av möten där pant tas utan motpartssaldo m.m.). Pant som bara **överförs till annan spelares saldo** (BvB-byte, hjälpkontraktsbetalning, spelare-mot-spelare-stöldkort m.m.) räknas **inte** som spenderad i denna statistik.
 - **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
+- **Bryggnivåbonus:** vid varje ny **XP-baserad bryggnivå** (tröskel i §13.1) väljer spelaren **en** permanent bonus: **+1 styrka** (monsterstrid), **+1 sköld** (skademinskning) eller **+2 HP** (max + nuvarande). Valet sker i mobil (`brewerPerkChoice`) när inget annat pending blockerar.
 - **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
+- **Monsterloot:** högre `rewardGold` / fler `rewardItems` på dåliga batcher samt något högre chans till utrustning i stridsbelöning (implementation i `monsters.ts` / `grantRandomCombatReward`).
 
 ---
 
@@ -606,4 +616,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.61 | 2026-05-15 | §9.1/§11: stridsloot och slump-utrustning med **bytesval** vid full slot (kö efter strid); §9.2/§10.1 **Riggat spel** och **En enkel stöld** med escrow och förstörd stulen utrustning vid avböj; §11 **Plastback**-badge (pant + kvarvarande flaskor), försäljning; §2/§16.1 bordskortmodal skatt/händelse matchar kortbaksans höjd |
 | 0.62 | 2026-05-17 | §16.1/§16.2: **CardRichText** (ikoner efter pant/klunk/HP/skada, tärning ledande, fet siffror + ikonord); **`rollOutcomes`** på tärningshändelser; katalog vänsterjusterad text + speltypografi (15px / Permanent Marker 22px) |
 | 0.63 | 2026-05-20 | **`--modal-panel-bg`** globalt; **videobakgrunder** `beer_bg` / `flames_bg` (lobby, slutresultat, persistent boss-backdrop på bord, stupad bryggare bord); lobby glas-panel; värd-lobby segmenterad svårighet + avancerade inställningar; slutresultat bred modal + tabellvariant `table`; **gameover.svg**; Plastback-badge (pant + flaskor); boss eld endast bord (mobil röd puls) |
+| 0.64 | 2026-05-21 | §2 **Snabbguide** mobil: introsteg med logotyp + målsammanfattning (5 steg totalt); §2.1 slutboss-backdrop **bord + mobil** under hela striden inkl. `boss_round_win`, utan dubbel fade; §2.1 **bord-toasts** med korrekt visad bryggnivå; §13.1 tydlig **UI-nivå = intern + 1** |
 

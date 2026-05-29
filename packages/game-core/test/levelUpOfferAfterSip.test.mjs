@@ -89,7 +89,7 @@ describe("levelUpOffer after sip notice", () => {
     assert.equal(ack.state.pending?.targetLevelIndex, 1);
   });
 
-  it("does not advance turn while sip notice blocks level-up offer", () => {
+  it("does not offer level-up until sip notice is acknowledged", () => {
     const withSip = baseState({
       sipNotices: [{ recipientId: "p1", fromPlayerName: "Batch", klunkCount: 1 }],
       pending: {
@@ -104,8 +104,88 @@ describe("levelUpOffer after sip notice", () => {
     });
     const confirmed = applyAction(withSip, { type: "confirmCard", playerId: "p1" });
     assert.equal(confirmed.error, undefined);
-    assert.equal(confirmed.state.currentTurnIndex, 0);
     assert.equal(confirmed.state.pending?.type !== "levelUpOffer", true);
     assert.ok((confirmed.state.sipNotices?.length ?? 0) >= 1);
+  });
+
+  it("advances turn before sip notice after combat loss card (2 players)", () => {
+    const state = {
+      ...baseState(),
+      players: [
+        mkPlayer({ id: "p1", xp: 120 }),
+        mkPlayer({ id: "p2", name: "B", color: "#222", isHost: false, ready: true, xp: 0 }),
+      ],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      pending: {
+        type: "card",
+        playerId: "p1",
+        cardId: "combat_lose",
+        kind: "combat",
+        title: "Förlust",
+        text: "",
+        artKey: "combat/lose",
+        queuedPenaltySipNotices: [{ recipientId: "p1", fromPlayerName: "Batch", klunkCount: 1 }],
+      },
+    };
+    const confirmed = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(confirmed.error, undefined);
+    assert.equal(confirmed.state.currentTurnIndex, 1);
+    assert.equal(confirmed.state.turnOrder[confirmed.state.currentTurnIndex], "p2");
+    assert.ok((confirmed.state.sipNotices?.length ?? 0) >= 1);
+    assert.equal(confirmed.state.pending?.type, undefined);
+  });
+
+  it("offers brewer perk off-turn right after combat loss even when straffklunk is queued", () => {
+    const state = {
+      ...baseState(),
+      players: [
+        mkPlayer({
+          id: "p1",
+          xp: 120,
+          brewerPerkLevelsClaimed: 0,
+          pendingBrewerPerkLevels: 1,
+        }),
+        mkPlayer({ id: "p2", name: "B", color: "#222", isHost: false, ready: true, xp: 0 }),
+      ],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      pending: {
+        type: "card",
+        playerId: "p1",
+        cardId: "combat_lose",
+        kind: "combat",
+        title: "Förlust",
+        text: "",
+        artKey: "combat/lose",
+        queuedPenaltySipNotices: [{ recipientId: "p1", fromPlayerName: "Batch", klunkCount: 1 }],
+      },
+    };
+    const confirmed = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(confirmed.error, undefined);
+    assert.equal(confirmed.state.currentTurnIndex, 1);
+    assert.ok((confirmed.state.sipNotices?.length ?? 0) >= 1);
+    assert.equal(confirmed.state.offTurnPersonalPending?.type, "brewerPerkChoice");
+    assert.equal(confirmed.state.offTurnPersonalPending?.playerId, "p1");
+  });
+
+  it("after last brewerPerkDecision offers level-up without blocking next player turn", () => {
+    const state = {
+      ...baseState(),
+      players: [
+        mkPlayer({ id: "p1", xp: 120, pendingBrewerPerkLevels: 1, brewerPerkLevelsClaimed: 0 }),
+        mkPlayer({ id: "p2", name: "B", color: "#222", isHost: false, ready: true, xp: 0 }),
+      ],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 1,
+      offTurnPersonalPending: { type: "brewerPerkChoice", playerId: "p1", levelsRemaining: 1 },
+    };
+    const picked = applyAction(state, { type: "brewerPerkDecision", playerId: "p1", choice: "attack" });
+    assert.equal(picked.error, undefined);
+    assert.equal(picked.state.currentTurnIndex, 1);
+    assert.equal(picked.state.offTurnPersonalPending?.type, "levelUpOffer");
+    assert.equal(picked.state.offTurnPersonalPending?.playerId, "p1");
+    const roll = applyAction(picked.state, { type: "rollMove", playerId: "p2" });
+    assert.equal(roll.error, undefined);
   });
 });

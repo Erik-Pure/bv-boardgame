@@ -128,18 +128,19 @@ describe("tryGrantRandomEquipmentOrOffer", () => {
 });
 
 describe("combat loot equipment replace queue", () => {
-  it("confirmCard on combat_win drains queue to equipmentReplaceOffer", () => {
+  it("confirmCard on combat_win drains queue to off-turn equipmentReplaceOffer", () => {
     const { state } = combatWinState();
     const r = applyAction(state, { type: "confirmCard", playerId: "p1" });
     assert.equal(r.error, undefined);
-    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
-    assert.equal(r.state.pending.playerId, "p1");
-    assert.equal(r.state.pending.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending.playerId, "p1");
+    assert.equal(r.state.offTurnPersonalPending.fromCombatLoot, true);
+    assert.equal(r.state.pending, null);
     assert.equal(r.state.combatEquipReplaceQueue, undefined);
   });
 
   it("accept replaces weapon; decline keeps old weapon", () => {
-    const { state, newWeapon } = combatWinState();
+    const { state, weaponA: newWeapon } = combatWinStateTwoPlayers();
     let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
     assert.equal(r.error, undefined);
 
@@ -147,13 +148,15 @@ describe("combat loot equipment replace queue", () => {
     assert.equal(r.error, undefined);
     assert.equal(r.state.players[0].equipment.weapon?.name, newWeapon.name);
     assert.equal(r.state.pending, null);
+    assert.equal(r.state.currentTurnIndex, 1);
 
-    const { state: state2 } = combatWinState();
+    const { state: state2 } = combatWinStateTwoPlayers();
     r = applyAction(state2, { type: "confirmCard", playerId: "p1" });
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: false });
     assert.equal(r.error, undefined);
     assert.equal(r.state.players[0].equipment.weapon?.name, "Gammalt vapen");
     assert.equal(r.state.pending, null);
+    assert.equal(r.state.currentTurnIndex, 1);
   });
 
   it("processes queue for two players in order", () => {
@@ -217,17 +220,139 @@ describe("combat loot equipment replace queue", () => {
     };
 
     let r = applyAction(s, { type: "confirmCard", playerId: "p1" });
-    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
-    assert.equal(r.state.pending?.playerId, "p1");
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: true });
-    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
-    assert.equal(r.state.pending?.playerId, "p2");
-    assert.equal(r.state.pending?.fromCombatLoot, true);
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p2");
+    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p2", accept: true });
     assert.equal(r.state.pending, null);
     assert.equal(r.state.players[0].equipment.weapon?.name, weaponA.name);
     assert.equal(r.state.players[1].equipment.helmet?.name, weaponB.name);
+  });
+});
+
+function combatWinStateTwoPlayers(queue) {
+  const weaponA = EQUIPMENT_CATALOG.find((e) => e.slot === "weapon");
+  assert.ok(weaponA);
+  const p1 = mkPlayer({
+    id: "p1",
+    name: "A",
+    equipment: { weapon: { name: "Gammalt vapen", power: 1 } },
+  });
+  const p2 = mkPlayer({
+    id: "p2",
+    name: "B",
+    isHost: false,
+    equipment: {},
+  });
+  return {
+    state: {
+      phase: "playing",
+      seed: 99,
+      config: gameConfig(),
+      roomCode: "T",
+      players: [p1, p2],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "c0", type: "combat", combatValue: 1 }] }],
+      pending: {
+        type: "card",
+        playerId: "p1",
+        cardId: "combat_win",
+        kind: "combat",
+        title: "Dålig batch",
+        text: "",
+        combatWin: {
+          winnerName: "A",
+          enemyName: "Testbatch",
+          rollTotal: 6,
+          need: 3,
+          rewardGold: 2,
+          rewardItems: 1,
+          rewardXp: 10,
+        },
+      },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: null,
+      finalBossLivesRemaining: null,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+      lastDiceRoll: null,
+      lastDiceRollerId: null,
+      sipNotices: [],
+      combatEquipReplaceQueue: queue ?? [
+        { playerId: "p1", slot: "weapon", catalogId: weaponA.id, newName: weaponA.name },
+      ],
+    },
+    weaponA,
+  };
+}
+
+describe("turn order after combat win", () => {
+  it("confirmCard advances turn while combat loot replace is pending", () => {
+    const { state } = combatWinStateTwoPlayers();
+    const r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.turnOrder[r.state.currentTurnIndex], "p2");
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
+    assert.equal(r.state.pending, null);
+  });
+
+  it("next player can rollMove while winner resolves combat loot replace", () => {
+    const { state } = combatWinStateTwoPlayers();
+    let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    r = applyAction(r.state, { type: "rollMove", playerId: "p2" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.pending?.type, "moveChoice");
+    assert.equal(r.state.pending?.playerId, "p2");
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
+  });
+
+  it("equipmentReplaceDecision does not advance turn again after combat win", () => {
+    const { state } = combatWinStateTwoPlayers();
+    let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    const turnAfterConfirm = r.state.currentTurnIndex;
+    r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: false });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.currentTurnIndex, turnAfterConfirm);
+    assert.equal(r.state.pending, null);
+  });
+
+  it("two-player loot queue keeps turn with next player between replace offers", () => {
+    const weaponA = EQUIPMENT_CATALOG.find((e) => e.slot === "weapon");
+    const helmetB = EQUIPMENT_CATALOG.find((e) => e.slot === "helmet");
+    assert.ok(weaponA && helmetB);
+
+    const { state } = combatWinStateTwoPlayers([
+      { playerId: "p1", slot: "weapon", catalogId: weaponA.id, newName: weaponA.name },
+      { playerId: "p2", slot: "helmet", catalogId: helmetB.id, newName: helmetB.name },
+    ]);
+
+    let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r.state.currentTurnIndex, 1);
+
+    r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: true });
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p2");
+    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
+
+    r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p2", accept: true });
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.pending, null);
+    assert.equal(r.state.offTurnPersonalPending, null);
   });
 });

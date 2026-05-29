@@ -36,10 +36,16 @@ export function CombatHitMitigationSheet(props: {
   const doubledFullHp =
     (pending.getLuckyRiskPlayerIds?.includes(damagePreviewPlayer.id) ?? false) ? rawFullHp * 2 : rawFullHp;
   const fullDamageHp = Math.max(0, Math.floor(doubledFullHp));
+  const pantMitigationCost = isInterrobang ? 5 : isTransporter ? 10 : 0;
+  const canPayPantMitigation = pantMitigationCost === 0 || me.gold >= pantMitigationCost;
   const detailText = isInterrobang
-    ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."
+    ? canPayPantMitigation
+      ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."
+      : sv.play.hitMitigationPantOnlyFullDamage(5)
     : isTransporter
-      ? "Betala 10 pant för att ta 0 skada, eller ta full skada."
+      ? canPayPantMitigation
+        ? "Betala 10 pant för att ta 0 skada, eller ta full skada."
+        : sv.play.hitMitigationPantOnlyFullDamage(10)
       : sv.play.hitChoiceDetail(reduce, full);
   const primaryLabel = isInterrobang
     ? "Betala 5 pant (−3 skada)"
@@ -74,15 +80,17 @@ export function CombatHitMitigationSheet(props: {
       </div>
       {isAttacker ? (
         <div style={{ display: "grid", gap: 8 }}>
+          {canPayPantMitigation ? (
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "sip" })}
+            >
+              {primaryLabel}
+            </ArcadeButton>
+          ) : null}
           <ArcadeButton
-            variant="pink"
-            fullWidth
-            onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "sip" })}
-          >
-            {primaryLabel}
-          </ArcadeButton>
-          <ArcadeButton
-            variant="gray"
+            variant={canPayPantMitigation ? "gray" : "pink"}
             fullWidth
             onClick={() => send({ type: "chooseCombatHitMitigation", playerId: me.id, choice: "no_sip" })}
           >

@@ -43,11 +43,32 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: inherit;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .fullWidth .label {
   width: 100%;
+}
+
+/* Endast enkelradig etikett (ikon + text är separata flex-barn) */
+.fullWidth .label > .labelText {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Text + emoji i samma rad (t.ex. BvB (🍺)) */
+.labelInline {
+  display: inline;
+  max-width: 100%;
+  text-align: center;
+}
+
+.labelInline .labelText,
+.labelInline .labelEmoji {
+  display: inline;
+  width: auto;
+  vertical-align: baseline;
 }
 
 .btn:active .inner {
@@ -134,8 +155,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.variant_blue .label,
-.variant_pink .label {
+.variant_blue .labelText,
+.variant_pink .labelText {
   background-image: linear-gradient(
     110deg,
     #ffffff 0%,
@@ -156,6 +177,22 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
+/* Emojis får inte background-clip:text — annars blir de vita på mobil */
+.variant_blue .labelEmoji,
+.variant_pink .labelEmoji {
+  font-size: 1.12em;
+  line-height: 1;
+  -webkit-text-fill-color: currentColor;
+  color: #ffffff;
+  background: none;
+  background-image: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  animation: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
 @keyframes primaryTextGradientShift {
   0% {
     background-position: 0% 50%;
@@ -172,8 +209,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .variant_blue .label,
-  .variant_pink .label {
+  .variant_blue .labelText,
+  .variant_pink .labelText {
     animation: none;
     background-position: 50% 50%;
   }
@@ -189,8 +226,8 @@
     0 0 0 2px rgba(234, 179, 8, 0.92);
 }
 
-.variant_pink.selectedGold .label,
-.variant_blue.selectedGold .label {
+.variant_pink.selectedGold .labelText,
+.variant_blue.selectedGold .labelText {
   animation: none;
   background-image: none;
   background-size: auto;
@@ -202,6 +239,12 @@
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.55),
     0 0 12px rgba(234, 179, 8, 0.35);
+}
+
+.variant_pink.selectedGold .labelEmoji,
+.variant_blue.selectedGold .labelEmoji {
+  -webkit-text-fill-color: currentColor;
+  color: #f5e6a6;
 }
 
 .btn:focus-visible.variant_pink.selectedGold .inner,

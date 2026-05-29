@@ -5,5 +5,5 @@ import { beerCanBurkrustningBonusMaxHp, burkhjälmIIEffectiveBonusHpFrom } from 
 export function playerMaxHpFromBase(baseMaxHp: number, p: Player): number {
   const arm = p.equipment.armor?.bonusHp ?? 0;
   const helm = burkhjälmIIEffectiveBonusHpFrom(p.xp ?? 0, p.equipment.helmet);
-  return baseMaxHp + arm + helm + beerCanBurkrustningBonusMaxHp(p);
+  return baseMaxHp + arm + helm + beerCanBurkrustningBonusMaxHp(p) + (p.brewerHpBonus ?? 0);
 }

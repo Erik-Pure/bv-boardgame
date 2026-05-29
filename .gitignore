@@ -18,6 +18,7 @@ pnpm-debug.log*
 
 # OS & editors
 .DS_Store
+*.pkf
 .idea/
 .vscode/*
 !.vscode/extensions.json

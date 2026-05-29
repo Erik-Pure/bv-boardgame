@@ -8,6 +8,7 @@ import {
   getCardDefById,
   isPlayerOnBoard,
   prunePlayerEmoteBursts,
+  prunePlayerKlunkBursts,
   type GameState,
   type Player,
   type TileType,
@@ -17,7 +18,7 @@ import { FinalBossCombatBackdrop } from "../components/FinalBossCombatBackdrop";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
 import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
-import { isGameState } from "../lib/gameTypes";
+import { isGameState, mergeGameStateDelta } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import {
@@ -26,8 +27,28 @@ import {
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
   writeBoardPreventSleepEnabled,
+  writeBoardSfxEnabled,
   writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
+import { useTableSfxSync } from "../hooks/useTableSfxSync";
+
+type TablePendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
+
+/** Bräd-ljudeffekter — renderas efter deferTilePendingOverlays är beräknad. */
+function TableViewSfxSync(props: {
+  state: GameState | null;
+  sfxEnabled: boolean;
+  tableCardModalReady: boolean;
+  tableCardPendingKey: string | null;
+  pendingCard: TablePendingCard | null;
+  deferTilePendingOverlays: boolean;
+  tableCombatModalReady: boolean;
+  tableCombatSessionKey: string | null;
+  tableMonsterOutcomeSfxKey: string | null;
+}) {
+  useTableSfxSync(props);
+  return null;
+}
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
 import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { ArcadeButton } from "../components/ArcadeButton";
@@ -50,6 +71,7 @@ import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.cs
 import turnBannerStyles from "./turnBanner.module.css";
 import {
   finalBossCombatBackdropSessionKey,
+  isFinalBossSessionActive,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
   resolveCombatLossViewer,
@@ -89,6 +111,7 @@ import {
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
 import { readLobbyConfigDraft } from "../lib/lobbyConfigDraft";
+import { firstGrapheme } from "../lib/firstGrapheme";
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -507,6 +530,10 @@ function classifyTableToastMessage(message: string): TableToastCategory | null {
   const m = message.toLowerCase();
   /** Vaska (early_night): motorn loggar t.ex. "… spelar Vaska och skippar monstret." */
   if (m.includes("vaska") && (m.includes("skippar monstr") || m.includes("skippar monstret"))) {
+    return "vaska";
+  }
+  /** Mantel: undvik monsterstrid (−2 pant). */
+  if (m.includes("undviker batchmötet")) {
     return "vaska";
   }
   const isSip =
@@ -1012,11 +1039,7 @@ function TableViewBody() {
           setErr(null);
         }
         if (m.type === "stateDelta") {
-          setState((prev) => {
-            if (!prev || typeof m.patch !== "object" || m.patch == null) return prev;
-            const merged = { ...prev, ...(m.patch as Partial<GameState>) };
-            return isGameState(merged) ? merged : prev;
-          });
+          setState((prev) => mergeGameStateDelta(prev, m.patch));
           setErr(null);
         }
       },
@@ -1123,16 +1146,32 @@ function TableViewBody() {
       : null;
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
+  const tableMonsterOutcomeSfxKey = monsterResultHoldover
+    ? `${monsterResultHoldover.outcomeCard.cardId}:${monsterResultHoldover.outcomeCard.playerId}`
+    : null;
 
   const holdoverCombatMonsterId =
     monsterResultHoldover?.preAck.pending?.type === "combat"
       ? monsterResultHoldover.preAck.pending.monsterId
       : null;
 
-  const finalBossTableBackdropActive = useMemo(
-    () => shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId),
-    [state, holdoverCombatMonsterId],
-  );
+  /** Håll flammor kvar mellan kortsteg även om `pending` byter typ ett ögonblick. */
+  const bossTableBackdropLatchRef = useRef(false);
+  useEffect(() => {
+    if (!state || state.phase === "ended" || !isFinalBossSessionActive(state)) {
+      bossTableBackdropLatchRef.current = false;
+      return;
+    }
+    if (shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId)) {
+      bossTableBackdropLatchRef.current = true;
+    }
+  }, [state, holdoverCombatMonsterId]);
+
+  const finalBossTableBackdropActive = useMemo(() => {
+    if (!isFinalBossSessionActive(state)) return false;
+    if (shouldShowFinalBossCombatBackdrop(state, holdoverCombatMonsterId)) return true;
+    return bossTableBackdropLatchRef.current;
+  }, [state, holdoverCombatMonsterId]);
 
   /** Behåll samma videoinstans under hela striden (inkl. boss_round_win mellan rundor). */
   const tableBossBackdropSessionKey = useMemo(
@@ -1193,15 +1232,18 @@ function TableViewBody() {
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
   const boardPlayers = state?.players ?? [];
   const [emoteDisplayTick, setEmoteDisplayTick] = useState(0);
-  const hasActiveEmoteBursts = useMemo(() => {
+  const hasActiveTurnBannerBursts = useMemo(() => {
     const now = Date.now();
-    return prunePlayerEmoteBursts(state?.playerEmoteBursts ?? [], now).length > 0;
-  }, [state?.playerEmoteBursts, emoteDisplayTick]);
+    return (
+      prunePlayerEmoteBursts(state?.playerEmoteBursts ?? [], now).length > 0 ||
+      prunePlayerKlunkBursts(state?.playerKlunkBursts ?? [], now).length > 0
+    );
+  }, [state?.playerEmoteBursts, state?.playerKlunkBursts, emoteDisplayTick]);
   useEffect(() => {
-    if (!hasActiveEmoteBursts) return;
+    if (!hasActiveTurnBannerBursts) return;
     const id = window.setInterval(() => setEmoteDisplayTick((n) => n + 1), 200);
     return () => window.clearInterval(id);
-  }, [hasActiveEmoteBursts]);
+  }, [hasActiveTurnBannerBursts]);
   const turnBannerFanWrapRef = useRef<HTMLDivElement | null>(null);
   const turnBannerColorBarRef = useRef<HTMLDivElement | null>(null);
   const turnPlayersScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -1387,6 +1429,17 @@ function TableViewBody() {
 
   return (
     <div className={tableStyles.tableRoot}>
+      <TableViewSfxSync
+        state={state}
+        sfxEnabled={boardPerf.boardSfxEnabled}
+        tableCardModalReady={tableCardModalReady}
+        tableCardPendingKey={tableCardPendingKey}
+        pendingCard={pendingCard}
+        deferTilePendingOverlays={deferTilePendingOverlays}
+        tableCombatModalReady={tableCombatModalReady}
+        tableCombatSessionKey={tableCombatSessionKey}
+        tableMonsterOutcomeSfxKey={tableMonsterOutcomeSfxKey}
+      />
       <div className={tableStyles.headerBarWrap}>
         <header className={tableStyles.tableHeader}>
           <div className={tableStyles.headerLobbyRow}>
@@ -1615,7 +1668,7 @@ function TableViewBody() {
                               const off = offsets[idx] ?? { dx: 0, dy: -8 };
                               const cx = innerCx + off.dx;
                               const cy = innerCy + off.dy;
-                              const initial = (p.name?.trim()?.[0] ?? "?").toUpperCase();
+                              const initial = firstGrapheme(p.name);
                               const tw = PLAYER_MARKER_TOKEN_W;
                               const th = PLAYER_MARKER_TOKEN_H;
                               const anim = moveAnimByPlayer.get(p.id);
@@ -2275,6 +2328,7 @@ function TableViewBody() {
           <TurnBannerEmoteOverlay
             players={boardPlayers}
             emoteBursts={state?.playerEmoteBursts}
+            klunkBursts={state?.playerKlunkBursts}
             fanWrapRef={turnBannerFanWrapRef}
             colorBarRef={turnBannerColorBarRef}
             scrollerRef={turnPlayersScrollerRef}
@@ -2346,6 +2400,18 @@ function TableViewBody() {
                 aria-label={sv.table.wakeLockToggle}
               />
               <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={boardPerf.boardSfxEnabled}
+                onChange={(e) => {
+                  writeBoardSfxEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+                aria-label={sv.table.settingsBoardSfx}
+              />
+              <span>{sv.table.settingsBoardSfx}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input

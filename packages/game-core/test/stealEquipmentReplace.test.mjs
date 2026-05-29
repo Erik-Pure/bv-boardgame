@@ -37,7 +37,7 @@ function mkPlayer(p) {
     klunkar: 0,
     hp: 10,
     maxHp: 10,
-    xp: 0,
+    xp: p.xp ?? 0,
     equipment: p.equipment ?? {},
     inventory: p.inventory ?? [],
     nextMoveBonus: 0,
@@ -160,6 +160,45 @@ describe("steal equipment replace when thief slot occupied", () => {
     const v2 = decline.state.players.find((x) => x.id === "p2");
     assert.equal(t2?.equipment.weapon?.name, "Mitt vapen");
     assert.equal(v2?.equipment.weapon, undefined);
+  });
+
+  it("rigged_game accept steal does not end thief turn or grant XP", () => {
+    const rigged = createItemInstance("rigged_game", "inst_accept");
+    const thief = mkPlayer({
+      id: "p1",
+      name: "T",
+      isHost: true,
+      gold: 10,
+      xp: 50,
+      inventory: [rigged],
+      equipment: { weapon: { name: "Mitt vapen", power: 1 } },
+    });
+    const victim = mkPlayer({
+      id: "p2",
+      name: "V",
+      equipment: { weapon: { name: "Stulet vapen", power: 3 } },
+    });
+    const state = twoPlayerTurnState(thief, victim);
+
+    const r = applyAction(state, {
+      type: "useItem",
+      playerId: "p1",
+      instanceId: "inst_accept",
+      targetPlayerId: "p2",
+    });
+    assert.equal(r.error, undefined);
+    const accept = applyAction(r.state, {
+      type: "equipmentReplaceDecision",
+      playerId: "p1",
+      accept: true,
+    });
+    assert.equal(accept.error, undefined);
+    const t = accept.state.players.find((x) => x.id === "p1");
+    assert.ok(t);
+    assert.equal(t.xp, 50);
+    assert.equal(accept.state.currentTurnIndex, 0);
+    assert.equal(accept.state.offTurnPersonalPending, undefined);
+    assert.equal(t.equipment.weapon?.name, "Stulet vapen");
   });
 
   it("decline destroys stolen gear via escrow when pending loses incomingPiece", () => {

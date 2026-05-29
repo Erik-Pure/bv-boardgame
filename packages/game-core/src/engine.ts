@@ -39,8 +39,21 @@ import {
 import { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
+import {
+  applyBrewerPerkChoice,
+  normalizeBrewerPerkProgress,
+  finishBrewerPerkChoicePrompt,
+  recordBrewerLevelUpsAfterXp,
+  tryOpenBrewerPerkChoice,
+} from "./brewerPerk.js";
 import { grantKlunkWithXp } from "./klunkGrant.js";
 import { effectiveMerchantBuyPrice } from "./merchantBuyPrice.js";
+import {
+  combatItemToMerchantShopItem,
+  filterMerchantSellableCombatItems,
+  START_COMBAT_BUFF_ITEM_IDS,
+  START_COMBAT_DEBUFF_ITEM_IDS,
+} from "./merchantCombatItems.js";
 import { PLASTBACK_ACCESSORY_NAME, syncPlastbackEmptyBottleSynergy, TOM_FLASKA_WEAPON_NAME } from "./plastbackSynergy.js";
 import {
   flushPenaltySipQueue,
@@ -48,6 +61,7 @@ import {
   playerHasPendingSipNotice,
   pushPlayerNotice,
   pushSipNotice,
+  recordKlunkBurstForSipNoticeAck,
   weaponBoostPenaltySipNoticeBody,
 } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
@@ -161,6 +175,9 @@ function normalizeConfig(state: GameState): void {
   state.config.disabledCardIds = Array.from(
     new Set((state.config.disabledCardIds ?? []).filter((id) => typeof id === "string" && DRAWABLE_CARD_ID_SET.has(id))),
   );
+  for (const p of state.players) {
+    normalizeBrewerPerkProgress(p);
+  }
 }
 
 export function createEmptyLobby(roomCode: string): GameState {
@@ -186,6 +203,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     lastDiceRollerId: null,
     sipNotices: [],
     playerEmoteBursts: [],
+    playerKlunkBursts: [],
     combatEquipReplaceQueue: undefined,
   };
 }
@@ -266,7 +284,13 @@ const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "get_lucky",
 ]);
 
-const PVP_BEST_OF = 3;
+export const PVP_BEST_OF = 1;
+/** Max pant vinnaren kan ta från förloraren vid BvB-byte (choice `gold`). */
+export const PVP_LOOT_MAX_PANT = 10;
+
+export function pvpLootPantStealAmount(loserGold: number): number {
+  return Math.min(PVP_LOOT_MAX_PANT, Math.max(0, Math.floor(loserGold)));
+}
 const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "weak_beer",
   "light_beer",
@@ -482,10 +506,12 @@ export function canAscendByKlunkRequirement(_p: Player, _targetLevelIndex: numbe
   return false;
 }
 
-function grantXp(p: Player, amount: number): number {
+function grantXp(state: GameState, p: Player, amount: number): number {
   const add = Math.max(0, Math.floor(amount));
   if (add <= 0) return 0;
+  const xpBefore = p.xp;
   p.xp += add;
+  recordBrewerLevelUpsAfterXp(state, p, xpBefore);
   return add;
 }
 
@@ -817,25 +843,6 @@ function newItemInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
 }
 
-/** Föremål som ger +attack (eller motsv.) i strid / BvB-förberedelse — slumpas en per spelare vid spelstart. */
-const START_COMBAT_BUFF_ITEM_IDS: ItemId[] = [
-  "light_beer",
-  "folk_beer",
-  "double_hops",
-  "beer_bomb",
-  "beard_back",
-];
-
-/** Föremål som ger −attack (eller motsv.) mot motståndare / nästa strid — slumpas en per spelare vid spelstart. */
-const START_COMBAT_DEBUFF_ITEM_IDS: ItemId[] = [
-  "weak_beer",
-  "tripwire",
-  "hangover",
-  "monster_hype",
-  "yeast_sabotage",
-  "lengraddad",
-];
-
 function grantStartingCombatItemsForPlayer(state: GameState, player: Player, rng: () => number): void {
   const buffId = pick(rng, START_COMBAT_BUFF_ITEM_IDS);
   const debuffId = pick(rng, START_COMBAT_DEBUFF_ITEM_IDS);
@@ -898,7 +905,7 @@ function drainNextCombatEquipReplace(next: GameState): void {
   }
   const head = q[0]!;
   next.combatEquipReplaceQueue = q.length > 1 ? q.slice(1) : undefined;
-  next.pending = {
+  next.offTurnPersonalPending = {
     type: "equipmentReplaceOffer",
     playerId: head.playerId,
     slot: head.slot,
@@ -931,7 +938,7 @@ function grantRandomCombatReward(
       return { title: "Robothjälm" };
     }
   }
-  const equipmentRoll = rng() < 0.35;
+  const equipmentRoll = rng() < 0.45;
   if (equipmentRoll) {
     const equipRoll = tryGrantRandomEquipmentOrOffer(player, rng, state.config.maxHp);
     if (equipRoll?.kind === "equipped") {
@@ -1187,13 +1194,25 @@ function applyCombatLoss(
   let attackerBlockedDamage = 0;
 
   if (monsterId === "rabarbapappa" && dmgOut.redirected && next.players.length > 1) {
-    const others = next.players.filter((x) => x.id !== p.id);
-    const target = pick(rng, others);
-    redirectedTargetName = target.name;
-    const tb = target.hp;
-    const dmgTarget = computeMonsterDamage(monsterId, target, die, sipForMonster);
-    applyDamage({ state: next, player: target, amount: dmgTarget.damage, log });
-    log(next, `${p.name} slog 1 — Rabarbapappan missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
+    const others = next.players.filter((x) => x.id !== p.id && isPlayerActiveInMatch(x));
+    if (others.length > 0) {
+      const target = pick(rng, others);
+      redirectedTargetName = target.name;
+      const tb = target.hp;
+      const dmgTarget = computeMonsterDamage(monsterId, target, die, sipForMonster);
+      applyDamage({ state: next, player: target, amount: dmgTarget.damage, log });
+      log(next, `${p.name} slog 1 — Rabarbapappan missar och träffar ${target.name} i stället (HP ${tb} → ${target.hp}).`);
+    } else {
+      const attackerDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(p.id) ?? false;
+      const attackerDamage = attackerDamageDoubled ? dmgOut.damage * 2 : dmgOut.damage;
+      attackerRawDamage = Math.max(0, Math.floor(attackerDamage));
+      const attackerDamageResult = applyDamage({ state: next, player: p, amount: attackerDamage, isBossHit, log });
+      attackerBlockedDamage = attackerDamageResult.prevented;
+      if (attackerDamageDoubled) {
+        log(next, `${p.name} pressade med Get Lucky och tar dubbel HP-skada (${attackerDamage}).`);
+      }
+      log(next, `${p.name} slog 1 — Rabarbapappan missar men ingen annan aktiv spelare finns att träffa.`);
+    }
   } else {
     const attackerDamageDoubled = ctx.getLuckyRiskPlayerIds?.includes(p.id) ?? false;
     const attackerDamage = attackerDamageDoubled ? dmgOut.damage * 2 : dmgOut.damage;
@@ -1547,9 +1566,9 @@ function finalizeCombatAfterRollPreview(
         ? (MONSTERS.find((m) => m.id === (pending.monsterId as MonsterId))?.rewardXp ?? 0)
         : 0;
     const rewardXp = Math.max(0, Math.floor(pending.rewardXp ?? fallbackRewardXp));
-    grantXp(p, rewardXp);
+    grantXp(next, p, rewardXp);
     if (teamBattleRequired && assistMate) {
-      grantXp(assistMate, rewardXp);
+      grantXp(next, assistMate, rewardXp);
     }
     p.maxHp = maxHpFor(next, p);
     if (p.hp > p.maxHp) p.hp = p.maxHp;
@@ -1746,6 +1765,26 @@ function currentPlayer(state: GameState): Player | null {
   return state.players.find((p) => p.id === id) ?? null;
 }
 
+/** Nivå-upp / bryggarperk utanför tur ska inte blockera andra spelares handlingar. */
+function pendingBlocksPlayer(state: GameState, actingPlayerId: string): boolean {
+  const p = state.pending;
+  if (!p) return false;
+  if (
+    (p.type === "levelUpOffer" || p.type === "brewerPerkChoice") &&
+    p.playerId !== actingPlayerId
+  ) {
+    return false;
+  }
+  if (
+    p.type === "equipmentReplaceOffer" &&
+    p.fromCombatLoot === true &&
+    p.playerId !== actingPlayerId
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function canOfferLevelUp(state: GameState, p: Player): {
   targetLevelIndex: number;
   costs: { gold: number; sips: number };
@@ -1760,17 +1799,32 @@ function canOfferLevelUp(state: GameState, p: Player): {
   return { targetLevelIndex, costs };
 }
 
-function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance = false): boolean {
-  if (state.pending || state.phase !== "playing") return false;
+function maybeCreateLevelUpOffer(
+  state: GameState,
+  p: Player,
+  deferTurnAdvance = false,
+  offTurn = false,
+): boolean {
+  if (state.phase !== "playing") return false;
+  if (offTurn) {
+    if (state.offTurnPersonalPending) return false;
+  } else if (state.pending) {
+    return false;
+  }
   const offer = canOfferLevelUp(state, p);
   if (!offer) return false;
-  state.pending = {
-    type: "levelUpOffer",
+  const prompt = {
+    type: "levelUpOffer" as const,
     playerId: p.id,
     targetLevelIndex: offer.targetLevelIndex,
     costs: offer.costs,
     deferTurnAdvance,
   };
+  if (offTurn) {
+    state.offTurnPersonalPending = prompt;
+  } else {
+    state.pending = prompt;
+  }
   log(
     state,
     `${p.name} har nått bryggnivå ${brewerLevel(p)} och kan stiga till nivå ${offer.targetLevelIndex + 1}.`,
@@ -1779,15 +1833,34 @@ function maybeCreateLevelUpOffer(state: GameState, p: Player, deferTurnAdvance =
   return true;
 }
 
-/** Erbjud nivåval efter sista straffklunk-modalen om spelaren fortfarande är på tur. */
+/** Erbjud bryggbonus / nivåval efter stängd straffklunk-modal. */
+function tryPersonalPromptsAfterSipAck(state: GameState, playerId: string): void {
+  if (tryOpenBrewerPerkChoice(state, playerId, log, { offTurn: true })) return;
+  tryOfferLevelUpAfterSipAck(state, playerId);
+}
+
+/** Erbjud nivåval efter straffklunk (även utanför tur — turen har redan gått vidare). */
 function tryOfferLevelUpAfterSipAck(state: GameState, playerId: string): void {
-  if (state.pending || state.phase !== "playing") return;
+  if (state.phase !== "playing") return;
   if (playerHasPendingSipNotice(state, playerId)) return;
+  const turnId = state.turnOrder[state.currentTurnIndex];
+  const offTurn = turnId !== playerId;
+  if (offTurn) {
+    if (state.offTurnPersonalPending) return;
+  } else if (state.pending) {
+    return;
+  }
   const p = state.players.find((x) => x.id === playerId);
   if (!p || !canOfferLevelUp(state, p)) return;
-  const cp = currentPlayer(state);
-  if (!cp || cp.id !== playerId) return;
-  maybeCreateLevelUpOffer(state, p, true);
+  maybeCreateLevelUpOffer(state, p, false, offTurn);
+}
+
+/** Bryggbonus / nivåupp efter avslutad tur — blockerar inte nästa spelare (straffklunk köas separat). */
+function offerPostTurnPrompts(state: GameState, playerId: string): void {
+  if (tryOpenBrewerPerkChoice(state, playerId, log, { offTurn: true })) return;
+  if (playerHasPendingSipNotice(state, playerId)) return;
+  const p = state.players.find((x) => x.id === playerId);
+  if (p) maybeCreateLevelUpOffer(state, p, false, true);
 }
 
 function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
@@ -1799,9 +1872,8 @@ function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
     advanceTurn(state);
     return;
   }
-  if (playerHasPendingSipNotice(state, cp.id)) return;
-  if (maybeCreateLevelUpOffer(state, cp, true)) return;
   advanceTurn(state);
+  offerPostTurnPrompts(state, activePlayerId);
 }
 
 function cloneState(s: GameState): GameState {
@@ -1917,6 +1989,7 @@ export function startGame(
   next.lastDiceRollerId = null;
   next.sipNotices = [];
   next.playerEmoteBursts = [];
+  next.playerKlunkBursts = [];
   next.combatEquipReplaceQueue = undefined;
   clearTableItemPlay(next);
   log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
@@ -2029,7 +2102,10 @@ function merchantAdjustedPrice(item: ShopItem): number {
   return Math.max(1, Math.ceil(item.price * MERCHANT_PRICE_MULTIPLIER));
 }
 
-function rollMerchantItems(rng: () => number): ShopItem[] {
+export function rollMerchantItems(
+  rng: () => number,
+  disabledCardIds?: ReadonlySet<string>,
+): ShopItem[] {
   const items: ShopItem[] = [
     {
       id: "h",
@@ -2041,8 +2117,15 @@ function rollMerchantItems(rng: () => number): ShopItem[] {
   ];
   const catalog = [...EQUIPMENT_CATALOG];
   shuffleArrayInPlace(catalog, rng);
-  for (const it of catalog.slice(0, 3)) {
+  for (const it of catalog.slice(0, 2)) {
     const shopItem = catalogEquipmentToMerchantShopItem(it, it.id);
+    items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem) });
+  }
+  const combatPool = filterMerchantSellableCombatItems(disabledCardIds);
+  if (combatPool.length > 0) {
+    items.push(combatItemToMerchantShopItem(pick(rng, combatPool)));
+  } else if (catalog[2]) {
+    const shopItem = catalogEquipmentToMerchantShopItem(catalog[2], catalog[2].id);
     items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem) });
   }
   shuffleArrayInPlace(items, rng);
@@ -2053,8 +2136,7 @@ function findOpponentsOnTile(state: GameState, mover: Player): Player[] {
   const others = state.players.filter(
     (p) =>
       p.id !== mover.id &&
-      !p.eliminated &&
-      !p.leftVoluntarily &&
+      isPlayerActiveInMatch(p) &&
       p.levelIndex === mover.levelIndex &&
       p.tileIndex === mover.tileIndex,
   );
@@ -2247,9 +2329,10 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       return;
     }
     case "merchant": {
+      const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
       state.pending = {
         type: "merchant",
-        items: rollMerchantItems(rng),
+        items: rollMerchantItems(rng, disabledCardIds),
         playerId: p.id,
       };
       log(state, `${p.name} kommer till Panta burkar.`);
@@ -2370,17 +2453,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const list = next.sipNotices ?? [];
     const idx = list.findIndex((n) => n.recipientId === action.playerId);
     if (idx < 0) return { state, events: [], error: "Ingen straffklunk att stänga" };
+    const dismissed = list[idx]!;
+    recordKlunkBurstForSipNoticeAck(next, dismissed);
     next.sipNotices = [...list.slice(0, idx), ...list.slice(idx + 1)];
-    tryOfferLevelUpAfterSipAck(next, action.playerId);
-    if (!next.pending && next.phase === "playing") {
-      const cpAfterSip = currentPlayer(next);
-      if (
-        cpAfterSip?.id === action.playerId &&
-        !playerHasPendingSipNotice(next, action.playerId)
-      ) {
-        endTurnOrOfferLevelUp(next, action.playerId);
-      }
-    }
+    tryPersonalPromptsAfterSipAck(next, action.playerId);
     return { state: next, events: ["state"] };
   }
 
@@ -4309,11 +4385,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const previewBroDie = assistRollObj?.die ?? null;
     const pr = prBase + (assistRoll ?? 0);
     const need = pending.need + (pending.needMod ?? 0);
-    const attackerIgnoresCritFailOnOne = roller.equipment.accessory?.ignoreCombatCritFailOnOne === true;
-    const broIgnoresCritFailOnOne =
-      assistId != null
-        ? (next.players.find((x) => x.id === assistId)?.equipment.accessory?.ignoreCombatCritFailOnOne ?? false)
-        : false;
+    const attackerPl = next.players.find((x) => x.id === pending.attackerId);
+    const assistPl = assistId != null ? next.players.find((x) => x.id === assistId) : undefined;
+    const attackerIgnoresCritFailOnOne =
+      attackerPl?.equipment.accessory?.ignoreCombatCritFailOnOne === true;
+    const broIgnoresCritFailOnOne = assistPl?.equipment.accessory?.ignoreCombatCritFailOnOne === true;
     const critFailOnOne = combatCritFailFromDice(
       assistId,
       attackerRoll.die,
@@ -4523,6 +4599,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
     flushPenaltySipQueue(next, pending.queuedPenaltySipNotices);
+    const winnerId = pending.playerId;
     const replaceOffer = pending.equipmentReplaceOffer;
     const handled = handleCardConfirm({ state: next, pending, rng, log });
     if (handled.handled) {
@@ -4539,7 +4616,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (!next.pending && next.phase === "playing") {
         queueFirstBrewerDownIfNeeded(next);
-        if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
+        if (!next.pending) endTurnOrOfferLevelUp(next, winnerId);
       }
       return { state: next, events: ["state"] };
     }
@@ -4547,7 +4624,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (replaceOffer && next.phase === "playing") {
       next.pending = {
         type: "equipmentReplaceOffer",
-        playerId: pending.playerId,
+        playerId: winnerId,
         slot: replaceOffer.slot,
         catalogId: replaceOffer.catalogId,
         newName: replaceOffer.newName,
@@ -4557,7 +4634,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     drainNextCombatEquipReplace(next);
     if (next.phase === "playing") {
       queueFirstBrewerDownIfNeeded(next);
-      if (!next.pending) endTurnOrOfferLevelUp(next, pending.playerId);
+      const combatLootOffTurn =
+        next.offTurnPersonalPending?.type === "equipmentReplaceOffer" &&
+        next.offTurnPersonalPending.fromCombatLoot === true;
+      if (combatLootOffTurn || !next.pending) {
+        endTurnOrOfferLevelUp(next, winnerId);
+      }
     }
     return { state: next, events: ["state"] };
   }
@@ -4650,10 +4732,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state: next, events: ["state"] };
     }
 
-    if (next.pending?.type !== "equipmentReplaceOffer") {
+    const erFromOffTurn =
+      next.offTurnPersonalPending?.type === "equipmentReplaceOffer"
+        ? next.offTurnPersonalPending
+        : null;
+    const erPending =
+      next.pending?.type === "equipmentReplaceOffer" ? next.pending : erFromOffTurn;
+    if (!erPending) {
       return { state, events: [], error: "Inget aktivt bytesval" };
     }
-    const erPending = next.pending;
     if (action.playerId !== erPending.playerId) {
       return { state, events: [], error: "Inte ditt val" };
     }
@@ -4683,11 +4770,23 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     } else {
       log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
     }
-    next.pending = null;
+    if (erFromOffTurn) {
+      next.offTurnPersonalPending = null;
+    } else {
+      next.pending = null;
+    }
     drainNextCombatEquipReplace(next);
     if (next.phase === "playing") {
       queueFirstBrewerDownIfNeeded(next);
-      if (!next.pending) endTurnOrOfferLevelUp(next, turnPid);
+      const riggedTheftReplace =
+        lootOffer && !erPending.fromPvpLoot && !erPending.fromCombatLoot;
+      if (!next.pending && !riggedTheftReplace) {
+        if (erPending.fromCombatLoot) {
+          offerPostTurnPrompts(next, turnPid);
+        } else {
+          endTurnOrOfferLevelUp(next, turnPid);
+        }
+      }
     }
     return { state: next, events: ["state"] };
   }
@@ -4985,6 +5084,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     } else if (item.slot === "heal") {
       p.inventory ??= [];
       p.inventory.push(createItemInstance("healing_potion", newItemInstanceId(rng)));
+    } else if (item.slot === "inventory" && item.inventoryItemId) {
+      p.inventory ??= [];
+      p.inventory.push(createItemInstance(item.inventoryItemId, newItemInstanceId(rng)));
     } else if (item.slot === "gold") {
       p.gold += item.goldAmount ?? 0;
     }
@@ -4999,8 +5101,16 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state, events: [], error: "Nivå-rutor är avstängda. Nivå upp sker via särskilda kort/händelser." };
   }
 
-  if (action.type === "levelUpDecision" && next.pending?.type === "levelUpOffer") {
-    const pending = next.pending;
+  if (action.type === "levelUpDecision") {
+    const pending =
+      next.pending?.type === "levelUpOffer"
+        ? next.pending
+        : next.offTurnPersonalPending?.type === "levelUpOffer"
+          ? next.offTurnPersonalPending
+          : null;
+    if (!pending) {
+      return { state, events: [], error: "Ogiltig handling" };
+    }
     if (action.playerId !== pending.playerId) {
       return { state, events: [], error: "Inte du som väljer nivåuppstigning" };
     }
@@ -5008,8 +5118,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!p) return { state, events: [], error: "Player not found" };
     if (action.choice === "stay") {
       log(next, `${p.name} stannar kvar på sin nuvarande våning.`);
-      next.pending = null;
-      if (pending.deferTurnAdvance) advanceTurn(next);
+      if (next.pending?.type === "levelUpOffer" && next.pending.playerId === p.id) {
+        next.pending = null;
+      }
+      if (next.offTurnPersonalPending?.type === "levelUpOffer" && next.offTurnPersonalPending.playerId === p.id) {
+        next.offTurnPersonalPending = null;
+      }
       return { state: next, events: ["state"] };
     }
     p.levelIndex = pending.targetLevelIndex;
@@ -5019,8 +5133,56 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       `${p.name} stiger till nivå ${p.levelIndex + 1}.`,
     );
     logMonsterScaleAfterAscend(next, p);
-    next.pending = null;
-    advanceTurn(next);
+    if (next.pending?.type === "levelUpOffer" && next.pending.playerId === p.id) {
+      next.pending = null;
+    }
+    if (next.offTurnPersonalPending?.type === "levelUpOffer" && next.offTurnPersonalPending.playerId === p.id) {
+      next.offTurnPersonalPending = null;
+    }
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "brewerPerkDecision") {
+    const pending =
+      next.pending?.type === "brewerPerkChoice"
+        ? next.pending
+        : next.offTurnPersonalPending?.type === "brewerPerkChoice"
+          ? next.offTurnPersonalPending
+          : null;
+    if (!pending) {
+      return { state, events: [], error: "Ogiltig handling" };
+    }
+    if (action.playerId !== pending.playerId) {
+      return { state, events: [], error: "Inte du som väljer bryggbonus" };
+    }
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    applyBrewerPerkChoice(p, action.choice, next.config.maxHp);
+    syncDynamicMaxHp(next);
+    const label =
+      action.choice === "attack"
+        ? "+1 styrka"
+        : action.choice === "shield"
+          ? "+1 sköld"
+          : "+2 HP";
+    log(next, `${p.name} väljer ${label} (bryggnivå).`);
+    const remaining = p.pendingBrewerPerkLevels ?? 0;
+    const nextPrompt = { type: "brewerPerkChoice" as const, playerId: p.id, levelsRemaining: remaining };
+    const inOffTurnSlot =
+      next.offTurnPersonalPending?.type === "brewerPerkChoice" &&
+      next.offTurnPersonalPending.playerId === p.id;
+    if (remaining > 0) {
+      if (inOffTurnSlot) {
+        next.offTurnPersonalPending = nextPrompt;
+      } else {
+        next.pending = nextPrompt;
+      }
+      return { state: next, events: ["state"] };
+    }
+    const restoredDeferred = finishBrewerPerkChoicePrompt(next, p.id);
+    if (!restoredDeferred) {
+      offerPostTurnPrompts(next, p.id);
+    }
     return { state: next, events: ["state"] };
   }
 
@@ -5036,7 +5198,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const theftBlocked = loser.equipment.accessory?.preventTheft === true;
     let deferredEquipReplace: Extract<Pending, { type: "equipmentReplaceOffer" }> | null = null;
     if (action.choice === "gold") {
-      const steal = Math.min(5, loser.gold);
+      const steal = pvpLootPantStealAmount(loser.gold);
       loser.gold -= steal;
       winner.gold += steal;
       log(next, `${winner.name} tar ${steal} pant från ${loser.name}.`);
@@ -5096,6 +5258,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
             newName: piece.name ?? String(slot),
             incomingPiece: incomingClone,
             returnVictimId: loser.id,
+            fromPvpLoot: true,
           };
           log(
             next,
@@ -5148,7 +5311,31 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     return { state: next, events: ["state"] };
   }
 
-  if (next.pending) {
+  if (action.type === "chooseMerchant") {
+    if (pendingBlocksPlayer(next, cp.id)) {
+      return { state, events: [], error: "Avsluta nuvarande val först" };
+    }
+    if (action.playerId !== cp.id) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    if (cp.eliminated || cp.hp <= 0) {
+      return { state, events: [], error: "Ingen HP kvar — välj på stupad bryggare-kortet först" };
+    }
+    if (cp.gold < 5) {
+      return { state, events: [], error: "Du behöver minst 5 pant för att panta burkar" };
+    }
+    clearTableItemPlay(next);
+    log(next, `${cp.name} väljer att panta burkar i stället för att slå rörelsetärningen.`);
+    const disabledCardIds = new Set(next.config.disabledCardIds ?? []);
+    next.pending = {
+      type: "merchant",
+      items: rollMerchantItems(rng, disabledCardIds),
+      playerId: cp.id,
+    };
+    return { state: next, events: ["state"] };
+  }
+
+  if (pendingBlocksPlayer(next, cp.id)) {
     return { state, events: [], error: "Avsluta nuvarande val först" };
   }
 
@@ -5212,6 +5399,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
 function queueFirstBrewerDownIfNeeded(state: GameState): void {
   if (state.pending) return;
+  if (state.offTurnPersonalPending) return;
   if (endGameIfSingleBrewerAlive(state)) return;
   const victim = state.players.find((pl) => pl.hp <= 0 && !pl.eliminated);
   if (!victim) return;
@@ -5245,10 +5433,10 @@ function removePlayerFromTurnOrderAfterElimination(state: GameState, removedId: 
 
 function endGameIfSingleBrewerAlive(state: GameState): boolean {
   if (state.phase !== "playing") return false;
-  /** Matchen avgörs av "ge upp" (eliminated), inte tillfällig HP 0 före stupad-bryggare-valet. */
-  const remaining = state.players.filter((p) => !p.eliminated && !p.leftVoluntarily);
-  if (remaining.length === 1) {
-    const winner = remaining[0]!;
+  /** Matchen avgörs av aktiva spelare (HP > 0, inte eliminerad). 0 HP väntar stupad-bryggare. */
+  const active = state.players.filter((p) => isPlayerActiveInMatch(p));
+  if (active.length === 1) {
+    const winner = active[0]!;
     state.phase = "ended";
     discardStolenEquipmentEscrow(state);
     state.pending = null;
@@ -5257,7 +5445,11 @@ function endGameIfSingleBrewerAlive(state: GameState): boolean {
     log(state, `🏆 ${winner.name} är sista bryggaren kvar i spelet och vinner!`);
     return true;
   }
-  if (remaining.length === 0) {
+  if (active.length === 0) {
+    const awaitingBrewerDown = state.players.some(
+      (p) => !p.eliminated && !p.leftVoluntarily && p.hp <= 0,
+    );
+    if (awaitingBrewerDown) return false;
     state.phase = "ended";
     discardStolenEquipmentEscrow(state);
     state.pending = null;

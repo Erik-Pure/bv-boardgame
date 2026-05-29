@@ -39,7 +39,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
   const awaiting = pending?.phase === "awaitingRolls";
   const roundReveal = pending?.phase === "roundReveal";
   const preRound = pending?.phase === "preRoundItems";
-  const bestOf = pending?.bestOf ?? 3;
+  const bestOf = pending?.bestOf ?? 1;
   const wins = pending?.wins ?? { attacker: 0, defender: 0 };
   const tieRound = !!rt && rt.attackerTotal === rt.defenderTotal;
   const revealKey =

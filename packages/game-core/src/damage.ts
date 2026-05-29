@@ -9,18 +9,27 @@ import {
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import { recordHpLost } from "./sessionStats.js";
 
+/** Summa sköld/skadersläckning från utrustning (kan vara negativ — ökar då tagen skada). */
 export function equipmentDamageNegate(p: Player): number {
   const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
   const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
-  return Math.max(
-    0,
+  return (
     armorDamageNegateExcludingBeerCanSet(p) +
-      helmetDamageNegateExcludingBeerCanSet(p) +
-      accessoryDamageNegateExcludingBeerCanSet(p) +
-      beerCanTrioDamageNegate(p) +
-      armorBossExtra +
-      helmetBossExtra,
+    helmetDamageNegateExcludingBeerCanSet(p) +
+    accessoryDamageNegateExcludingBeerCanSet(p) +
+    beerCanTrioDamageNegate(p) +
+    armorBossExtra +
+    helmetBossExtra +
+    (p.brewerShieldBonus ?? 0)
   );
+}
+
+function equipmentDamageNegateForHit(p: Player, isBossHit: boolean): number {
+  const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
+  const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
+  return isBossHit
+    ? equipmentDamageNegate(p)
+    : equipmentDamageNegate(p) - armorBossExtra - helmetBossExtra;
 }
 
 export function hasNegateAllOnce(p: Player): boolean {
@@ -57,11 +66,7 @@ export function previewHpAfterFlatDamage(params: {
     return { hpAfter: p.hp, blockedByNegateAllOnce: true };
   }
 
-  const armorBossExtra = p.equipment.armor?.bossDamageNegateBonus ?? 0;
-  const helmetBossExtra = p.equipment.helmet?.bossDamageNegateBonus ?? 0;
-  const prevent = isBossHit
-    ? equipmentDamageNegate(p)
-    : Math.max(0, equipmentDamageNegate(p) - armorBossExtra - helmetBossExtra);
+  const prevent = equipmentDamageNegateForHit(p, isBossHit === true);
   const final = Math.max(0, dmg - prevent);
   return { hpAfter: Math.max(0, p.hp - final), blockedByNegateAllOnce: false };
 }
@@ -83,14 +88,7 @@ export function applyDamage(params: {
     return { applied: 0, prevented: dmg };
   }
 
-  const prevent = params.isBossHit
-    ? equipmentDamageNegate(p)
-    : Math.max(
-        0,
-        equipmentDamageNegate(p) -
-          (p.equipment.armor?.bossDamageNegateBonus ?? 0) -
-          (p.equipment.helmet?.bossDamageNegateBonus ?? 0),
-      );
+  const prevent = equipmentDamageNegateForHit(p, params.isBossHit === true);
   const final = Math.max(0, dmg - prevent);
 
   const before = p.hp;

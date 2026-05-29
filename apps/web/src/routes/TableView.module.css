@@ -1422,6 +1422,11 @@
   white-space: pre-wrap;
   line-height: 1.45;
   font-size: 15px;
+  /* Motverkar #root { text-align: center } — tärningsutfallslistor ska vara vänsterställda */
+  text-align: left;
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 .eventCardHint {

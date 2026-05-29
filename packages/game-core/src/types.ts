@@ -182,7 +182,9 @@ export interface LevelBoard {
 
 export interface ShopItem {
   id: string;
-  slot: EquipmentSlot | "heal" | "gold";
+  slot: EquipmentSlot | "heal" | "gold" | "inventory";
+  /** Vid `slot: "inventory"` — föremål som läggs i spelarens förråd vid köp. */
+  inventoryItemId?: ItemId;
   name: string;
   price: number;
   /** vapen */
@@ -352,6 +354,8 @@ export type Pending =
       returnVictimId?: string;
       /** Stridsloot-kö: mottagaren får välja byte även när det inte är deras tur. */
       fromCombatLoot?: boolean;
+      /** BvB-byte efter duell — avslutar tur / post-turn-prompts när bytesvalet är klart. */
+      fromPvpLoot?: boolean;
     }
   | {
       type: "encounterChoice";
@@ -416,6 +420,12 @@ export type Pending =
       costs: { gold: number; sips: number };
       /** True om prompten triggas precis när turen annars skulle gått vidare. */
       deferTurnAdvance?: boolean;
+    }
+  | {
+      type: "brewerPerkChoice";
+      playerId: string;
+      /** Antal kvarvarande perk-val denna gång (flera nivåer i ett svep). */
+      levelsRemaining: number;
     }
   | {
       type: "brewerDown";
@@ -582,6 +592,16 @@ export interface Player {
   nextForcedDieFace?: 1 | 2 | 3 | 4 | 5 | 6;
   /** Tillfällig modifierare på nästa stridsslag för spelaren. */
   nextCombatModifier: number;
+  /** Permanent +attack från bryggnivåperk. */
+  brewerAttackBonus?: number;
+  /** Permanent sköld (skademinskning) från bryggnivåperk. */
+  brewerShieldBonus?: number;
+  /** Extra max-HP från bryggnivåperk (+2 per val). */
+  brewerHpBonus?: number;
+  /** Antal bryggnivåer där perk redan valts (undviker retroaktiva val). */
+  brewerPerkLevelsClaimed?: number;
+  /** Bryggnivåer som väntar på perk-val (när annan pending blockerar). */
+  pendingBrewerPerkLevels?: number;
   skippedTurns: number;
   /** FIFO med orsak till varje köad hopptur (sömn = normal, skakad öl-förlust = oil). */
   skipTurnReasons?: ("normal" | "oil")[];
@@ -618,6 +638,13 @@ export interface PlayerEmoteBurst {
   playerId: string;
   emoteId: EmoteId;
   at: number;
+}
+
+/** Straffklunk på bräd-tv (samma ballong som emotes över spelarnamnet). */
+export interface PlayerKlunkBurst {
+  playerId: string;
+  at: number;
+  klunkCount?: number;
 }
 
 export type SipNoticeKind = "custom" | "duel_loss" | "toast";
@@ -662,6 +689,12 @@ export interface CombatReactionItemPlay extends TableItemPlaySidePayload {
   targetPlayerId?: string;
 }
 
+/** Nivå-upp / bryggarperk / stridsloot-bytesval utanför tur — parallellt med nästa spelares `pending`. */
+export type OffTurnPersonalPending =
+  | Extract<Pending, { type: "levelUpOffer" }>
+  | Extract<Pending, { type: "brewerPerkChoice" }>
+  | Extract<Pending, { type: "equipmentReplaceOffer" }>;
+
 export interface GameState {
   phase: "lobby" | "playing" | "ended";
   seed: number;
@@ -673,6 +706,10 @@ export interface GameState {
   currentTurnIndex: number;
   levels: LevelBoard[];
   pending: Pending | null;
+  /** Pausad `pending` medan spelaren väljer bryggbonus (återställs efter `brewerPerkDecision`). */
+  deferredPending?: Pending | null;
+  /** Personliga val för spelare vars tur redan gått vidare (nivå-upp / bryggbonus). */
+  offTurnPersonalPending?: OffTurnPersonalPending | null;
   log: LogEntry[];
   /** Monotont räknare per loggrad; används till RNG (log kapas vid 200 rader). */
   logSeq?: number;
@@ -701,6 +738,8 @@ export interface GameState {
   tableItemPlayReveals?: TableItemPlayReveal[];
   /** Senaste emotes för turbanner (ballonger); rensas efter EMOTE_DISPLAY_MS. */
   playerEmoteBursts?: PlayerEmoteBurst[];
+  /** Senaste straffklunkar för turbanner; rensas efter KLUNK_BURST_DISPLAY_MS. */
+  playerKlunkBursts?: PlayerKlunkBurst[];
   /**
    * Stridsloot: byte-erbjudanden efter combat_win (alla mottagare), töms via equipmentReplaceDecision.
    */
@@ -742,6 +781,7 @@ export type ClientAction =
     }
   | { type: "rollMove"; playerId: string }
   | { type: "chooseMove"; playerId: string; dir: "cw" | "ccw" }
+  | { type: "chooseMerchant"; playerId: string }
   | { type: "chooseEncounter"; playerId: string; choice: "pvp" | "tile" }
   | { type: "choosePvpOpponent"; playerId: string; opponentId: string }
   | { type: "pvpRoundReady"; playerId: string; ready: boolean }
@@ -752,6 +792,7 @@ export type ClientAction =
   | { type: "merchantBuy"; playerId: string; itemId: string | null }
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
+  | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
   /** Valt innan `combatRoll` när vapnet har `sipAttackBonus` (mobil tvåsteg + bord). */

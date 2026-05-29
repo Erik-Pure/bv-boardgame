@@ -87,6 +87,11 @@ export function equipmentCatalogByEquippedName(name: string | undefined) {
   return undefined;
 }
 
+export function equipmentCatalogById(catalogId: string | undefined) {
+  if (!catalogId) return undefined;
+  return EQUIPMENT_CATALOG.find((e) => e.id === catalogId);
+}
+
 export function equipmentInventoryEffectBadges(
   piece?: Player["equipment"][EquipmentSlot],
   playerGold?: number,
@@ -295,6 +300,18 @@ export function itemInventoryEffectBadge(
   return m[String(itemId)] ?? null;
 }
 
+/** Effektrad i Panta burkar för köpta stridsföremål (samma attack-texter som förrådsbrickor). */
+export function formatInventoryItemShopEffectSummary(itemId: string): string {
+  const badge = itemInventoryEffectBadge(itemId);
+  if (!badge) return "—";
+  if (badge.icon === "attack") return `Attack ${badge.label}`;
+  if (badge.icon === "heart") {
+    const n = badge.label.replace(/^\+/, "");
+    return `+${n} HP`;
+  }
+  return badge.label;
+}
+
 /** Samma fält som vid köp/equip — för förhandsvisning av effektbrickor (katalog m.m.). */
 export function shopItemToEquipmentPreviewPiece(
   item: ShopItem & { slot: EquipmentSlot },
@@ -369,4 +386,152 @@ export function shopItemToEquipmentPreviewPiece(
 export function equipmentShopCatalogBadges(item: EquipmentShopItem): EffectBadgeData[] {
   const piece = shopItemToEquipmentPreviewPiece(item);
   return equipmentInventoryEffectBadges(piece, item.slot === "weapon" ? 0 : undefined, 0, undefined);
+}
+
+function pushShopBadge(badges: EffectBadgeData[], seen: Set<string>, b: EffectBadgeData) {
+  const k = `${b.icon}:${b.label}:${b.labelTone ?? ""}:${b.iconAfter ?? ""}`;
+  if (seen.has(k)) return;
+  seen.add(k);
+  badges.push(b);
+}
+
+/** Ikoner för Panta burkar — samma uppsättning som inventariet där det går. */
+export function shopItemEffectBadges(it: ShopItem): EffectBadgeData[] {
+  const badges: EffectBadgeData[] = [];
+  const seen = new Set<string>();
+
+  if (it.slot === "heal") {
+    pushShopBadge(badges, seen, { icon: "heart", label: `+${it.healAmount ?? 4}` });
+    return badges;
+  }
+  if (it.slot === "gold" && typeof it.goldAmount === "number") {
+    pushShopBadge(badges, seen, { icon: "pant", label: `+${it.goldAmount}` });
+    return badges;
+  }
+  if (it.slot === "inventory" && it.inventoryItemId) {
+    const b = itemInventoryEffectBadge(it.inventoryItemId, null);
+    if (b) pushShopBadge(badges, seen, b);
+    return badges;
+  }
+
+  if (it.slot !== "weapon" && it.slot !== "armor" && it.slot !== "helmet" && it.slot !== "accessory") {
+    return badges;
+  }
+
+  const eq = it as EquipmentShopItem;
+  for (const b of equipmentShopCatalogBadges(eq)) {
+    pushShopBadge(badges, seen, b);
+  }
+
+  const beerSetPieceIds = new Set(["ea_can_armor", "eh_beer_cap_helm_1", "ex_buckler"]);
+  if (beerSetPieceIds.has(it.id)) {
+    if (it.id === "ea_can_armor") pushShopBadge(badges, seen, { icon: "heart", label: "2·4·10" });
+    else if (it.id === "eh_beer_cap_helm_1") pushShopBadge(badges, seen, { icon: "attack", label: "1·2·3" });
+    else pushShopBadge(badges, seen, { icon: "armor", label: "1·2·3" });
+  }
+
+  if (typeof it.powerAtGold30 === "number") {
+    const base = typeof it.power === "number" ? it.power : 1;
+    const max = it.powerDynamicMax ?? it.powerAtGold30;
+    if (max > base) pushShopBadge(badges, seen, { icon: "attack", label: `${base}→${max}` });
+  }
+
+  if (typeof it.gainGoldOnWin === "number" && it.gainGoldOnWin > 0) {
+    pushShopBadge(badges, seen, { icon: "pant", label: `+${it.gainGoldOnWin}` });
+  }
+  if (typeof it.gainGoldPerCombat === "number" && it.gainGoldPerCombat > 0) {
+    pushShopBadge(badges, seen, { icon: "monster", label: `+${it.gainGoldPerCombat}` });
+  }
+  if (
+    typeof it.randomOtherDamageOnWin === "number" &&
+    it.randomOtherDamageOnWin > 0
+  ) {
+    pushShopBadge(badges, seen, {
+      icon: "attack",
+      label: `−${it.randomOtherDamageOnWin}`,
+      labelTone: "danger",
+    });
+  }
+  if (it.breakOnWin) {
+    const winsLeft =
+      eq.slot === "weapon" && typeof eq.breakWinsRemaining === "number" ? eq.breakWinsRemaining : 0;
+    if (winsLeft <= 0) pushShopBadge(badges, seen, { icon: "attack", label: "1×" });
+  }
+  if (typeof it.sipAttackBonus === "number" && it.sipAttackBonus > 0) {
+    const basePow = typeof it.power === "number" ? it.power : 1;
+    const tot = basePow + it.sipAttackBonus;
+    const kl = Math.max(0, Math.floor(it.sipWeaponBonusKlunks ?? 0));
+    pushShopBadge(badges, seen, { icon: "monster", label: `+${tot}` });
+    if (kl > 0) {
+      pushShopBadge(badges, seen, { icon: "klunk", label: String(kl), labelTone: "danger" });
+    } else {
+      const cost =
+        typeof it.sipWeaponBonusGoldCost === "number"
+          ? Math.max(0, Math.floor(it.sipWeaponBonusGoldCost))
+          : it.name === "Dubbelpipa"
+            ? 4
+            : it.name === "Enkelpipa"
+              ? 2
+              : 0;
+      if (cost > 0) {
+        pushShopBadge(badges, seen, {
+          icon: "pant",
+          label: `-${cost}`,
+          labelTone: "danger",
+          iconAfter: true,
+        });
+      }
+    }
+  }
+  if (typeof it.klunkAttackBonus10 === "number") {
+    const p20 = typeof it.klunkAttackBonus20 === "number" ? it.klunkAttackBonus20 : 0;
+    const pMax =
+      typeof it.klunkAttackBonusMax === "number" ? it.klunkAttackBonusMax : Math.max(p20, it.klunkAttackBonus10);
+    pushShopBadge(badges, seen, {
+      icon: "klunk",
+      label: `${it.klunkAttackBonus10}·${p20}·${pMax}`,
+    });
+    pushShopBadge(badges, seen, { icon: "attack", label: `+${pMax}` });
+  }
+  if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {
+    pushShopBadge(badges, seen, { icon: "armor", label: `+${it.bossDamageNegateBonus}` });
+  }
+  if (typeof it.levelUpDiscountGold === "number" && it.levelUpDiscountGold > 0) {
+    pushShopBadge(badges, seen, { icon: "pant", label: `−${it.levelUpDiscountGold}` });
+  }
+  if (typeof it.gainGoldOnDamageTaken === "number" && it.gainGoldOnDamageTaken > 0) {
+    pushShopBadge(badges, seen, { icon: "pant", label: `+${it.gainGoldOnDamageTaken}` });
+  }
+  if (it.canSkipMonsterEncounter) {
+    pushShopBadge(badges, seen, { icon: "monster", label: "skip" });
+  }
+  if (it.ignoreCombatCritFailOnOne) {
+    pushShopBadge(badges, seen, { icon: "attack", label: "≠1" });
+  }
+  if (typeof it.deathContinueCost === "number" && it.deathContinueCost > 0) {
+    pushShopBadge(badges, seen, {
+      icon: "pant",
+      label: String(it.deathContinueCost),
+      labelTone: "danger",
+      iconAfter: true,
+    });
+    pushShopBadge(badges, seen, { icon: "heart", label: "↺" });
+  }
+  if (it.preventTheft) {
+    pushShopBadge(badges, seen, { icon: "bvb", label: "ST" });
+  }
+  if (typeof it.moveBonus === "number" && it.moveBonus > 0) {
+    pushShopBadge(badges, seen, { icon: "level", label: `+${it.moveBonus}` });
+  }
+  if (it.pvpCannotBeChallenged) {
+    pushShopBadge(badges, seen, { icon: "bvb", label: "PvB" });
+  }
+
+  return badges;
+}
+
+/** Kort text under ikonerna när effekten saknar egen bricka. */
+export function shopItemEffectSupplementText(it: ShopItem): string | undefined {
+  if (it.id === "ex_plastback") return "Tom flaska: 6 strider";
+  return undefined;
 }
