@@ -1,8 +1,16 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { brewerLevel, type GameState, type Player } from "@bv/game-core";
+import { eventCardDiceSfxKey } from "../lib/eventCardDice";
+import { tableItemPlayUsesDieRollSfx } from "../lib/tableItemPlaySfx";
 import { clearTableSfxQueue, playTableSfx } from "../lib/tableSfx";
 
 type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
+
+/** Kortmodal med flip på brädet — vila, händelse, skatt (ej tom gömma). */
+function tableCardUsesCardFlipSfx(card: PendingCard): boolean {
+  if (card.kind === "rest" || card.kind === "event") return true;
+  return card.kind === "treasure" && card.cardId !== "treasure_empty";
+}
 
 function brewerDisplayLevel(player: Player): number {
   return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
@@ -39,27 +47,30 @@ function lastCombatReactionPlaySeq(state: GameState): number | null {
   return plays[plays.length - 1]!.playSeq;
 }
 
-/** Nytt föremål i state — spela ljud om seq ökat (inte vid första sync). */
+function itemPlayTargetsOtherPlayer(actorId: string, targetPlayerId?: string): boolean {
+  return !!targetPlayerId && targetPlayerId !== actorId;
+}
+
+/** Nytt föremål i state — spela ljud när seq ökar (prev null/-1 = inga spelade än). */
 function syncItemPlaySeq(
   curr: number | null,
   prevRef: MutableRefObject<number | null>,
   sfxEnabled: boolean,
+  useDieRoll: boolean,
 ): void {
   if (curr == null) {
     prevRef.current = null;
     return;
   }
-  const prev = prevRef.current;
-  if (prev == null) {
-    prevRef.current = curr;
-    return;
-  }
+  const prev = prevRef.current ?? -1;
   if (curr > prev) {
     prevRef.current = curr;
-    playTableSfx("item", { enabled: sfxEnabled });
+    playTableSfx(useDieRoll ? "dieRoll" : "item", { enabled: sfxEnabled });
     return;
   }
   if (curr < prev) {
+    prevRef.current = curr;
+  } else {
     prevRef.current = curr;
   }
 }
@@ -91,16 +102,20 @@ export function useTableSfxSync(props: {
 
   const prevDiceRef = useRef<{ roll: number; rollerId: string } | null>(null);
   const prevPendingTypeRef = useRef<string | null>(null);
-  const prevCombatSessionRef = useRef<string | null>(null);
   const prevBrewerLevelsRef = useRef<Map<string, number> | null>(null);
   /** Kort-ljud spelas när modal är redo och pjäsanimation klar (inte bara vid första ready). */
   const playedCardSfxForKeyRef = useRef<string | null>(null);
+  const prevCardOverlayVisibleRef = useRef(false);
   const eventLandSoundCardKeyRef = useRef<string | null>(null);
   const prevItemRevealSeqRef = useRef<number | null>(null);
   const prevReactionPlaySeqRef = useRef<number | null>(null);
   const prevCombatDiceSfxKeyRef = useRef<string | null>(null);
   const prevCombatSfxSessionRef = useRef<string | null>(null);
+  const prevEventCardDiceSfxKeyRef = useRef<string | null>(null);
+  const prevEventCardSfxSessionRef = useRef<string | null>(null);
   const prevMonsterOutcomeSfxKeyRef = useRef<string | null>(null);
+  const playedCombatIntroSfxKeyRef = useRef<string | null>(null);
+  const prevCombatIntroVisibleRef = useRef(false);
   const sfxSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -109,15 +124,17 @@ export function useTableSfxSync(props: {
     sfxSessionKeyRef.current = sessionKey;
     prevDiceRef.current = null;
     prevPendingTypeRef.current = null;
-    prevCombatSessionRef.current = null;
     prevBrewerLevelsRef.current = null;
     playedCardSfxForKeyRef.current = null;
+    prevCardOverlayVisibleRef.current = false;
     eventLandSoundCardKeyRef.current = null;
     prevItemRevealSeqRef.current = null;
     prevReactionPlaySeqRef.current = null;
     prevCombatDiceSfxKeyRef.current = null;
     prevCombatSfxSessionRef.current = null;
     prevMonsterOutcomeSfxKeyRef.current = null;
+    playedCombatIntroSfxKeyRef.current = null;
+    prevCombatIntroVisibleRef.current = false;
     prevPendingTypeRef.current = state?.pending?.type ?? null;
     clearTableSfxQueue();
   }, [state?.roomCode, state?.phase, state?.pending?.type]);
@@ -125,8 +142,18 @@ export function useTableSfxSync(props: {
   useEffect(() => {
     if (tableCombatSessionKey === prevCombatSfxSessionRef.current) return;
     prevCombatSfxSessionRef.current = tableCombatSessionKey;
+    playedCombatIntroSfxKeyRef.current = null;
+    prevCombatIntroVisibleRef.current = false;
     prevCombatDiceSfxKeyRef.current = state ? combatMonsterDiceSfxKey(state) : null;
+    prevReactionPlaySeqRef.current =
+      tableCombatSessionKey && state ? (lastCombatReactionPlaySeq(state) ?? -1) : null;
   }, [tableCombatSessionKey, state]);
+
+  useEffect(() => {
+    if (tableCardPendingKey === prevEventCardSfxSessionRef.current) return;
+    prevEventCardSfxSessionRef.current = tableCardPendingKey;
+    prevEventCardDiceSfxKeyRef.current = pendingCard ? eventCardDiceSfxKey(pendingCard) : null;
+  }, [tableCardPendingKey, pendingCard]);
 
   useEffect(() => {
     if (!state || state.phase !== "playing" || !sfxEnabled) {
@@ -141,6 +168,20 @@ export function useTableSfxSync(props: {
       playTableSfx("dieRoll", { enabled: sfxEnabled });
     }
   }, [state, state?.pending, sfxEnabled]);
+
+  useEffect(() => {
+    if (!state || state.phase !== "playing" || !sfxEnabled || !tableCardModalReady) {
+      if (!sfxEnabled || state?.phase !== "playing") prevEventCardDiceSfxKeyRef.current = null;
+      return;
+    }
+    const key = pendingCard ? eventCardDiceSfxKey(pendingCard) : null;
+    const prev = prevEventCardDiceSfxKeyRef.current;
+    if (key === prev) return;
+    prevEventCardDiceSfxKeyRef.current = key;
+    if (key != null) {
+      playTableSfx("dieRoll", { enabled: sfxEnabled });
+    }
+  }, [state, pendingCard, sfxEnabled, tableCardModalReady, state?.phase]);
 
   useEffect(() => {
     if (!state || state.phase !== "playing" || !sfxEnabled) {
@@ -177,7 +218,7 @@ export function useTableSfxSync(props: {
       const pend = state.pending;
       if (pend?.type === "card" && (pend.kind === "event" || pend.kind === "treasure")) {
         eventLandSoundCardKeyRef.current = `${pend.cardId}:${pend.playerId}`;
-        playTableSfx("eventTile", { enabled: sfxEnabled });
+        // eventTile köas efter cardflip när modal fade:ar in (inte här — långa event-MP3 blockerar kön).
       }
     }
     if (prev !== "merchant" && curr === "merchant") {
@@ -191,19 +232,53 @@ export function useTableSfxSync(props: {
       prevReactionPlaySeqRef.current = null;
       return;
     }
-    syncItemPlaySeq(lastTableItemRevealSeq(state), prevItemRevealSeqRef, sfxEnabled);
-    syncItemPlaySeq(lastCombatReactionPlaySeq(state), prevReactionPlaySeqRef, sfxEnabled);
+    const lastReveal = state.tableItemPlayReveals?.length
+      ? state.tableItemPlayReveals[state.tableItemPlayReveals.length - 1]
+      : null;
+    const lastReaction =
+      state.pending?.type === "combat" && state.pending.reactionItemPlays?.length
+        ? state.pending.reactionItemPlays[state.pending.reactionItemPlays.length - 1]
+        : null;
+    syncItemPlaySeq(
+      lastTableItemRevealSeq(state),
+      prevItemRevealSeqRef,
+      sfxEnabled,
+      lastReveal
+        ? tableItemPlayUsesDieRollSfx(lastReveal.itemId, lastReveal.actorId, lastReveal.targetPlayerId)
+        : false,
+    );
+    syncItemPlaySeq(
+      lastCombatReactionPlaySeq(state),
+      prevReactionPlaySeqRef,
+      sfxEnabled,
+      lastReaction
+        ? tableItemPlayUsesDieRollSfx(lastReaction.itemId, lastReaction.actorId, lastReaction.targetPlayerId)
+        : false,
+    );
   }, [state, state?.tableItemPlayReveals, state?.pending, sfxEnabled]);
 
+  const combatIntroVisible =
+    !!tableCombatSessionKey &&
+    tableCombatModalReady &&
+    !deferTilePendingOverlays &&
+    state?.pending?.type === "combat" &&
+    state.pending.phase === "enemyIntro";
+
   useEffect(() => {
-    if (!state || !sfxEnabled || !tableCombatModalReady) return;
-    const pend = state.pending;
-    if (pend?.type !== "combat" || pend.phase !== "enemyIntro") return;
-    const key = tableCombatSessionKey;
-    if (!key || prevCombatSessionRef.current === key) return;
-    prevCombatSessionRef.current = key;
+    if (!tableCombatSessionKey) {
+      playedCombatIntroSfxKeyRef.current = null;
+      prevCombatIntroVisibleRef.current = false;
+      return;
+    }
+    const visible = combatIntroVisible;
+    const wasVisible = prevCombatIntroVisibleRef.current;
+    prevCombatIntroVisibleRef.current = visible;
+    if (!visible || wasVisible || !sfxEnabled) return;
+    if (playedCombatIntroSfxKeyRef.current === tableCombatSessionKey) return;
+    playedCombatIntroSfxKeyRef.current = tableCombatSessionKey;
+    playTableSfx("cardFlip", { enabled: sfxEnabled });
     playTableSfx("badBatch", { enabled: sfxEnabled });
-  }, [state?.pending, tableCombatModalReady, tableCombatSessionKey, sfxEnabled, state]);
+  }, [combatIntroVisible, tableCombatSessionKey, sfxEnabled]);
 
   useEffect(() => {
     if (!state || state.phase !== "playing" || !sfxEnabled) {
@@ -251,25 +326,55 @@ export function useTableSfxSync(props: {
   useEffect(() => {
     if (!tableCardPendingKey) {
       playedCardSfxForKeyRef.current = null;
+      prevCardOverlayVisibleRef.current = false;
       return;
     }
-    if (!sfxEnabled || !pendingCard || !tableCardModalReady || deferTilePendingOverlays) return;
+  }, [tableCardPendingKey]);
+
+  const cardOverlayVisible =
+    !!tableCardPendingKey && tableCardModalReady && !deferTilePendingOverlays;
+
+  useEffect(() => {
+    if (!tableCardPendingKey) return;
+
+    const visible = cardOverlayVisible;
+    const wasVisible = prevCardOverlayVisibleRef.current;
+    prevCardOverlayVisibleRef.current = visible;
+
+    if (!visible || wasVisible || !sfxEnabled || !pendingCard) return;
     if (playedCardSfxForKeyRef.current === tableCardPendingKey) return;
     playedCardSfxForKeyRef.current = tableCardPendingKey;
 
+    const deferredLandTile = eventLandSoundCardKeyRef.current === tableCardPendingKey;
+
+    if (tableCardUsesCardFlipSfx(pendingCard)) {
+      playTableSfx("cardFlip", { enabled: sfxEnabled });
+    }
+
+    if (pendingCard.kind === "treasure" && pendingCard.cardId === "treasure_empty") {
+      if (deferredLandTile) playTableSfx("eventTile", { enabled: sfxEnabled });
+      playTableSfx("lose", { enabled: sfxEnabled });
+      eventLandSoundCardKeyRef.current = null;
+      return;
+    }
+
     if (pendingCard.kind === "event") {
-      const landKey = tableCardPendingKey;
-      if (landKey == null || eventLandSoundCardKeyRef.current !== landKey) {
+      if (deferredLandTile) {
+        playTableSfx("eventTile", { enabled: sfxEnabled });
+        eventLandSoundCardKeyRef.current = null;
+      } else {
         playTableSfx("event", { enabled: sfxEnabled });
       }
+      return;
+    }
+
+    if (pendingCard.kind === "treasure" && deferredLandTile) {
+      playTableSfx("eventTile", { enabled: sfxEnabled });
       eventLandSoundCardKeyRef.current = null;
-    } else if (pendingCard.kind === "treasure") {
-      if (pendingCard.cardId === "treasure_empty") {
-        playTableSfx("lose", { enabled: sfxEnabled });
-      } else {
-        playTableSfx("cardFlip", { enabled: sfxEnabled });
-      }
-    } else if (
+      return;
+    }
+
+    if (
       (pendingCard.cardId === "combat_win" && !tableMonsterOutcomeSfxKey) ||
       pendingCard.cardId === "boss_round_win" ||
       pendingCard.cardId === "boss_final_win"
@@ -279,11 +384,10 @@ export function useTableSfxSync(props: {
       playTableSfx("lose", { enabled: sfxEnabled });
     }
   }, [
-    tableCardModalReady,
+    cardOverlayVisible,
     tableCardPendingKey,
     pendingCard,
     sfxEnabled,
-    deferTilePendingOverlays,
     tableMonsterOutcomeSfxKey,
   ]);
 }

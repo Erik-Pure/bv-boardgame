@@ -40,6 +40,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
   const roundReveal = pending?.phase === "roundReveal";
   const preRound = pending?.phase === "preRoundItems";
   const bestOf = pending?.bestOf ?? 1;
+  const showPvpMatchMeta = bestOf > 1;
   const wins = pending?.wins ?? { attacker: 0, defender: 0 };
   const tieRound = !!rt && rt.attackerTotal === rt.defenderTotal;
   const revealKey =
@@ -161,12 +162,21 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
       }
     >
         <div className={styles.subtitle}>{sv.table.pvpSubtitle}</div>
-        <div className={styles.duelTitleRow} aria-label={sv.table.pvpScoreLine(wins.attacker, wins.defender)}>
-          <div className={`${styles.scoreNumber} ${styles.scoreNumberAttacker}`}>{wins.attacker}</div>
-          <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
-          <div className={`${styles.scoreNumber} ${styles.scoreNumberDefender}`}>{wins.defender}</div>
-        </div>
-        {awaiting ? (
+        {showPvpMatchMeta ? (
+          <div
+            className={styles.duelTitleRow}
+            aria-label={sv.table.pvpScoreLine(wins.attacker, wins.defender)}
+          >
+            <div className={`${styles.scoreNumber} ${styles.scoreNumberAttacker}`}>{wins.attacker}</div>
+            <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+            <div className={`${styles.scoreNumber} ${styles.scoreNumberDefender}`}>{wins.defender}</div>
+          </div>
+        ) : (
+          <div className={styles.duelTitleRowSingle}>
+            <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+          </div>
+        )}
+        {awaiting && showPvpMatchMeta ? (
           <div className={styles.phaseLineMuted}>{sv.table.pvpRoundBestOf(pvpRoundN, bestOf)}</div>
         ) : roundReveal ? (
           <div className={styles.phaseLineGold}>{sv.table.pvpRoundResultPhase}</div>

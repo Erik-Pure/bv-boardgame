@@ -41,6 +41,8 @@ export function CardFlipScene(props: {
   resultFlipDelayMs?: number;
   /** När andra vändningen (rotateY 360°) är klar. */
   onResultFlipComplete?: () => void;
+  /** När rotateY-vändningen till framsidan startar (efter entrance + hold). */
+  onFlipStart?: () => void;
 }) {
   const refW = Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W);
   const blockPointer = props.blockPointerUntilFlipped !== false;
@@ -63,13 +65,16 @@ export function CardFlipScene(props: {
   useEffect(() => {
     if (instant) return;
     const flipAt = ENTRANCE_MS + HOLD_BACK_MS;
-    const tFlip = window.setTimeout(() => setFlipped(true), flipAt);
+    const tFlip = window.setTimeout(() => {
+      setFlipped(true);
+      props.onFlipStart?.();
+    }, flipAt);
     const tInteract = window.setTimeout(() => setInteractOk(true), flipAt + FLIP_MS + 20);
     return () => {
       clearTimeout(tFlip);
       clearTimeout(tInteract);
     };
-  }, [instant]);
+  }, [instant, props.onFlipStart]);
 
   useEffect(() => {
     if (!props.flipToResultBack) {
@@ -177,6 +182,8 @@ export function CardFlipModalShell(props: {
   backdropClassName?: string;
   /** Extra stilar på backdroppen. */
   backdropStyle?: CSSProperties;
+  /** @see CardFlipScene `onFlipStart` */
+  onFlipStart?: () => void;
 }) {
   const stackAbove = props.aboveScene != null;
   const cs = props.contentScale;
@@ -241,6 +248,7 @@ export function CardFlipModalShell(props: {
           blockPointerUntilFlipped={props.blockPointerUntilFlipped}
           instantFront={props.instantFront}
           cardCoverId={props.cardCoverId}
+          onFlipStart={props.onFlipStart}
           sceneStyle={stackAbove ? { flexShrink: 0 } : undefined}
         >
           {props.children}

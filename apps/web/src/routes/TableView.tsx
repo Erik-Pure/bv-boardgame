@@ -59,6 +59,7 @@ import { TreasureCardContent } from "../components/TreasureCardContent";
 import { CardRichText } from "../components/CardRichText";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
+import { parseRolledDieFromCardText } from "../lib/eventCardDice";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
 import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
 import {
@@ -282,14 +283,6 @@ function pendingOwnerIdForMoveGate(state: GameState | null): string | null {
   if (p.type === "merchant") return p.playerId;
   if (p.type === "card") return p.playerId;
   return null;
-}
-
-function parseRolledDieFromCardText(text: string): number | null {
-  const m = /Tärning:\s*(\d+)/i.exec(text);
-  if (!m) return null;
-  const n = Number(m[1]);
-  if (!Number.isFinite(n)) return null;
-  return Math.max(1, Math.min(6, Math.round(n)));
 }
 
 function eventCardOutcomeToasts(

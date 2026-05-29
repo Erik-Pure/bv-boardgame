@@ -57,7 +57,8 @@ function RewardLine({
   );
 }
 
-function combatWinSubtitleFor(data: CombatWinSummary): string {
+function combatWinSubtitleFor(data: CombatWinSummary & { uiSubtitle?: string }): string {
+  if (data.uiSubtitle?.trim()) return data.uiSubtitle.trim();
   const enemyLabel = data.enemyName.trim() || sv.play.combatWinEnemyFallback;
   if (data.winnerName === "Ni") return sv.play.combatWinTeamLegacy;
   if (data.teammateName) {

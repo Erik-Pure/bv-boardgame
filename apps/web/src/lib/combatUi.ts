@@ -10,6 +10,10 @@ import {
   type Pending,
 } from "@bv/game-core";
 import type { MonsterEncounterCardProps } from "../components/MonsterEncounterCard";
+import { sv } from "./uiStrings";
+
+/** Valfri undertitel i mobil vinst/förlust-kort (t.ex. stridshjälpare). */
+export type CombatOutcomeUiSubtitle = { uiSubtitle?: string };
 
 /** Ersätter kvarleva "Du" i payload (gamla sparningar) med kortägarens namn. */
 export function resolveCombatWinViewer(
@@ -169,6 +173,91 @@ export function shouldShowFinalBossCombatBackdrop(
  * Mobil (/play): ingen helskärms-eld/röd overlay — den täckte föremål/utrustning och störde tärningsslag.
  * Slutboss-känsla på mobil: pulserande bakgrund på möteskortet (`bossPulsingBackdrop`), inte fixed video.
  */
+export function combatAllyOutcomeRole(
+  pending: Extract<Pending, { type: "card" }>,
+  meId: string,
+): "helpMate" | "beerBro" | null {
+  if (pending.cardId === "combat_win" && pending.combatWin) {
+    const cw = pending.combatWin;
+    if (cw.helpMatePlayerId === meId) return "helpMate";
+    if (cw.assistPlayerId === meId) return "beerBro";
+    return null;
+  }
+  if (pending.cardId === "combat_lose" && pending.combatLoss) {
+    const cl = pending.combatLoss;
+    if (cl.helpMateImpact?.playerId === meId) return "helpMate";
+    if (cl.assistPartnerImpact?.playerId === meId) return "beerBro";
+    return null;
+  }
+  return null;
+}
+
+/** Stabil nyckel så hjälpare kan stänga modal utan dubbel-toast när angriparen bekräftar. */
+export function combatAllyOutcomeKey(pending: Extract<Pending, { type: "card" }>): string {
+  if (pending.cardId === "combat_win" && pending.combatWin) {
+    const cw = pending.combatWin;
+    return `win:${pending.playerId}:${cw.rollTotal}:${cw.need}:${cw.helpMatePlayerId ?? ""}:${cw.assistPlayerId ?? ""}`;
+  }
+  if (pending.cardId === "combat_lose" && pending.combatLoss) {
+    const cl = pending.combatLoss;
+    return `lose:${pending.playerId}:${cl.rollTotal}:${cl.need}:${cl.helpMateImpact?.playerId ?? ""}:${cl.assistPartnerImpact?.playerId ?? ""}`;
+  }
+  return `${pending.cardId}:${pending.playerId}`;
+}
+
+export function buildCombatAllyWinSummary(
+  cw: CombatWinSummary,
+  role: "helpMate" | "beerBro",
+  viewerName: string,
+): CombatWinSummary & CombatOutcomeUiSubtitle {
+  const attacker = cw.winnerName.trim() || "Spelaren";
+  const enemy = cw.enemyName;
+  const base = {
+    enemyName: enemy,
+    rollTotal: cw.rollTotal,
+    need: cw.need,
+    rewardGold: 0,
+    rewardXp: 0,
+  };
+  if (role === "helpMate") {
+    return {
+      ...base,
+      winnerName: viewerName,
+      rewardItems: cw.helpMateGrantedRewardTitles?.length ?? 0,
+      uiSubtitle: sv.play.combatWinSubtitleHelpMate(attacker, enemy),
+    };
+  }
+  return {
+    ...base,
+    winnerName: viewerName,
+    teammateName: attacker,
+    rewardItems: cw.beerBroGrantedRewardTitles?.length ?? 0,
+  };
+}
+
+export function buildCombatAllyLossSummary(
+  cl: CombatLoseSummary,
+  role: "helpMate" | "beerBro",
+  viewerName: string,
+): CombatLoseSummary & CombatOutcomeUiSubtitle {
+  const impact = role === "helpMate" ? cl.helpMateImpact : cl.assistPartnerImpact;
+  const attacker = cl.playerName.trim() || "Spelaren";
+  const enemy = cl.enemyName;
+  const hpLost = Math.max(0, Math.floor(impact?.hpLost ?? 0));
+  const klunksGained = Math.max(0, Math.floor(impact?.klunksGained ?? 0));
+  const subtitleFn =
+    role === "helpMate" ? sv.play.combatLoseSubtitleHelpMate : sv.play.combatLoseSubtitleBeerBro;
+  return {
+    playerName: viewerName,
+    enemyName: enemy,
+    rollTotal: cl.rollTotal,
+    need: cl.need,
+    damage: hpLost,
+    klunkGained: klunksGained,
+    uiSubtitle: subtitleFn(attacker, enemy),
+  };
+}
+
 export function shouldShowFinalBossCombatBackdropOnPlay(
   _state: Pick<GameState, "pending" | "finalBossMonsterId"> | null | undefined,
   _playerId?: string | null | undefined,

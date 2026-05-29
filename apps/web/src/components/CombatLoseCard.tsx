@@ -76,9 +76,11 @@ function PenaltyLine({
   );
 }
 
-export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
+export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSubtitle?: string } }) {
   const { data } = props;
   const enemyLabel = data.enemyName.trim() || sv.play.combatWinEnemyFallback;
+  const subtitle =
+    data.uiSubtitle?.trim() || sv.play.combatLoseSubtitle(data.playerName, enemyLabel);
   const blockedDamage = Math.max(0, Math.floor(data.blockedDamage ?? 0));
   const rawDamage = Math.max(0, Math.floor(data.rawDamage ?? data.damage + blockedDamage));
   const netDamage = Math.max(0, Math.floor(data.damage));
@@ -111,7 +113,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary }) {
       </h1>
       <CombatOutcomeThumb outcome="loss" />
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>
-        {sv.play.combatLoseSubtitle(data.playerName, enemyLabel)}
+        {subtitle}
       </p>
       <p style={{ fontFamily: "var(--sans)", fontSize: 16, margin: 0, opacity: 0.92 }}>
         {sv.play.combatWinRoll(data.rollTotal, data.need)}

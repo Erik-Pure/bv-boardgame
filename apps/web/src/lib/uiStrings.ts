@@ -463,6 +463,8 @@ export const sv = {
     combatWinTeamLegacy: "Ni vinner!",
     combatWinSubtitle: (winner: string, enemy: string) => `${winner} vinner mot ${enemy}`,
     combatWinSubtitleTeam: (a: string, b: string, enemy: string) => `${a} och ${b} vinner mot ${enemy}`,
+    combatWinSubtitleHelpMate: (attacker: string, enemy: string) =>
+      `Du hjälpte till — ${attacker} vinner mot ${enemy}`,
     combatWinRoll: (roll: number, need: number) => `Slag: ${roll} (krävdes ${need})`,
     combatWinRandomOtherSip: (recipient: string) =>
       `${recipient} får en straffklunk — slumpad annan spelare.`,
@@ -492,6 +494,10 @@ export const sv = {
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
+    combatLoseSubtitleHelpMate: (attacker: string, enemy: string) =>
+      `Du hjälpte i striden — ${attacker} förlorade mot ${enemy}`,
+    combatLoseSubtitleBeerBro: (attacker: string, enemy: string) =>
+      `Ni förlorade tillsammans — ${attacker} förlorade mot ${enemy}`,
     combatLosePenalties: "Påföljder",
     /** Mobil: när angriparen stänger förlust — du var stridshjälp eller ölkompis */
     /** Mobil: målspelare när någon spelar Peka argt. */

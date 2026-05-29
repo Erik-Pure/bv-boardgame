@@ -100,6 +100,10 @@ import { equipmentImageSources, equipmentUniqueImageSrc } from "../lib/equipment
 import monsterCardFrameStyles from "../components/MonsterEncounterCard.module.css";
 import { PictureImg } from "../components/PictureImg";
 import {
+  buildCombatAllyLossSummary,
+  buildCombatAllyWinSummary,
+  combatAllyOutcomeKey,
+  combatAllyOutcomeRole,
   combatLossKlunksForDisplay,
   monsterEncounterCardPropsFromCombatPending,
   parseLegacyCombatLoseText,
@@ -575,6 +579,10 @@ export function PlayView() {
   const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
+  const allyCombatOutcomeAckRef = useRef<Set<string>>(new Set());
+  const [allyCombatOutcomeDismissedKey, setAllyCombatOutcomeDismissedKey] = useState<string | null>(
+    null,
+  );
   const lastToastSipNoticeRef = useRef<string | null>(null);
   const bossFinaleFinishTimerRef = useRef<number | null>(null);
   const [bossFinaleExitLocal, setBossFinaleExitLocal] = useState(false);
@@ -852,7 +860,8 @@ export function PlayView() {
     if (me?.id && prev?.type === "card" && prev.cardId === "combat_win" && prev.combatWin) {
       const cw = prev.combatWin;
       const stillCombatWin = pending?.type === "card" && pending.cardId === "combat_win";
-      if (!stillCombatWin) {
+      const ackKey = combatAllyOutcomeKey(prev);
+      if (!stillCombatWin && !allyCombatOutcomeAckRef.current.has(ackKey)) {
         const loot: string[] = [];
         if (cw.assistPlayerId === me.id && cw.beerBroGrantedRewardTitles?.length) {
           loot.push(...cw.beerBroGrantedRewardTitles);
@@ -869,7 +878,8 @@ export function PlayView() {
     if (me?.id && prev?.type === "card" && prev.cardId === "combat_lose" && prev.combatLoss) {
       const cl = prev.combatLoss;
       const stillCombatLose = pending?.type === "card" && pending.cardId === "combat_lose";
-      if (!stillCombatLose) {
+      const ackKey = combatAllyOutcomeKey(prev);
+      if (!stillCombatLose && !allyCombatOutcomeAckRef.current.has(ackKey)) {
         const impactToastMs = 5200;
         const hmImpact = cl.helpMateImpact;
         if (
@@ -959,13 +969,6 @@ export function PlayView() {
     if (pending.phase === "chooseHitMitigation" && pending.attackerId === pid) return true;
     return false;
   }, [me, state?.phase, pending, combatFighterSheet, nowTick]);
-  const highlightPulse =
-    !!isMyTurn ||
-    state?.phase === "lobby" ||
-    !!canStart ||
-    !!myPending ||
-    hasCombatMobileAttention;
-  const showRainbowPulse = highlightPulse && rainbowEffectsEnabled;
   const inCombat = pending?.type === "combat";
   const inCombatReactions = inCombat && pending.phase === "reactions";
   const isCombatFighterNow =
@@ -1215,6 +1218,60 @@ export function PlayView() {
     if (state.pending?.type !== "card") return null;
     return state.pending.playerId === me.id ? state.pending : null;
   }, [state?.pending, state?.phase, me?.id]);
+  const allyCombatOutcome = useMemo(() => {
+    if (!state || state.phase !== "playing" || !me) return null;
+    const p = state.pending;
+    if (p?.type !== "card") return null;
+    if (p.playerId === me.id) return null;
+    if (p.cardId !== "combat_win" && p.cardId !== "combat_lose") return null;
+    const role = combatAllyOutcomeRole(p, me.id);
+    if (!role) return null;
+    return { pending: p, role, key: combatAllyOutcomeKey(p) };
+  }, [state?.pending, state?.phase, me?.id]);
+  useEffect(() => {
+    if (!allyCombatOutcome) {
+      setAllyCombatOutcomeDismissedKey(null);
+      return;
+    }
+    setAllyCombatOutcomeDismissedKey((prev) =>
+      prev === allyCombatOutcome.key ? prev : null,
+    );
+  }, [allyCombatOutcome?.key]);
+  const showAllyCombatOutcomeModal =
+    !!allyCombatOutcome && allyCombatOutcomeDismissedKey !== allyCombatOutcome.key;
+  const highlightPulse =
+    !!isMyTurn ||
+    state?.phase === "lobby" ||
+    !!canStart ||
+    !!myPending ||
+    showAllyCombatOutcomeModal ||
+    hasCombatMobileAttention;
+  const showRainbowPulse = highlightPulse && rainbowEffectsEnabled;
+  const allyCombatOutcomeCard = useMemo(() => {
+    if (!allyCombatOutcome || !me) return null;
+    const { pending: p, role } = allyCombatOutcome;
+    if (p.cardId === "combat_win" && p.combatWin) {
+      return {
+        cardId: p.cardId as "combat_win",
+        combatWin: resolveCombatWinViewer(
+          buildCombatAllyWinSummary(p.combatWin, role, me.name),
+          me.name,
+        ),
+        combatLoss: undefined as CombatLoseSummary | undefined,
+      };
+    }
+    if (p.cardId === "combat_lose" && p.combatLoss) {
+      return {
+        cardId: p.cardId as "combat_lose",
+        combatWin: undefined as CombatWinSummary | undefined,
+        combatLoss: resolveCombatLossViewer(
+          buildCombatAllyLossSummary(p.combatLoss, role, me.name),
+          me.name,
+        ),
+      };
+    }
+    return null;
+  }, [allyCombatOutcome, me?.name]);
   const bossFinalePending = useMemo(() => {
     if (!state || state.phase !== "playing") return null;
     if (state.pending?.type !== "card" || state.pending.cardId !== "boss_final_win") return null;
@@ -1250,7 +1307,9 @@ export function PlayView() {
     canSkipMonsterEncounter && !canAffordSkipMonsterEncounter;
 
   /** Straffklunk efter monsterförlust: visa Vaskad-kortet först, sedan sip-modal (motorn lägger sip i kö före kortet). */
-  const suppressSipNoticeForCombatLoseCard = myCardPending?.cardId === "combat_lose";
+  const suppressSipNoticeForCombatLoseCard =
+    myCardPending?.cardId === "combat_lose" ||
+    (showAllyCombatOutcomeModal && allyCombatOutcomeCard?.cardId === "combat_lose");
   const hasBlockingSipNotice =
     !!mySipNotice &&
     mySipNotice.noticeKind !== "toast" &&
@@ -2462,6 +2521,7 @@ export function PlayView() {
       const isParticipant = pending.attackerId === me.id || pending.defenderId === me.id;
       if (isParticipant) {
       const bestOf = pending.bestOf ?? 1;
+      const showPvpMatchMeta = bestOf > 1;
       const meHasPvpItems = (me.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
       const myReadyExplicit = pending.roundItemReady?.[me.id] === true;
       const myEffectiveReady = myReadyExplicit || !meHasPvpItems;
@@ -2470,13 +2530,18 @@ export function PlayView() {
       const opponentHasPvpItems = (opponent?.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
       const opponentReadyExplicit = opponentId ? pending.roundItemReady?.[opponentId] === true : false;
       const opponentEffectiveReady = opponentReadyExplicit || !opponentHasPvpItems;
-      const scoreLine = `${sv.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`;
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o92}`}>
-            {sv.play.pvpRoundBestOf(pvpRound, bestOf)}
-          </div>
-          <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>{scoreLine}</div>
+          {showPvpMatchMeta ? (
+            <>
+              <div className={`${u.textCenter} ${u.o92}`}>
+                {sv.play.pvpRoundBestOf(pvpRound, bestOf)}
+              </div>
+              <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>
+                {`${sv.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`}
+              </div>
+            </>
+          ) : null}
           <div className={`${u.textCenter} ${u.fs13} ${u.o88}`}>{sv.play.pvpPreRoundItemsHint}</div>
           {meHasPvpItems ? (
             <ArcadeButton
@@ -2978,6 +3043,54 @@ export function PlayView() {
             {sv.play.continue}
           </ArcadeButton>
         </div>
+      );
+    }
+    if (showAllyCombatOutcomeModal && allyCombatOutcome && me) {
+      const ackKey = allyCombatOutcome.key;
+      const isWin = allyCombatOutcome.pending.cardId === "combat_win";
+      const cw = allyCombatOutcome.pending.combatWin;
+      const cl = allyCombatOutcome.pending.combatLoss;
+      const impact =
+        allyCombatOutcome.role === "helpMate" ? cl?.helpMateImpact : cl?.assistPartnerImpact;
+      return (
+        <ArcadeButton
+          variant="pink"
+          fullWidth
+          onClick={() => {
+            allyCombatOutcomeAckRef.current.add(ackKey);
+            setAllyCombatOutcomeDismissedKey(ackKey);
+            if (isWin && cw) {
+              const loot: string[] = [];
+              if (
+                allyCombatOutcome.role === "beerBro" &&
+                cw.beerBroGrantedRewardTitles?.length
+              ) {
+                loot.push(...cw.beerBroGrantedRewardTitles);
+              }
+              if (
+                allyCombatOutcome.role === "helpMate" &&
+                cw.helpMateGrantedRewardTitles?.length
+              ) {
+                loot.push(...cw.helpMateGrantedRewardTitles);
+              }
+              if (loot.length > 0) {
+                showToast(
+                  sv.play.combatWinGrantedLootToast(loot),
+                  Math.min(9000, 2800 + loot.length * 1200),
+                );
+              }
+              return;
+            }
+            if (!isWin && impact && impact.playerId === me.id) {
+              const hpLoss = Math.max(0, Math.floor(impact.hpLost));
+              const klunk = Math.max(0, Math.floor(impact.klunksGained));
+              if (hpLoss === 0) suppressNextHpFlashRef.current = true;
+              if (klunk > 0) showXpGainPrompt(klunk * 10);
+            }
+          }}
+        >
+          {sv.cardModal.continue}
+        </ArcadeButton>
       );
     }
     if (!myCardPending) return null;
@@ -3500,6 +3613,7 @@ export function PlayView() {
     state?.phase === "playing" &&
     (!!hasBlockingSipNotice ||
       !!(myPending && pending?.type === "card") ||
+      showAllyCombatOutcomeModal ||
       !!(myPending && pending?.type === "equipmentReplaceOffer") ||
       !!myOffTurnCombatEquipReplace(state, me) ||
       !!(pending?.type === "combat" && pending.postReactionEquipmentOffer?.playerId === me.id) ||
@@ -3825,6 +3939,26 @@ export function PlayView() {
           gameState={state}
           cardOwnerPlayerId={pending.playerId}
           bossFinalWin={pending.bossFinalWin}
+        />
+      )}
+      {state?.phase === "playing" &&
+        me &&
+        showAllyCombatOutcomeModal &&
+        allyCombatOutcomeCard &&
+        allyCombatOutcome && (
+        <CardModal
+          title={allyCombatOutcome.pending.title}
+          text={allyCombatOutcome.pending.text}
+          artKey={allyCombatOutcome.pending.artKey}
+          grantedItemId={allyCombatOutcome.pending.grantedItemId}
+          kind={allyCombatOutcome.pending.kind}
+          cardId={allyCombatOutcomeCard.cardId}
+          combatWin={allyCombatOutcomeCard.combatWin ?? undefined}
+          combatLoss={allyCombatOutcomeCard.combatLoss ?? undefined}
+          viewerName={me.name}
+          cardCoverId={lobbyCardCoverId}
+          gameState={state}
+          cardOwnerPlayerId={allyCombatOutcome.pending.playerId}
         />
       )}
       {state?.phase === "playing" &&

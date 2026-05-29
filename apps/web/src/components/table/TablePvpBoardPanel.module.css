@@ -57,6 +57,12 @@
   margin-bottom: 8px;
 }
 
+.duelTitleRowSingle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
 .scoreNumber {
   font-family: "Permanent Marker", var(--heading), sans-serif;
   font-size: clamp(56px, 10vw, 94px);
