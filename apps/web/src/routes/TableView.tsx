@@ -27,28 +27,9 @@ import {
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
   writeBoardPreventSleepEnabled,
-  writeBoardSfxEnabled,
   writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
-import { useTableSfxSync } from "../hooks/useTableSfxSync";
 
-type TablePendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
-
-/** Bräd-ljudeffekter — renderas efter deferTilePendingOverlays är beräknad. */
-function TableViewSfxSync(props: {
-  state: GameState | null;
-  sfxEnabled: boolean;
-  tableCardModalReady: boolean;
-  tableCardPendingKey: string | null;
-  pendingCard: TablePendingCard | null;
-  deferTilePendingOverlays: boolean;
-  tableCombatModalReady: boolean;
-  tableCombatSessionKey: string | null;
-  tableMonsterOutcomeSfxKey: string | null;
-}) {
-  useTableSfxSync(props);
-  return null;
-}
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
 import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { ArcadeButton } from "../components/ArcadeButton";
@@ -274,15 +255,6 @@ function ringPathIndices(fromTileIndex: number, toTileIndex: number, ringTileCou
   const out: number[] = [from];
   for (let i = 1; i <= steps; i++) out.push(((from + i * delta) % n + n) % n);
   return out;
-}
-
-function pendingOwnerIdForMoveGate(state: GameState | null): string | null {
-  const p = state?.pending;
-  if (!p) return null;
-  if (p.type === "combat") return p.attackerId;
-  if (p.type === "merchant") return p.playerId;
-  if (p.type === "card") return p.playerId;
-  return null;
 }
 
 function eventCardOutcomeToasts(
@@ -1119,29 +1091,6 @@ function TableViewBody() {
     state?.pending?.type === "combat"
       ? `${state.pending.attackerId}-${state.pending.levelIndex}-${state.pending.tileIndex}-${state.pending.monsterId}`
       : null;
-  const [tableCombatModalReady, setTableCombatModalReady] = useState(false);
-  const prevCombatSessionKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!tableCombatSessionKey) {
-      setTableCombatModalReady(false);
-      prevCombatSessionKeyRef.current = null;
-      return;
-    }
-    if (prevCombatSessionKeyRef.current === tableCombatSessionKey) {
-      if (!tableCombatModalReady) setTableCombatModalReady(true);
-      return;
-    }
-    prevCombatSessionKeyRef.current = tableCombatSessionKey;
-    const pend = state?.pending;
-    if (!pend || pend.type !== "combat") return;
-    if (pend.phase === "chooseTeammate" || pend.phase === "enemyIntro") {
-      setTableCombatModalReady(true);
-      return;
-    }
-    setTableCombatModalReady(false);
-    const t = window.setTimeout(() => setTableCombatModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [tableCombatSessionKey, tableCombatModalReady, state?.pending]);
 
   const monsterResultHoldover =
     tableCombatOutcomeCardPending && lastMonsterRollPreviewSnapshotRef.current
@@ -1152,9 +1101,6 @@ function TableViewBody() {
       : null;
 
   const showMonsterCombatOutcomeOnCard = monsterResultHoldover != null;
-  const tableMonsterOutcomeSfxKey = monsterResultHoldover
-    ? `${monsterResultHoldover.outcomeCard.cardId}:${monsterResultHoldover.outcomeCard.playerId}`
-    : null;
 
   const holdoverCombatMonsterId =
     monsterResultHoldover?.preAck.pending?.type === "combat"
@@ -1419,14 +1365,7 @@ function TableViewBody() {
     playingTurn && currentTurnAfflictions.length > 0
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
       : TABLE_TURN_BANNER_RESERVE_PX;
-  const pendingOwnerId = pendingOwnerIdForMoveGate(state);
-  const pendingOwnerAnim = pendingOwnerId ? moveAnimByPlayer.get(pendingOwnerId) : null;
-  const deferTilePendingOverlays =
-    boardPerf.tokenMoveAnimationsEnabled &&
-    !!pendingOwnerAnim &&
-    animNowMs - pendingOwnerAnim.startedAt >= 0 &&
-    animNowMs - pendingOwnerAnim.startedAt < pendingOwnerAnim.durationMs;
-  const showTableCombatBoardPanel = (!deferTilePendingOverlays && baseShowTableCombatBoardPanel) || showMonsterCombatOutcomeOnCard;
+  const showTableCombatBoardPanel = baseShowTableCombatBoardPanel || showMonsterCombatOutcomeOnCard;
 
   const bannerReserveStyle = {
     "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
@@ -1435,17 +1374,6 @@ function TableViewBody() {
 
   return (
     <div className={tableStyles.tableRoot}>
-      <TableViewSfxSync
-        state={state}
-        sfxEnabled={boardPerf.boardSfxEnabled}
-        tableCardModalReady={tableCardModalReady}
-        tableCardPendingKey={tableCardPendingKey}
-        pendingCard={pendingCard}
-        deferTilePendingOverlays={deferTilePendingOverlays}
-        tableCombatModalReady={tableCombatModalReady}
-        tableCombatSessionKey={tableCombatSessionKey}
-        tableMonsterOutcomeSfxKey={tableMonsterOutcomeSfxKey}
-      />
       <div className={tableStyles.headerBarWrap}>
         <header className={tableStyles.tableHeader}>
           <div className={tableStyles.headerLobbyRow}>
@@ -1947,7 +1875,7 @@ function TableViewBody() {
               </div>
             </div>
           ) : null}
-          {state?.phase === "playing" && state.pending?.type === "merchant" && !deferTilePendingOverlays ? (() => {
+          {state?.phase === "playing" && state.pending?.type === "merchant" ? (() => {
             const shopPlayer = playersById.get(state.pending.playerId);
             if (!shopPlayer) return null;
             const animDots = boardPerf.boardAnimationsEnabled;
@@ -2149,7 +2077,7 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {pendingCard && tableCardModalReady && !deferTilePendingOverlays && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
+      {pendingCard && tableCardModalReady && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
         <TableEventRollHeroOverlay
           card={pendingCard}
           contentScale={overlayContentScale}
@@ -2160,7 +2088,6 @@ function TableViewBody() {
 
       {state?.pending?.type === "card" &&
         tableCardModalReady &&
-        !deferTilePendingOverlays &&
         !showMonsterCombatOutcomeOnCard &&
         !showTableRollEventCard && (
         <CardFlipModalShell
@@ -2406,18 +2333,6 @@ function TableViewBody() {
                 aria-label={sv.table.wakeLockToggle}
               />
               <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
-            </label>
-            <label className={tableStyles.tableSettingsRow}>
-              <input
-                type="checkbox"
-                checked={boardPerf.boardSfxEnabled}
-                onChange={(e) => {
-                  writeBoardSfxEnabled(e.target.checked);
-                  setBoardPerf(readBoardPerformancePrefs());
-                }}
-                aria-label={sv.table.settingsBoardSfx}
-              />
-              <span>{sv.table.settingsBoardSfx}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input

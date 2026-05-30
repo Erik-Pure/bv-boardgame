@@ -115,7 +115,6 @@ export {
   combatItemAttackModForBoardLevel,
 } from "./combatItemMods.js";
 export { scaledCombatMod } from "./scaledCombatMod.js";
-export { inventoryItemSellPrice } from "./itemSellPrice.js";
 export { XP_PER_KLUNK, PENALTY_XP_PER_KLUNK, grantKlunkWithXp } from "./klunkGrant.js";
 export {
   errorIfInactiveOtherPlayerTarget,

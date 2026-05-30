@@ -46,7 +46,6 @@ import {
   getCardDefById,
   klunkBurstCountForSipNotice,
   attackerCannotSelfNegativeCombatItem,
-  inventoryItemSellPrice,
   PENALTY_XP_PER_KLUNK,
 } from "@bv/game-core";
 import {
@@ -1394,7 +1393,7 @@ export function PlayView() {
       showXpGainPrompt(count * PENALTY_XP_PER_KLUNK);
     }
     if (klunkBurstCountForSipNotice(mySipNotice) != null) {
-      playTableSfx("klunk", { enabled: readBoardPerformancePrefs().boardSfxEnabled });
+      playTableSfx("klunk", { enabled: readBoardPerformancePrefs().mobileSfxEnabled });
     }
     send({ type: "sipNoticeAck", playerId: me.id });
   }, [me, mySipNotice, showXpGainPrompt, send]);
@@ -2812,6 +2811,9 @@ export function PlayView() {
         return (
           <div className={u.stack10}>
             <div className={`${u.textCenter} ${u.fs15} ${u.o92}`}>{kindLabel}</div>
+            <div className={styles.merchantDetailArtWrap}>
+              <MerchantShopItemArt item={detail} variant="detail" />
+            </div>
             <div className={`${u.textCenter} ${u.fs18} ${u.fw700}`}>{detail.name}</div>
             {effectSummary !== "—" ? (
               <div className={`${u.textCenter} ${u.o85}`}>{effectSummary}</div>
@@ -3387,27 +3389,7 @@ export function PlayView() {
             {sv.play.modalClose}
           </ArcadeButton>
         ) : (
-          <div className={u.stack10}>
-            {isMyTurn &&
-            state.pending?.type !== "combat" &&
-            state.pending?.type !== "pvp" &&
-            inst.itemId !== "canman" ? (
-              <ArcadeButton
-                variant="pink"
-                fullWidth
-                onClick={() => {
-                  send({
-                    type: "sellInventoryItem",
-                    playerId: me.id,
-                    instanceId: inst.instanceId,
-                  });
-                  setItemDetail(null);
-                }}
-              >
-                {sv.play.sellInventoryItem(inventoryItemSellPrice(inst.itemId))}
-              </ArcadeButton>
-            ) : null}
-            <div className={u.grid2Equal10}>
+          <div className={u.grid2Equal10}>
             <ArcadeButton variant="gray" fullWidth onClick={() => setItemDetail(null)}>
               {sv.play.modalClose}
             </ArcadeButton>
@@ -3436,7 +3418,6 @@ export function PlayView() {
             >
               {sv.play.use}
             </ArcadeButton>
-            </div>
           </div>
         )}
       </div>
@@ -5675,16 +5656,31 @@ const MERCHANT_ART_FRAME: CSSProperties = {
   boxSizing: "border-box",
 };
 
+const MERCHANT_DETAIL_ART_FRAME: CSSProperties = {
+  width: 120,
+  height: 120,
+  flexShrink: 0,
+  borderRadius: 12,
+  overflow: "hidden",
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(0,0,0,0.45)",
+  border: "1px solid rgba(72, 75, 85, 0.95)",
+  boxSizing: "border-box",
+};
+
 /** Halv storlek jämfört med tidigare typ-badge (~36px → 18px). */
 const MERCHANT_TYPE_ICON_PX = 18;
 
-function MerchantShopItemArt(props: { item: ShopItem }) {
-  const { item } = props;
+function MerchantShopItemArt(props: { item: ShopItem; variant?: "row" | "detail" }) {
+  const { item, variant = "row" } = props;
+  const frameStyle = variant === "detail" ? MERCHANT_DETAIL_ART_FRAME : MERCHANT_ART_FRAME;
+  const pantSize = variant === "detail" ? 56 : 30;
   if (item.slot === "heal") {
     const src = merchantHealArtSrc(item.name);
     const sources = src.endsWith(".webp") ? { avif: src.slice(0, -".webp".length) + ".avif", webp: src, fallback: src } : { fallback: src };
     return (
-      <div style={MERCHANT_ART_FRAME}>
+      <div style={frameStyle}>
         <PictureImg
           sources={sources}
           alt=""
@@ -5699,14 +5695,14 @@ function MerchantShopItemArt(props: { item: ShopItem }) {
   }
   if (item.slot === "gold") {
     return (
-      <div style={MERCHANT_ART_FRAME}>
-        <StatIcon kind="pant" size={30} popScale={1.05} />
+      <div style={frameStyle}>
+        <StatIcon kind="pant" size={pantSize} popScale={1.05} />
       </div>
     );
   }
   if (item.slot === "inventory" && item.inventoryItemId) {
     return (
-      <div style={MERCHANT_ART_FRAME}>
+      <div style={frameStyle}>
         <img
           src={itemImageSrc(item.inventoryItemId)}
           alt=""
@@ -5719,8 +5715,8 @@ function MerchantShopItemArt(props: { item: ShopItem }) {
   }
   if (item.slot === "weapon" || item.slot === "armor" || item.slot === "helmet" || item.slot === "accessory") {
     return (
-      <div style={MERCHANT_ART_FRAME}>
-        <EquipIcon slot={item.slot} disabled={false} equippedName={item.name} />
+      <div style={frameStyle}>
+        <EquipIcon slot={item.slot} disabled={false} equippedName={item.name} iconSize={variant === "detail" ? 72 : undefined} />
       </div>
     );
   }

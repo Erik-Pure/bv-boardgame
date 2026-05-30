@@ -1,6 +1,6 @@
 /**
- * Bräd-SFX (/table only). Spelas från useTableSfxSync (via TableViewSfxSync) — aldrig från knappar/UI.
- * Klunk spelas på mobil vid Skål (PlayView).
+ * Spel-SFX på mobil (/play). Triggas från useGameSfxSync via usePlaySfxSync.
+ * Klunk spelas vid Skål i sip-modalen.
  *
  * Spelfiler: optimerade MP3 i public/sfx/ (npm run optimize:sfx). Käll-WAV: apps/web/sfx-source/.
  * Uppspelning köas sekventiellt. `event` / `eventTile` (efter cardflip) avbryts av senare spelljud.

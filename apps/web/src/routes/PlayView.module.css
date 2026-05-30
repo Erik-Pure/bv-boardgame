@@ -1535,6 +1535,12 @@
   margin-right: 6px;
 }
 
+.merchantDetailArtWrap {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 6px;
+}
+
 .merchantShopHeaderBar {
   display: flex;
   align-items: center;

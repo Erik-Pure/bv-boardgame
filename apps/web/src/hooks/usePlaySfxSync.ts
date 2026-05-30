@@ -1,7 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameState } from "@bv/game-core";
-import { clearTableSfxQueue, playTableSfx } from "../lib/tableSfx";
+import { TABLE_CARD_MODAL_DELAY_MS } from "../components/table/tableConstants";
+import {
+  cardPendingKey,
+  combatSessionKey,
+  isCombatParticipant,
+  isImmediateCombatOutcomeCard,
+  type PendingCard,
+} from "../lib/gameSfxSyncHelpers";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
+import { playTableSfx } from "../lib/tableSfx";
+import { useGameSfxSync } from "./useGameSfxSync";
 
 /** Spelar SFX lokalt på mobil (/play) för snabbare respons än brädets WS-kedja. */
 export function usePlaySfxSync(props: {
@@ -9,22 +18,62 @@ export function usePlaySfxSync(props: {
   meId: string | null;
 }) {
   const { state, meId } = props;
-  const prevRollRef = useRef<string | null>(null);
   const prevPvpRollRef = useRef<string | null>(null);
+  const sfxEnabled = readBoardPerformancePrefs().mobileSfxEnabled;
+
+  const myCardPending = useMemo((): PendingCard | null => {
+    if (!state || state.phase !== "playing" || !meId) return null;
+    if (state.pending?.type !== "card") return null;
+    return state.pending.playerId === meId ? state.pending : null;
+  }, [state?.pending, state?.phase, meId]);
+
+  const myCardKey = myCardPending ? cardPendingKey(myCardPending) : null;
+  const immediateOutcomeCard = myCardPending != null && isImmediateCombatOutcomeCard(myCardPending);
+
+  const [cardModalReady, setCardModalReady] = useState(false);
+  useEffect(() => {
+    if (!myCardKey || immediateOutcomeCard) {
+      setCardModalReady(immediateOutcomeCard);
+      return;
+    }
+    setCardModalReady(false);
+    const t = window.setTimeout(() => setCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [myCardKey, immediateOutcomeCard]);
+
+  const cardSfxReady = immediateOutcomeCard || cardModalReady;
+
+  const combatSessionKeyVal = useMemo(() => {
+    if (!state || !meId) return null;
+    const pend = state.pending;
+    if (pend?.type !== "combat" || !isCombatParticipant(pend, meId)) return null;
+    return combatSessionKey(pend);
+  }, [state?.pending, meId, state]);
+
+  const combatIntroVisible =
+    combatSessionKeyVal != null &&
+    state?.pending?.type === "combat" &&
+    state.pending.phase === "enemyIntro";
+
+  useGameSfxSync({
+    state,
+    sfxEnabled: sfxEnabled && !!meId,
+    localPlayerId: meId,
+    cardOverlay: {
+      pendingKey: myCardKey,
+      pendingCard: myCardPending,
+      visible: !!myCardPending && cardSfxReady,
+      modalReady: cardSfxReady,
+    },
+    combatOverlay: {
+      sessionKey: combatSessionKeyVal,
+      introVisible: combatIntroVisible,
+      monsterOutcomeSfxKey: null,
+    },
+  });
 
   useEffect(() => {
-    if (!state || !meId) return;
-    const prefs = readBoardPerformancePrefs();
-    if (!prefs.mobileSfxEnabled) return;
-
-    const rollKey =
-      state.lastDiceRollerId === meId && typeof state.lastDiceRoll === "number"
-        ? `${state.lastDiceRoll}:${state.logSeq ?? 0}`
-        : null;
-    if (rollKey && rollKey !== prevRollRef.current) {
-      prevRollRef.current = rollKey;
-      playTableSfx("roll", { enabled: true });
-    }
+    if (!state || !meId || !sfxEnabled) return;
 
     const pvp = state.pending?.type === "pvp" ? state.pending : null;
     if (pvp?.phase === "awaitingRolls" && pvp.rolls?.[meId]) {
@@ -35,9 +84,5 @@ export function usePlaySfxSync(props: {
         playTableSfx("dieRoll", { enabled: true });
       }
     }
-
-    return () => {
-      if (!state) clearTableSfxQueue();
-    };
-  }, [state, meId]);
+  }, [state, meId, sfxEnabled]);
 }

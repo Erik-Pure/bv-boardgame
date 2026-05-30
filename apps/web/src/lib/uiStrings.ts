@@ -269,7 +269,6 @@ export const sv = {
     merchantItemKindGold: "Pant · direkt",
     merchantDetailBuy: "Köp",
     merchantDetailBack: "Tillbaka",
-    sellInventoryItem: (pant: number) => `Sälj (${pant} pant)`,
     pvpArmorDamageHint:
       "Rustning hjälper dig vinna BvB-duellen. Den stoppar bara skada om motståndaren väljer HP-straff efteråt.",
     merchantReplaceBody: (slot: string, currentName: string, newName: string) =>
@@ -631,7 +630,6 @@ export const sv = {
     settingsBoardPan: "Panorering på brädet (drag och mushjul)",
     settingsBoardAnimations: "Animationer på brädet (mjuk kamera, tärningssnurr m.m.)",
     settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
-    settingsBoardSfx: "Ljudeffekter på brädet",
     settingsClose: "Stäng",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */
     merchantShopping: (playerName: string) => `${playerName} handlar`,

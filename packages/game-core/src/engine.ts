@@ -71,7 +71,6 @@ import {
   attackerCannotSelfNegativeCombatItem,
 } from "./combatItemRestrictions.js";
 import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
-import { inventoryItemSellPrice } from "./itemSellPrice.js";
 import {
   EMOTE_COOLDOWN_MS,
   isEmoteId,
@@ -5187,33 +5186,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     );
     if (restock) next.pending.items.push(restock);
     // Keep merchant open so player can buy multiple things before leaving explicitly.
-    return { state: next, events: ["state"] };
-  }
-
-  if (action.type === "sellInventoryItem") {
-    if (next.phase !== "playing") return { state, events: [], error: "Spelet är slut" };
-    const cp = currentPlayer(next);
-    if (!cp || cp.id !== action.playerId) {
-      return { state, events: [], error: "Inte din tur" };
-    }
-    if (next.pending?.type === "combat" || next.pending?.type === "pvp") {
-      return { state, events: [], error: "Du kan inte sälja föremål mitt i strid" };
-    }
-    const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
-    const inv = p.inventory ?? [];
-    const idx = inv.findIndex((it) => it.instanceId === action.instanceId);
-    if (idx < 0) return { state, events: [], error: "Föremålet hittades inte" };
-    const inst = inv[idx]!;
-    if (inst.itemId === "canman") {
-      return { state, events: [], error: "Det här föremålet kan inte säljas." };
-    }
-    const pant = inventoryItemSellPrice(inst.itemId);
-    inv.splice(idx, 1);
-    p.inventory = inv;
-    p.gold += pant;
-    log(next, `${p.name} säljer ${itemDisplayTitle(inst.itemId)} för ${pant} pant.`);
-    recordItemConsumed(next, p.id, inst.itemId);
     return { state: next, events: ["state"] };
   }
 

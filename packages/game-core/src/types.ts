@@ -821,7 +821,6 @@ export type ClientAction =
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean }
   /** Sälj tillbehöret Plastback (pant = kvarvarande Tom flaska-vinster om synergi). */
   | { type: "sellAccessory"; playerId: string }
-  | { type: "sellInventoryItem"; playerId: string; instanceId: string }
   | { type: "sendEmote"; playerId: string; emoteId: EmoteId };
 
 export interface ApplyResult {

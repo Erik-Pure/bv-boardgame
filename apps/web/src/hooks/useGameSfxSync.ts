@@ -1,105 +1,59 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
-import { brewerLevel, type GameState, type Player } from "@bv/game-core";
+import { useEffect, useRef } from "react";
+import type { GameState } from "@bv/game-core";
+import {
+  affectsLocalPlayer,
+  brewerDisplayLevel,
+  combatMonsterDiceSfxKey,
+  isCombatParticipant,
+  lastCombatReactionPlaySeq,
+  lastTableItemRevealSeq,
+  shouldHearItemPlaySfx,
+  syncItemPlaySeq,
+  tableCardUsesCardFlipSfx,
+  type PendingCard,
+} from "../lib/gameSfxSyncHelpers";
 import { eventCardDiceSfxKey } from "../lib/eventCardDice";
 import { tableItemPlayUsesDieRollSfx } from "../lib/tableItemPlaySfx";
 import { clearTableSfxQueue, playTableSfx } from "../lib/tableSfx";
 
-type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
-
-/** Kortmodal med flip på brädet — vila, händelse, skatt (ej tom gömma). */
-function tableCardUsesCardFlipSfx(card: PendingCard): boolean {
-  if (card.kind === "rest" || card.kind === "event") return true;
-  return card.kind === "treasure" && card.cardId !== "treasure_empty";
-}
-
-function brewerDisplayLevel(player: Player): number {
-  return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
-}
-
-function lastTableItemRevealSeq(state: GameState): number | null {
-  const reveals = state.tableItemPlayReveals;
-  if (!reveals?.length) return null;
-  return reveals[reveals.length - 1]!.seq;
-}
-
-/** Nyckel för PvE-stridstärning — ändras vid varje slag / rollPreview. */
-function combatMonsterDiceSfxKey(state: GameState): string | null {
-  const pend = state.pending;
-  if (pend?.type !== "combat" || !pend.monsterId) return null;
-  if (pend.phase === "rollPreview") {
-    return `pv:${pend.previewDie}:${pend.previewBroDie ?? ""}:${pend.previewTotal}`;
-  }
-  const teamRolls = pend.teamRolls;
-  if (!teamRolls || Object.keys(teamRolls).length === 0) return null;
-  if (pend.phase !== "reactions" && pend.phase !== "enemyIntro") return null;
-  return `tr:${Object.entries(teamRolls)
-    .filter((entry): entry is [string, NonNullable<(typeof teamRolls)[string]>] => entry[1] != null)
-    .map(([id, r]) => `${id}:${r.die}`)
-    .sort()
-    .join(",")}`;
-}
-
-function lastCombatReactionPlaySeq(state: GameState): number | null {
-  const pend = state.pending;
-  if (pend?.type !== "combat") return null;
-  const plays = pend.reactionItemPlays;
-  if (!plays?.length) return null;
-  return plays[plays.length - 1]!.playSeq;
-}
-
-/** Nytt föremål i state — spela ljud när seq ökar (prev null/-1 = inga spelade än). */
-function syncItemPlaySeq(
-  curr: number | null,
-  prevRef: MutableRefObject<number | null>,
-  sfxEnabled: boolean,
-  useDieRoll: boolean,
-): void {
-  if (curr == null) {
-    prevRef.current = null;
-    return;
-  }
-  const prev = prevRef.current ?? -1;
-  if (curr > prev) {
-    prevRef.current = curr;
-    playTableSfx(useDieRoll ? "dieRoll" : "item", { enabled: sfxEnabled });
-    return;
-  }
-  if (curr < prev) {
-    prevRef.current = curr;
-  } else {
-    prevRef.current = curr;
-  }
-}
-
-export function useTableSfxSync(props: {
+export type GameSfxSyncProps = {
   state: GameState | null;
   sfxEnabled: boolean;
-  tableCardModalReady: boolean;
-  tableCardPendingKey: string | null;
-  pendingCard: PendingCard | null;
-  /** Vänta tills pjäsanimation klar innan kort-ljud (samma gate som kort-overlay). */
-  deferTilePendingOverlays: boolean;
-  tableCombatModalReady: boolean;
-  tableCombatSessionKey: string | null;
-  /** Monster-vinst/förlust på stridspanelen (inte CardFlipModalShell). */
-  tableMonsterOutcomeSfxKey: string | null;
-}): void {
+  /** null = bräde (alla spelare). Satt = mobil (filtrera spelarspecifika triggers). */
+  localPlayerId: string | null;
+  cardOverlay: {
+    pendingKey: string | null;
+    pendingCard: PendingCard | null;
+    /** Kort-overlay synlig — cardFlip, event, vinst/förlust. */
+    visible: boolean;
+    /** Modal redo — händelsekort-tärning (samma gate som brädets tableCardModalReady). */
+    modalReady: boolean;
+  };
+  combatOverlay: {
+    sessionKey: string | null;
+    introVisible: boolean;
+    monsterOutcomeSfxKey: string | null;
+  };
+};
+
+export function useGameSfxSync(props: GameSfxSyncProps): void {
+  const { state, sfxEnabled, localPlayerId, cardOverlay, combatOverlay } = props;
   const {
-    state,
-    sfxEnabled,
-    tableCardModalReady,
-    tableCardPendingKey,
+    pendingKey: tableCardPendingKey,
     pendingCard,
-    deferTilePendingOverlays,
-    tableCombatModalReady,
-    tableCombatSessionKey,
-    tableMonsterOutcomeSfxKey,
-  } = props;
+    visible: cardOverlayVisible,
+    modalReady: cardModalReady,
+  } = cardOverlay;
+  const {
+    sessionKey: tableCombatSessionKey,
+    introVisible: combatIntroVisible,
+    monsterOutcomeSfxKey: tableMonsterOutcomeSfxKey,
+  } = combatOverlay;
 
   const prevDiceRef = useRef<{ roll: number; rollerId: string } | null>(null);
   const prevPendingTypeRef = useRef<string | null>(null);
+  const lastMoveChoicePlayerRef = useRef<string | null>(null);
   const prevBrewerLevelsRef = useRef<Map<string, number> | null>(null);
-  /** Kort-ljud spelas när modal är redo och pjäsanimation klar (inte bara vid första ready). */
   const playedCardSfxForKeyRef = useRef<string | null>(null);
   const prevCardOverlayVisibleRef = useRef(false);
   const eventLandSoundCardKeyRef = useRef<string | null>(null);
@@ -120,6 +74,7 @@ export function useTableSfxSync(props: {
     sfxSessionKeyRef.current = sessionKey;
     prevDiceRef.current = null;
     prevPendingTypeRef.current = null;
+    lastMoveChoicePlayerRef.current = null;
     prevBrewerLevelsRef.current = null;
     playedCardSfxForKeyRef.current = null;
     prevCardOverlayVisibleRef.current = false;
@@ -136,10 +91,18 @@ export function useTableSfxSync(props: {
   }, [state?.roomCode, state?.phase, state?.pending?.type]);
 
   useEffect(() => {
+    if (state?.pending?.type === "moveChoice") {
+      lastMoveChoicePlayerRef.current = state.pending.playerId;
+    }
+  }, [state?.pending]);
+
+  useEffect(() => {
     if (tableCombatSessionKey === prevCombatSfxSessionRef.current) return;
+    const prevKey = prevCombatSfxSessionRef.current;
     prevCombatSfxSessionRef.current = tableCombatSessionKey;
-    playedCombatIntroSfxKeyRef.current = null;
-    prevCombatIntroVisibleRef.current = false;
+    if (tableCombatSessionKey !== prevKey) {
+      prevCombatIntroVisibleRef.current = false;
+    }
     prevCombatDiceSfxKeyRef.current = state ? combatMonsterDiceSfxKey(state) : null;
     prevReactionPlaySeqRef.current =
       tableCombatSessionKey && state ? (lastCombatReactionPlaySeq(state) ?? -1) : null;
@@ -156,6 +119,11 @@ export function useTableSfxSync(props: {
       prevCombatDiceSfxKeyRef.current = null;
       return;
     }
+    const pend = state.pending;
+    if (localPlayerId && pend?.type === "combat" && !isCombatParticipant(pend, localPlayerId)) {
+      prevCombatDiceSfxKeyRef.current = combatMonsterDiceSfxKey(state);
+      return;
+    }
     const key = combatMonsterDiceSfxKey(state);
     const prev = prevCombatDiceSfxKeyRef.current;
     if (key === prev) return;
@@ -163,10 +131,10 @@ export function useTableSfxSync(props: {
     if (key != null) {
       playTableSfx("dieRoll", { enabled: sfxEnabled });
     }
-  }, [state, state?.pending, sfxEnabled]);
+  }, [state, state?.pending, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
-    if (!state || state.phase !== "playing" || !sfxEnabled || !tableCardModalReady) {
+    if (!state || state.phase !== "playing" || !sfxEnabled || !cardModalReady) {
       if (!sfxEnabled || state?.phase !== "playing") prevEventCardDiceSfxKeyRef.current = null;
       return;
     }
@@ -177,7 +145,7 @@ export function useTableSfxSync(props: {
     if (key != null) {
       playTableSfx("dieRoll", { enabled: sfxEnabled });
     }
-  }, [state, pendingCard, sfxEnabled, tableCardModalReady, state?.phase]);
+  }, [state, pendingCard, sfxEnabled, cardModalReady, state?.phase]);
 
   useEffect(() => {
     if (!state || state.phase !== "playing" || !sfxEnabled) {
@@ -187,6 +155,7 @@ export function useTableSfxSync(props: {
     const roll = state.lastDiceRoll;
     const rollerId = state.lastDiceRollerId;
     if (roll == null || !rollerId) return;
+    if (!affectsLocalPlayer(localPlayerId, rollerId)) return;
 
     const prev = prevDiceRef.current;
     if (!prev) {
@@ -198,7 +167,7 @@ export function useTableSfxSync(props: {
     if (!isNewRoll) return;
 
     playTableSfx("roll", { enabled: sfxEnabled });
-  }, [state?.lastDiceRoll, state?.lastDiceRollerId, state?.phase, sfxEnabled]);
+  }, [state?.lastDiceRoll, state?.lastDiceRollerId, state?.phase, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
     if (!state) {
@@ -209,18 +178,30 @@ export function useTableSfxSync(props: {
     const prev = prevPendingTypeRef.current;
     prevPendingTypeRef.current = curr;
     if (!sfxEnabled || state.phase !== "playing") return;
+
     if (prev === "moveChoice" && curr !== "moveChoice") {
-      playTableSfx("roll", { enabled: sfxEnabled });
+      const moverId = lastMoveChoicePlayerRef.current;
       const pend = state.pending;
-      if (pend?.type === "card" && (pend.kind === "event" || pend.kind === "treasure")) {
+      const landedEventOrTreasure =
+        pend?.type === "card" &&
+        (pend.kind === "event" || pend.kind === "treasure") &&
+        affectsLocalPlayer(localPlayerId, pend.playerId);
+
+      if (affectsLocalPlayer(localPlayerId, moverId ?? undefined) && !landedEventOrTreasure) {
+        playTableSfx("roll", { enabled: sfxEnabled });
+      }
+      if (landedEventOrTreasure) {
         eventLandSoundCardKeyRef.current = `${pend.cardId}:${pend.playerId}`;
-        // eventTile köas efter cardflip när modal fade:ar in (inte här — långa event-MP3 blockerar kön).
       }
     }
+
     if (prev !== "merchant" && curr === "merchant") {
-      playTableSfx("cans", { enabled: sfxEnabled });
+      const merchantPlayerId = state.pending?.type === "merchant" ? state.pending.playerId : undefined;
+      if (affectsLocalPlayer(localPlayerId, merchantPlayerId)) {
+        playTableSfx("cans", { enabled: sfxEnabled });
+      }
     }
-  }, [state?.pending?.type, state?.phase, sfxEnabled, state]);
+  }, [state?.pending?.type, state?.phase, sfxEnabled, state, localPlayerId]);
 
   useEffect(() => {
     if (!state || state.phase !== "playing" || !sfxEnabled) {
@@ -235,34 +216,49 @@ export function useTableSfxSync(props: {
       state.pending?.type === "combat" && state.pending.reactionItemPlays?.length
         ? state.pending.reactionItemPlays[state.pending.reactionItemPlays.length - 1]
         : null;
-    syncItemPlaySeq(
-      lastTableItemRevealSeq(state),
-      prevItemRevealSeqRef,
-      sfxEnabled,
-      lastReveal
-        ? tableItemPlayUsesDieRollSfx(lastReveal.itemId, lastReveal.actorId, lastReveal.targetPlayerId)
-        : false,
-    );
-    syncItemPlaySeq(
-      lastCombatReactionPlaySeq(state),
-      prevReactionPlaySeqRef,
-      sfxEnabled,
-      lastReaction
-        ? tableItemPlayUsesDieRollSfx(lastReaction.itemId, lastReaction.actorId, lastReaction.targetPlayerId)
-        : false,
-    );
-  }, [state, state?.tableItemPlayReveals, state?.pending, sfxEnabled]);
 
-  const combatIntroVisible =
-    !!tableCombatSessionKey &&
-    tableCombatModalReady &&
-    !deferTilePendingOverlays &&
-    state?.pending?.type === "combat" &&
-    state.pending.phase === "enemyIntro";
+    const revealHearOk = shouldHearItemPlaySfx(
+      state,
+      localPlayerId,
+      lastReveal?.actorId,
+      lastReveal?.targetPlayerId,
+    );
+    const reactionHearOk = shouldHearItemPlaySfx(
+      state,
+      localPlayerId,
+      lastReaction?.actorId,
+      lastReaction?.targetPlayerId,
+    );
+
+    if (revealHearOk) {
+      syncItemPlaySeq(
+        lastTableItemRevealSeq(state),
+        prevItemRevealSeqRef,
+        sfxEnabled,
+        lastReveal
+          ? tableItemPlayUsesDieRollSfx(lastReveal.itemId, lastReveal.actorId, lastReveal.targetPlayerId)
+          : false,
+      );
+    } else {
+      prevItemRevealSeqRef.current = lastTableItemRevealSeq(state);
+    }
+
+    if (reactionHearOk) {
+      syncItemPlaySeq(
+        lastCombatReactionPlaySeq(state),
+        prevReactionPlaySeqRef,
+        sfxEnabled,
+        lastReaction
+          ? tableItemPlayUsesDieRollSfx(lastReaction.itemId, lastReaction.actorId, lastReaction.targetPlayerId)
+          : false,
+      );
+    } else {
+      prevReactionPlaySeqRef.current = lastCombatReactionPlaySeq(state);
+    }
+  }, [state, state?.tableItemPlayReveals, state?.pending, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
     if (!tableCombatSessionKey) {
-      playedCombatIntroSfxKeyRef.current = null;
       prevCombatIntroVisibleRef.current = false;
       return;
     }
@@ -281,6 +277,10 @@ export function useTableSfxSync(props: {
       prevBrewerLevelsRef.current = null;
       return;
     }
+    const playersToCheck = localPlayerId
+      ? state.players.filter((p) => p.id === localPlayerId)
+      : state.players;
+
     const currLevels = new Map<string, number>();
     for (const p of state.players) {
       currLevels.set(p.id, brewerDisplayLevel(p));
@@ -290,7 +290,7 @@ export function useTableSfxSync(props: {
     if (!prev) return;
 
     let anyLevelUp = false;
-    for (const p of state.players) {
+    for (const p of playersToCheck) {
       const before = prev.get(p.id) ?? brewerDisplayLevel(p);
       const after = currLevels.get(p.id) ?? brewerDisplayLevel(p);
       if (after > before) {
@@ -299,11 +299,10 @@ export function useTableSfxSync(props: {
       }
     }
     if (!anyLevelUp) return;
-    // Samma ljud spelas när combat_win-modalen blir redo — undvik dubbel vid strids-XP.
     const pend = state.pending;
     if (pend?.type === "card" && pend.cardId === "combat_win") return;
     playTableSfx("levelUp", { enabled: sfxEnabled });
-  }, [state?.players, state?.pending, state?.phase, sfxEnabled, state]);
+  }, [state?.players, state?.pending, state?.phase, sfxEnabled, state, localPlayerId]);
 
   useEffect(() => {
     if (!sfxEnabled || !tableMonsterOutcomeSfxKey) {
@@ -326,9 +325,6 @@ export function useTableSfxSync(props: {
       return;
     }
   }, [tableCardPendingKey]);
-
-  const cardOverlayVisible =
-    !!tableCardPendingKey && tableCardModalReady && !deferTilePendingOverlays;
 
   useEffect(() => {
     if (!tableCardPendingKey) return;
@@ -379,11 +375,5 @@ export function useTableSfxSync(props: {
     } else if (pendingCard.cardId === "combat_lose" && !tableMonsterOutcomeSfxKey) {
       playTableSfx("lose", { enabled: sfxEnabled });
     }
-  }, [
-    cardOverlayVisible,
-    tableCardPendingKey,
-    pendingCard,
-    sfxEnabled,
-    tableMonsterOutcomeSfxKey,
-  ]);
+  }, [cardOverlayVisible, tableCardPendingKey, pendingCard, sfxEnabled, tableMonsterOutcomeSfxKey]);
 }
