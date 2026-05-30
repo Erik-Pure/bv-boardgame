@@ -4592,8 +4592,9 @@ export function PlayView() {
                               const itemMeta = itemMetaForView(itemId);
                               const invPlayable = isItemPlayableNow(itemId, itemMeta.target);
                               const tone = itemCardTone(itemId, itemMeta.target, invPlayable);
-                              const dimThirdPartyUnplayable =
-                                isThirdPartyCombatIntervention && !invPlayable;
+                              const dimUnplayableInCombat =
+                                !invPlayable &&
+                                (inCombat || inPvpPreRoundItems || inPvpAwaitingRolls);
                               const iflash = itemFlash[itemId] ?? null;
                               const iflashKey = itemFlashKey[itemId] ?? 0;
                               const invInst =
@@ -4633,8 +4634,10 @@ export function PlayView() {
                                     cursor: "pointer",
                                     display: "flex",
                                     flexDirection: "column",
-                                    opacity: dimThirdPartyUnplayable ? 0.42 : 1,
-                                    filter: dimThirdPartyUnplayable ? "grayscale(0.22)" : undefined,
+                                    opacity: dimUnplayableInCombat ? 0.28 : 1,
+                                    filter: dimUnplayableInCombat
+                                      ? "grayscale(0.72) brightness(0.75)"
+                                      : undefined,
                                   }}
                                 >
                                   <div

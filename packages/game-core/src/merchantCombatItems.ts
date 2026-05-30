@@ -25,7 +25,7 @@ export const MERCHANT_SELLABLE_COMBAT_ITEM_IDS: readonly ItemId[] = [
   ...new Set<ItemId>([...START_COMBAT_BUFF_ITEM_IDS, ...START_COMBAT_DEBUFF_ITEM_IDS]),
 ];
 
-export const MERCHANT_INVENTORY_ITEM_PRICE = 7;
+export const MERCHANT_INVENTORY_ITEM_PRICE = 5;
 
 export function combatItemToMerchantShopItem(
   itemId: ItemId,

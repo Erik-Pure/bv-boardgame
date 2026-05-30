@@ -65,7 +65,7 @@ describe("merchant shelf", () => {
         MERCHANT_SELLABLE_COMBAT_ITEM_IDS.includes(inv[0].inventoryItemId),
         `unexpected item ${inv[0].inventoryItemId}`,
       );
-      assert.equal(inv[0].price, 7);
+      assert.equal(inv[0].price, 5);
     }
   });
 
@@ -97,7 +97,7 @@ describe("merchant shelf", () => {
             slot: "inventory",
             inventoryItemId: "folk_beer",
             name: "Folköl",
-            price: 7,
+            price: 5,
           },
         ],
       },
@@ -114,7 +114,7 @@ describe("merchant shelf", () => {
     assert.equal(r.error, undefined);
     const u = r.state.players.find((x) => x.id === "p1");
     assert.ok(u);
-    assert.equal(u.gold, 13);
+    assert.equal(u.gold, 15);
     assert.equal((u.inventory ?? []).some((x) => x.itemId === "folk_beer"), true);
   });
 });
