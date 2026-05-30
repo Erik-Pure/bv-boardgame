@@ -2787,6 +2787,11 @@ export function PlayView() {
     }
 
     if (pending?.type === "merchant" && myPending) {
+      const playMerchantBuySfx = () => {
+        if (readBoardPerformancePrefs().mobileSfxEnabled) {
+          playTableSfx("cans", { enabled: true });
+        }
+      };
       const requestMerchantBuy = (it: ShopItem) => {
         const price = effectiveMerchantBuyPrice(me, it.price);
         if (me.gold < price) {
@@ -2797,6 +2802,7 @@ export function PlayView() {
           setMerchantReplaceItem(it);
           return;
         }
+        playMerchantBuySfx();
         send({ type: "merchantBuy", playerId: me.id, itemId: it.id });
       };
       if (merchantDetailItem) {
@@ -2880,6 +2886,7 @@ export function PlayView() {
                       showToast(sv.play.merchantCantAfford);
                       return;
                     }
+                    playMerchantBuySfx();
                     send({ type: "merchantBuy", playerId: me.id, itemId: merchantReplaceItem.id });
                     setMerchantReplaceItem(null);
                   }}
