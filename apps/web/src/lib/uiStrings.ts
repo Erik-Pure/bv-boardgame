@@ -263,7 +263,7 @@ export const sv = {
     brewerPerkAttack: "+1 styrka",
     brewerPerkShield: "+1 sköld",
     brewerPerkHp: "+2 HP",
-    brewerPerkPvp: "+1 BvB-tärning",
+    brewerPerkPvp: "+1 BvB",
     merchantItemKindEquipment: "Utrustning · permanent",
     merchantItemKindConsumable: "Föremål · engångsanvändning",
     merchantItemKindGold: "Pant · direkt",

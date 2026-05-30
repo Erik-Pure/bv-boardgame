@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { GameState } from "@bv/game-core";
-import { TABLE_CARD_MODAL_DELAY_MS } from "../components/table/tableConstants";
 import {
   cardPendingKey,
   combatSessionKey,
   isCombatParticipant,
-  isImmediateCombatOutcomeCard,
   type PendingCard,
 } from "../lib/gameSfxSyncHelpers";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
@@ -28,20 +26,7 @@ export function usePlaySfxSync(props: {
   }, [state?.pending, state?.phase, meId]);
 
   const myCardKey = myCardPending ? cardPendingKey(myCardPending) : null;
-  const immediateOutcomeCard = myCardPending != null && isImmediateCombatOutcomeCard(myCardPending);
-
-  const [cardModalReady, setCardModalReady] = useState(false);
-  useEffect(() => {
-    if (!myCardKey || immediateOutcomeCard) {
-      setCardModalReady(immediateOutcomeCard);
-      return;
-    }
-    setCardModalReady(false);
-    const t = window.setTimeout(() => setCardModalReady(true), TABLE_CARD_MODAL_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [myCardKey, immediateOutcomeCard]);
-
-  const cardSfxReady = immediateOutcomeCard || cardModalReady;
+  const cardSfxReady = !!myCardPending;
 
   const combatSessionKeyVal = useMemo(() => {
     if (!state || !meId) return null;
