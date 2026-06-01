@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
-import { RandomAvatarPreview } from "../components/RandomAvatarPreview";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { PictureImg } from "../components/PictureImg";
 import { appVersionLabel } from "../lib/buildInfo";
@@ -60,8 +59,6 @@ export function Home() {
       <ArcadeButton variant="pink" size="lg" fullWidth={false} onClick={() => nav("/join")}>
         {sv.home.primaryJoin}
       </ArcadeButton>
-
-      <RandomAvatarPreview />
 
       <div style={{ margin: "28px 0", borderTop: "1px solid rgba(148,163,184,0.25)", }}>
         <h4>Starta ett nytt spel</h4>

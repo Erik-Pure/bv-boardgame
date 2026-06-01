@@ -18,6 +18,7 @@ import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/invento
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
 import { PictureImg } from "../components/PictureImg";
+import { RandomAvatarPreview } from "../components/RandomAvatarPreview";
 import { CardRichText, TextWithBoldNumbers } from "../components/CardRichText";
 import {
   CARD_BODY_TEXT_STYLE,
@@ -214,6 +215,8 @@ export function CardsCatalog() {
           </>
         )}
       </p>
+
+      <RandomAvatarPreview />
 
       {KIND_ORDER.map((kind) => {
         const list = byKind.get(kind) ?? [];
