@@ -18,6 +18,7 @@ import { tableItemPlayUsesDieRollSfx } from "../lib/tableItemPlaySfx";
 import {
   clearCombatIntroSfxKeys,
   clearTableSfxQueue,
+  consumeOptimisticMoveRollSfx,
   playTableSfx,
   tryClaimCombatIntroAudio,
 } from "../lib/tableSfx";
@@ -165,6 +166,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     prevDiceRef.current = { roll, rollerId };
     if (!isNewRoll) return;
 
+    if (consumeOptimisticMoveRollSfx()) return;
     playTableSfx("roll", { enabled: sfxEnabled });
   }, [state?.lastDiceRoll, state?.lastDiceRollerId, state?.phase, sfxEnabled, localPlayerId]);
 
@@ -194,7 +196,9 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
         !landedEventOrTreasure &&
         !landedMonsterCombatIntro
       ) {
-        playTableSfx("roll", { enabled: sfxEnabled });
+        if (!consumeOptimisticMoveRollSfx()) {
+          playTableSfx("roll", { enabled: sfxEnabled });
+        }
       }
       if (landedEventOrTreasure) {
         eventLandSoundCardKeyRef.current = `${pend.cardId}:${pend.playerId}`;

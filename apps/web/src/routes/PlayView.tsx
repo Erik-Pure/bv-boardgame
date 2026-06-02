@@ -67,7 +67,7 @@ import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { usePlaySfxSync } from "../hooks/usePlaySfxSync";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
-import { playTableSfx } from "../lib/tableSfx";
+import { playOptimisticMoveRollSfx, playTableSfx } from "../lib/tableSfx";
 import { subscribeTurnVibration, vibrateMyTurn } from "../lib/turnVibration";
 import { EffectBadgePillStrip } from "../components/EffectBadgePillStrip";
 import { clearRememberedPlayerId, type ServerMessage } from "../lib/ws";
@@ -2659,7 +2659,10 @@ export function PlayView() {
                       "--btn-shadow-pressed": v.buttonShadowPressed,
                     } as CSSProperties
                   }
-                  onClick={() => send({ type: "chooseMove", playerId: me.id, dir: o.dir })}
+                  onClick={() => {
+                    playOptimisticMoveRollSfx(readBoardPerformancePrefs().mobileSfxEnabled);
+                    send({ type: "chooseMove", playerId: me.id, dir: o.dir });
+                  }}
                 >
                   <MoveOptionLabel
                     state={state}
@@ -3185,6 +3188,7 @@ export function PlayView() {
             fullWidth
             onClick={() => {
               setRollDiceSpinning(false);
+              playOptimisticMoveRollSfx(readBoardPerformancePrefs().mobileSfxEnabled);
               send({ type: "rollMove", playerId: me.id });
             }}
           >

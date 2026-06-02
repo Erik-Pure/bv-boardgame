@@ -71,7 +71,8 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   cans: ["/sfx/cans1.mp3", "/sfx/cans2.mp3", "/sfx/cans3.mp3", "/sfx/cans4.mp3"],
 };
 
-const preloadCache = new Map<string, HTMLAudioElement>();
+/** En `Audio` per fil — köad uppspelning väntar på `ended` så samma element räcker. */
+const audioBySrc = new Map<string, HTMLAudioElement>();
 
 const playQueue: TableSfxId[] = [];
 let drainPromise: Promise<void> | null = null;
@@ -79,6 +80,10 @@ let drainPromise: Promise<void> | null = null;
 let activeAudio: HTMLAudioElement | null = null;
 let activeId: TableSfxId | null = null;
 let activeDone: (() => void) | null = null;
+
+let sfxPrimed = false;
+let skipNextServerRollSfx = false;
+let skipNextServerRollTimer: number | null = null;
 
 function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
@@ -90,11 +95,65 @@ function resolveSrc(id: TableSfxId): string {
   return pickRandom(entry);
 }
 
-function warmPreload(src: string): void {
-  if (preloadCache.has(src)) return;
-  const audio = new Audio(src);
-  audio.preload = "auto";
-  preloadCache.set(src, audio);
+function allSfxSrcPaths(): string[] {
+  const paths = new Set<string>();
+  for (const entry of Object.values(TABLE_SFX_SRC)) {
+    if (typeof entry === "string") paths.add(entry);
+    else for (const src of entry) paths.add(src);
+  }
+  return [...paths];
+}
+
+function getOrCreateAudio(src: string): HTMLAudioElement {
+  let audio = audioBySrc.get(src);
+  if (!audio) {
+    audio = new Audio(src);
+    audio.preload = "auto";
+    audioBySrc.set(src, audio);
+  }
+  return audio;
+}
+
+/** Ladda/dekoda alla SFX (anropas vid första användartryck). */
+export function primeTableSfx(): void {
+  if (typeof window === "undefined" || sfxPrimed) return;
+  sfxPrimed = true;
+  for (const src of allSfxSrcPaths()) {
+    const audio = getOrCreateAudio(src);
+    try {
+      audio.load();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function clearOptimisticRollSkip(): void {
+  skipNextServerRollSfx = false;
+  if (skipNextServerRollTimer != null) {
+    window.clearTimeout(skipNextServerRollTimer);
+    skipNextServerRollTimer = null;
+  }
+}
+
+/** Spela rörelsetärning direkt vid knapptryck; undvik dubbeltrigg när server-state kommer. */
+export function playOptimisticMoveRollSfx(enabled: boolean): void {
+  if (!enabled || typeof window === "undefined") return;
+  primeTableSfx();
+  skipNextServerRollSfx = true;
+  if (skipNextServerRollTimer != null) window.clearTimeout(skipNextServerRollTimer);
+  skipNextServerRollTimer = window.setTimeout(() => {
+    skipNextServerRollSfx = false;
+    skipNextServerRollTimer = null;
+  }, 4000);
+  playTableSfx("roll", { enabled: true });
+}
+
+/** Sant om optimistiskt rörelsetärningsljud redan spelats för senaste action. */
+export function consumeOptimisticMoveRollSfx(): boolean {
+  if (!skipNextServerRollSfx) return false;
+  clearOptimisticRollSkip();
+  return true;
 }
 
 function cancelActivePlayback(): void {
@@ -127,10 +186,9 @@ function replaceInterruptibleEventSfx(): void {
 }
 
 function playSrcAndWait(src: string, id: TableSfxId): Promise<void> {
-  warmPreload(src);
+  const audio = getOrCreateAudio(src);
+  audio.volume = TABLE_SFX_VOLUME;
   return new Promise((resolve) => {
-    const audio = new Audio(src);
-    audio.volume = TABLE_SFX_VOLUME;
     activeAudio = audio;
     activeId = id;
 
@@ -151,6 +209,12 @@ function playSrcAndWait(src: string, id: TableSfxId): Promise<void> {
     activeDone = done;
     audio.addEventListener("ended", done);
     audio.addEventListener("error", done);
+    audio.pause();
+    try {
+      audio.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
     void audio.play().catch(done);
   });
 }
@@ -175,6 +239,7 @@ function scheduleDrain(): void {
 export function clearTableSfxQueue(): void {
   playQueue.length = 0;
   cancelActivePlayback();
+  clearOptimisticRollSkip();
 }
 
 /** Överlever React Strict Mode-remount; nollställs vid rum-/fas-byte. */
@@ -197,6 +262,7 @@ export function playTableSfx(
 ): void {
   if (!options.enabled) return;
   if (typeof window === "undefined") return;
+  primeTableSfx();
 
   if (options.overlap) {
     void playSrcAndWait(resolveSrc(id), id);

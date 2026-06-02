@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { GameState } from "@bv/game-core";
 import { cardPendingKey, combatSessionKey, type PendingCard } from "../lib/gameSfxSyncHelpers";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
-import { playTableSfx } from "../lib/tableSfx";
+import { playTableSfx, primeTableSfx } from "../lib/tableSfx";
 import { useGameSfxSync } from "./useGameSfxSync";
 
 /** Spelar SFX lokalt på mobil (/play) för snabbare respons än brädets WS-kedja. */
@@ -13,6 +13,18 @@ export function usePlaySfxSync(props: {
   const { state, meId } = props;
   const prevPvpRollRef = useRef<string | null>(null);
   const sfxEnabled = readBoardPerformancePrefs().mobileSfxEnabled;
+
+  /** Bakgrundsladdning så första ljudet inte väntar på decode (ingen UI). */
+  useEffect(() => {
+    if (sfxEnabled) primeTableSfx();
+  }, [sfxEnabled]);
+
+  useEffect(() => {
+    if (!sfxEnabled) return;
+    const primeOnce = () => primeTableSfx();
+    window.addEventListener("pointerdown", primeOnce, { once: true, passive: true });
+    return () => window.removeEventListener("pointerdown", primeOnce);
+  }, [sfxEnabled]);
 
   const myCardPending = useMemo((): PendingCard | null => {
     if (!state || state.phase !== "playing" || !meId) return null;
