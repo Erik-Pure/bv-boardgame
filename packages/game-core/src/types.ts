@@ -568,10 +568,14 @@ export interface PlayerSessionStats {
   totalHpLost: number;
 }
 
+export type { AvatarPartKind, PlayerAvatar } from "./avatar.js";
+
 export interface Player {
   id: string;
   name: string;
   color: string;
+  /** Slumpade/konfigurerade ansiktsdelar (lobby). */
+  avatar: import("./avatar.js").PlayerAvatar;
   isHost: boolean;
   ready: boolean;
   /** Nivå på brädet 0,1,2 */
@@ -765,6 +769,7 @@ export interface GameState {
 
 export type ClientAction =
   | { type: "setReady"; playerId: string; ready: boolean }
+  | { type: "setAvatar"; playerId: string; avatar: import("./avatar.js").PlayerAvatar }
   | { type: "startGame"; playerId: string }
   | {
       type: "setConfig";

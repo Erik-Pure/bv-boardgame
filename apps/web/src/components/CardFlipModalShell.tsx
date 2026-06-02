@@ -14,8 +14,10 @@ const HOLD_BACK_MS = 20;
 /** Själva rotateY-vändningen (matchar --card-flip-duration). */
 const FLIP_MS = 700;
 
+/** När rotateY-vändningen till framsidan startar (efter entrance + hold). */
+export const CARD_FLIP_ANIM_START_MS = ENTRANCE_MS + HOLD_BACK_MS;
 /** När framsidan är helt vänd — lämplig start för extra UI-animering (t.ex. tärning + kortlutning). */
-export const CARD_FLIP_FRONT_ANIM_READY_MS = ENTRANCE_MS + HOLD_BACK_MS + FLIP_MS;
+export const CARD_FLIP_FRONT_ANIM_READY_MS = CARD_FLIP_ANIM_START_MS + FLIP_MS;
 
 /** Själva 3D-flipen utan helskärms-overlay — använd när samma kort ska leva kvar mellan layouter (t.ex. bordsmonster). */
 export function CardFlipScene(props: {
@@ -64,7 +66,7 @@ export function CardFlipScene(props: {
 
   useEffect(() => {
     if (instant) return;
-    const flipAt = ENTRANCE_MS + HOLD_BACK_MS;
+    const flipAt = CARD_FLIP_ANIM_START_MS;
     const tFlip = window.setTimeout(() => {
       setFlipped(true);
       props.onFlipStart?.();

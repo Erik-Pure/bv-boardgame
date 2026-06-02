@@ -128,14 +128,14 @@ describe("tryGrantRandomEquipmentOrOffer", () => {
 });
 
 describe("combat loot equipment replace queue", () => {
-  it("confirmCard on combat_win drains queue to off-turn equipmentReplaceOffer", () => {
+  it("confirmCard on combat_win surfaces equipmentReplaceOffer for solo player", () => {
     const { state } = combatWinState();
     const r = applyAction(state, { type: "confirmCard", playerId: "p1" });
     assert.equal(r.error, undefined);
-    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
-    assert.equal(r.state.offTurnPersonalPending.playerId, "p1");
-    assert.equal(r.state.offTurnPersonalPending.fromCombatLoot, true);
-    assert.equal(r.state.pending, null);
+    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.pending.playerId, "p1");
+    assert.equal(r.state.pending.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending, null);
     assert.equal(r.state.combatEquipReplaceQueue, undefined);
   });
 
@@ -226,9 +226,10 @@ describe("combat loot equipment replace queue", () => {
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: true });
     assert.equal(r.state.currentTurnIndex, 1);
-    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
-    assert.equal(r.state.offTurnPersonalPending?.playerId, "p2");
-    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
+    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.pending?.playerId, "p2");
+    assert.equal(r.state.pending?.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending, null);
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p2", accept: true });
     assert.equal(r.state.pending, null);
@@ -322,6 +323,38 @@ describe("turn order after combat win", () => {
     assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
   });
 
+  it("helper on turn after team loot cannot roll before own combat replace", () => {
+    const weaponA = EQUIPMENT_CATALOG.find((e) => e.slot === "weapon");
+    const helmetB = EQUIPMENT_CATALOG.find((e) => e.slot === "helmet");
+    assert.ok(weaponA && helmetB);
+
+    const { state } = combatWinStateTwoPlayers([
+      { playerId: "p1", slot: "weapon", catalogId: weaponA.id, newName: weaponA.name },
+      { playerId: "p2", slot: "helmet", catalogId: helmetB.id, newName: helmetB.name },
+    ]);
+
+    let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.turnOrder[r.state.currentTurnIndex], "p2");
+
+    r = applyAction(r.state, { type: "rollMove", playerId: "p2" });
+    assert.match(r.error ?? "", /Avsluta nuvarande val/i);
+
+    r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: false });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.pending?.playerId, "p2");
+
+    r = applyAction(r.state, { type: "rollMove", playerId: "p2" });
+    assert.match(r.error ?? "", /Avsluta nuvarande val/i);
+
+    r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p2", accept: false });
+    assert.equal(r.error, undefined);
+    r = applyAction(r.state, { type: "rollMove", playerId: "p2" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.pending?.type, "moveChoice");
+  });
+
   it("equipmentReplaceDecision does not advance turn again after combat win", () => {
     const { state } = combatWinStateTwoPlayers();
     let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
@@ -347,8 +380,10 @@ describe("turn order after combat win", () => {
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p1", accept: true });
     assert.equal(r.state.currentTurnIndex, 1);
-    assert.equal(r.state.offTurnPersonalPending?.playerId, "p2");
-    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
+    assert.equal(r.state.pending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.pending?.playerId, "p2");
+    assert.equal(r.state.pending?.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending, null);
 
     r = applyAction(r.state, { type: "equipmentReplaceDecision", playerId: "p2", accept: true });
     assert.equal(r.state.currentTurnIndex, 1);

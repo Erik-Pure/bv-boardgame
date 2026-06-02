@@ -83,17 +83,11 @@ import {
 import bossFinaleExitStyles from "../components/play/bossFinaleExit.module.css";
 import { bossFinaleExitCssVars } from "../lib/bossFinaleTiming";
 import { useBossFinaleExit } from "../lib/useBossFinaleExit";
-import {
-  PLAYER_MARKER_TOKEN_H,
-  PLAYER_MARKER_TOKEN_W,
-  PLAYER_MARKER_VIEWBOX,
-  playerMarkerStyleVars,
-  playerMarkerSvgMarkupFor,
-} from "../lib/playerMarkerSvg";
+import { PLAYER_MARKER_TOKEN_W } from "../lib/playerMarkerSvg";
+import { PlayerAvatarStack } from "../components/PlayerAvatarStack";
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
 import { readLobbyConfigDraft } from "../lib/lobbyConfigDraft";
-import { firstGrapheme } from "../lib/firstGrapheme";
 
 /** Publika tillgångar under apps/web/public/backgrounds/ — nyckel = våningsindex (0 = nivå 1). */
 const TABLE_LEVEL_BACKGROUNDS: Record<number, string> = {
@@ -491,14 +485,19 @@ function tableToastIconKinds(message: string, category: TableToastCategory): Sta
   return out;
 }
 
+function isMonsterEncounterSkipToast(message: string): boolean {
+  const m = message.toLowerCase();
+  if (m.includes("undviker batchmötet")) return true;
+  if (m.includes("mutar sig ur batchmötet") || m.includes("mutar sig ur")) return true;
+  if (m.includes("skippar den dåliga batchen")) return true;
+  if (m.includes("skippar monstr") || m.includes("skippar monstret")) return true;
+  return m.includes("vaska") && m.includes("skippar");
+}
+
 function classifyTableToastMessage(message: string): TableToastCategory | null {
   const m = message.toLowerCase();
-  /** Vaska (early_night): motorn loggar t.ex. "… spelar Vaska och skippar monstret." */
-  if (m.includes("vaska") && (m.includes("skippar monstr") || m.includes("skippar monstret"))) {
-    return "vaska";
-  }
-  /** Mantel: undvik monsterstrid (−2 pant). */
-  if (m.includes("undviker batchmötet")) {
+  /** Vaska, Mutor, Mantel — undvik batchmöte (loggrad på brädet). */
+  if (isMonsterEncounterSkipToast(m)) {
     return "vaska";
   }
   const isSip =
@@ -1033,6 +1032,14 @@ function TableViewBody() {
     if (status === "connected" || status === "connecting") setErr(null);
   }, [status]);
 
+  /** Saknade våningar mitt i match → hämta full snapshot (partial delta räcker inte). */
+  useEffect(() => {
+    if (status !== "connected") return;
+    if (state?.phase !== "playing") return;
+    if (state.levels?.length) return;
+    requestReconnect();
+  }, [status, state?.phase, state?.levels?.length, requestReconnect]);
+
   useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
 
   useEffect(() => {
@@ -1142,10 +1149,20 @@ function TableViewBody() {
   const highlightRollMoveOrigin = useMemo(() => {
     if (state?.phase !== "playing") return false;
     if (state.pending != null) return false;
+    const off = state.offTurnPersonalPending;
+    if (
+      cur &&
+      off &&
+      off.playerId === cur.id &&
+      (off.type === "brewerPerkChoice" || off.type === "levelUpOffer")
+    ) {
+      return false;
+    }
+    if (cur && (cur.pendingBrewerPerkLevels ?? 0) > 0) return false;
     if (!cur || cur.eliminated) return false;
     if (cur.hp <= 0) return false;
     return true;
-  }, [state?.phase, state?.pending, cur]);
+  }, [state?.phase, state?.pending, state?.offTurnPersonalPending, cur]);
 
   const playingTurn = state?.phase === "playing" && cur;
   const pendingMoveChoice = state?.pending?.type === "moveChoice" ? state.pending : null;
@@ -1602,9 +1619,8 @@ function TableViewBody() {
                               const off = offsets[idx] ?? { dx: 0, dy: -8 };
                               const cx = innerCx + off.dx;
                               const cy = innerCy + off.dy;
-                              const initial = firstGrapheme(p.name);
                               const tw = PLAYER_MARKER_TOKEN_W;
-                              const th = PLAYER_MARKER_TOKEN_H;
+                              const th = PLAYER_MARKER_TOKEN_W;
                               const anim = moveAnimByPlayer.get(p.id);
                               const animAgeMs = anim ? animNowMs - anim.startedAt : Number.POSITIVE_INFINITY;
                               const animationDurationMs = anim?.durationMs ?? MOVE_TOKEN_ANIM_MS;
@@ -1664,6 +1680,8 @@ function TableViewBody() {
                               }
                               const curTx = fromTx;
                               const curTy = fromTy;
+                              const isActiveBoardPlayer =
+                                state?.phase === "playing" && cur?.id === p.id;
                               const showBoardMoveArrows =
                                 boardMoveChoiceArrows &&
                                 p.id === boardMoveChoiceArrows.playerId &&
@@ -1725,38 +1743,35 @@ function TableViewBody() {
                                   key={p.id}
                                   filter="url(#playerTokenShadow)"
                                 >
-                                  <g
-                                    transform={`translate(${curTx}, ${curTy})`}
-                                    style={playerMarkerStyleVars(p.color)}
+                                  <foreignObject
+                                    x={curTx}
+                                    y={curTy}
+                                    width={tw}
+                                    height={th}
+                                    overflow="visible"
                                   >
-                                    <svg
-                                      width={tw}
-                                      height={th}
-                                      viewBox={PLAYER_MARKER_VIEWBOX}
-                                      overflow="visible"
-                                      dangerouslySetInnerHTML={{
-                                        __html: playerMarkerSvgMarkupFor(p.id),
+                                    <div
+                                      {...({
+                                        xmlns: "http://www.w3.org/1999/xhtml",
+                                      } as Record<string, string>)}
+                                      style={{
+                                        width: tw,
+                                        height: th,
+                                        pointerEvents: "none",
+                                        transform: isActiveBoardPlayer ? "scale(1.5)" : undefined,
+                                        transformOrigin: "50% 50%",
                                       }}
-                                    />
-                                    <g transform={`translate(${tw / 2}, ${th * 0.44})`}>
-                                      <g transform="scale(1, 0.66)">
-                                        <text
-                                          x={0}
-                                          y={0}
-                                          textAnchor="middle"
-                                          dominantBaseline="central"
-                                          fill="rgba(255,255,255,0.94)"
-                                          stroke="rgba(0,0,0,0.55)"
-                                          strokeWidth={3.4}
-                                          fontSize={34}
-                                          fontWeight={900}
-                                          className={tableStyles.svgTokenInitialText}
-                                        >
-                                          {initial}
-                                        </text>
-                                      </g>
-                                    </g>
-                                  </g>
+                                    >
+                                      <PlayerAvatarStack
+                                        avatar={p.avatar}
+                                        color={p.color}
+                                        size="board"
+                                        animate={
+                                          boardPerf.boardAnimationsEnabled && isActiveBoardPlayer
+                                        }
+                                      />
+                                    </div>
+                                  </foreignObject>
                                   {showBoardMoveArrows && boardMoveChoiceArrows ? (
                                     <g transform={`translate(${curTx}, ${curTy})`} pointerEvents="none">
                                       <image

@@ -57,16 +57,18 @@ export function previewHpAfterFlatDamage(params: {
   player: Player;
   amount: number;
   isBossHit?: boolean;
+  /** BvB-vinstbyte: sköld och engångs-rustningsblock räknas inte. */
+  bypassShield?: boolean;
 }): { hpAfter: number; blockedByNegateAllOnce: boolean } {
-  const { player: p, amount, isBossHit } = params;
+  const { player: p, amount, isBossHit, bypassShield } = params;
   const dmg = Math.max(0, Math.floor(amount));
   if (dmg <= 0) return { hpAfter: p.hp, blockedByNegateAllOnce: false };
 
-  if (hasNegateAllOnce(p)) {
+  if (!bypassShield && hasNegateAllOnce(p)) {
     return { hpAfter: p.hp, blockedByNegateAllOnce: true };
   }
 
-  const prevent = equipmentDamageNegateForHit(p, isBossHit === true);
+  const prevent = bypassShield ? 0 : equipmentDamageNegateForHit(p, isBossHit === true);
   const final = Math.max(0, dmg - prevent);
   return { hpAfter: Math.max(0, p.hp - final), blockedByNegateAllOnce: false };
 }
@@ -77,18 +79,20 @@ export function applyDamage(params: {
   amount: number;
   isBossHit?: boolean;
   source?: string;
+  /** BvB-vinstbyte: sköld och engångs-rustningsblock ignoreras. */
+  bypassShield?: boolean;
   log?: (s: GameState, msg: string) => void;
 }): { applied: number; prevented: number } {
-  const { state, player: p, amount } = params;
+  const { state, player: p, amount, bypassShield } = params;
   const dmg = Math.max(0, Math.floor(amount));
   if (dmg <= 0) return { applied: 0, prevented: 0 };
 
-  if (hasNegateAllOnce(p)) {
+  if (!bypassShield && hasNegateAllOnce(p)) {
     consumeNegateAllOnce(state, p, params.log);
     return { applied: 0, prevented: dmg };
   }
 
-  const prevent = equipmentDamageNegateForHit(p, params.isBossHit === true);
+  const prevent = bypassShield ? 0 : equipmentDamageNegateForHit(p, params.isBossHit === true);
   const final = Math.max(0, dmg - prevent);
 
   const before = p.hp;

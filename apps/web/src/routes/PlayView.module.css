@@ -17,6 +17,53 @@
 }
 
 /* Kort server-/klientmeddelanden (t.ex. "En Ölkompis hjälper redan") — ovanför utrustningsarket. */
+.reconnectBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45000;
+  border-top: 1px solid #ffffff22;
+  background: rgba(11, 18, 38, 0.92);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--type-xs);
+  color: #f8fafc;
+}
+
+.reconnectBarText {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+
+.sessionRecovery {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 23, 42, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sessionRecoveryText {
+  margin: 0;
+  font-size: var(--type-md);
+  line-height: 1.45;
+  color: #f8fafc;
+  text-align: center;
+}
+
 .playToast {
   position: fixed;
   left: max(12px, env(safe-area-inset-left));
@@ -1262,7 +1309,7 @@
 }
 
 /* Ingen resultatrad ännu (idle / väntar) — undvik :empty (whitespace i JSX kan ge textnoder) */
-.sheetDiceCaption:not(:has(.sheetDiceCaptionText)) {
+.sheetDiceCaption:not(:has(.sheetDiceCaptionText)):not(.sheetDiceCaptionFilled) {
   min-height: 0;
   height: 0;
   margin: 0;

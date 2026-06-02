@@ -16,26 +16,16 @@ import {
   type Player,
   type ShopItem,
   type Weapon,
+  PLASTBACK_ACCESSORY_NAME,
+  PLASTBACK_FULL_FLASK_COUNT,
+  TOM_FLASKA_WEAPON_NAME,
+  plastbackFlasksRemainingCount,
 } from "@bv/game-core";
-
-const PLASTBACK_ACCESSORY_NAME = "Plastback";
-const TOM_FLASKA_WEAPON_NAME = "Tom flaska";
-const PLASTBACK_FULL_FLASK_COUNT = 6;
 
 /** Kvarvarande Tom flaska-vinster när Plastback + Tom flaska är utrustade. */
 export function plastbackFlasksRemaining(player?: Player): number | null {
   if (!player) return null;
-  const w = player.equipment.weapon;
-  if (
-    player.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME ||
-    w?.name !== TOM_FLASKA_WEAPON_NAME ||
-    w.breakOnWin !== true
-  ) {
-    return null;
-  }
-  const n = w.breakWinsRemaining;
-  if (typeof n === "number") return Math.max(0, n);
-  return PLASTBACK_FULL_FLASK_COUNT;
+  return plastbackFlasksRemainingCount(player);
 }
 
 export const ITEM_EFFECT_BADGE_ICONS = {

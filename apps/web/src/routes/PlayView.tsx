@@ -24,6 +24,7 @@ import {
   playerCanCombatIntervene,
   levelUpCostsForTargetLevel,
   penaltySipTotalForPlayer,
+  plastbackAccessorySellPant,
   pvpLootPantStealAmount,
   previewHpAfterFlatDamage,
   effectiveMerchantBuyPrice,
@@ -37,6 +38,7 @@ import {
   type ItemInstance,
   type MonsterId,
   type Pending,
+  randomPlayerAvatar,
   type Player,
   type ShopItem,
   type SipNoticeKind,
@@ -46,6 +48,7 @@ import {
   getCardDefById,
   klunkBurstCountForSipNotice,
   attackerCannotSelfNegativeCombatItem,
+  lengraddadBlockedForCombatParticipant,
   PENALTY_XP_PER_KLUNK,
 } from "@bv/game-core";
 import {
@@ -69,12 +72,14 @@ import { subscribeTurnVibration, vibrateMyTurn } from "../lib/turnVibration";
 import { EffectBadgePillStrip } from "../components/EffectBadgePillStrip";
 import { clearRememberedPlayerId, type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
+import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { TreasureCardContent } from "../components/TreasureCardContent";
 import { MonsterEncounterCard } from "../components/MonsterEncounterCard";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { PlayerAvatarStack } from "../components/PlayerAvatarStack";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { LevelRingCell } from "../components/LevelRingCell";
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
@@ -85,6 +90,7 @@ import { CombatChooseTeammateSheet } from "../components/play/CombatChooseTeamma
 import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
 import { BossFinaleOverlay } from "../components/play/BossFinaleOverlay";
 import { bossFinaleExitTotalMs } from "../lib/useBossFinaleExit";
+import { EquipmentCombatTotalsRow } from "../components/play/EquipmentCombatTotalsRow";
 import { FloatingEmoteControl } from "../components/play/FloatingEmoteControl";
 import { withIdleEmotes } from "../components/play/withIdleEmotes";
 import { resolveIdleEmoteContext } from "../lib/idleEmoteContext";
@@ -126,17 +132,30 @@ function findMe(state: GameState | null, myId: string | null) {
 
 function myPersonalTurnPrompt(state: GameState | null, me: Player | null) {
   if (!state || !me) return null;
+  const mine: Array<
+    Extract<Pending, { type: "brewerPerkChoice" | "levelUpOffer" }>
+  > = [];
   const off = state.offTurnPersonalPending;
-  if (off && off.playerId === me.id) return off;
+  if (
+    off &&
+    off.playerId === me.id &&
+    (off.type === "brewerPerkChoice" || off.type === "levelUpOffer")
+  ) {
+    mine.push(off);
+  }
   const p = state.pending;
   if (
     p &&
     (p.type === "levelUpOffer" || p.type === "brewerPerkChoice") &&
     p.playerId === me.id
   ) {
-    return p;
+    mine.push(p);
   }
-  return null;
+  return (
+    mine.find((x) => x.type === "brewerPerkChoice") ??
+    mine.find((x) => x.type === "levelUpOffer") ??
+    null
+  );
 }
 
 function myOffTurnCombatEquipReplace(state: GameState | null, me: Player | null) {
@@ -477,17 +496,21 @@ function clearPlayRootBackground(): void {
   }
 }
 
+/** Neutral mobilgradient när spelarfärg saknas (t.ex. under återanslutning). */
+const PLAY_ROOT_FALLBACK_TINT = "#1e293b";
+
 function applyPlayRootBackground(playerTint: string | undefined): void {
   const root = document.getElementById("root");
   const html = document.documentElement;
   if (!root) return;
-  if (!playerTint) {
+  const useGradient = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
+  const tint = playerTint ?? (useGradient ? PLAY_ROOT_FALLBACK_TINT : undefined);
+  if (!tint) {
     clearPlayRootBackground();
     return;
   }
-  const useGradient = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches;
   if (useGradient) {
-    const gradient = `linear-gradient(180deg, ${playerTint} 0%, ${playerTint} 10%, #0a0a12 45%, #000000 100%)`;
+    const gradient = `linear-gradient(180deg, ${tint} 0%, ${tint} 10%, #0a0a12 45%, #000000 100%)`;
     for (const el of [root, html]) {
       el.style.background = gradient;
       el.style.backgroundColor = "#000000";
@@ -495,8 +518,8 @@ function applyPlayRootBackground(playerTint: string | undefined): void {
   } else {
     for (const el of [root, html]) {
       el.style.removeProperty("background-image");
-      el.style.background = playerTint;
-      el.style.backgroundColor = playerTint;
+      el.style.background = tint;
+      el.style.backgroundColor = tint;
     }
   }
 }
@@ -581,6 +604,9 @@ export function PlayView() {
   const [bottomSheetAnimatedHeight, setBottomSheetAnimatedHeight] = useState<number | null>(null);
   const [bottomSheetHeightInstant, setBottomSheetHeightInstant] = useState(false);
   const [bottomSheetEnterDone, setBottomSheetEnterDone] = useState(false);
+  const [isMobilePlayLayout, setIsMobilePlayLayout] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ).matches,
+  );
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const [merchantDetailItem, setMerchantDetailItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
@@ -592,13 +618,27 @@ export function PlayView() {
   const bossFinaleFinishTimerRef = useRef<number | null>(null);
   const [bossFinaleExitLocal, setBossFinaleExitLocal] = useState(false);
 
-  const { status, clientRef } = useWsGameClient({
+  const {
+    status,
+    clientRef,
+    reconnectAttemptN,
+    overlayPhase,
+    requestReconnect,
+    showReconnectOverlay,
+  } = useWsGameClient({
     roomCode: room,
     playerName: name,
     as: "controller",
     connectTimeoutMs: 10_000,
     onMessage: (m: ServerMessage) => {
-      if (m.type === "helloAck") setMyId(m.playerId);
+      if (m.type === "helloAck") {
+        setMyId(m.playerId);
+        setState((prev) => {
+          if (!prev) return prev;
+          if (prev.players.some((p) => p.id === m.playerId)) return prev;
+          return null;
+        });
+      }
       if (m.type === "error") showToast(m.message);
       if (m.type === "state" && isGameState(m.state)) {
         setState(m.state);
@@ -610,6 +650,11 @@ export function PlayView() {
   });
 
   const me = findMe(state, myId);
+  useEffect(() => {
+    if (status !== "connected" || !state || !myId) return;
+    if (state.players.some((p) => p.id === myId)) return;
+    setState(null);
+  }, [status, state, myId]);
   usePlaySfxSync({ state, meId: me?.id ?? null });
   const lobbyCardCoverId = state?.config.cardCover;
 
@@ -768,6 +813,7 @@ export function PlayView() {
   const mobileEquipmentCombatTotals = useMemo(() => {
     if (!me || state?.phase !== "playing") return null;
     return {
+      maxHp: me.maxHp,
       attack: monsterCombatEquipmentAttackBonus(me) + (me.nextCombatModifier ?? 0),
       shield: equipmentDamageNegate(me),
       bvb: pvpEquipmentDieBonusTotal(me),
@@ -794,6 +840,14 @@ export function PlayView() {
     };
   }, [me?.color]);
 
+  useEffect(() => {
+    const mq = window.matchMedia(PLAY_ROOT_MOBILE_GRADIENT_MQ);
+    const sync = () => setIsMobilePlayLayout(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const showHeaderStatsBar = Boolean(state && me && state.phase !== "lobby");
   const headerStatusTag = useMemo(() => {
     if (!me) return "";
@@ -818,11 +872,6 @@ export function PlayView() {
   }, [rainbowEffectsEnabled]);
 
   const pending = state?.pending ?? null;
-  const onRollDieScreen = !!isMyTurn && !pending;
-  useEffect(() => {
-    if (onRollDieScreen) return;
-    setRollDiceSpinning(true);
-  }, [onRollDieScreen]);
 
   const combatFighterSheet =
     !!me &&
@@ -952,7 +1001,17 @@ export function PlayView() {
 
   const myPending = isMyPending(pending, me);
   const personalTurnPrompt = myPersonalTurnPrompt(state, me);
-  const needsBrewerPerkChoice = personalTurnPrompt?.type === "brewerPerkChoice";
+  const needsBrewerPerkChoice =
+    personalTurnPrompt?.type === "brewerPerkChoice" ||
+    (me?.pendingBrewerPerkLevels ?? 0) > 0;
+  const personalPromptBlocksRoll =
+    needsBrewerPerkChoice ||
+    personalTurnPrompt?.type === "levelUpOffer";
+  const onRollDieScreen = !!isMyTurn && !pending && !personalPromptBlocksRoll;
+  useEffect(() => {
+    if (onRollDieScreen) return;
+    setRollDiceSpinning(true);
+  }, [onRollDieScreen]);
   const readyCount = state?.players?.filter((p) => p.ready).length ?? 0;
   const totalPlayers = state?.players?.length ?? 0;
   const canStart =
@@ -1112,7 +1171,15 @@ export function PlayView() {
       }
       return true;
     }
-    if (itemId === "lengraddad" && inCombatReactions) return true;
+    if (itemId === "lengraddad" && inCombatReactions) {
+      if (
+        pending?.type === "combat" &&
+        lengraddadBlockedForCombatParticipant(me?.id ?? "", pending)
+      ) {
+        return false;
+      }
+      return true;
+    }
     if (itemId === "lengraddad" && inPvpPreRoundItems) return true;
     if (itemId === "lengraddad") return false;
     if (itemId === "early_night") {
@@ -1424,12 +1491,36 @@ export function PlayView() {
           <div className={`${u.textCenter} ${u.o9}`}>
             {sv.play.lobbySheet(readyCount, totalPlayers)}
           </div>
-          <div
-            className={`${u.stack10} ${me.isHost ? u.gridCols2 : u.gridCols1} ${u.justifyItemsCenter}`}
-          >
+          {me.isHost ? (
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              disabled={status !== "connected"}
+              onClick={() => {
+                const avatar = randomPlayerAvatar();
+                send({ type: "setAvatar", playerId: me.id, avatar });
+              }}
+            >
+              {sv.play.shuffleAvatar}
+            </ArcadeButton>
+          ) : null}
+          <div className={`${u.stack10} ${u.gridCols2} ${u.justifyItemsCenter}`}>
+            {!me.isHost ? (
+              <ArcadeButton
+                variant="gray"
+                fullWidth
+                disabled={status !== "connected"}
+                onClick={() => {
+                  const avatar = randomPlayerAvatar();
+                  send({ type: "setAvatar", playerId: me.id, avatar });
+                }}
+              >
+                {sv.play.shuffleAvatar}
+              </ArcadeButton>
+            ) : null}
             <ArcadeButton
               variant={me.ready ? "gray" : "blue"}
-              fullWidth={me.isHost}
+              fullWidth
               disabled={status !== "connected"}
               onClick={() => send({ type: "setReady", playerId: me.id, ready: !me.ready })}
             >
@@ -1459,6 +1550,9 @@ export function PlayView() {
     if (needsBrewerPerkChoice) {
       return (
         <div className={u.stack10}>
+          {mobileEquipmentCombatTotals ? (
+            <EquipmentCombatTotalsRow totals={mobileEquipmentCombatTotals} />
+          ) : null}
           <ArcadeButton
             variant="pink"
             fullWidth
@@ -3016,7 +3110,7 @@ export function PlayView() {
       const pantSteal = loser ? pvpLootPantStealAmount(loser.gold) : 0;
       const penaltyKlunkTotal = loser ? penaltySipTotalForPlayer(loser, 1) : 0;
       const dmgPreview = loser
-        ? previewHpAfterFlatDamage({ player: loser, amount: 2, isBossHit: false })
+        ? previewHpAfterFlatDamage({ player: loser, amount: 2, isBossHit: false, bypassShield: true })
         : { hpAfter: 0, blockedByNegateAllOnce: false };
       const damageButtonLabel = loser
         ? sv.play.pvpLootDealDamageLine(loser.hp, dmgPreview.hpAfter, dmgPreview.blockedByNegateAllOnce)
@@ -3078,7 +3172,7 @@ export function PlayView() {
       );
     }
 
-    if (isMyTurn && !pending) {
+    if (isMyTurn && !pending && !personalPromptBlocksRoll) {
       const canChooseMerchant = (me.gold ?? 0) >= 5;
       return (
         <div className={u.stack10}>
@@ -4179,7 +4273,11 @@ export function PlayView() {
                 {sv.play.brewerPerkTitle}
               </div>
               <div className={`${styles.promptOfferBody} ${u.textCenter}`}>
-                {sv.play.brewerPerkPrompt(personalTurnPrompt.levelsRemaining)}
+                {sv.play.brewerPerkPrompt(
+                  personalTurnPrompt?.type === "brewerPerkChoice"
+                    ? personalTurnPrompt.levelsRemaining
+                    : (me.pendingBrewerPerkLevels ?? 1),
+                )}
               </div>
             </div>
           </div>
@@ -4450,7 +4548,20 @@ export function PlayView() {
                   boxSizing: "border-box",
                 }}
               >
-                {!me && <div>{sv.play.lookingForPlayer}</div>}
+                {!me ? (
+                  <div className={styles.sessionRecovery}>
+                    <p className={styles.sessionRecoveryText}>
+                      {status === "connected" && state
+                        ? sv.play.sessionStale
+                        : sv.play.lookingForPlayer}
+                    </p>
+                    {status === "connected" && state ? (
+                      <ArcadeButton variant="pink" fullWidth onClick={() => leaveCurrentGame()}>
+                        {sv.play.sessionStaleLeave}
+                      </ArcadeButton>
+                    ) : null}
+                  </div>
+                ) : null}
                 {me && (
                   <div
                     className={styles.playerEquipmentShell}
@@ -4525,58 +4636,7 @@ export function PlayView() {
                         />
                       </div>
                       {mobileEquipmentCombatTotals ? (
-                        <div
-                          className={styles.equipmentCombatTotalsRow}
-                          role="group"
-                          aria-label={`${sv.play.equipmentAttackFromGearAria(mobileEquipmentCombatTotals.attack)} · ${sv.play.equipmentDefenseFromGearAria(mobileEquipmentCombatTotals.shield)} · ${sv.play.equipmentBvbFromGearAria(mobileEquipmentCombatTotals.bvb)}`}
-                        >
-                          <div
-                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.attack === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-                            aria-label={sv.play.equipmentAttackFromGearAria(mobileEquipmentCombatTotals.attack)}
-                          >
-                            <img
-                              className={styles.equipmentCombatTotalIcon}
-                              src="/icons/combat-icon.svg"
-                              alt=""
-                              width={18}
-                              height={18}
-                              draggable={false}
-                            />
-                            <span>{mobileEquipmentCombatTotals.attack}</span>
-                          </div>
-                          <div
-                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.shield === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : mobileEquipmentCombatTotals.shield < 0 ? ` ${styles.equipmentCombatTotalPillNegative}` : ""}`}
-                            aria-label={sv.play.equipmentDefenseFromGearAria(mobileEquipmentCombatTotals.shield)}
-                          >
-                            <img
-                              className={styles.equipmentCombatTotalIcon}
-                              src="/icons/armor-icon.svg"
-                              alt=""
-                              width={18}
-                              height={18}
-                              draggable={false}
-                            />
-                            <span>
-                              {mobileEquipmentCombatTotals.shield > 0
-                                ? `+${mobileEquipmentCombatTotals.shield}`
-                                : mobileEquipmentCombatTotals.shield}
-                            </span>
-                          </div>
-                          <div
-                            className={`${styles.equipmentCombatTotalPill}${mobileEquipmentCombatTotals.bvb === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-                            aria-label={sv.play.equipmentBvbFromGearAria(mobileEquipmentCombatTotals.bvb)}
-                          >
-                            <img
-                              className={styles.equipmentCombatTotalIcon}
-                              src="/icons/bvb-icon.svg"
-                              alt=""
-                              width={18}
-                              height={18}
-                              draggable={false}
-                            />
-                            <span>{mobileEquipmentCombatTotals.bvb}</span>
-                          </div>
-                        </div>
+                        <EquipmentCombatTotalsRow totals={mobileEquipmentCombatTotals} />
                       ) : null}
                     </div>
 
@@ -4773,37 +4833,44 @@ export function PlayView() {
               >
                 <h2 style={{ marginTop: 0 }}>{sv.play.lobbySectionTitle}</h2>
                 <div style={{ opacity: 0.8, marginBottom: 8 }}>{sv.play.lobbyReadyLine(readyCount, state.players.length)}</div>
-                <ul
-                  style={{
-                    listStyle: "none",
-                    margin: "0 0 10px",
-                    padding: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    fontSize: 14,
-                  }}
-                >
-                  {state.players.map((p) => (
-                    <li key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          background: p.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span>
-                        {p.name}
-                        {p.isHost ? ` ${sv.play.hostTag}` : ""}
-                        {p.ready ? " ✓" : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.lobbyBottomHint}</div>
+                <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+                  <PlayerAvatarStack avatar={me.avatar} color={me.color} size="lobby" />
+                </div>
+                {!isMobilePlayLayout ? (
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      margin: "0 0 10px",
+                      padding: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      fontSize: 14,
+                    }}
+                  >
+                    {state.players.map((p) => (
+                      <li key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: p.color,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span>
+                          {p.name}
+                          {p.isHost ? ` ${sv.play.hostTag}` : ""}
+                          {p.ready ? " ✓" : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {!isMobilePlayLayout ? (
+                  <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.lobbyBottomHint}</div>
+                ) : null}
               </section>
             )}
           </>
@@ -5295,12 +5362,7 @@ export function PlayView() {
                         setEquipDetail(null);
                       }}
                     >
-                      {sv.play.sellPlastbackAccessory(
-                        me.equipment.weapon?.name === "Tom flaska" &&
-                          typeof me.equipment.weapon?.breakWinsRemaining === "number"
-                          ? me.equipment.weapon.breakWinsRemaining
-                          : 0,
-                      )}
+                      {sv.play.sellPlastbackAccessory(plastbackAccessorySellPant(me))}
                     </ArcadeButton>
                   ) : null}
                 </>
@@ -5355,6 +5417,22 @@ export function PlayView() {
           </Modal>
         );
       })()}
+
+      {showReconnectOverlay ? (
+        <div className={styles.reconnectBar}>
+          <div className={styles.reconnectBarText}>
+            {room} · {wsStatusLabel(status)}
+          </div>
+          <WsReconnectFooterHint
+            phase={overlayPhase}
+            attempt={reconnectAttemptN}
+            connectingShort={sv.play.wsReconnectFooterConnecting}
+            waitingShort={sv.play.wsReconnectFooterWaiting}
+            retryLabel={sv.play.wsRetry}
+            onRetry={requestReconnect}
+          />
+        </div>
+      ) : null}
 
       {toast ? (
         <div className={styles.playToast} role="status" aria-live="polite">

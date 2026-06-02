@@ -11,6 +11,13 @@ export function tableCardUsesCardFlipSfx(card: PendingCard): boolean {
   return card.kind === "treasure" && card.cardId !== "treasure_empty";
 }
 
+/** Händelsekort som ska ha dålig-batch-ljud i stället för event/eventTile. */
+const BAD_BATCH_EVENT_CARD_IDS = new Set<string>(["event_apocalypse", "event_faulty_brewery"]);
+
+export function eventCardUsesBadBatchSfx(cardId: string): boolean {
+  return BAD_BATCH_EVENT_CARD_IDS.has(cardId);
+}
+
 export function brewerDisplayLevel(player: Player): number {
   return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
 }
@@ -78,7 +85,7 @@ export function combatMonsterDiceSfxKey(state: GameState): string | null {
   }
   const teamRolls = pend.teamRolls;
   if (!teamRolls || Object.keys(teamRolls).length === 0) return null;
-  if (pend.phase !== "reactions" && pend.phase !== "enemyIntro") return null;
+  if (pend.phase !== "reactions") return null;
   return `tr:${Object.entries(teamRolls)
     .filter((entry): entry is [string, NonNullable<(typeof teamRolls)[string]>] => entry[1] != null)
     .map(([id, r]) => `${id}:${r.die}`)

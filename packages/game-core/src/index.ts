@@ -1,5 +1,12 @@
 export type { EquipmentShopItem } from "./equipmentDefs.js";
 export { EQUIPMENT_CATALOG } from "./equipmentDefs.js";
+export {
+  AVATAR_PART_COUNT,
+  isValidPlayerAvatar,
+  normalizePlayerAvatar,
+  randomPlayerAvatar,
+} from "./avatar.js";
+export type { AvatarPartKind, PlayerAvatar } from "./avatar.js";
 export type {
   ApplyResult,
   ClientAction,
@@ -65,6 +72,7 @@ export {
   createEmptyLobby,
   levelUpCostsForTargetLevel,
   lobbyAddPlayer,
+  normalizeLoadedGameState,
   penaltySipTotalForPlayer,
   PVP_BEST_OF,
   PVP_LOOT_MAX_PANT,
@@ -95,6 +103,14 @@ export {
   type MonsterId,
 } from "./monsters.js";
 export {
+  PLASTBACK_ACCESSORY_NAME,
+  PLASTBACK_FULL_FLASK_COUNT,
+  plastbackAccessorySellPant,
+  plastbackFlasksRemainingCount,
+  syncPlastbackEmptyBottleSynergy,
+  TOM_FLASKA_WEAPON_NAME,
+} from "./plastbackSynergy.js";
+export {
   BEER_CAN_HELM1_NAME,
   BEER_CAN_RUSTNING_NAME,
   BEER_HELM2_MIN_LEVEL,
@@ -109,6 +125,7 @@ export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js
 export {
   ATTACKER_SELF_NEGATIVE_COMBAT_ITEM_IDS,
   attackerCannotSelfNegativeCombatItem,
+  lengraddadBlockedForCombatParticipant,
 } from "./combatItemRestrictions.js";
 export {
   COMBAT_ITEM_BASE_ATTACK_MODS,

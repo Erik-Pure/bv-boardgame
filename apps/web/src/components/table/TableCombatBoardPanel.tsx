@@ -15,6 +15,7 @@ import cardFlipShellStyles from "../CardFlipModalShell.module.css";
 import { CombatLoseCardContent } from "../CombatLoseCard";
 import { CombatSheetFrame } from "../CombatResultSheet";
 import { CombatWinCardContent } from "../CombatWinCard";
+import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
 import {
   combatLossKlunksForDisplay,
   monsterEncounterCardPropsFromCombatPending,
@@ -299,6 +300,10 @@ function TableCombatBoardPanelInner(props: {
     diceBesideCardPhases &&
     pending.phase !== "rollPreview" &&
     pending.phase !== "chooseHitMitigation";
+  const showCritFailDiceCaption =
+    pending.phase === "rollPreview" &&
+    pending.previewCritFailOnOne === true &&
+    !combatBoardDiceSpinning;
   const finalBossRoundLabel = (() => {
     if (!isFinalBossCombat) return null;
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
@@ -608,6 +613,7 @@ function TableCombatBoardPanelInner(props: {
                   )}
                 </div>
               </div>
+              {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
               {pending.phase === "chooseHitMitigation" ? (
                 <div className={combatStyles.hitMitigationHint}>
                   {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
@@ -702,6 +708,7 @@ function TableCombatBoardPanelInner(props: {
           {pending.previewBroDie != null ? (
             <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
           ) : null}
+          {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
           {pending.phase === "chooseHitMitigation" ? (
             <div className={combatStyles.hitChoiceLine}>
               {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}

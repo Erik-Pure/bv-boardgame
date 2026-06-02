@@ -9,12 +9,18 @@ import {
   lastTableItemRevealSeq,
   shouldHearItemPlaySfx,
   syncItemPlaySeq,
+  eventCardUsesBadBatchSfx,
   tableCardUsesCardFlipSfx,
   type PendingCard,
 } from "../lib/gameSfxSyncHelpers";
 import { eventCardDiceSfxKey } from "../lib/eventCardDice";
 import { tableItemPlayUsesDieRollSfx } from "../lib/tableItemPlaySfx";
-import { clearTableSfxQueue, playTableSfx } from "../lib/tableSfx";
+import {
+  clearCombatIntroSfxKeys,
+  clearTableSfxQueue,
+  playTableSfx,
+  tryClaimCombatIntroAudio,
+} from "../lib/tableSfx";
 
 export type GameSfxSyncProps = {
   state: GameState | null;
@@ -64,8 +70,6 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
   const prevEventCardDiceSfxKeyRef = useRef<string | null>(null);
   const prevEventCardSfxSessionRef = useRef<string | null>(null);
   const prevMonsterOutcomeSfxKeyRef = useRef<string | null>(null);
-  const playedCombatIntroSfxKeyRef = useRef<string | null>(null);
-  const prevCombatIntroVisibleRef = useRef(false);
   const sfxSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -84,11 +88,10 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     prevCombatDiceSfxKeyRef.current = null;
     prevCombatSfxSessionRef.current = null;
     prevMonsterOutcomeSfxKeyRef.current = null;
-    playedCombatIntroSfxKeyRef.current = null;
-    prevCombatIntroVisibleRef.current = false;
     prevPendingTypeRef.current = state?.pending?.type ?? null;
+    clearCombatIntroSfxKeys();
     clearTableSfxQueue();
-  }, [state?.roomCode, state?.phase, state?.pending?.type]);
+  }, [state?.roomCode, state?.phase]);
 
   useEffect(() => {
     if (state?.pending?.type === "moveChoice") {
@@ -98,11 +101,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
 
   useEffect(() => {
     if (tableCombatSessionKey === prevCombatSfxSessionRef.current) return;
-    const prevKey = prevCombatSfxSessionRef.current;
     prevCombatSfxSessionRef.current = tableCombatSessionKey;
-    if (tableCombatSessionKey !== prevKey) {
-      prevCombatIntroVisibleRef.current = false;
-    }
     prevCombatDiceSfxKeyRef.current = state ? combatMonsterDiceSfxKey(state) : null;
     prevReactionPlaySeqRef.current =
       tableCombatSessionKey && state ? (lastCombatReactionPlaySeq(state) ?? -1) : null;
@@ -186,8 +185,15 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
         pend?.type === "card" &&
         (pend.kind === "event" || pend.kind === "treasure") &&
         affectsLocalPlayer(localPlayerId, pend.playerId);
+      const landedMonsterCombatIntro =
+        pend?.type === "combat" &&
+        (pend.phase === "enemyIntro" || pend.phase === "chooseTeammate");
 
-      if (affectsLocalPlayer(localPlayerId, moverId ?? undefined) && !landedEventOrTreasure) {
+      if (
+        affectsLocalPlayer(localPlayerId, moverId ?? undefined) &&
+        !landedEventOrTreasure &&
+        !landedMonsterCombatIntro
+      ) {
         playTableSfx("roll", { enabled: sfxEnabled });
       }
       if (landedEventOrTreasure) {
@@ -258,16 +264,9 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
   }, [state, state?.tableItemPlayReveals, state?.pending, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
-    if (!tableCombatSessionKey) {
-      prevCombatIntroVisibleRef.current = false;
-      return;
-    }
-    const visible = combatIntroVisible;
-    const wasVisible = prevCombatIntroVisibleRef.current;
-    prevCombatIntroVisibleRef.current = visible;
-    if (!visible || wasVisible || !sfxEnabled) return;
-    if (playedCombatIntroSfxKeyRef.current === tableCombatSessionKey) return;
-    playedCombatIntroSfxKeyRef.current = tableCombatSessionKey;
+    if (!combatIntroVisible || !tableCombatSessionKey || !sfxEnabled) return;
+    if (!tryClaimCombatIntroAudio(tableCombatSessionKey)) return;
+    // Samma som händelse/skatt: cardflip vid modal, sedan rutanljud (köas — spelas efter varandra).
     playTableSfx("cardFlip", { enabled: sfxEnabled });
     playTableSfx("badBatch", { enabled: sfxEnabled });
   }, [combatIntroVisible, tableCombatSessionKey, sfxEnabled]);
@@ -351,7 +350,10 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     }
 
     if (pendingCard.kind === "event") {
-      if (deferredLandTile) {
+      if (eventCardUsesBadBatchSfx(pendingCard.cardId)) {
+        playTableSfx("badBatch", { enabled: sfxEnabled });
+        eventLandSoundCardKeyRef.current = null;
+      } else if (deferredLandTile) {
         playTableSfx("eventTile", { enabled: sfxEnabled });
         eventLandSoundCardKeyRef.current = null;
       } else {

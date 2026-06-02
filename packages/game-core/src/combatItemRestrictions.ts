@@ -16,3 +16,12 @@ export function attackerCannotSelfNegativeCombatItem(
 ): boolean {
   return userId === attackerId && ATTACKER_SELF_NEGATIVE_COMBAT_ITEM_IDS.has(itemId);
 }
+
+/** Lengräddad: spelas på annan spelare — inte i strider du själv deltar i (angripare/medkämpe). */
+export function lengraddadBlockedForCombatParticipant(
+  userId: string,
+  combat: { attackerId: string; assistId?: string } | null | undefined,
+): boolean {
+  if (!combat) return false;
+  return userId === combat.attackerId || userId === combat.assistId;
+}

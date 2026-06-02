@@ -1,0 +1,108 @@
+.stack {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+
+.sizeLobby {
+  width: min(140px, 42vw);
+}
+
+.sizeBvb {
+  width: min(96px, 22vw);
+}
+
+.sizeBoard {
+  width: 100%;
+  height: 100%;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  line-height: 0;
+}
+
+.layerHead,
+.layerEyes,
+.layerMouth {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.layerHead {
+  z-index: 1;
+  transform-origin: 50% 58%;
+  animation: avatarFeatureWobble 1.65s linear infinite;
+}
+
+.layerEyes {
+  z-index: 2;
+  transform-origin: 50% 42%;
+  animation: avatarFeatureWobble 1.65s linear infinite;
+  animation-delay: -0.12s;
+}
+
+.layerMouth {
+  z-index: 3;
+  transform-origin: 50% 62%;
+  animation: avatarFeatureWobble 1.65s linear infinite;
+  animation-delay: -0.24s;
+}
+
+.stackStatic .layerHead,
+.stackStatic .layerEyes,
+.stackStatic .layerMouth {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layerHead,
+  .layerEyes,
+  .layerMouth {
+    animation: none;
+  }
+}
+
+@keyframes avatarFeatureWobble {
+  0%,
+  100% {
+    transform: translateZ(0) rotate(-2deg) scale(1.022, 0.978);
+  }
+
+  12.5% {
+    transform: translateZ(0) rotate(-1deg) scale(1.028, 0.972);
+  }
+
+  25% {
+    transform: translateZ(0) rotate(2deg) scale(1.034, 0.966);
+  }
+
+  37.5% {
+    transform: translateZ(0) rotate(1deg) scale(1.012, 0.988);
+  }
+
+  50% {
+    transform: translateZ(0) rotate(-2deg) scale(0.978, 1.022);
+  }
+
+  62.5% {
+    transform: translateZ(0) rotate(-1deg) scale(0.972, 1.028);
+  }
+
+  75% {
+    transform: translateZ(0) rotate(2deg) scale(0.966, 1.034);
+  }
+
+  87.5% {
+    transform: translateZ(0) rotate(0.5deg) scale(0.99, 1.01);
+  }
+}
+
+.layer :global(svg),
+.partImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

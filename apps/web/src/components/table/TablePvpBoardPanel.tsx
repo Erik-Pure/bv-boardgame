@@ -1,6 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import type { GameState } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
+import { PlayerAvatarStack } from "../PlayerAvatarStack";
 import { sv } from "../../lib/uiStrings";
 import { PVP_TABLE_REVEAL_DELAY_MS } from "./tableConstants";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
@@ -36,8 +37,6 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
   const roundReveal = pending?.phase === "roundReveal";
   const preRound = pending?.phase === "preRoundItems";
   const chooseLoot = pending?.phase === "chooseLoot";
-  /** Tärningar snurrar bara medan spelare väntar på kast — inte efter avgjord rond/match. */
-  const diceMaySpin = awaiting && boardAnimationsEnabled;
   const bestOf = pending?.bestOf ?? 1;
   const showPvpMatchMeta = bestOf > 1;
   const wins = pending?.wins ?? { attacker: 0, defender: 0 };
@@ -61,6 +60,9 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     return () => window.clearTimeout(t);
   }, [revealKey]);
   const showRollingReveal = roundReveal && !!rt && !pvpRevealReady;
+  /** Idle-snurr på tärningar under duell (förberedelse, väntan på kast, kort reveal). */
+  const diceIdleAnimEnabled =
+    boardAnimationsEnabled && (preRound || awaiting || (roundReveal && !pvpRevealReady));
   const attackerHasRoll = !!ra;
   const defenderHasRoll = !!rd;
   const attackerShowRolling = (awaiting && !attackerHasRoll) || (showRollingReveal && !attackerHasRoll);
@@ -71,15 +73,12 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     role: string;
     player: (typeof state.players)[0];
     roll: { die: number; total: number } | undefined;
-    nameRotateDeg: number;
     showRolling: boolean;
     /** Remount idle-tärning per rond så CSS-animationen alltid startar om (annars kan samma fiber se “stilla” ut en stund). */
     awaitDiceKey: string;
     revealSpinKey?: string;
     /** Live +X / −X bredvid tärning före kast (föremål + utrustning BvB). */
     previewAttackMod: number;
-    previewEquipmentMod?: number;
-    previewItemMod?: number;
     diceSpinning: boolean;
   }) {
     const rollMod = props2.roll ? props2.roll.total - props2.roll.die : 0;
@@ -89,31 +88,16 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
     const modValue = props2.roll ? rollMod : previewMod;
     const hasMod = props2.roll ? hasRollMod : showPreviewMod;
     const modLabel = modValue > 0 ? `+${modValue}` : `${modValue}`;
-    const breakdown =
-      props2.previewEquipmentMod != null &&
-      props2.previewItemMod != null &&
-      (props2.previewEquipmentMod !== 0 || props2.previewItemMod !== 0) ? (
-        <div className={styles.smallHint} style={{ fontSize: 11, opacity: 0.85 }}>
-          {props2.previewEquipmentMod !== 0
-            ? `utr ${props2.previewEquipmentMod > 0 ? "+" : ""}${props2.previewEquipmentMod}`
-            : null}
-          {props2.previewEquipmentMod !== 0 && props2.previewItemMod !== 0 ? " · " : null}
-          {props2.previewItemMod !== 0
-            ? `kort ${props2.previewItemMod > 0 ? "+" : ""}${props2.previewItemMod}`
-            : null}
-        </div>
-      ) : null;
     return (
       <div className={styles.fighterCol}>
         <div className={styles.roleLabel}>{props2.role}</div>
-        <div
-          className={styles.playerName}
-          style={{
-            transform: `rotate(${props2.nameRotateDeg}deg)`,
-          }}
-        >
-          {props2.player.name}
-        </div>
+        <PlayerAvatarStack
+          avatar={props2.player.avatar}
+          color={props2.player.color}
+          size="bvb"
+          animate={boardAnimationsEnabled}
+        />
+        <div className={styles.playerName}>{props2.player.name}</div>
         {props2.showRolling ? (
           <div className={styles.flexCenterGap10}>
             {hasMod ? (
@@ -159,7 +143,6 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             </div>
           </div>
         )}
-        {breakdown}
       </div>
     );
   }
@@ -179,7 +162,6 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
         } as CSSProperties
       }
     >
-        <div className={styles.subtitle}>{sv.table.pvpSubtitle}</div>
         {showPvpMatchMeta ? (
           <div
             className={styles.duelTitleRow}
@@ -206,11 +188,11 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <div className={styles.spacer8} />
         )}
         {awaiting ? (
-          <div className={styles.hint16}>{sv.table.pvpRollPhaseHint}</div>
+          <div className={styles.spacerMb8} />
         ) : roundReveal ? (
           <div className={styles.hint16}>{tieRound ? sv.table.pvpTieRerollHint : sv.table.pvpRoundResultHint}</div>
         ) : preRound ? (
-          <div className={styles.hint16}>{sv.table.pvpPrepPhaseHint}</div>
+          <div className={styles.spacerMb8} />
         ) : chooseLoot ? (
           <div className={styles.spacerMb8} />
         ) : (
@@ -221,28 +203,22 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
             role={sv.table.roleAttacker}
             player={attacker}
             roll={ra}
-            nameRotateDeg={-11}
             showRolling={attackerShowRolling}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${attacker.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${attacker.id}` : undefined}
             previewAttackMod={attackerPreviewMod}
-            previewEquipmentMod={attackerParts.equipment}
-            previewItemMod={attackerParts.items}
-            diceSpinning={diceMaySpin}
+            diceSpinning={diceIdleAnimEnabled}
           />
           <div className={styles.vsBadge}>VS</div>
           <PvpFighterColumn
             role={sv.table.roleDefender}
             player={defender}
             roll={rd}
-            nameRotateDeg={11}
             showRolling={defenderShowRolling}
             awaitDiceKey={`pvp-d6-wait-${pvpRoundN}-${defender.id}`}
             revealSpinKey={revealKey ? `pvp-d6-reveal-${revealKey}-${defender.id}` : undefined}
             previewAttackMod={defenderPreviewMod}
-            previewEquipmentMod={defenderParts.equipment}
-            previewItemMod={defenderParts.items}
-            diceSpinning={diceMaySpin}
+            diceSpinning={diceIdleAnimEnabled}
           />
         </div>
         {rt && pvpRevealReady ? (

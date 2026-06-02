@@ -1,4 +1,5 @@
 import { brewerLevelFromXp } from "./brewerXp.js";
+import { dismissInvalidLevelUpOffersForPlayer, isLevelUpOfferStillValid } from "./levelUpOffer.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import type { GameState, Pending, Player } from "./types.js";
 
@@ -16,9 +17,8 @@ export function normalizeBrewerPerkProgress(p: Player): void {
   p.brewerShieldBonus = Math.max(0, Math.floor(p.brewerShieldBonus ?? 0));
   p.brewerPvpBonus = Math.max(0, Math.floor(p.brewerPvpBonus ?? 0));
   p.brewerHpBonus = Math.max(0, Math.floor(p.brewerHpBonus ?? 0));
-  if (typeof p.pendingBrewerPerkLevels === "number" && p.pendingBrewerPerkLevels < 0) {
-    p.pendingBrewerPerkLevels = 0;
-  }
+  const owed = Math.max(0, lvl - (p.brewerPerkLevelsClaimed ?? 0));
+  p.pendingBrewerPerkLevels = owed;
 }
 
 export function pendingBelongsToPlayer(pending: Pending, playerId: string): boolean {
@@ -75,15 +75,11 @@ export function recordBrewerLevelUpsAfterXp(
   p: Player,
   xpBefore: number,
 ): void {
-  normalizeBrewerPerkProgress(p);
   const beforeLvl = brewerLevelFromXp(xpBefore);
-  const afterLvl = brewerLevelFromXp(p.xp);
+  normalizeBrewerPerkProgress(p);
+  const afterLvl = brewerLevelFromXp(p.xp ?? 0);
   if (afterLvl <= beforeLvl) return;
-  const claimed = p.brewerPerkLevelsClaimed ?? 0;
-  const fromLevel = Math.max(beforeLvl, claimed);
-  const owed = afterLvl - fromLevel;
-  if (owed <= 0) return;
-  p.pendingBrewerPerkLevels = (p.pendingBrewerPerkLevels ?? 0) + owed;
+  if ((p.pendingBrewerPerkLevels ?? 0) <= 0) return;
   tryOpenBrewerPerkChoice(state, p.id);
 }
 
@@ -151,12 +147,21 @@ export function finishBrewerPerkChoicePrompt(state: GameState, playerId: string)
     state.offTurnPersonalPending.playerId === playerId
   ) {
     state.offTurnPersonalPending = null;
+    dismissInvalidLevelUpOffersForPlayer(state, playerId);
     return false;
   }
   if (state.pending?.type === "brewerPerkChoice" && state.pending.playerId === playerId) {
     if (state.deferredPending) {
-      state.pending = state.deferredPending;
+      const restored = state.deferredPending;
       state.deferredPending = null;
+      if (
+        restored.type === "levelUpOffer" &&
+        !isLevelUpOfferStillValid(state, playerId, restored)
+      ) {
+        state.pending = null;
+      } else {
+        state.pending = restored;
+      }
       return true;
     }
     state.pending = null;
@@ -182,7 +187,5 @@ export function applyBrewerPerkChoice(
     p.hp = Math.min(p.maxHp, p.hp + 2);
   }
   p.brewerPerkLevelsClaimed = (p.brewerPerkLevelsClaimed ?? 0) + 1;
-  if ((p.pendingBrewerPerkLevels ?? 0) > 0) {
-    p.pendingBrewerPerkLevels = (p.pendingBrewerPerkLevels ?? 0) - 1;
-  }
+  normalizeBrewerPerkProgress(p);
 }

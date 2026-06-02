@@ -98,11 +98,13 @@ export const sv = {
     unready: "Ångra redo",
     ready: "Redo",
     startGame: "Starta spelet",
+    shuffleAvatar: "Slumpa avatar",
     hostNeedPlayers: "Behövs minst 2 spelare och alla måste vara redo.",
     waitHostStart: "Väntar på att värden startar när alla är redo.",
     strength: "Styrka",
     /** Mobil: utrustningsrad under slots — attack från utrustning + ev. stridsmodifierare. */
     equipmentAttackFromGearAria: (n: number) => `Attack från utrustning (inkl. modifierare): ${n}`,
+    equipmentMaxHpAria: (n: number) => `Max HP (utrustning och bryggbonusar): ${n}`,
     /** Mobil: sköld = skadersläckning från rustning/hjälm/tillbehör m.m. */
     equipmentDefenseFromGearAria: (n: number) => `Sköld — skadersläckning från utrustning: ${n}`,
     equipmentBvbFromGearAria: (n: number) => `BvB-bonus på tärningsslag från utrustning: ${n}`,
@@ -355,6 +357,9 @@ export const sv = {
     panelMaximize: "Visa panel",
     waitingState: "Väntar på tillstånd…",
     lookingForPlayer: "Letar efter din spelare…",
+    sessionStale:
+      "Servern har startats om eller spelet matchar inte längre din anslutning. Gå till startsidan och gå med igen om det inte löser sig inom några sekunder.",
+    sessionStaleLeave: "Till startsidan",
     pant: "Pant",
     klunkar: "Klunkar",
     itemsHeading: "FÖREMÅL",
@@ -502,6 +507,8 @@ export const sv = {
         ? `Drick ${costKlunks} klunk (+${totalWeaponAtk ?? bonusIncrement} från vapnet)`
         : `Betala ${costGold} pant (+${bonusIncrement} attack)`,
     combatSipWeaponRollWithout: "Slå utan bonus",
+    /** Efter slag med etta på t6 — vid tärningen (mobil + bord). */
+    combatCritFailOnOneNearDice: "Kritisk miss!",
     combatLoseTitle: "Vaskad!",
     combatLoseContinue: "FORTSÄTT",
     combatLoseSubtitle: (player: string, enemy: string) => `${player} förlorar mot ${enemy}`,
@@ -560,14 +567,11 @@ export const sv = {
     diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} mot pantkostnad (valfritt)`,
     /** Bräd-tv: efter slag om valfri pip-vapenbonus faktiskt togs — bara siffra + etikett vid tärningen. */
     diceModifierSipTakenSub: "mot pantkostnad",
-    pvpSubtitle: "Bryggare mot bryggare",
-    pvpDuel: "Duell",
+    pvpDuel: "BvB",
     pvpRound: (n: number) => `Rond ${n}`,
     pvpRoundBestOf: (round: number, bestOf: number) => `Rond ${round} av ${bestOf}`,
     pvpTieRerollHint: "Lika — båda slår om.",
     pvpPrepPhase: "Förberedelser (kort)",
-    pvpPrepPhaseHint: "Båda spelare kan spela kort tills de markerat Klar.",
-    pvpRollPhaseHint: "Båda slår tärning för denna rond.",
     pvpRoundResultPhase: "Rondresultat",
     pvpRoundResultHint: "Båda bekräftar på mobilen innan nästa steg.",
     pvpScoreLine: (attackerWins: number, defenderWins: number) => `Matchställning: ${attackerWins}-${defenderWins}`,

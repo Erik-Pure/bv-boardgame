@@ -1,3 +1,10 @@
+import {
+  AVATAR_PART_COUNT,
+  randomPlayerAvatar,
+  type AvatarPartKind,
+  type PlayerAvatar,
+} from "@bv/game-core";
+
 /** Same palette as `PLAYER_COLORS` in game-core engine. */
 export const AVATAR_PLAYER_COLORS = [
   "#c41e3a",
@@ -8,25 +15,18 @@ export const AVATAR_PLAYER_COLORS = [
   "#db2777",
 ] as const;
 
-/** Highest index in public/avatar/{head,eyes,mouth}NN.svg (update when adding variants). */
-export const AVATAR_PART_COUNT = 12;
+export type { AvatarPartKind, PlayerAvatar };
+export type AvatarParts = PlayerAvatar;
 
-export type AvatarPartKind = "head" | "eyes" | "mouth";
+export { AVATAR_PART_COUNT };
 
-export type AvatarParts = Record<AvatarPartKind, number>;
+export function randomAvatarParts(): PlayerAvatar {
+  return randomPlayerAvatar();
+}
 
 export function avatarPartSrc(kind: AvatarPartKind, index: number): string {
   const n = String(index).padStart(2, "0");
   return `/avatar/${kind}${n}.svg`;
-}
-
-export function randomAvatarParts(): AvatarParts {
-  const pick = () => 1 + Math.floor(Math.random() * AVATAR_PART_COUNT);
-  return {
-    head: pick(),
-    eyes: pick(),
-    mouth: pick(),
-  };
 }
 
 const AVATAR_HEAD_SHADOW_GROUP_RE =

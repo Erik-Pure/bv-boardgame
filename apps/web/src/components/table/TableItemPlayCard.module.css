@@ -19,20 +19,10 @@
   min-height: 0;
 }
 
-.titleRow {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
-  min-width: 0;
-}
-
 .title {
   min-width: 0;
-  flex: 1 1 auto;
-  order: 2;
+  margin-top: 0;
+  margin-bottom: 0;
   font-family: "Permanent Marker", var(--heading), sans-serif;
   font-weight: 900;
   font-size: clamp(var(--type-md), 3.5vmin, 18px);
@@ -40,6 +30,18 @@
   letter-spacing: 0.02em;
   word-break: break-word;
   text-align: left;
+  flex-shrink: 0;
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-width: 0;
 }
 
 .modifierBadge {
@@ -51,7 +53,6 @@
   border-radius: 999px;
   border: 1px solid rgba(167, 139, 250, 0.65);
   background: rgba(67, 56, 202, 0.22);
-  order: 1;
 }
 
 .modifierBadgeNegative {
@@ -103,6 +104,8 @@
   justify-content: flex-start;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
   margin-bottom: 0;
   font-family: "Permanent Marker", var(--heading), sans-serif;
   font-size: clamp(var(--type-sm), 3.8vmin, var(--type-xl));

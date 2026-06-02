@@ -63,7 +63,7 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
     "/sfx/roll6.mp3",
     "/sfx/roll7.mp3",
   ],
-  /** Dålig batch / monster möts (ny strid enemyIntro på brädet): slump badbatch1–3 */
+  /** Dålig batch efter cardflip vid monster-intro (enemyIntro), som eventTile på händelse/skatt */
   badBatch: ["/sfx/badbatch1.mp3", "/sfx/badbatch2.mp3", "/sfx/badbatch3.mp3"],
   /** Förlust mot dålig batch / monster (`combat_lose` på brädet) */
   lose: "/sfx/lose.m4a",
@@ -175,6 +175,20 @@ function scheduleDrain(): void {
 export function clearTableSfxQueue(): void {
   playQueue.length = 0;
   cancelActivePlayback();
+}
+
+/** Överlever React Strict Mode-remount; nollställs vid rum-/fas-byte. */
+const playedCombatIntroAudioKeys = new Set<string>();
+
+/** En cardflip + badBatch per strid och enhet (returnerar false om redan spelat). */
+export function tryClaimCombatIntroAudio(sessionKey: string): boolean {
+  if (playedCombatIntroAudioKeys.has(sessionKey)) return false;
+  playedCombatIntroAudioKeys.add(sessionKey);
+  return true;
+}
+
+export function clearCombatIntroSfxKeys(): void {
+  playedCombatIntroAudioKeys.clear();
 }
 
 export function playTableSfx(

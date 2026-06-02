@@ -4,6 +4,7 @@ import {
   clampConfigNumber,
   createEmptyLobby,
   lobbyAddPlayer,
+  normalizeLoadedGameState,
   startGame,
   type ClientAction,
   type GameState,
@@ -152,6 +153,7 @@ export function restorePersistedRooms(entries: PersistedRoom[]): number {
     const code = entry.code.trim().toUpperCase();
     if (!code) continue;
     const state = entry.state;
+    normalizeLoadedGameState(state);
     const room: Room = {
       code,
       state,
@@ -199,6 +201,35 @@ export function sendStateSnapshot(conn: ClientConn, room: Room): void {
   sendPayload(conn, payload);
 }
 
+/** Normalisera spelstate före snapshot (reconnect/omstart). Returnerar true om state ändrades. */
+export function prepareRoomStateForClients(room: Room): boolean {
+  const before = JSON.stringify({
+    pending: room.state.pending,
+    deferredPending: room.state.deferredPending ?? null,
+    offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
+    players: room.state.players.map((p) => ({
+      id: p.id,
+      pendingBrewerPerkLevels: p.pendingBrewerPerkLevels ?? 0,
+      brewerPerkLevelsClaimed: p.brewerPerkLevelsClaimed ?? 0,
+    })),
+  });
+  normalizeLoadedGameState(room.state);
+  const after = JSON.stringify({
+    pending: room.state.pending,
+    deferredPending: room.state.deferredPending ?? null,
+    offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
+    players: room.state.players.map((p) => ({
+      id: p.id,
+      pendingBrewerPerkLevels: p.pendingBrewerPerkLevels ?? 0,
+      brewerPerkLevelsClaimed: p.brewerPerkLevelsClaimed ?? 0,
+    })),
+  });
+  if (before === after) return false;
+  room.stateSeq += 1;
+  room.lastActivityAt = Date.now();
+  return true;
+}
+
 function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> } {
   const levelsSig = computeLevelsSignature(room.state);
   const includeLevels = levelsSig !== room.levelsSignature;
@@ -215,6 +246,7 @@ function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> }
       deferredPending: room.state.deferredPending ?? null,
       offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
       log: room.state.log,
+      logSeq: room.state.logSeq,
       winnerId: room.state.winnerId,
       winnerName: room.state.winnerName,
       goldenBeerCarrierId: room.state.goldenBeerCarrierId,
@@ -573,6 +605,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       const leaving = removePlayerFromRoomState(room.state, conn.playerId);
       if (!leaving) return null;
       room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
+      scheduleBroadcastState(room);
       return null;
     }
 
@@ -593,6 +626,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
           room.conns.delete(c);
         }
       }
+      scheduleBroadcastState(room);
       return null;
     }
 
@@ -601,15 +635,17 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       const res = startGame(room.state, conn.playerId, seed);
       if (res.error) return res.error;
       room.state = res.state;
+      scheduleBroadcastState(room);
       return null;
     }
 
     const res = applyAction(room.state, action as ClientAction);
+    room.state = res.state;
+    scheduleBroadcastState(room);
     if (res.error) {
       stats.actionErrors += 1;
       return res.error;
     }
-    room.state = res.state;
     return null;
   } finally {
     observeActionLatency(Date.now() - startedAt);

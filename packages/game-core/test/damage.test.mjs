@@ -40,4 +40,20 @@ describe("equipment damage negate", () => {
     const { hpAfter } = previewHpAfterFlatDamage({ player: p, amount: 2 });
     assert.equal(hpAfter, 7);
   });
+
+  it("bypassShield ignores equipment negate and negate-all-once (BvB loot damage)", () => {
+    const p = mkPlayer({
+      armor: { name: "Sköld", damageNegate: 5, negateAllOnce: true },
+    });
+    const state = { config: { maxHp: 10 }, log: [], players: [p] };
+    const res = applyDamage({ state, player: p, amount: 2, bypassShield: true });
+    assert.equal(res.applied, 2);
+    assert.equal(res.prevented, 0);
+    assert.equal(p.hp, 8);
+    assert.equal(p.equipment.armor?.name, "Sköld");
+
+    const preview = previewHpAfterFlatDamage({ player: p, amount: 2, bypassShield: true });
+    assert.equal(preview.hpAfter, 6);
+    assert.equal(preview.blockedByNegateAllOnce, false);
+  });
 });

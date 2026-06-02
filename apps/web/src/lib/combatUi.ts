@@ -231,6 +231,8 @@ export function buildCombatAllyWinSummary(
     ...base,
     winnerName: viewerName,
     teammateName: attacker,
+    rewardGold: cw.rewardGold,
+    rewardXp: cw.rewardXp,
     rewardItems: cw.beerBroGrantedRewardTitles?.length ?? 0,
   };
 }

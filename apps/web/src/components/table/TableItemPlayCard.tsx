@@ -4,7 +4,7 @@ import styles from "./TableItemPlayCard.module.css";
 
 type Props = {
   title: string;
-  /** Spelare som spelade kortet — under bilden (ev. med pil till mål) */
+  /** Spelare som spelade kortet — ovanför bilden (ev. med pil till mål) */
   actorName: string;
   actorColor?: string;
   imageSrc: string;
@@ -26,7 +26,14 @@ export function TableItemPlayCard(props: Props) {
   return (
     <div className={styles.card}>
       <div className={styles.inner}>
-        <div className={styles.titleRow}>
+        <div
+          className={styles.headerRow}
+          aria-label={
+            showTarget
+              ? `${actorName} spelade mot ${targetPlayerName?.trim()}`
+              : `${actorName} spelade kortet`
+          }
+        >
           {modifierBadge ? (
             <div
               className={[
@@ -47,33 +54,26 @@ export function TableItemPlayCard(props: Props) {
               <span className={styles.modifierValue}>{modifierBadge.value}</span>
             </div>
           ) : null}
-          <div className={styles.title}>{title}</div>
+          <div className={styles.actorLine}>
+            <span className={styles.playerName} style={actorStyle}>
+              {actorName}
+            </span>
+            {showTarget ? (
+              <>
+                <span aria-hidden className={styles.arrow}>
+                  →
+                </span>
+                <span className={styles.playerName} style={targetStyle}>
+                  {targetPlayerName?.trim()}
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
         <div className={styles.imageFrame}>
           <img src={imageSrc} alt="" draggable={false} className={styles.coverImg} />
         </div>
-        <div
-          className={styles.actorLine}
-          aria-label={
-            showTarget
-              ? `${actorName} spelade mot ${targetPlayerName?.trim()}`
-              : `${actorName} spelade kortet`
-          }
-        >
-          <span className={styles.playerName} style={actorStyle}>
-            {actorName}
-          </span>
-          {showTarget ? (
-            <>
-              <span aria-hidden className={styles.arrow}>
-                →
-              </span>
-              <span className={styles.playerName} style={targetStyle}>
-                {targetPlayerName?.trim()}
-              </span>
-            </>
-          ) : null}
-        </div>
+        <div className={styles.title}>{title}</div>
         <div className={styles.flexGrowSpacer} aria-hidden />
       </div>
     </div>

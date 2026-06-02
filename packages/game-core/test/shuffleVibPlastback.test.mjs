@@ -176,6 +176,47 @@ describe("VIB / Plastback / Shuffle", () => {
     assert.match(r.error, /bestulen/i);
   });
 
+  it("sellAccessory ger 6 pant när breakWinsRemaining saknas men synergi gäller", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 6,
+      equipment: {
+        weapon: { name: TOM_FLASKA_WEAPON_NAME, power: 5, breakOnWin: true },
+        accessory: { name: "Plastback" },
+      },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "T",
+      players: [p1, p2],
+      turnOrder: ["p1", "p2"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
+      pending: null,
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: "store_narcissius",
+      finalBossLivesRemaining: 3,
+      treasureTaken: {},
+      lastDiceRoll: null,
+      lastDiceRollerId: null,
+      sipNotices: [],
+    };
+    const r = applyAction(state, { type: "sellAccessory", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(u.gold, 12);
+    assert.equal(u.equipment.accessory, undefined);
+  });
+
   it("sellAccessory ger pant från breakWinsRemaining", () => {
     const p1 = mkPlayer({
       id: "p1",

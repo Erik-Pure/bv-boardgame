@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { GameState } from "@bv/game-core";
-import {
-  cardPendingKey,
-  combatSessionKey,
-  isCombatParticipant,
-  type PendingCard,
-} from "../lib/gameSfxSyncHelpers";
+import { cardPendingKey, combatSessionKey, type PendingCard } from "../lib/gameSfxSyncHelpers";
 import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
 import { playTableSfx } from "../lib/tableSfx";
 import { useGameSfxSync } from "./useGameSfxSync";
@@ -28,10 +23,11 @@ export function usePlaySfxSync(props: {
   const myCardKey = myCardPending ? cardPendingKey(myCardPending) : null;
   const cardSfxReady = !!myCardPending;
 
+  /** Stridsintro-ljud bara för angriparen (samma som monster-modalen i PlayView). */
   const combatSessionKeyVal = useMemo(() => {
     if (!state || !meId) return null;
     const pend = state.pending;
-    if (pend?.type !== "combat" || !isCombatParticipant(pend, meId)) return null;
+    if (pend?.type !== "combat" || pend.attackerId !== meId) return null;
     return combatSessionKey(pend);
   }, [state?.pending, meId, state]);
 

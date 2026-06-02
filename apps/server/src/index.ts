@@ -23,6 +23,7 @@ import {
   removeConn,
   restorePersistedRooms,
   scheduleBroadcastState,
+  prepareRoomStateForClients,
   sendStateSnapshot,
   sendError,
   touchRoom,
@@ -414,7 +415,11 @@ wss.on("connection", (ws, req) => {
           protocolVersion: CURRENT_PROTOCOL_VERSION,
         };
         ws.send(JSON.stringify(ack));
+        const healed = prepareRoomStateForClients(res.room);
         sendStateSnapshot(res.conn, res.room);
+        if (healed) {
+          scheduleBroadcastState(res.room);
+        }
         if (res.room.state.phase === "lobby") {
           scheduleBroadcastState(res.room);
         }
@@ -454,7 +459,6 @@ wss.on("connection", (ws, req) => {
           sendError(ws, err);
           return;
         }
-        scheduleBroadcastState(room);
         log.debug("broadcast state", joined.roomCode);
       }
     } catch (e) {
