@@ -2659,10 +2659,7 @@ export function PlayView() {
                       "--btn-shadow-pressed": v.buttonShadowPressed,
                     } as CSSProperties
                   }
-                  onClick={() => {
-                    playOptimisticMoveRollSfx(readBoardPerformancePrefs().mobileSfxEnabled);
-                    send({ type: "chooseMove", playerId: me.id, dir: o.dir });
-                  }}
+                  onClick={() => send({ type: "chooseMove", playerId: me.id, dir: o.dir })}
                 >
                   <MoveOptionLabel
                     state={state}

@@ -53,7 +53,7 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   eventTile: ["/sfx/event1.mp3", "/sfx/event2.mp3", "/sfx/event3.mp3", "/sfx/event4.mp3"],
   /** Föremål på egen spelare (solfjäder / stridsreaktion): slump item1–3 */
   item: ["/sfx/item1.mp3", "/sfx/item2.mp3", "/sfx/item3.mp3"],
-  /** Rörelsetärning (rollMove) och val av riktning (chooseMove): slump roll1–7 */
+  /** Rörelsetärning (rollMove): slump roll1–7 */
   roll: [
     "/sfx/roll1.mp3",
     "/sfx/roll2.mp3",

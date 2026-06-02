@@ -59,7 +59,6 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
 
   const prevDiceRef = useRef<{ roll: number; rollerId: string } | null>(null);
   const prevPendingTypeRef = useRef<string | null>(null);
-  const lastMoveChoicePlayerRef = useRef<string | null>(null);
   const prevBrewerLevelsRef = useRef<Map<string, number> | null>(null);
   const playedCardSfxForKeyRef = useRef<string | null>(null);
   const prevCardOverlayVisibleRef = useRef(false);
@@ -79,7 +78,6 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     sfxSessionKeyRef.current = sessionKey;
     prevDiceRef.current = null;
     prevPendingTypeRef.current = null;
-    lastMoveChoicePlayerRef.current = null;
     prevBrewerLevelsRef.current = null;
     playedCardSfxForKeyRef.current = null;
     prevCardOverlayVisibleRef.current = false;
@@ -93,12 +91,6 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     clearCombatIntroSfxKeys();
     clearTableSfxQueue();
   }, [state?.roomCode, state?.phase]);
-
-  useEffect(() => {
-    if (state?.pending?.type === "moveChoice") {
-      lastMoveChoicePlayerRef.current = state.pending.playerId;
-    }
-  }, [state?.pending]);
 
   useEffect(() => {
     if (tableCombatSessionKey === prevCombatSfxSessionRef.current) return;
@@ -181,25 +173,11 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     if (!sfxEnabled || state.phase !== "playing") return;
 
     if (prev === "moveChoice" && curr !== "moveChoice") {
-      const moverId = lastMoveChoicePlayerRef.current;
       const pend = state.pending;
       const landedEventOrTreasure =
         pend?.type === "card" &&
         (pend.kind === "event" || pend.kind === "treasure") &&
         affectsLocalPlayer(localPlayerId, pend.playerId);
-      const landedMonsterCombatIntro =
-        pend?.type === "combat" &&
-        (pend.phase === "enemyIntro" || pend.phase === "chooseTeammate");
-
-      if (
-        affectsLocalPlayer(localPlayerId, moverId ?? undefined) &&
-        !landedEventOrTreasure &&
-        !landedMonsterCombatIntro
-      ) {
-        if (!consumeOptimisticMoveRollSfx()) {
-          playTableSfx("roll", { enabled: sfxEnabled });
-        }
-      }
       if (landedEventOrTreasure) {
         eventLandSoundCardKeyRef.current = `${pend.cardId}:${pend.playerId}`;
       }
