@@ -45,7 +45,7 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   klunk: ["/sfx/klunk1.mp3", "/sfx/klunk2.mp3"],
   /** Vila / händelse / skatt / monster-intro: när kort-overlay fade:ar in (före eventTile, event, badBatch) */
   cardFlip: "/sfx/cardflip.mp3",
-  /** Bryggnivå upp (visad nivå ökar) och vinst mot dålig batch (`combat_win` på brädet) */
+  /** Bryggnivå upp, vinst mot dålig batch (`combat_win`) och BvB-rondvinst */
   levelUp: "/sfx/levelup.mp3",
   /** Händelsekort på brädet (modal) om landningsljud inte redan spelats */
   event: "/sfx/event.mp3",
@@ -65,7 +65,7 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   ],
   /** Dålig batch efter cardflip vid monster-intro (enemyIntro), som eventTile på händelse/skatt */
   badBatch: ["/sfx/badbatch1.mp3", "/sfx/badbatch2.mp3", "/sfx/badbatch3.mp3"],
-  /** Förlust mot dålig batch / monster (`combat_lose` på brädet) */
+  /** Förlust mot dålig batch / monster (`combat_lose`) och BvB-rondförlust */
   lose: "/sfx/lose.m4a",
   /** Panta burkar (`chooseMerchant` eller landning på affärsruta): slump cans1–4 */
   cans: ["/sfx/cans1.mp3", "/sfx/cans2.mp3", "/sfx/cans3.mp3", "/sfx/cans4.mp3"],

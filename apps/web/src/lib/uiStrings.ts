@@ -164,6 +164,7 @@ export const sv = {
     combatHelpPlayPositiveCard: "Spela minst ett positivt kort för att hjälpa till.",
     combatHelpNoPlayablePositiveCards: "Du har inget positivt hjälpkort att spela.",
     combatHelpWaitHelperCard: (name: string) => `Väntar på att ${name} spelar ett hjälpkort…`,
+    combatHelpDeniedToast: (name: string) => `${name} avböjde att hjälpa till.`,
     intervenePickCard: "Ingrip — välj ett kort",
     /** Avslutar ingripande utan kort — skickar pass till servern (samma som “Gör inget”). */
     interveneCancelPass: "Avbryt ingripande",
@@ -719,7 +720,7 @@ export const sv = {
     },
     six_sense: {
       title: "Ett sjätte ölsinne",
-      text: "Betala 5 pant och välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
+      text: "Betala 5 pant och välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer. Gäller både vid förflyttning och möte med dålig batch.",
     },
     rigged_game: {
       title: "Riggat spel",
@@ -727,7 +728,10 @@ export const sv = {
     },
     not_my_round: { title: "En enkel stöld", text: "Stjäl slumpmässigt föremål eller utrustning från en spelare" },
     spill_intentional: { title: "Spilla med flit", text: "Betala 2 pant och förstör slumpmässigt föremål eller utrustning för en spelare." },
-    early_night: { title: "Vaska", text: "Skippa dålig batch. Ingen XP, ingen loot." },
+    early_night: {
+      title: "Vaska",
+      text: "Använd i strid som angripare: skippa den dåliga batchen. Ingen XP, ingen loot.",
+    },
     bribes: { title: "Mutor", text: "Undvik en strid för 10 pant. Ingen XP, ingen loot." },
     paidassasin: {
       title: "Hejduk",

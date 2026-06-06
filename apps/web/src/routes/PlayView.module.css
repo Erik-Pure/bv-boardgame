@@ -68,7 +68,8 @@
   position: fixed;
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
-  bottom: max(108px, calc(env(safe-area-inset-bottom) + 72px));
+  top: calc(var(--play-toast-top, 130px) + 10px);
+  bottom: auto;
   z-index: 140;
   max-width: min(400px, calc(100vw - 24px));
   margin: 0 auto;
@@ -391,7 +392,7 @@
 @keyframes playToastIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;

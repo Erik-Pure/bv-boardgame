@@ -700,7 +700,7 @@
       "id": "item_early_night",
       "kind": "item",
       "title": "Vaska",
-      "text": "Använd i strid som angripare: skippa den dåliga batchen och avsluta mötet.",
+      "text": "Använd i strid som angripare: skippa den dåliga batchen och avsluta mötet. Ingen XP, ingen loot.",
       "artKey": "item/early-night",
       "effects": []
     },
@@ -740,7 +740,7 @@
       "id": "item_six_sense",
       "kind": "item",
       "title": "Ett sjätte ölsinne",
-      "text": "Betala 5 pant och välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer.",
+      "text": "Betala 5 pant och välj siffra 1–6: din nästa tärning (rörelse, strid mot dålig batch eller BvB) visar den sidan. Kortet förbrukas när du väljer. Gäller både vid förflyttning och möte med dålig batch.",
       "artKey": "item/six-sense",
       "effects": []
     },
@@ -756,7 +756,7 @@
       "id": "item_bribes",
       "kind": "item",
       "title": "Mutor",
-      "text": "Undvik en strid för 10 pant.",
+      "text": "Undvik en strid för 10 pant. Ingen XP, ingen loot.",
       "artKey": "item/bribes",
       "effects": []
     },

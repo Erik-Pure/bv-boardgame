@@ -610,6 +610,7 @@ export function PlayView() {
   const [merchantReplaceItem, setMerchantReplaceItem] = useState<ShopItem | null>(null);
   const [merchantDetailItem, setMerchantDetailItem] = useState<ShopItem | null>(null);
   const prevPendingRef = useRef<Pending | null>(null);
+  const combatHelpCancelBySelfRef = useRef(false);
   const allyCombatOutcomeAckRef = useRef<Set<string>>(new Set());
   const [allyCombatOutcomeDismissedKey, setAllyCombatOutcomeDismissedKey] = useState<string | null>(
     null,
@@ -963,13 +964,29 @@ export function PlayView() {
       }
     }
 
+    if (
+      me?.id &&
+      prev?.type === "combat" &&
+      prev.phase === "helpAwaitDecision" &&
+      prev.helpSelectedHelperId &&
+      pending?.type === "combat" &&
+      pending.phase === "reactions" &&
+      pending.attackerId === me.id &&
+      !combatHelpCancelBySelfRef.current
+    ) {
+      const helperName =
+        state?.players.find((p) => p.id === prev.helpSelectedHelperId)?.name ?? "Spelaren";
+      showToast(sv.play.combatHelpDeniedToast(helperName));
+    }
+    combatHelpCancelBySelfRef.current = false;
+
     if (me) {
       const now = pending?.type === "moveChoice" && pending.playerId === me.id;
       const was = prev?.type === "moveChoice" && prev.playerId === me.id;
       if (now && !was) setSheetFlashGen((g) => g + 1);
     }
     prevPendingRef.current = pending;
-  }, [pending, me, showToast]);
+  }, [pending, me, state?.players, showToast]);
 
   useEffect(() => {
     if (sheetFlashGen < 1) return;
@@ -1399,7 +1416,8 @@ export function PlayView() {
   const hasBlockingSipNotice =
     !!mySipNotice &&
     mySipNotice.noticeKind !== "toast" &&
-    !suppressSipNoticeForCombatLoseCard;
+    !suppressSipNoticeForCombatLoseCard &&
+    pending?.type !== "brewerDown";
 
   const send = (action: ClientAction) => {
     if (status !== "connected") {
@@ -1410,6 +1428,12 @@ export function PlayView() {
     log.debug("send action", (action as any)?.type ?? action);
     clientRef.current?.send({ type: "action", action });
   };
+
+  const cancelCombatHelpRequest = useCallback(() => {
+    if (!me) return;
+    combatHelpCancelBySelfRef.current = true;
+    send({ type: "combatCancelHelpRequest", playerId: me.id });
+  }, [me, send]);
 
   useEffect(() => {
     if (!me || !mySipNotice || mySipNotice.noticeKind !== "toast") return;
@@ -1795,7 +1819,7 @@ export function PlayView() {
             <ArcadeButton
               variant="gray"
               fullWidth
-              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+              onClick={cancelCombatHelpRequest}
             >
               {sv.play.combatHelpCancel}
             </ArcadeButton>
@@ -1906,7 +1930,7 @@ export function PlayView() {
             <ArcadeButton
               variant="gray"
               fullWidth
-              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+              onClick={cancelCombatHelpRequest}
             >
               {sv.play.combatHelpCancel}
             </ArcadeButton>
@@ -1989,7 +2013,7 @@ export function PlayView() {
             <ArcadeButton
               variant="gray"
               fullWidth
-              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+              onClick={cancelCombatHelpRequest}
             >
               {sv.play.combatHelpCancel}
             </ArcadeButton>
@@ -2054,7 +2078,7 @@ export function PlayView() {
             <ArcadeButton
               variant="gray"
               fullWidth
-              onClick={() => send({ type: "combatCancelHelpRequest", playerId: me.id })}
+              onClick={cancelCombatHelpRequest}
             >
               {sv.play.combatHelpCancel}
             </ArcadeButton>
@@ -4017,6 +4041,7 @@ export function PlayView() {
         /* Headerhöjd = exakt under fixed header (namn + ev. stats); ska matcha .playerEquipmentShell top */
         padding: `${headerTopPad}px 16px ${pageBottomPad}px`,
         boxSizing: "border-box",
+        ["--play-toast-top" as string]: `${headerTopPad}px`,
       }}
     >
       <div
@@ -6111,7 +6136,6 @@ function equipmentModalEffectLines(
     lines.push(`När du får straffklunk: drick ${piece.penaltySipExtra} extra klunk.`);
   }
   if (
-    piece.name !== "Tygkasse" &&
     "gainGoldPerPenaltyKlunk" in piece &&
     typeof (piece as { gainGoldPerPenaltyKlunk?: number }).gainGoldPerPenaltyKlunk === "number"
   ) {

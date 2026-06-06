@@ -223,6 +223,7 @@ function reconcilePlayingPersonalPrompts(state: GameState): void {
       tryOpenBrewerPerkChoice(state, p.id);
     }
   }
+  queueFirstBrewerDownIfNeeded(state);
   surfacePersonalPromptsForActivePlayer(state);
 }
 
@@ -1126,8 +1127,11 @@ export function computeMonsterDamage(
     const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 3) : base;
   } else if (monsterId === "transporter") {
+    if (sipMitigation === true) {
+      return { damage: 0, redirected: false };
+    }
     const base = def?.baseDamage ?? 3;
-    raw = sipMitigation === true ? 0 : base;
+    raw = base;
   } else if (monsterId === "sura_bar") {
     const base = def?.baseDamage ?? 3;
     raw = sipMitigation === true ? Math.max(0, base - 2) : base;
@@ -1329,7 +1333,9 @@ function applyCombatLoss(
   const before = p.hp;
   const beforeSips = p.klunkar;
   const sipForMonster =
-    monsterId === "kapten_interrobang" || monsterId === "sura_bar" ? ctx.sipMitigation : undefined;
+    monsterId === "kapten_interrobang" || monsterId === "sura_bar" || monsterId === "transporter"
+      ? ctx.sipMitigation
+      : undefined;
   const dmgOut = computeMonsterDamage(monsterId, p, die, sipForMonster);
   const isBossHit = tile.type === "boss";
   let redirectedTargetName: string | null = null;
@@ -5705,10 +5711,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
 function queueFirstBrewerDownIfNeeded(state: GameState): void {
   if (state.pending) return;
-  if (state.offTurnPersonalPending) return;
-  if (endGameIfSingleBrewerAlive(state)) return;
-  const victim = state.players.find((pl) => pl.hp <= 0 && !pl.eliminated);
+  const victim = state.players.find((pl) => pl.hp <= 0 && !pl.eliminated && !pl.leftVoluntarily);
   if (!victim) return;
+  if (endGameIfSingleBrewerAlive(state)) return;
+
+  dismissInvalidLevelUpOffersForPlayer(state, victim.id);
+  if (state.offTurnPersonalPending?.playerId === victim.id) {
+    state.offTurnPersonalPending = null;
+  }
+
   bumpKnockdown(state, victim.id);
   state.pending = { type: "brewerDown", playerId: victim.id };
   log(state, `${victim.name} har ingen HP kvar — stupad bryggare.`);
@@ -5739,6 +5750,10 @@ function removePlayerFromTurnOrderAfterElimination(state: GameState, removedId: 
 
 function endGameIfSingleBrewerAlive(state: GameState): boolean {
   if (state.phase !== "playing") return false;
+  const awaitingBrewerDown = state.players.some(
+    (p) => !p.eliminated && !p.leftVoluntarily && p.hp <= 0,
+  );
+  if (awaitingBrewerDown) return false;
   /** Matchen avgörs av aktiva spelare (HP > 0, inte eliminerad). 0 HP väntar stupad-bryggare. */
   const active = state.players.filter((p) => isPlayerActiveInMatch(p));
   if (active.length === 1) {
