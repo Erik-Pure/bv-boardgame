@@ -5,6 +5,58 @@ import type { GameState, Pending, Player } from "./types.js";
 
 export type BrewerPerkChoice = "attack" | "shield" | "hp" | "pvp" | "items";
 
+export const BREWER_PERK_MAX_PER_CATEGORY = 3;
+
+export const BREWER_PERK_CHOICES: readonly BrewerPerkChoice[] = [
+  "attack",
+  "shield",
+  "hp",
+  "pvp",
+  "items",
+];
+
+export function brewerPerkPickCount(p: Player, choice: BrewerPerkChoice): number {
+  switch (choice) {
+    case "attack":
+      return p.brewerAttackBonus ?? 0;
+    case "shield":
+      return p.brewerShieldBonus ?? 0;
+    case "pvp":
+      return p.brewerPvpBonus ?? 0;
+    case "items":
+      return p.brewerItemCardBonus ?? 0;
+    case "hp":
+      return Math.floor((p.brewerHpBonus ?? 0) / 2);
+  }
+}
+
+export function isBrewerPerkChoiceAvailable(p: Player, choice: BrewerPerkChoice): boolean {
+  return brewerPerkPickCount(p, choice) < BREWER_PERK_MAX_PER_CATEGORY;
+}
+
+export function availableBrewerPerkChoices(p: Player): BrewerPerkChoice[] {
+  return BREWER_PERK_CHOICES.filter((choice) => isBrewerPerkChoiceAvailable(p, choice));
+}
+
+/** Konsumera oupplösta nivåer utan bonus när alla kategorier redan är maxade. */
+export function consumeExhaustedBrewerPerkLevels(
+  p: Player,
+  log?: (msg: string) => void,
+): number {
+  let consumed = 0;
+  let logged = false;
+  while ((p.pendingBrewerPerkLevels ?? 0) > 0 && availableBrewerPerkChoices(p).length === 0) {
+    p.brewerPerkLevelsClaimed = (p.brewerPerkLevelsClaimed ?? 0) + 1;
+    normalizeBrewerPerkProgress(p);
+    consumed++;
+    if (!logged) {
+      log?.(`${p.name}: alla bryggbonusar maxade — inget val kvar.`);
+      logged = true;
+    }
+  }
+  return consumed;
+}
+
 /** Säkerställ att äldre sparade partier inte får retroaktiva val. */
 export function normalizeBrewerPerkProgress(p: Player): void {
   const lvl = brewerLevelFromXp(p.xp ?? 0);
@@ -97,6 +149,13 @@ export function tryOpenBrewerPerkChoice(
   if (state.phase !== "playing") return false;
   const p = state.players.find((x) => x.id === playerId);
   if (!p || (p.pendingBrewerPerkLevels ?? 0) <= 0) return false;
+  consumeExhaustedBrewerPerkLevels(p, (msg) => log?.(state, msg));
+  if ((p.pendingBrewerPerkLevels ?? 0) <= 0) {
+    if (isBrewerPerkOpenFor(state, playerId)) {
+      finishBrewerPerkChoicePrompt(state, playerId);
+    }
+    return false;
+  }
   if (isBrewerPerkOpenFor(state, playerId)) return true;
 
   const prompt = brewerPerkPromptFor(p);
@@ -175,7 +234,8 @@ export function applyBrewerPerkChoice(
   p: Player,
   choice: BrewerPerkChoice,
   baseMaxHp: number,
-): void {
+): boolean {
+  if (!isBrewerPerkChoiceAvailable(p, choice)) return false;
   if (choice === "attack") {
     p.brewerAttackBonus = (p.brewerAttackBonus ?? 0) + 1;
   } else if (choice === "shield") {
@@ -191,4 +251,5 @@ export function applyBrewerPerkChoice(
   }
   p.brewerPerkLevelsClaimed = (p.brewerPerkLevelsClaimed ?? 0) + 1;
   normalizeBrewerPerkProgress(p);
+  return true;
 }

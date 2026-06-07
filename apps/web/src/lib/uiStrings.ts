@@ -268,6 +268,7 @@ export const sv = {
     brewerPerkHp: "+2 HP",
     brewerPerkPvp: "+1 BvB",
     brewerPerkItems: "+1 föremålskort",
+    brewerPerkChoiceWithCap: (label: string, count: number, max: number) => `${label} (${count}/${max})`,
     brewerItemCardBonusAria: (bonus: number) => `Föremålsbonus ${bonus}`,
     merchantItemKindEquipment: "Utrustning · permanent",
     merchantItemKindConsumable: "Föremål · engångsanvändning",

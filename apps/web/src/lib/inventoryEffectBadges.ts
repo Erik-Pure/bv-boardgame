@@ -257,13 +257,6 @@ export function equipmentInventoryEffectBadges(
       label: String(pack),
     });
   }
-  const bwr =
-    "breakWinsRemaining" in piece && typeof (piece as Weapon).breakWinsRemaining === "number"
-      ? (piece as Weapon).breakWinsRemaining
-      : undefined;
-  if (typeof bwr === "number" && bwr > 0 && (piece as Weapon).breakOnWin) {
-    badges.push({ icon: "attack", label: String(bwr) });
-  }
   const itemCardBonus =
     "itemCardBonus" in piece
       ? Math.max(0, Math.floor((piece as { itemCardBonus?: number }).itemCardBonus ?? 0))
@@ -486,11 +479,6 @@ export function shopItemEffectBadges(it: ShopItem): EffectBadgeData[] {
       label: `−${it.randomOtherDamageOnWin}`,
       labelTone: "danger",
     });
-  }
-  if (it.breakOnWin) {
-    const winsLeft =
-      eq.slot === "weapon" && typeof eq.breakWinsRemaining === "number" ? eq.breakWinsRemaining : 0;
-    if (winsLeft <= 0) pushShopBadge(badges, seen, { icon: "attack", label: "1×" });
   }
   if (typeof it.sipAttackBonus === "number" && it.sipAttackBonus > 0) {
     const basePow = typeof it.power === "number" ? it.power : 1;

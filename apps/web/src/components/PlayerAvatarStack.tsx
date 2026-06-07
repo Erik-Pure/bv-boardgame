@@ -3,7 +3,7 @@ import type { PlayerAvatar } from "@bv/game-core";
 import { avatarPartSrc, tintAvatarHeadSvg } from "../lib/randomAvatar";
 import styles from "./PlayerAvatarStack.module.css";
 
-export type PlayerAvatarStackSize = "lobby" | "bvb" | "board";
+export type PlayerAvatarStackSize = "lobby" | "bvb" | "board" | "scoreboard";
 
 type PlayerAvatarStackProps = {
   avatar: PlayerAvatar;
@@ -17,6 +17,7 @@ const sizeClass: Record<PlayerAvatarStackSize, string> = {
   lobby: styles.sizeLobby,
   bvb: styles.sizeBvb,
   board: styles.sizeBoard,
+  scoreboard: styles.sizeScoreboard,
 };
 
 export function PlayerAvatarStack({

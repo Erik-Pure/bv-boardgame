@@ -151,6 +151,14 @@ export {
   normalizeItemCardBonus,
   playerTotalItemCardBonus,
 } from "./itemCardBonus.js";
+export {
+  availableBrewerPerkChoices,
+  BREWER_PERK_CHOICES,
+  BREWER_PERK_MAX_PER_CATEGORY,
+  brewerPerkPickCount,
+  isBrewerPerkChoiceAvailable,
+} from "./brewerPerk.js";
+export type { BrewerPerkChoice } from "./brewerPerk.js";
 export { scaledCombatMod } from "./scaledCombatMod.js";
 export { XP_PER_KLUNK, PENALTY_XP_PER_KLUNK, grantKlunkWithXp } from "./klunkGrant.js";
 export {

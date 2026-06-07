@@ -97,13 +97,13 @@ function combatReactionsState(attacker, extra = {}) {
 }
 
 describe("Plastmugg", () => {
-  it("monsterCombatEquipmentAttackBonus ger −3 attack", () => {
+  it("monsterCombatEquipmentAttackBonus ger −2 attack", () => {
     const p = mkPlayer({
       id: "p1",
       name: "A",
-      equipment: { weapon: { name: "Plastmugg", power: -3, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
     });
-    assert.equal(monsterCombatEquipmentAttackBonus(p), -3);
+    assert.equal(monsterCombatEquipmentAttackBonus(p), -2);
   });
 
   it("effectiveItemPlayGoldCost nollställer pantkostnad med Plastmugg", () => {
@@ -111,7 +111,7 @@ describe("Plastmugg", () => {
     const cup = mkPlayer({
       id: "p1",
       name: "A",
-      equipment: { weapon: { name: "Plastmugg", power: -3, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
     });
     assert.equal(itemPlayGoldCost("manopositiv"), 10);
     assert.equal(effectiveItemPlayGoldCost(bare, "manopositiv"), 10);
@@ -128,7 +128,7 @@ describe("Plastmugg", () => {
       isHost: true,
       gold: 0,
       inventory: [item],
-      equipment: { weapon: { name: "Plastmugg", power: -3, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
     });
     const state = combatReactionsState(attacker);
     const r = applyAction(state, {
@@ -148,7 +148,7 @@ describe("Plastmugg", () => {
       name: "A",
       gold: 0,
       inventory: [item],
-      equipment: { weapon: { name: "Plastmugg", power: -3, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
     });
     const pending = combatReactionsState(attacker).pending;
     assert.equal(playerHasCombatReactionPlayableItem(attacker, pending), true);

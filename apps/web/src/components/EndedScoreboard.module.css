@@ -23,6 +23,10 @@
   width: 22%;
 }
 
+.wrapTable .colName {
+  width: 32%;
+}
+
 .colLevel {
   width: 10%;
 }
@@ -130,6 +134,20 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.nameAvatarWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.nameAvatarStack {
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 .nameText {
@@ -242,4 +260,9 @@
 .wrapTable .doorLeftVoluntary {
   width: 22px;
   height: 22px;
+}
+
+.wrapTable .nameAvatarWrap {
+  width: 52px;
+  height: 52px;
 }

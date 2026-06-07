@@ -32,6 +32,10 @@ import {
   effectiveMerchantBuyPrice,
   effectiveItemPlayGoldCost,
   itemPlayGoldCost,
+  BREWER_PERK_MAX_PER_CATEGORY,
+  brewerPerkPickCount,
+  isBrewerPerkChoiceAvailable,
+  type BrewerPerkChoice,
   equipmentDamageNegate,
   findBossTileIndexInLevel,
   type ClientAction,
@@ -438,6 +442,19 @@ type StatFlash = "up" | "down" | null;
 const STAT_FLASH_MS = 1300;
 
 const EQUIP_SLOTS: EquipmentSlot[] = ["weapon", "armor", "helmet", "accessory"];
+
+const BREWER_PERK_BUTTONS: {
+  choice: BrewerPerkChoice;
+  label: string;
+  icon: string;
+  variant: "pink" | "blue";
+}[] = [
+  { choice: "attack", label: "+1 styrka", icon: "/icons/attack.svg", variant: "pink" },
+  { choice: "shield", label: "+1 sköld", icon: "/icons/armor-icon.svg", variant: "blue" },
+  { choice: "hp", label: "+2 HP", icon: "/icons/hp.svg", variant: "pink" },
+  { choice: "pvp", label: "+1 BvB", icon: "/icons/bvb-icon.svg", variant: "blue" },
+  { choice: "items", label: "+1 föremålskort", icon: "/icons/cards-icon.svg", variant: "pink" },
+];
 
 const emptyEquipFlash = (): Record<EquipmentSlot, StatFlash> => ({
   weapon: null,
@@ -1589,59 +1606,32 @@ export function PlayView() {
           {mobileEquipmentCombatTotals ? (
             <EquipmentCombatTotalsRow totals={mobileEquipmentCombatTotals} />
           ) : null}
-          <ArcadeButton
-            variant="pink"
-            fullWidth
-            onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "attack" })}
-          >
-            <span className={styles.turnChoicePantaLabel}>
-              <TutorialInlineIcon src="/icons/attack.svg" color="#f8fafc" gap="0" />
-              <span>{sv.play.brewerPerkAttack}</span>
-            </span>
-          </ArcadeButton>
-          <ArcadeButton
-            variant="blue"
-            fullWidth
-            onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "shield" })}
-          >
-            <span className={styles.turnChoicePantaLabel}>
-              <TutorialInlineIcon src="/icons/armor-icon.svg" color="#f8fafc" gap="0" />
-              <span>{sv.play.brewerPerkShield}</span>
-            </span>
-          </ArcadeButton>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "hp" })}
-            >
-              <span className={styles.turnChoicePantaLabel}>
-                <TutorialInlineIcon src="/icons/hp.svg" color="#f8fafc" gap="0" />
-                <span>{sv.play.brewerPerkHp}</span>
-              </span>
-            </ArcadeButton>
-            <ArcadeButton
-              variant="blue"
-              fullWidth
-              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "pvp" })}
-            >
-              <span className={styles.turnChoicePantaLabel}>
-                <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#f8fafc" gap="0" />
-                <span>{sv.play.brewerPerkPvp}</span>
-              </span>
-            </ArcadeButton>
-            <ArcadeButton
-              variant="pink"
-              fullWidth
-              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "items" })}
-            >
-              <span className={styles.turnChoicePantaLabel}>
-                <TutorialInlineIcon src="/icons/cards-icon.svg" color="#f8fafc" gap="0" />
-                <span>{sv.play.brewerPerkItems}</span>
-              </span>
-            </ArcadeButton>
-          </div>
-        );
-      }
+          {BREWER_PERK_BUTTONS.map(({ choice, label, icon, variant }) => {
+            const available = isBrewerPerkChoiceAvailable(me, choice);
+            return (
+              <ArcadeButton
+                key={choice}
+                variant={variant}
+                fullWidth
+                disabled={!available}
+                onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice })}
+              >
+                <span className={styles.turnChoicePantaLabel}>
+                  <TutorialInlineIcon src={icon} color="#f8fafc" gap="0" />
+                  <span>
+                    {sv.play.brewerPerkChoiceWithCap(
+                      label,
+                      brewerPerkPickCount(me, choice),
+                      BREWER_PERK_MAX_PER_CATEGORY,
+                    )}
+                  </span>
+                </span>
+              </ArcadeButton>
+            );
+          })}
+        </div>
+      );
+    }
     if (pending?.type === "card" && myPending) return null; // handled as modal
 
     const stealEquipOffer =

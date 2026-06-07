@@ -7,6 +7,7 @@ import {
 import { sv } from "../lib/uiStrings";
 import styles from "./EndedScoreboard.module.css";
 import { LevelRingCell } from "./LevelRingCell";
+import { PlayerAvatarStack } from "./PlayerAvatarStack";
 
 function ScoreboardIconHeader(props: {
   ariaLabel: string;
@@ -107,6 +108,17 @@ export function EndedScoreboardTable(props: {
                 <tr key={p.id} className={[styles.bodyRow, isWinner ? styles.bodyRowWinner : ""].filter(Boolean).join(" ")}>
                   <td>
                     <span className={styles.nameBlock}>
+                      {table ? (
+                        <span className={styles.nameAvatarWrap} aria-hidden>
+                          <PlayerAvatarStack
+                            avatar={p.avatar}
+                            color={p.color}
+                            size="scoreboard"
+                            animate={false}
+                            className={styles.nameAvatarStack}
+                          />
+                        </span>
+                      ) : null}
                       {eliminated ? (
                         <img
                           src="/icons/skull-icon.svg"

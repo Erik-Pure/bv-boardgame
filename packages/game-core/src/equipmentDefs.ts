@@ -55,10 +55,10 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "weapon",
     name: "Plastmugg",
     price: 9,
-    power: -3,
+    power: -2,
     freeInventoryItemPlay: true,
     rulesText:
-      "−3 attack i monsterstrid. Alla föremål du spelar kostar 0 pant så länge Plastmugg sitter utrustad.",
+      "−2 attack i monsterstrid. Alla föremål du spelar kostar 0 pant så länge Plastmugg sitter utrustad.",
   },
   {
     id: "ew_humleklubba",

@@ -48,6 +48,9 @@ import { EQUIPMENT_CATALOG, type EquipmentShopItem } from "./equipmentDefs.js";
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import {
   applyBrewerPerkChoice,
+  availableBrewerPerkChoices,
+  consumeExhaustedBrewerPerkLevels,
+  isBrewerPerkChoiceAvailable,
   normalizeBrewerPerkProgress,
   finishBrewerPerkChoicePrompt,
   pendingBelongsToPlayer,
@@ -5523,7 +5526,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     const p = next.players.find((x) => x.id === action.playerId);
     if (!p) return { state, events: [], error: "Player not found" };
-    applyBrewerPerkChoice(p, action.choice, next.config.maxHp);
+    if (!isBrewerPerkChoiceAvailable(p, action.choice)) {
+      return { state, events: [], error: "Den kategorin är redan maxad (3/3)" };
+    }
+    if (!applyBrewerPerkChoice(p, action.choice, next.config.maxHp)) {
+      return { state, events: [], error: "Den kategorin är redan maxad (3/3)" };
+    }
     syncDynamicMaxHp(next);
     const label =
       action.choice === "attack"
@@ -5536,13 +5544,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
               ? "+1 föremålskort"
               : "+2 HP";
     log(next, `${p.name} väljer ${label} (bryggnivå).`);
+    consumeExhaustedBrewerPerkLevels(p, (msg) => log(next, msg));
     const remaining = p.pendingBrewerPerkLevels ?? 0;
     const nextPrompt = { type: "brewerPerkChoice" as const, playerId: p.id, levelsRemaining: remaining };
     const inOffTurnSlot =
       next.offTurnPersonalPending?.type === "brewerPerkChoice" &&
       next.offTurnPersonalPending.playerId === p.id;
     const onOwnTurn = next.turnOrder[next.currentTurnIndex] === p.id;
-    if (remaining > 0) {
+    if (remaining > 0 && availableBrewerPerkChoices(p).length > 0) {
       if (onOwnTurn) {
         next.pending = nextPrompt;
         if (inOffTurnSlot) next.offTurnPersonalPending = null;
