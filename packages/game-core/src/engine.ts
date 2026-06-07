@@ -64,8 +64,14 @@ import {
 } from "./merchantCombatItems.js";
 import {
   PLASTBACK_ACCESSORY_NAME,
+  TOM_FLASKA_CATALOG_ID,
+  TOM_FLASKA_WEAPON_NAME,
+  equipTomFlaskaFromPlastback,
+  initPlastbackPack,
   plastbackAccessorySellPant,
+  plastbackPackRemainingCount,
   syncPlastbackEmptyBottleSynergy,
+  takePlastbackPackBottle,
 } from "./plastbackSynergy.js";
 import {
   flushPenaltySipQueue,
@@ -84,6 +90,7 @@ import {
   lengraddadBlockedForCombatParticipant,
 } from "./combatItemRestrictions.js";
 import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
+import { flatItemUseAmount, playerTotalItemCardBonus } from "./itemCardBonus.js";
 import {
   EMOTE_COOLDOWN_MS,
   isEmoteId,
@@ -98,6 +105,8 @@ import {
   autoPassReactorsWithoutPlayableItems,
   beginCombatReactionsPhase,
   itemPlayGoldCost,
+  effectiveItemPlayGoldCost,
+  playerHasFreeInventoryItemPlay,
   playerHasCombatReactionPlayableItem,
 } from "./combatReactionAutopass.js";
 import type {
@@ -416,7 +425,7 @@ function playerHasPlayablePositiveHelpItem(player: Player): boolean {
   const inv = player.inventory ?? [];
   for (const it of inv) {
     if (!isPositiveHelpItemId(it.itemId)) continue;
-    const cost = itemPlayGoldCost(it.itemId);
+    const cost = effectiveItemPlayGoldCost(player, it.itemId);
     if (cost > 0 && player.gold < cost) continue;
     return true;
   }
@@ -601,6 +610,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       breakOnWin: item.breakOnWin,
       breakWinsRemaining: item.breakWinsRemaining,
       monsterLossSipReduction: item.monsterLossSipReduction,
+      freeInventoryItemPlay: item.freeInventoryItemPlay,
     };
   } else if (item.slot === "armor") {
     p.equipment.armor = {
@@ -614,6 +624,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       pvpDieBonus: item.pvpDieBonus,
       gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
       healHpPerTurn: item.healHpPerTurn,
+      itemCardBonus: item.itemCardBonus,
     };
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     p.hp = Math.min(p.hp + 2, p.maxHp);
@@ -630,6 +641,7 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       klunkAttackBonus20: item.klunkAttackBonus20,
       klunkAttackBonusMax: item.klunkAttackBonusMax,
       pvpDieBonus: item.pvpDieBonus,
+      itemCardBonus: item.itemCardBonus,
     };
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     const helmHp = item.bonusHp ?? 0;
@@ -652,7 +664,9 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
       ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
       deathContinueCost: item.deathContinueCost,
       merchantDiscountGold: item.merchantDiscountGold,
+      itemCardBonus: item.itemCardBonus,
     };
+    if (item.name === PLASTBACK_ACCESSORY_NAME) initPlastbackPack(p.equipment.accessory);
   }
   syncPlastbackEmptyBottleSynergy(p);
 }
@@ -677,6 +691,12 @@ function assignEquipmentPieceFromLoot(
     if (p.hp > p.maxHp) p.hp = p.maxHp;
   } else {
     p.equipment.accessory = { ...(piece as Accessory) };
+    if (
+      p.equipment.accessory.name === PLASTBACK_ACCESSORY_NAME &&
+      p.equipment.accessory.plastbackPackRemaining == null
+    ) {
+      initPlastbackPack(p.equipment.accessory);
+    }
   }
   syncPlastbackEmptyBottleSynergy(p);
 }
@@ -2244,7 +2264,9 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
     randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
     breakOnWin: eq.breakOnWin,
     monsterLossSipReduction: eq.monsterLossSipReduction,
+    freeInventoryItemPlay: eq.freeInventoryItemPlay,
     healHpPerTurn: eq.healHpPerTurn,
+    itemCardBonus: eq.itemCardBonus,
   };
 }
 
@@ -2393,7 +2415,11 @@ function applyPlayableItemAttackMod(
   itemId: string,
 ): number {
   const pending = state.pending;
-  const mod = combatItemAttackModForBoardLevel(itemId, user.levelIndex);
+  const mod = combatItemAttackModForBoardLevel(
+    itemId,
+    user.levelIndex,
+    playerTotalItemCardBonus(user),
+  );
   if (mod == null || mod === 0) return 0;
   if (pending?.type === "pvp" && pending.phase === "preRoundItems") {
     pending.pvpAttackMods ??= {};
@@ -3176,7 +3202,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId) && !healingPvpPreRoundOk) {
       return { state, events: [], error: "Det kortet kan inte spelas i BvB före rundan." };
     }
-    const playCost = itemPlayGoldCost(inst.itemId);
+    const playCost = effectiveItemPlayGoldCost(user, inst.itemId);
     if (playCost > 0 && user.gold < playCost) {
       return {
         state,
@@ -3190,8 +3216,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         ? next.players.find((p) => p.id === action.targetPlayerId)
         : user;
       if (!target) return { state, events: [], error: "Mål krävs" };
+      const healAmt = flatItemUseAmount("healing_potion", playerTotalItemCardBonus(user)) ?? 3;
       const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + 3);
+      target.hp = Math.min(target.maxHp, target.hp + healAmt);
       const healed = target.hp - before;
       log(
         next,
@@ -3234,7 +3261,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const target = action.targetPlayerId ? next.players.find((p) => p.id === action.targetPlayerId) : null;
       if (!target) return { state, events: [], error: "Mål krävs" };
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
-      grantKlunkWithXp(next, target, 1, { penaltyStraff: true });
+      grantKlunkWithXp(next, target, flatItemUseAmount("sip_card", playerTotalItemCardBonus(user)) ?? 1, {
+        penaltyStraff: true,
+      });
       pushSipNotice(next, target.id, user.name);
       log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`);
       inv.splice(idx, 1);
@@ -3498,7 +3527,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       ) {
         return { state, events: [], error: "Kan bara användas under stridsreaktioner" };
       }
-      const playCost = itemPlayGoldCost("manopositiv");
+      const playCost = effectiveItemPlayGoldCost(user, "manopositiv");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Manopositiv` };
       }
@@ -3508,17 +3537,15 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
           return { state, events: [], error: "Ogiltigt PvP-mål" };
         }
-        pending.pvpAttackMods ??= {};
-        pending.pvpAttackMods[targetId] = (pending.pvpAttackMods[targetId] ?? 0) + 4;
+        const mod = applyPlayableItemAttackMod(next, user, targetId, "manopositiv");
         pending.roundItemReady ??= {};
         pending.roundItemReady[user.id] = false;
-        log(next, `${user.name} spelar Manopositiv: +4 attack i BvB-ronden (−${playCost} pant).`);
+        log(next, `${user.name} spelar Manopositiv: +${mod} attack i BvB-ronden (−${playCost} pant).`);
       } else {
         const combatPending = pending as Extract<Pending, { type: "combat" }>;
         targetId = isHelpCardPhase ? combatPending.attackerId : (action.targetPlayerId ?? combatPending.attackerId);
-        combatPending.attackMods ??= {};
-        combatPending.attackMods[targetId] = (combatPending.attackMods[targetId] ?? 0) + 4;
-        log(next, `${user.name} spelar Manopositiv: +4 attack i striden (−${playCost} pant).`);
+        const mod = applyPlayableItemAttackMod(next, user, targetId, "manopositiv");
+        log(next, `${user.name} spelar Manopositiv: +${mod} attack i striden (−${playCost} pant).`);
         combatPending.reacted ??= {};
         if (combatPending.reactors?.includes(user.id) && !combatPending.reacted[user.id]) {
           combatPending.reacted[user.id] = "intervened";
@@ -3540,7 +3567,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "beard_back") {
-      const playCost = itemPlayGoldCost("beard_back");
+      const playCost = effectiveItemPlayGoldCost(user, "beard_back");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Skägget rakt bak` };
       }
@@ -3657,8 +3684,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         ? next.players.find((p) => p.id === action.targetPlayerId)
         : user;
       if (!target) return { state, events: [], error: "Mål krävs" };
+      const healAmt = flatItemUseAmount("pretzel_snack", playerTotalItemCardBonus(user)) ?? 2;
       const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + 2);
+      target.hp = Math.min(target.maxHp, target.hp + healAmt);
       const healed = target.hp - before;
       log(
         next,
@@ -3675,8 +3703,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "coin_purse") {
-      user.gold += 4;
-      log(next, `${user.name} använder en pantpåse (+4 pant).`);
+      const goldAmt = flatItemUseAmount("coin_purse", playerTotalItemCardBonus(user)) ?? 4;
+      user.gold += goldAmt;
+      log(next, `${user.name} använder en pantpåse (+${goldAmt} pant).`);
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
@@ -4037,7 +4066,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.equipment.accessory?.preventTheft) {
         return { state, events: [], error: `${target.name} kan inte bli bestulen.` };
       }
-      const cost = itemPlayGoldCost("shuffle");
+      const cost = effectiveItemPlayGoldCost(user, "shuffle");
       if (cost > 0 && user.gold < cost) {
         return { state, events: [], error: `Du behöver ${cost} pant för att spela Shuffle.` };
       }
@@ -4058,7 +4087,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "rigged_game") {
-      const playCost = itemPlayGoldCost("rigged_game");
+      const playCost = effectiveItemPlayGoldCost(user, "rigged_game");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Riggat spel` };
       }
@@ -4279,7 +4308,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "spill_intentional") {
-      const playCost = itemPlayGoldCost("spill_intentional");
+      const playCost = effectiveItemPlayGoldCost(user, "spill_intentional");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Spilla med flit` };
       }
@@ -4411,7 +4440,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "get_lucky") {
-      const playCost = itemPlayGoldCost("get_lucky");
+      const playCost = effectiveItemPlayGoldCost(user, "get_lucky");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Get Lucky` };
       }
@@ -4434,15 +4463,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!validTargets.has(targetId)) {
         return { state, events: [], error: "Get Lucky måste spelas på den som slåss" };
       }
-      pending.attackMods ??= {};
-      pending.attackMods[targetId] = (pending.attackMods[targetId] ?? 0) + 4;
+      const mod = applyPlayableItemAttackMod(next, user, targetId, "get_lucky");
       pending.getLuckyRiskPlayerIds = Array.from(new Set([...(pending.getLuckyRiskPlayerIds ?? []), targetId]));
       const target = next.players.find((p) => p.id === targetId);
       user.gold -= playCost;
       recordPantSpent(next, user.id, playCost);
       log(
         next,
-        `${user.name} spelar Get Lucky på ${target?.name ?? "spelaren"}: +4 attack men dubbel HP-skada vid förlust (−${playCost} pant).`,
+        `${user.name} spelar Get Lucky på ${target?.name ?? "spelaren"}: +${mod} attack men dubbel HP-skada vid förlust (−${playCost} pant).`,
       );
       pending.reacted ??= {};
       if (pending.reactors?.includes(user.id) && !pending.reacted[user.id]) pending.reacted[user.id] = "intervened";
@@ -4459,7 +4487,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     if (inst.itemId === "six_sense") {
-      const playCost = itemPlayGoldCost("six_sense");
+      const playCost = effectiveItemPlayGoldCost(user, "six_sense");
       if (user.gold < playCost) {
         return { state, events: [], error: `Du behöver ${playCost} pant för att spela Ett sjätte ölsinne` };
       }
@@ -5034,7 +5062,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!p) return { state, events: [], error: "Player not found" };
     const turnPid = erPending.playerId;
     if (action.accept) {
-      if (erPending.catalogId) {
+      if (erPending.fromPlastbackTake) {
+        if (!takePlastbackPackBottle(p)) {
+          return { state, events: [], error: "Inga flaskor kvar i Plastback." };
+        }
+        equipTomFlaskaFromPlastback(p);
+        log(next, `${p.name} byter ut vapen mot Tom flaska från Plastback.`);
+      } else if (erPending.catalogId) {
         const eq = EQUIPMENT_CATALOG.find((e) => e.id === erPending.catalogId);
         if (!eq || eq.slot !== erPending.slot) {
           return { state, events: [], error: "Ogiltig utrustning" };
@@ -5049,6 +5083,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     } else if (lootOffer || next.stolenEquipmentEscrow) {
       finishStealEquipmentReplaceDecision(next, action.playerId, false, erPending);
+    } else if (erPending.fromPlastbackTake) {
+      log(next, `${p.name} behåller sitt vapen.`);
     } else {
       log(next, `${p.name} behåller sin nuvarande utrustning och lämnar ${erPending.newName}.`);
     }
@@ -5066,7 +5102,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!next.pending && !riggedTheftReplace) {
         if (erPending.fromCombatLoot) {
           offerPostTurnPrompts(next, turnPid);
-        } else {
+        } else if (!erPending.fromPlastbackTake) {
           endTurnOrOfferLevelUp(next, turnPid);
         }
       }
@@ -5327,8 +5363,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (cp.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME) {
       return { state, events: [], error: "Du har ingen Plastback att sälja." };
     }
-    syncPlastbackEmptyBottleSynergy(cp);
-    const pant = plastbackAccessorySellPant(cp);
+    const pant = plastbackPackRemainingCount(cp);
     cp.gold += pant;
     cp.equipment.accessory = undefined;
     syncPlastbackEmptyBottleSynergy(cp);
@@ -5336,6 +5371,38 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       next,
       pant > 0 ? `${cp.name} säljer Plastback och får ${pant} pant.` : `${cp.name} säljer Plastback.`,
     );
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "takePlastbackBottle") {
+    if (next.phase !== "playing") return { state, events: [], error: "Spelet är slut" };
+    const cp = currentPlayer(next);
+    if (!cp || cp.id !== action.playerId) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    if (cp.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME) {
+      return { state, events: [], error: "Du har ingen Plastback." };
+    }
+    if (plastbackPackRemainingCount(cp) <= 0) {
+      return { state, events: [], error: "Inga flaskor kvar i Plastback." };
+    }
+    const w = cp.equipment.weapon;
+    if (!w || w.name === TOM_FLASKA_WEAPON_NAME) {
+      if (!takePlastbackPackBottle(cp)) {
+        return { state, events: [], error: "Inga flaskor kvar i Plastback." };
+      }
+      equipTomFlaskaFromPlastback(cp);
+      log(next, `${cp.name} tar en flaska ur Plastback.`);
+      return { state: next, events: ["state"] };
+    }
+    next.pending = {
+      type: "equipmentReplaceOffer",
+      playerId: cp.id,
+      slot: "weapon",
+      catalogId: TOM_FLASKA_CATALOG_ID,
+      newName: TOM_FLASKA_WEAPON_NAME,
+      fromPlastbackTake: true,
+    };
     return { state: next, events: ["state"] };
   }
 
@@ -5463,7 +5530,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         ? "+1 styrka"
         : action.choice === "shield"
           ? "+1 sköld"
-          : "+2 HP";
+          : action.choice === "pvp"
+            ? "+1 BvB"
+            : action.choice === "items"
+              ? "+1 föremålskort"
+              : "+2 HP";
     log(next, `${p.name} väljer ${label} (bryggnivå).`);
     const remaining = p.pendingBrewerPerkLevels ?? 0;
     const nextPrompt = { type: "brewerPerkChoice" as const, playerId: p.id, levelsRemaining: remaining };

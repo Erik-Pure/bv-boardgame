@@ -7,6 +7,7 @@ import {
 } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
+import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import { sv } from "../../lib/uiStrings";
 
 type CombatHitMitigationPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
@@ -66,8 +67,14 @@ export function CombatHitMitigationSheet(props: {
             flexWrap: "wrap",
           }}
         >
-          <DiceCube3D value={die} size={76} oneAsSkullIcon />
-          {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsSkullIcon /> : null}
+          <DiceCube3D value={die} size={76} oneAsSkullIcon={combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne)} />
+          {broDie != null ? (
+            <DiceCube3D
+              value={broDie}
+              size={76}
+              oneAsSkullIcon={combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne)}
+            />
+          ) : null}
         </div>
         <div className={sheetDiceCaptionClass}>
           <span className={sheetDiceCaptionTextClass}>{sv.play.youLostTotal(total, need)}</span>

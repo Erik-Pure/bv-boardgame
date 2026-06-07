@@ -81,7 +81,9 @@ export function EndedScoreboardTable(props: {
           </colgroup>
           <thead>
             <tr className={styles.headerRow}>
-              <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColName} src="/icons/player-marker.svg" alignLeft />
+              <th scope="col" className={styles.nameHeaderCell} aria-label={sv.play.scoreboardColName}>
+                <span className={styles.srOnly}>{sv.play.scoreboardColName}</span>
+              </th>
               <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColLevel} src="/icons/lvlup.svg" />
               <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColKnockdowns} src="/icons/skull-icon.svg" />
               <ScoreboardIconHeader iconPx={iconPx} ariaLabel={sv.play.scoreboardColMonsterWl} src="/icons/monster-icon.svg" />

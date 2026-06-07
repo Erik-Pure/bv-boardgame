@@ -7,7 +7,7 @@ import {
   createItemInstance,
 } from "../dist/index.js";
 import { effectiveMerchantBuyPrice } from "../dist/merchantBuyPrice.js";
-import { syncPlastbackEmptyBottleSynergy, TOM_FLASKA_WEAPON_NAME } from "../dist/plastbackSynergy.js";
+import { syncPlastbackEmptyBottleSynergy, TOM_FLASKA_WEAPON_NAME, plastbackPackRemainingCount } from "../dist/plastbackSynergy.js";
 
 function gameConfig() {
   return {
@@ -47,6 +47,31 @@ function mkPlayer(p) {
     skippedTurns: p.skippedTurns ?? 0,
     eliminated: p.eliminated ?? false,
     stats: p.stats ?? { ...DEFAULT_PLAYER_SESSION_STATS },
+  };
+}
+
+function playingState(players, extra = {}) {
+  return {
+    phase: "playing",
+    seed: 1,
+    config: gameConfig(),
+    roomCode: "T",
+    players,
+    turnOrder: players.map((p) => p.id),
+    currentTurnIndex: 0,
+    levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
+    pending: null,
+    log: [],
+    winnerId: null,
+    winnerName: null,
+    goldenBeerCarrierId: null,
+    finalBossMonsterId: "store_narcissius",
+    finalBossLivesRemaining: 3,
+    treasureTaken: {},
+    lastDiceRoll: null,
+    lastDiceRollerId: null,
+    sipNotices: [],
+    ...extra,
   };
 }
 
@@ -176,7 +201,29 @@ describe("VIB / Plastback / Shuffle", () => {
     assert.match(r.error, /bestulen/i);
   });
 
-  it("sellAccessory ger 6 pant när breakWinsRemaining saknas men synergi gäller", () => {
+  it("sellAccessory ger pant från pack i hållaren (inte vapnets vinster)", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 1,
+      equipment: {
+        weapon: { name: TOM_FLASKA_WEAPON_NAME, power: 5, breakOnWin: true, breakWinsRemaining: 3 },
+        accessory: { name: "Plastback", plastbackPackRemaining: 3 },
+      },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const state = playingState([p1, p2]);
+    const r = applyAction(state, { type: "sellAccessory", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(u.gold, 4);
+    assert.equal(u.equipment.accessory, undefined);
+    assert.equal(u.equipment.weapon?.breakWinsRemaining, undefined);
+  });
+
+  it("sellAccessory ger 6 pant när pack saknas (migration default)", () => {
     const p1 = mkPlayer({
       id: "p1",
       name: "A",
@@ -188,27 +235,7 @@ describe("VIB / Plastback / Shuffle", () => {
       },
     });
     const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
-    const state = {
-      phase: "playing",
-      seed: 1,
-      config: gameConfig(),
-      roomCode: "T",
-      players: [p1, p2],
-      turnOrder: ["p1", "p2"],
-      currentTurnIndex: 0,
-      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
-      pending: null,
-      log: [],
-      winnerId: null,
-      winnerName: null,
-      goldenBeerCarrierId: null,
-      finalBossMonsterId: "store_narcissius",
-      finalBossLivesRemaining: 3,
-      treasureTaken: {},
-      lastDiceRoll: null,
-      lastDiceRollerId: null,
-      sipNotices: [],
-    };
+    const state = playingState([p1, p2]);
     const r = applyAction(state, { type: "sellAccessory", playerId: "p1" });
     assert.equal(r.error, undefined);
     const u = r.state.players.find((x) => x.id === "p1");
@@ -217,46 +244,107 @@ describe("VIB / Plastback / Shuffle", () => {
     assert.equal(u.equipment.accessory, undefined);
   });
 
-  it("sellAccessory ger pant från breakWinsRemaining", () => {
+  it("takePlastbackBottle: tom vapenplats ger Tom flaska och minskar pack", () => {
     const p1 = mkPlayer({
       id: "p1",
       name: "A",
       isHost: true,
-      gold: 1,
-      equipment: {
-        weapon: { name: TOM_FLASKA_WEAPON_NAME, power: 5, breakOnWin: true, breakWinsRemaining: 3 },
-        accessory: { name: "Plastback" },
-      },
+      equipment: { accessory: { name: "Plastback", plastbackPackRemaining: 6 } },
     });
     const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
-    const state = {
-      phase: "playing",
-      seed: 1,
-      config: gameConfig(),
-      roomCode: "T",
-      players: [p1, p2],
-      turnOrder: ["p1", "p2"],
-      currentTurnIndex: 0,
-      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
-      pending: null,
-      log: [],
-      winnerId: null,
-      winnerName: null,
-      goldenBeerCarrierId: null,
-      finalBossMonsterId: "store_narcissius",
-      finalBossLivesRemaining: 3,
-      treasureTaken: {},
-      lastDiceRoll: null,
-      lastDiceRollerId: null,
-      sipNotices: [],
-    };
-    const r = applyAction(state, { type: "sellAccessory", playerId: "p1" });
+    const r = applyAction(playingState([p1, p2]), { type: "takePlastbackBottle", playerId: "p1" });
     assert.equal(r.error, undefined);
     const u = r.state.players.find((x) => x.id === "p1");
     assert.ok(u);
-    assert.equal(u.gold, 4);
-    assert.equal(u.equipment.accessory, undefined);
-    assert.equal(u.equipment.weapon?.breakWinsRemaining, undefined);
+    assert.equal(plastbackPackRemainingCount(u), 5);
+    assert.equal(u.equipment.weapon?.name, TOM_FLASKA_WEAPON_NAME);
+    assert.equal(u.equipment.weapon?.breakWinsRemaining, 6);
+  });
+
+  it("takePlastbackBottle: Tom flaska redan utrustad refreshar vinster och minskar pack", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      equipment: {
+        weapon: { name: TOM_FLASKA_WEAPON_NAME, power: 5, breakOnWin: true, breakWinsRemaining: 2 },
+        accessory: { name: "Plastback", plastbackPackRemaining: 4 },
+      },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const r = applyAction(playingState([p1, p2]), { type: "takePlastbackBottle", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(plastbackPackRemainingCount(u), 3);
+    assert.equal(u.equipment.weapon?.breakWinsRemaining, 6);
+  });
+
+  it("takePlastbackBottle: annat vapen ger bytesval; accept minskar pack", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      equipment: {
+        weapon: { name: "Folköl", power: 2 },
+        accessory: { name: "Plastback", plastbackPackRemaining: 6 },
+      },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const offer = applyAction(playingState([p1, p2]), { type: "takePlastbackBottle", playerId: "p1" });
+    assert.equal(offer.error, undefined);
+    assert.equal(offer.state.pending?.type, "equipmentReplaceOffer");
+    assert.equal(offer.state.pending?.fromPlastbackTake, true);
+    const uOffer = offer.state.players.find((x) => x.id === "p1");
+    assert.equal(plastbackPackRemainingCount(uOffer), 6);
+    const accept = applyAction(offer.state, {
+      type: "equipmentReplaceDecision",
+      playerId: "p1",
+      accept: true,
+    });
+    assert.equal(accept.error, undefined);
+    const u = accept.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(plastbackPackRemainingCount(u), 5);
+    assert.equal(u.equipment.weapon?.name, TOM_FLASKA_WEAPON_NAME);
+    assert.equal(u.equipment.weapon?.breakWinsRemaining, 6);
+  });
+
+  it("takePlastbackBottle: bytesval avböjt lämnar pack oförändrat", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      equipment: {
+        weapon: { name: "Folköl", power: 2 },
+        accessory: { name: "Plastback", plastbackPackRemaining: 6 },
+      },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const offer = applyAction(playingState([p1, p2]), { type: "takePlastbackBottle", playerId: "p1" });
+    const decline = applyAction(offer.state, {
+      type: "equipmentReplaceDecision",
+      playerId: "p1",
+      accept: false,
+    });
+    assert.equal(decline.error, undefined);
+    const u = decline.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(plastbackPackRemainingCount(u), 6);
+    assert.equal(u.equipment.weapon?.name, "Folköl");
+  });
+
+  it("takePlastbackBottle: pack 0 ger fel", () => {
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      equipment: { accessory: { name: "Plastback", plastbackPackRemaining: 0 } },
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const r = applyAction(playingState([p1, p2]), { type: "takePlastbackBottle", playerId: "p1" });
+    assert.ok(r.error);
+    assert.match(r.error, /flaskor kvar/i);
   });
 
   it("merchantBuy med VIB drar rabatterat pris", () => {

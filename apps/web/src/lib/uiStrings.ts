@@ -267,6 +267,8 @@ export const sv = {
     brewerPerkShield: "+1 sköld",
     brewerPerkHp: "+2 HP",
     brewerPerkPvp: "+1 BvB",
+    brewerPerkItems: "+1 föremålskort",
+    brewerItemCardBonusAria: (bonus: number) => `Föremålsbonus ${bonus}`,
     merchantItemKindEquipment: "Utrustning · permanent",
     merchantItemKindConsumable: "Föremål · engångsanvändning",
     merchantItemKindGold: "Pant · direkt",
@@ -284,9 +286,11 @@ export const sv = {
     lootEquipmentReplaceDecline: "Nej, behåll det jag har",
     merchantCantAfford: "Du har inte råd.",
     merchantShopCollapsedHint: "Minimerad — visa panelen för att se vad du kan köpa.",
-    /** Plastback: argument = pant vid försäljning (0 om ingen Tom flaska-synergi). */
+    /** Plastback: argument = pant vid försäljning (= flaskor kvar i hållaren). */
     sellPlastbackAccessory: (pant: number) =>
       pant > 0 ? `Sälj Plastback (+${pant} pant)` : "Sälj Plastback",
+    takePlastbackBottle: (packRemaining: number) =>
+      packRemaining > 0 ? `Ta flaska (${packRemaining} kvar)` : "Ta flaska",
     leave: "Lämna",
     pvpChooseLoot: "BvB — välj byte",
     takePantMax10: "Ta pant (max 10)",
@@ -345,6 +349,7 @@ export const sv = {
     settings: "Inställningar",
     settingsTitle: "Inställningar",
     settingsRainbowEffects: "Regnbågseffekt",
+    settingsMobileSfx: "Ljudeffekter",
     settingsLobbyStatus: "Anslutning",
     settingsTurnStatus: "Turstatus",
     settingsOpenTutorial: "Läs spelregler",
@@ -632,8 +637,8 @@ export const sv = {
     openSettings: "Inställningar för brädet",
     togglePlayersPanel: "Visa eller dölj spelare och logg",
     settingsTitle: "Inställningar (bräde)",
-    settingsBoardPan: "Panorering på brädet (drag och mushjul)",
-    settingsBoardAnimations: "Animationer på brädet (mjuk kamera, tärningssnurr m.m.)",
+    settingsBoardPan: "Panorering på brädet (auto-fokus och drag) — av: hel våning",
+    settingsBoardAnimations: "Tärningsanimationer och stridspaneler",
     settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
     settingsClose: "Stäng",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */

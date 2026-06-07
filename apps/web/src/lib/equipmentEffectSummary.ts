@@ -1,5 +1,5 @@
 import type { ShopItem } from "@bv/game-core";
-import { formatInventoryItemShopEffectSummary } from "./inventoryEffectBadges";
+import { formatInventoryItemShopEffectSummary, shopItemEffectSupplementText } from "./inventoryEffectBadges";
 
 /**
  * Kort svensk beskrivning av affärsrad / katalograd så att siffror stämmer med spelet.
@@ -18,7 +18,9 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   }
 
   const parts: string[] = [];
-  if (typeof it.power === "number") parts.push(`Kraft +${it.power}`);
+  if (typeof it.power === "number") {
+    parts.push(it.power >= 0 ? `Kraft +${it.power}` : `Kraft ${it.power}`);
+  }
   if (typeof it.pvpDieBonus === "number" && it.pvpDieBonus !== 0) {
     parts.push(
       it.pvpDieBonus > 0 ? `BvB: +${it.pvpDieBonus} på slag` : `BvB: ${it.pvpDieBonus} på slag`,
@@ -115,5 +117,14 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.deathContinueCost === "number" && it.deathContinueCost > 0) {
     parts.push(`Vid död: betala ${it.deathContinueCost} pant för fullt liv`);
   }
-  return parts.length ? parts.join(" · ") : "—";
+  if (typeof it.itemCardBonus === "number" && it.itemCardBonus > 0) {
+    parts.push(`+${it.itemCardBonus} föremålskort`);
+  }
+  if (it.freeInventoryItemPlay) {
+    parts.push("Föremål: gratis att spela");
+  }
+  if (parts.length > 0) return parts.join(" · ");
+  const supplement = shopItemEffectSupplementText(it);
+  if (supplement) return supplement;
+  return "—";
 }

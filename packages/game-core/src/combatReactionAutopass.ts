@@ -38,13 +38,22 @@ export function itemPlayGoldCost(itemId: ItemId): number {
   return Math.max(0, Math.floor(ITEM_PLAY_GOLD_COST[itemId] ?? 0));
 }
 
+export function playerHasFreeInventoryItemPlay(p: Player): boolean {
+  return p.equipment.weapon?.freeInventoryItemPlay === true;
+}
+
+export function effectiveItemPlayGoldCost(p: Player, itemId: ItemId): number {
+  if (playerHasFreeInventoryItemPlay(p)) return 0;
+  return itemPlayGoldCost(itemId);
+}
+
 export function playerHasCombatReactionPlayableItem(
   player: Player,
   pending: Extract<Pending, { type: "combat" }>,
 ): boolean {
   return (player.inventory ?? []).some((it) => {
     if (!COMBAT_REACTION_PLAYABLE_ITEM_IDS.has(it.itemId)) return false;
-    const cost = itemPlayGoldCost(it.itemId);
+    const cost = effectiveItemPlayGoldCost(player, it.itemId);
     if (cost > 0 && player.gold < cost) return false;
     if (it.itemId === "beer_bro" && pending.assistId) return false;
     return true;

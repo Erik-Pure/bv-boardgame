@@ -1,5 +1,5 @@
 import type { CombatReactionItemPlay, GameState, TableItemPlayReveal } from "@bv/game-core";
-import { itemDisplayTitle } from "@bv/game-core";
+import { itemDisplayTitle, playerTotalItemCardBonus } from "@bv/game-core";
 import { equipmentCatalogImageSrc } from "./equipmentImageSrc";
 import { itemImageSrc } from "./itemImageSrc";
 import type { ItemPlayModifierBadge } from "./tableItemPlayModifier";
@@ -39,6 +39,8 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
     play.targetPlayerId && play.targetPlayerId !== play.actorId ? tgt?.color : undefined;
   const victimName = tgt?.name?.trim() || "—";
   const victimColor = tgt?.color;
+  const boardLevelIndex = actor?.levelIndex ?? 0;
+  const actorItemCardBonus = actor ? playerTotalItemCardBonus(actor) : 0;
 
   const main: TableFanCardModel = {
     key: `${play.playSeq}-main-${play.itemId}`,
@@ -48,7 +50,7 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
     actorColor,
     targetPlayerName,
     targetPlayerColor,
-    modifierBadge: tableItemPlayModifierBadge(play.itemId),
+    modifierBadge: tableItemPlayModifierBadge(play.itemId, boardLevelIndex, actorItemCardBonus),
   };
 
   const side: TableFanCardModel[] = [];

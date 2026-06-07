@@ -51,6 +51,16 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Enkel men pålitlig — +1 attack i monsterstrid.",
   },
   {
+    id: "ew_plastic_cup",
+    slot: "weapon",
+    name: "Plastmugg",
+    price: 9,
+    power: -3,
+    freeInventoryItemPlay: true,
+    rulesText:
+      "−3 attack i monsterstrid. Alla föremål du spelar kostar 0 pant så länge Plastmugg sitter utrustad.",
+  },
+  {
     id: "ew_humleklubba",
     slot: "weapon",
     name: "Humleklubba",
@@ -156,6 +166,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 2,
     damageNegate: 1,
     rulesText: "Mysig mössa: lite mer liv och lättare att stå emot smällar.",
+  },
+  {
+    id: "eh_headband",
+    slot: "helmet",
+    name: "Pannband",
+    price: 8,
+    bonusHp: 0,
+    itemCardBonus: 1,
+    rulesText: "Föremålseffekter blir +1 starkare.",
   },
   {
     id: "eh_stortkruka",
@@ -271,6 +290,14 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     rulesText: "Varje gång du får en straffklunk får du 2 pant.",
   },
   {
+    id: "ex_notebook",
+    slot: "accessory",
+    name: "Anteckningsblock",
+    price: 9,
+    itemCardBonus: 1,
+    rulesText: "Anteckningar om recept — föremålseffekter blir +1 starkare.",
+  },
+  {
     id: "ex_vib_member",
     slot: "accessory",
     name: "VIB Member",
@@ -324,6 +351,15 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     bonusHp: 0,
     damageNegate: 1,
     rulesText: "Basplagg med lätt skydd.",
+  },
+  {
+    id: "ea_hawaiishirt",
+    slot: "armor",
+    name: "Hawaiiskojorta",
+    price: 10,
+    bonusHp: 0,
+    itemCardBonus: 2,
+    rulesText: "Tropisk stil — föremålseffekter blir +2 starkare.",
   },
   {
     id: "ea_hoodie",

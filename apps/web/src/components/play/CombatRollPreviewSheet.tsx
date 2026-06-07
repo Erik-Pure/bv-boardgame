@@ -2,6 +2,7 @@ import type { ClientAction, GameState, Player } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
+import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import { sv } from "../../lib/uiStrings";
 import playStyles from "../../routes/PlayView.module.css";
 
@@ -36,8 +37,10 @@ export function CombatRollPreviewSheet(props: {
             flexWrap: "wrap",
           }}
         >
-          <DiceCube3D value={die} size={76} oneAsSkullIcon />
-          {broDie != null ? <DiceCube3D value={broDie} size={76} oneAsSkullIcon /> : null}
+          <DiceCube3D value={die} size={76} oneAsSkullIcon={combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne)} />
+          {broDie != null ? (
+            <DiceCube3D value={broDie} size={76} oneAsSkullIcon={combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne)} />
+          ) : null}
         </div>
         <div
           className={[

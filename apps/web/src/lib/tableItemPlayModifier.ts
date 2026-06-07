@@ -8,11 +8,16 @@ export type ItemPlayModifierBadge = {
   isNegative?: boolean;
 };
 
-import { combatItemAttackModForBoardLevel } from "@bv/game-core";
+import {
+  combatItemAttackModForBoardLevel,
+  flatItemUseAmount,
+  type ItemId,
+} from "@bv/game-core";
 
 export function tableItemPlayModifierBadge(
   itemId: string,
   boardLevelIndex = 0,
+  itemCardBonus = 0,
 ): ItemPlayModifierBadge | null {
   const ICON = {
     combat: "/icons/combat-icon.svg",
@@ -22,41 +27,35 @@ export function tableItemPlayModifierBadge(
     monster: "/icons/monster-icon.svg",
   } as const;
 
-  const attack: Record<string, number> = {
-    weak_beer: -2,
-    light_beer: 1,
-    folk_beer: 2,
-    tripwire: -1,
-    double_hops: 2,
-    beer_bomb: 3,
-    hangover: -3,
-    paidassasin: -5,
-    monster_hype: -2,
-    yeast_sabotage: -1,
-    lengraddad: -2,
-  };
-  if (itemId in attack) {
-    const scaled = combatItemAttackModForBoardLevel(itemId, boardLevelIndex) ?? attack[itemId]!;
-    return { iconSrc: ICON.combat, value: scaled > 0 ? `+${scaled}` : String(scaled), isNegative: scaled < 0 };
+  const scaled = combatItemAttackModForBoardLevel(itemId, boardLevelIndex, itemCardBonus);
+  if (scaled != null) {
+    return {
+      iconSrc: ICON.combat,
+      value: scaled > 0 ? `+${scaled}` : String(scaled),
+      isNegative: scaled < 0,
+    };
+  }
+
+  const flatUse = flatItemUseAmount(itemId as ItemId, itemCardBonus);
+  if (flatUse != null) {
+    switch (itemId) {
+      case "healing_potion":
+      case "pretzel_snack":
+        return { iconSrc: ICON.heart, value: `+${flatUse}` };
+      case "coin_purse":
+        return { iconSrc: ICON.pant, value: `+${flatUse}` };
+      case "sip_card":
+        return { iconSrc: ICON.klunk, value: `+${flatUse}` };
+    }
   }
 
   switch (itemId) {
-    case "healing_potion":
-      return { iconSrc: ICON.heart, value: "+3" };
-    case "pretzel_snack":
-      return { iconSrc: ICON.heart, value: "+2" };
-    case "coin_purse":
-      return { iconSrc: ICON.pant, value: "+4" };
     case "charity":
       return { iconSrc: ICON.pant, value: "♥" };
     case "shortcut":
       return { iconSrc: ICON.pant, value: "↑" };
     case "taproom_key":
       return { iconSrc: ICON.pant, value: "↑" };
-    case "sip_card":
-      return { iconSrc: ICON.klunk, value: "+1" };
-    case "lengraddad":
-      return { iconSrc: ICON.combat, value: "-2", isNegative: true };
     case "beard_back":
       return { iconSrc: ICON.combat, value: "×2" };
     case "beer_bro":

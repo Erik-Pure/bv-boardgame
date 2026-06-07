@@ -82,6 +82,8 @@ export interface Weapon {
   breakWinsRemaining?: number;
   /** Minskar bas-antalet straffklunkar vid förlust mot monster (per enhet, ej under 0 totalt före hjälm/tillbehör-extra). */
   monsterLossSipReduction?: number;
+  /** Medan vapnet sitter utrustat: inga pantkostnader för att spela föremål (ITEM_PLAY_GOLD_COST). */
+  freeInventoryItemPlay?: boolean;
 }
 
 export interface ArmorPiece {
@@ -103,6 +105,8 @@ export interface ArmorPiece {
   gainGoldOnDamageTaken?: number;
   /** HP som återställs vid turstart (drag), upp till max HP. */
   healHpPerTurn?: number;
+  /** Bonus på platta föremålseffekter (HP/pant/klunk/attack-siffror). */
+  itemCardBonus?: number;
 }
 
 export interface Helmet {
@@ -124,6 +128,8 @@ export interface Helmet {
   klunkAttackBonusMax?: number;
   /** Bonus/malus på BvB-tärningsslag; påverkar inte monsterattack. */
   pvpDieBonus?: number;
+  /** Bonus på platta föremålseffekter (HP/pant/klunk/attack-siffror). */
+  itemCardBonus?: number;
 }
 
 export interface Accessory {
@@ -155,6 +161,10 @@ export interface Accessory {
   deathContinueCost?: number;
   /** Rabatt i pant på alla varor i Panta burkar (golv 1 pant per rad). */
   merchantDiscountGold?: number;
+  /** Bonus på platta föremålseffekter (HP/pant/klunk/attack-siffror). */
+  itemCardBonus?: number;
+  /** Flaskor kvar i Plastback-hållaren (0–6). */
+  plastbackPackRemaining?: number;
 }
 
 export interface Equipment {
@@ -202,6 +212,8 @@ export interface ShopItem {
   breakOnWin?: boolean;
   breakWinsRemaining?: number;
   monsterLossSipReduction?: number;
+  /** Medan vapnet sitter utrustat: inga pantkostnader för att spela föremål (ITEM_PLAY_GOLD_COST). */
+  freeInventoryItemPlay?: boolean;
   /** rustning */
   bonusHp?: number;
   healHpPerTurn?: number;
@@ -225,6 +237,8 @@ export interface ShopItem {
   ignoreCombatCritFailOnOne?: boolean;
   deathContinueCost?: number;
   merchantDiscountGold?: number;
+  /** Bonus på platta föremålseffekter (HP/pant/klunk/attack-siffror). */
+  itemCardBonus?: number;
   healAmount?: number;
   goldAmount?: number;
   /** Kort smaktext / särregler för UI (affär, inventarie). */
@@ -356,6 +370,8 @@ export type Pending =
       fromCombatLoot?: boolean;
       /** BvB-byte efter duell — avslutar tur / post-turn-prompts när bytesvalet är klart. */
       fromPvpLoot?: boolean;
+      /** Ta flaska ur Plastback — pack dras vid accept. */
+      fromPlastbackTake?: boolean;
     }
   | {
       type: "encounterChoice";
@@ -604,6 +620,8 @@ export interface Player {
   brewerPvpBonus?: number;
   /** Extra max-HP från bryggnivåperk (+2 per val). */
   brewerHpBonus?: number;
+  /** Permanent +1 på platta föremålseffekter per bryggnivå-val (attack/HP/pant/klunk). */
+  brewerItemCardBonus?: number;
   /** Antal bryggnivåer där perk redan valts (undviker retroaktiva val). */
   brewerPerkLevelsClaimed?: number;
   /** Bryggnivåer som väntar på perk-val (när annan pending blockerar). */
@@ -799,7 +817,7 @@ export type ClientAction =
   | { type: "merchantBuy"; playerId: string; itemId: string | null }
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
-  | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" | "pvp" }
+  | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" | "pvp" | "items" }
   | { type: "pvpLootChoice"; playerId: string; choice: "gold" | "sip" | "damage" | EquipmentSlot }
   | { type: "useItem"; playerId: string; instanceId: string; targetPlayerId?: string; chosenDieFace?: number }
   /** Valt innan `combatRoll` när vapnet har `sipAttackBonus` (mobil tvåsteg + bord). */
@@ -824,8 +842,10 @@ export type ClientAction =
   | { type: "sipNoticeAck"; playerId: string }
   | { type: "brewerDownChoice"; playerId: string; choice: "retry" | "giveUp" | "insuredContinue" }
   | { type: "equipmentReplaceDecision"; playerId: string; accept: boolean }
-  /** Sälj tillbehöret Plastback (pant = kvarvarande Tom flaska-vinster om synergi). */
+  /** Sälj tillbehöret Plastback (pant = kvarvarande flaskor i hållaren). */
   | { type: "sellAccessory"; playerId: string }
+  /** Ta en Tom flaska ur Plastback-hållaren. */
+  | { type: "takePlastbackBottle"; playerId: string }
   | { type: "sendEmote"; playerId: string; emoteId: EmoteId };
 
 export interface ApplyResult {

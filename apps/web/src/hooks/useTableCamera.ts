@@ -17,10 +17,8 @@ export type UseTableCameraParams = {
   tileSize: number;
   boardPad: number;
   targetRingOutset: number;
-  /** false: ingen mjuk kamera-lerp mot auto-mål (snap). */
-  boardAnimationsEnabled?: boolean;
   /**
-   * false: ingen manuell panorering (styrs i viewport) och ingen auto-inzoom mot rutor —
+   * false: ingen manuell panorering, ingen auto-inzoom mot rutor och ingen mjuk kamera-lerp —
    * hela den våning aktiv spelare står på ska synas (samma som vid turskifte).
    */
   boardPanEnabled?: boolean;
@@ -39,7 +37,6 @@ export function useTableCamera(params: UseTableCameraParams) {
     tileSize,
     boardPad,
     targetRingOutset,
-    boardAnimationsEnabled = true,
     boardPanEnabled = true,
   } = params;
   const cols = ringCols ?? gridSize;
@@ -69,12 +66,16 @@ export function useTableCamera(params: UseTableCameraParams) {
       x: -(totalSvgWidth / 2),
       y: -(boardHeight / 2),
     };
-    if (!boardAnimationsEnabled) {
+    if (!boardPanEnabled) {
       setCam({ ...targetCam.current });
     }
-  }, [boardHeight, totalSvgWidth, state?.phase, boardAnimationsEnabled]);
+  }, [boardHeight, totalSvgWidth, state?.phase, boardPanEnabled]);
 
   useEffect(() => {
+    if (!boardPanEnabled) {
+      setCam({ ...targetCam.current });
+      return;
+    }
     // Två lägen:
     // - drag-läge: snabb respons så kameran följer fingret/musen direkt
     // - auto-fokus: trögare, mer cinematic panorering
@@ -85,9 +86,6 @@ export function useTableCamera(params: UseTableCameraParams) {
     const tick = () => {
       setCam((c) => {
         const t = targetCam.current;
-        if (!boardAnimationsEnabled) {
-          return t;
-        }
         const panStiffness = isDraggingRef.current ? dragPanStiffness : autoPanStiffness;
         const zoomStiffness = isDraggingRef.current ? dragZoomStiffness : autoZoomStiffness;
         const nx = c.x + (t.x - c.x) * panStiffness;
@@ -106,7 +104,7 @@ export function useTableCamera(params: UseTableCameraParams) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [boardAnimationsEnabled]);
+  }, [boardPanEnabled]);
 
   // Faktisk spelyta (flex-viewport) — behövs för zoom som täcker rutor i bildfönstret.
   useEffect(() => {
@@ -173,6 +171,7 @@ export function useTableCamera(params: UseTableCameraParams) {
       applyFullFloorCam(p.levelIndex);
       prevTurnIndexForCamRef.current = state.currentTurnIndex;
       turnStartTileKeyForCamRef.current = `${p.levelIndex}-${p.tileIndex}`;
+      setCam({ ...targetCam.current });
       return;
     }
 
@@ -268,7 +267,6 @@ export function useTableCamera(params: UseTableCameraParams) {
     tileSize,
     boardPad,
     targetRingOutset,
-    boardAnimationsEnabled,
     boardPanEnabled,
   ]);
 

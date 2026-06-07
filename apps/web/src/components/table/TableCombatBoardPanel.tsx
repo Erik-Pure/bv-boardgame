@@ -16,6 +16,7 @@ import { CombatLoseCardContent } from "../CombatLoseCard";
 import { CombatSheetFrame } from "../CombatResultSheet";
 import { CombatWinCardContent } from "../CombatWinCard";
 import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
+import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import {
   combatLossKlunksForDisplay,
   monsterEncounterCardPropsFromCombatPending,
@@ -304,6 +305,7 @@ function TableCombatBoardPanelInner(props: {
     pending.phase === "rollPreview" &&
     pending.previewCritFailOnOne === true &&
     !combatBoardDiceSpinning;
+  const previewSkullOnOne = combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne);
   const finalBossRoundLabel = (() => {
     if (!isFinalBossCombat) return null;
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
@@ -605,9 +607,9 @@ function TableCombatBoardPanelInner(props: {
                     <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
                   ) : (
                     <div className={combatStyles.flexCenterGap10}>
-                      <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+                      <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />
                       {pending.previewBroDie != null ? (
-                        <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+                        <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />
                       ) : null}
                     </div>
                   )}
@@ -704,9 +706,9 @@ function TableCombatBoardPanelInner(props: {
       ) : null}
       {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && !monsterDiceHeroLayout && (
         <div className={combatStyles.diceRowWrap}>
-          <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+          <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />
           {pending.previewBroDie != null ? (
-            <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon />
+            <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />
           ) : null}
           {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
           {pending.phase === "chooseHitMitigation" ? (

@@ -483,7 +483,7 @@
   box-sizing: border-box;
 }
 
-/* HP / pant / klunk — tre kolumner, ikon vänster och värde höger (horisontell rad under spelarnamn). */
+/* HP / pant / klunk / bryggnivå — fyra kolumner under spelarnamn. */
 .statsStrip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

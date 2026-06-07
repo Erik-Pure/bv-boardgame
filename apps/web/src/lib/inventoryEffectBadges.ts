@@ -5,27 +5,31 @@ import {
   BEER_HELM2_MIN_LEVEL,
   burkhjälmIIEffectiveDamageNegateFrom,
   CANMAN_DRAWS_INITIAL,
+  COMBAT_ITEM_BASE_ATTACK_MODS,
   EQUIPMENT_CATALOG,
   effectiveWeaponPiecePower,
+  flatCombatItemAttackDisplayBase,
+  flatItemUseAmount,
   helmetAttackBonus,
   isBeerCanShieldName,
   isLegendariskBurkhjälmName,
   shortcutDisplayPantGold,
   type EquipmentSlot,
+  type ItemId,
   type ItemInstance,
   type Player,
   type ShopItem,
   type Weapon,
   PLASTBACK_ACCESSORY_NAME,
   PLASTBACK_FULL_FLASK_COUNT,
-  TOM_FLASKA_WEAPON_NAME,
-  plastbackFlasksRemainingCount,
+  plastbackPackRemainingCount,
 } from "@bv/game-core";
 
-/** Kvarvarande Tom flaska-vinster när Plastback + Tom flaska är utrustade. */
-export function plastbackFlasksRemaining(player?: Player): number | null {
+/** Kvarvarande flaskor i Plastback-hållaren. */
+export function plastbackPackRemaining(player?: Player): number | null {
   if (!player) return null;
-  return plastbackFlasksRemainingCount(player);
+  if (player.equipment.accessory?.name !== PLASTBACK_ACCESSORY_NAME) return null;
+  return plastbackPackRemainingCount(player);
 }
 
 export const ITEM_EFFECT_BADGE_ICONS = {
@@ -33,6 +37,7 @@ export const ITEM_EFFECT_BADGE_ICONS = {
   monster: "/icons/monster-icon.svg",
   attack: "/icons/combat-icon.svg",
   armor: "/icons/armor-icon.svg",
+  cards: "/icons/cards-icon.svg",
   klunk: "/icons/klunk-icon.svg",
   pant: "/icons/pant-icon.svg",
   bvb: "/icons/bvb-icon.svg",
@@ -62,7 +67,37 @@ export type EffectBadgeData = {
 export type ItemInventoryBadgeOpts = {
   playerLevelIndex: number;
   levelCount: number;
+  itemCardBonus?: number;
 };
+
+function applyItemCardBonusToBadge(
+  badge: EffectBadgeData,
+  itemId: string,
+  itemCardBonus?: number,
+): EffectBadgeData {
+  const bonus = itemCardBonus ?? 0;
+  if (bonus <= 0) return badge;
+
+  if (itemId in COMBAT_ITEM_BASE_ATTACK_MODS && badge.icon === "attack") {
+    const attackBase = flatCombatItemAttackDisplayBase(itemId, bonus);
+    if (attackBase != null) {
+      return {
+        ...badge,
+        label: formatSigned(attackBase),
+        labelTone: attackBase < 0 ? "danger" : undefined,
+      };
+    }
+  }
+
+  const useAmt = flatItemUseAmount(itemId as ItemId, bonus);
+  if (useAmt != null) {
+    if (badge.icon === "heart") return { ...badge, label: `+${useAmt}` };
+    if (itemId === "coin_purse" && badge.icon === "pant") return { ...badge, label: `+${useAmt}` };
+    if (itemId === "sip_card" && badge.icon === "klunk") return { ...badge, label: `+${useAmt}` };
+  }
+
+  return badge;
+}
 
 export function formatSigned(n: number): string {
   return n > 0 ? `+${n}` : String(n);
@@ -216,10 +251,10 @@ export function equipmentInventoryEffectBadges(
     badges.push({ icon: "pant", label: `−${merchantDisc}` });
   }
   if (piece.name === PLASTBACK_ACCESSORY_NAME) {
-    const flasks = plastbackFlasksRemaining(player);
+    const pack = player ? plastbackPackRemainingCount(player) : PLASTBACK_FULL_FLASK_COUNT;
     badges.push({
       icon: "pant",
-      label: String(flasks ?? PLASTBACK_FULL_FLASK_COUNT),
+      label: String(pack),
     });
   }
   const bwr =
@@ -227,11 +262,16 @@ export function equipmentInventoryEffectBadges(
       ? (piece as Weapon).breakWinsRemaining
       : undefined;
   if (typeof bwr === "number" && bwr > 0 && (piece as Weapon).breakOnWin) {
-    const plastbackShowsFlasks =
-      piece.name === TOM_FLASKA_WEAPON_NAME && player?.equipment.accessory?.name === PLASTBACK_ACCESSORY_NAME;
-    if (!plastbackShowsFlasks) {
-      badges.push({ icon: "attack", label: String(bwr) });
-    }
+    badges.push({ icon: "attack", label: String(bwr) });
+  }
+  const itemCardBonus =
+    "itemCardBonus" in piece
+      ? Math.max(0, Math.floor((piece as { itemCardBonus?: number }).itemCardBonus ?? 0))
+      : typeof catalog?.itemCardBonus === "number"
+        ? Math.max(0, Math.floor(catalog.itemCardBonus))
+        : 0;
+  if (itemCardBonus > 0) {
+    badges.push({ icon: "cards", label: `+${itemCardBonus}` });
   }
   return badges;
 }
@@ -286,7 +326,9 @@ export function itemInventoryEffectBadge(
     not_my_round: { icon: "attack", label: "−", labelTone: "danger" },
     spill_intentional: { icon: "attack", label: "×" },
   };
-  return m[String(itemId)] ?? null;
+  const badge = m[String(itemId)] ?? null;
+  if (!badge) return null;
+  return applyItemCardBonusToBadge(badge, itemId, opts?.itemCardBonus);
 }
 
 /** Effektrad i Panta burkar för köpta stridsföremål (samma attack-texter som förrådsbrickor). */
@@ -322,6 +364,7 @@ export function shopItemToEquipmentPreviewPiece(
       breakOnWin: item.breakOnWin,
       breakWinsRemaining: item.breakWinsRemaining,
       monsterLossSipReduction: item.monsterLossSipReduction,
+      freeInventoryItemPlay: item.freeInventoryItemPlay,
     };
   }
   if (item.slot === "armor") {
@@ -336,6 +379,7 @@ export function shopItemToEquipmentPreviewPiece(
       pvpDieBonus: item.pvpDieBonus,
       gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
       healHpPerTurn: item.healHpPerTurn,
+      itemCardBonus: item.itemCardBonus,
     };
   }
   if (item.slot === "helmet") {
@@ -351,6 +395,7 @@ export function shopItemToEquipmentPreviewPiece(
       klunkAttackBonus20: item.klunkAttackBonus20,
       klunkAttackBonusMax: item.klunkAttackBonusMax,
       pvpDieBonus: item.pvpDieBonus,
+      itemCardBonus: item.itemCardBonus,
     };
   }
   return {
@@ -369,6 +414,7 @@ export function shopItemToEquipmentPreviewPiece(
     ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
     deathContinueCost: item.deathContinueCost,
     merchantDiscountGold: item.merchantDiscountGold,
+    itemCardBonus: item.itemCardBonus,
   };
 }
 

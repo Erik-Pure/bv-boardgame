@@ -6,6 +6,7 @@ export type EquipmentCombatTotals = {
   attack: number;
   shield: number;
   bvb: number;
+  itemCards: number;
 };
 
 export function EquipmentCombatTotalsRow(props: {
@@ -17,7 +18,7 @@ export function EquipmentCombatTotalsRow(props: {
     <div
       className={[styles.equipmentCombatTotalsRow, className ?? ""].filter(Boolean).join(" ")}
       role="group"
-      aria-label={`${sv.play.equipmentMaxHpAria(totals.maxHp)} · ${sv.play.equipmentAttackFromGearAria(totals.attack)} · ${sv.play.equipmentDefenseFromGearAria(totals.shield)} · ${sv.play.equipmentBvbFromGearAria(totals.bvb)}`}
+      aria-label={`${sv.play.equipmentMaxHpAria(totals.maxHp)} · ${sv.play.equipmentAttackFromGearAria(totals.attack)} · ${sv.play.equipmentDefenseFromGearAria(totals.shield)} · ${sv.play.equipmentBvbFromGearAria(totals.bvb)} · ${sv.play.brewerItemCardBonusAria(totals.itemCards)}`}
     >
       <div
         className={styles.equipmentCombatTotalPill}
@@ -74,6 +75,20 @@ export function EquipmentCombatTotalsRow(props: {
           draggable={false}
         />
         <span>{totals.bvb}</span>
+      </div>
+      <div
+        className={`${styles.equipmentCombatTotalPill}${totals.itemCards === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
+        aria-label={sv.play.brewerItemCardBonusAria(totals.itemCards)}
+      >
+        <img
+          className={styles.equipmentCombatTotalIcon}
+          src="/icons/cards-icon.svg"
+          alt=""
+          width={18}
+          height={18}
+          draggable={false}
+        />
+        <span>{totals.itemCards > 0 ? `+${totals.itemCards}` : totals.itemCards}</span>
       </div>
     </div>
   );

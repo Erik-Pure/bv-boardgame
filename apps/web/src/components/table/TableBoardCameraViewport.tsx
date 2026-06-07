@@ -11,7 +11,7 @@ type Props = {
 };
 
 /**
- * Isolerar `useTableCamera` + pan-transform från övriga TableView så `setCam` vid RAF
+ * Isolerar `useTableCamera` + pan-transform från övriga TableView så kamera-RAF
  * inte renderar om t.ex. PvB-/strids-paneler (CSS-tärningsanimationer).
  */
 export function TableBoardCameraViewport({

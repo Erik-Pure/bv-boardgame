@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.64 |
-| Senast uppdaterad | 2026-05-21 |
+| Version | 0.67 |
+| Senast uppdaterad | 2026-06-02 |
 
 ---
 
@@ -317,8 +317,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Ingen affärsruta** på nya bräden — i början av sin tur väljer spelaren **antingen** att slå rörelsetärningen **eller** **Panta burkar** (`chooseMerchant`, kräver **minst 5 pant**). Pjäsen står kvar vid pant; tur avslutas när spelaren lämnar handeln.
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
 - **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln), **två slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**), och **ett slumpat stridsföremål** (+/− attack i strid — samma typer som **startföremål** vid spelstart, **7 pant** i handeln). Efter blandning visas **exakt fyra** erbjudanden. Föremål vars kort är inaktiverat i lobby (`disabledCardIds`) utesluts ur stridsföremål-poolen; om poolen då är tom ersätts fjärde platsen med en tredje utrustning.
-- **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
-- **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen om det finns i butiksraden.
+- **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, **föremålsbonus**, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
+- **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen och **`itemCardBonus`** på rustning/hjälm/tillbehör om det finns i butiksraden.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
 
@@ -371,13 +371,17 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 
 **Burk-rustning (implementation):** **Burkrustning**, **Burkhjälm** (första hjälmen) och **Burksköld** (tillbehör; tidigare namn *Pilsnersköld* i sparade partier) bildar ett **set** för skadereduktion: **−1** med en del utrustad, **−2** med två (rustning + hjälm räknas ihop max −2), **−3** med alla tre; **skölden bidrar alltid högst −1** till setets totala reduktion. **Legendarisk Burkhjälm** (tidigare *Burkhjälm II*): **+5 HP** och **−4 skada per träff** från **nivå 4**, annars ingen reduktion.
 
-**Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
+**Översikt (mobil):** utrustningsrutor kan visa **små badges** (ikon + tal) som speglar föremålsrutorna. **Under utrustningsfyran** visas en rad **piller** (samma stil: mörk bakgrund, vit siluett-ikon, tal) med **max HP**, **attack** (monster + ev. `nextCombatModifier`), **sköld** (skadersläckning), **BvB** (`pvpDieBonus` från utrustning) och **föremålsbonus** (`cards-icon.svg`, ackumulerat värde). **Föremålsbonus** ska **inte** ligga i mobil-headern (där visas bara **aktuellt HP**, **pant**, **klunkar** och **bryggnivå-ring**). Piller med värde **0** dämpas visuellt (samma princip som attack/BvB).
+
+**Status i header:** **(Zzz)** visas för vanlig sömnstatus; **(Öl i ögat)** visas separat för olje-status och ska inte få extra **(Zzz)**-tagg.
 
 **Badge-läsbarhet (mobil):** på smalare telefoner ska badges i inventory/utrustningsöversikten (ikon + tal) skala ner (padding, ikon och text) för att undvika trängsel/klippning.
 
 **Monsterförlust-klunk (badge):** reduktion av straffklunk vid monsterförlust visas som en **kompakt** etikett (**`−N`**) bredvid klunk-ikonen, i linje med övriga talbadges.
 
-**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **översikt:** **pant-ikon**-badge med **antal kvarvarande flaskor** (0 om Tom flaska redan förbrukad); **försäljning** i handeln ger pant = kvarvarande Tom flaska-vinster om synergin är aktiv), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12).
+**Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **Plastmugg** (vapen: **−3 attack**; medan den sitter utrustad kostar **alla föremål 0 pant att spela från förråd** — gäller poster i `ITEM_PLAY_GOLD_COST`, t.ex. Manopositiv, Get Lucky, Vaska; **affärspriser oförändrade**; inte Genväg/Taproom-rörelse), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **hållare** med **6 flaskor** (`plastbackPackRemaining`); **översikt:** pant-ikon-badge = **flaskor kvar i hållaren**; **Ta flaska** (egen tur) tar ut Tom flaska och minskar pack med 1 — vid upptagen vapenplats med annat vapen gäller **bytesval** (pack minskar först vid accept); Tom flaska redan utrustad **refreshar** till 6 vinster; **försäljning** ger pant = **endast pack**, inte utrustad flaskas vinster), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12), **Hawaiiskojorta** (rustning: **+2 föremålskort**), **Pannband** (hjälm: **+1 föremålskort**), **Anteckningsblock** (tillbehör: **+1 föremålskort**).
+
+**Föremålsbonus (`itemCardBonus`):** permanent buff som **stärker platta siffror** på föremål — plus blir mer plus, minus mer minus (t.ex. −2 attack → −3, +3 HP → +4). Källor **adderas**: val vid **bryggnivå** (`brewerItemCardBonus`, se §13.1) plus utrustning med `itemCardBonus`. Påverkar **stridsföremål** med fast attackmod (alla poster i `COMBAT_ITEM_BASE_ATTACK_MODS`) samt engångsföremål **Helande brygd** (`healing_potion`), **Pretzel**, **Pantpåse** (`coin_purse`) och **Klunkkort** (`sip_card`). **Påverkar inte** kostnader (t.ex. Vaska 10 pant), multiplikatorer (×2), skip/Zzz, dynamiska effekter (charity), nivåberoende Genväg/Taproom eller Canman. Förråds- och affärs-badges samt spellogg visar **faktiska** värden efter bonus.
 
 **Global modal-bakgrund:** paneler som ska matcha spelkort/modaler använder CSS-variabeln **`--modal-panel-bg`** (`radial-gradient` mörkgrå → svart) i `index.css`.
 
@@ -428,7 +432,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Slutmodal spotlight:** under rubrik/vinnare visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Karusellkorten använder **`--modal-panel-bg`** (inte blågrå slate-panel). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
 - **Spenderad pant (`goldSpent` i state):** räknar pant som lämnar spelaren till **spelets sinkholes** (handel, avgifter för föremål/strider/korteffekter, livförsäkring, undvikande av möten där pant tas utan motpartssaldo m.m.). Pant som bara **överförs till annan spelares saldo** (BvB-byte, hjälpkontraktsbetalning, spelare-mot-spelare-stöldkort m.m.) räknas **inte** som spenderad i denna statistik.
 - **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
-- **Bryggnivåbonus:** vid varje ny **XP-baserad bryggnivå** (tröskel i §13.1) väljer spelaren **en** permanent bonus: **+1 styrka** (monsterstrid), **+1 sköld** (skademinskning) eller **+2 HP** (max + nuvarande). Valet sker i mobil (`brewerPerkChoice`) när inget annat pending blockerar.
+- **Bryggnivåbonus:** vid varje ny **XP-baserad bryggnivå** (tröskel i §13.1) väljer spelaren **en** permanent bonus: **+1 styrka** (monsterstrid), **+1 sköld** (skademinskning), **+2 HP** (max + nuvarande), **+1 BvB** (tärningsbonus i duell) eller **+1 föremålskort** (platta föremålseffekter enligt §11). Valet sker i mobil (`brewerPerkChoice`) när inget annat pending blockerar; fem alternativ som **ArcadeButton**-rader med ikon + text.
 - **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
 - **Monsterloot:** högre `rewardGold` / fler `rewardItems` på dåliga batcher samt något högre chans till utrustning i stridsbelöning (implementation i `monsters.ts` / `grantRandomCombatReward`).
 
@@ -485,7 +489,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 ### 16.2 Kortkatalog (referens)
 
 - **`/cards`** i webbappen listar **kort** från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata. Vissa poster **döljs i katalogen** men finns kvar i data för spelet: **`combat_monster`** / **`boss_round_win`** (system/boss-mellanrunda — spelet använder andra lägen), samt **alla kort med typ `treasure`** (skatt visas vid skattrutor i spel, inte som separat katalogsektion).
-- **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett.
+- **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett. Effektrad och **cards-ikon**-badge (föremålsbonus) följer samma principer som affär och mobilöversikt.
 - **Monster** från **`monsters.ts`** delas i tre sektioner: **vanliga (solo)**, **team battle** (badge) och **slutbossar** (badge + kort tagline-text). Avsett för design, QA och snabb överblick. Länk från **startsidan**.
 - **Typografi i katalogen** ska spegla spelkort: brödtext **15px** / radavstånd **1.45**; rubrik på händelse/skatt/vila i **Permanent Marker 22px**; händelsebild **4:3**, övriga kort **16:10**. Korttext **vänsterjusterad** (motverkar global centrerad layout).
 
@@ -619,4 +623,7 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.62 | 2026-05-17 | §16.1/§16.2: **CardRichText** (ikoner efter pant/klunk/HP/skada, tärning ledande, fet siffror + ikonord); **`rollOutcomes`** på tärningshändelser; katalog vänsterjusterad text + speltypografi (15px / Permanent Marker 22px) |
 | 0.63 | 2026-05-20 | **`--modal-panel-bg`** globalt; **videobakgrunder** `beer_bg` / `flames_bg` (lobby, slutresultat, persistent boss-backdrop på bord, stupad bryggare bord); lobby glas-panel; värd-lobby segmenterad svårighet + avancerade inställningar; slutresultat bred modal + tabellvariant `table`; **gameover.svg**; Plastback-badge (pant + flaskor); boss eld endast bord (mobil röd puls) |
 | 0.64 | 2026-05-21 | §2 **Snabbguide** mobil: introsteg med logotyp + målsammanfattning (5 steg totalt); §2.1 slutboss-backdrop **bord + mobil** under hela striden inkl. `boss_round_win`, utan dubbel fade; §2.1 **bord-toasts** med korrekt visad bryggnivå; §13.1 tydlig **UI-nivå = intern + 1** |
+| 0.65 | 2026-06-07 | §11 **föremålsbonus** (`itemCardBonus`): bryggnivå-val **+1 föremålskort** + utrustning **Hawaiiskojorta** (+2), **Pannband** (+1), **Anteckningsblock** (+1); platta föremålseffekter (+/− riktning); mobil visar ackumulerad bonus i **utrustningspiller-raden** (inte header); §13.1 femte bryggbonus; §10.2/§16.2 katalog + affär speglar bonus |
+| 0.66 | 2026-06-02 | §11 **Plastback**: persistent **flasklager** (`plastbackPackRemaining`, default 6); mobil **Ta flaska** (`takePlastbackBottle`) med bytesval vid annat vapen; badge = pack; **sälj** = pant endast från pack |
+| 0.67 | 2026-06-02 | §11 **Plastmugg** (vapen, 9 pant): **−3 attack**; `freeInventoryItemPlay` — föremål i `ITEM_PLAY_GOLD_COST` gratis att **spela från förråd** medan vapnet sitter utrustat (inte gratis köp i affären) |
 

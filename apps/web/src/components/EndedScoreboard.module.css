@@ -75,6 +75,12 @@
   padding-bottom: 6px;
 }
 
+.nameHeaderCell {
+  text-align: left;
+  padding-left: 4px;
+  padding-bottom: 8px;
+}
+
 .headerIcon {
   display: block;
   margin: 0 auto;

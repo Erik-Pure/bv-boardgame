@@ -8,7 +8,7 @@ import { itemDeckItemIdsForRandomGrant } from "./db.js";
 import { EQUIPMENT_CATALOG } from "../equipmentDefs.js";
 import { grantKlunkWithXp } from "../klunkGrant.js";
 import { playerMaxHpFromBase } from "../playerMaxHp.js";
-import { syncPlastbackEmptyBottleSynergy } from "../plastbackSynergy.js";
+import { syncPlastbackEmptyBottleSynergy, initPlastbackPack } from "../plastbackSynergy.js";
 
 function newInstanceId(rng: () => number): string {
   return `it_${Date.now()}_${Math.floor(rng() * 1_000_000_000)}`;
@@ -49,6 +49,7 @@ export function tryGrantRandomEquipmentOrOffer(
       randomOtherDamageOnWin: eq.randomOtherDamageOnWin,
       breakOnWin: eq.breakOnWin,
       monsterLossSipReduction: eq.monsterLossSipReduction,
+      freeInventoryItemPlay: eq.freeInventoryItemPlay,
     };
     syncPlastbackEmptyBottleSynergy(player);
   } else if (slot === "armor") {
@@ -104,6 +105,7 @@ export function tryGrantRandomEquipmentOrOffer(
       deathContinueCost: eq.deathContinueCost,
       merchantDiscountGold: eq.merchantDiscountGold,
     };
+    if (eq.name === "Plastback") initPlastbackPack(player.equipment.accessory);
     syncPlastbackEmptyBottleSynergy(player);
   }
   return { kind: "equipped", name: eq.name, slot };

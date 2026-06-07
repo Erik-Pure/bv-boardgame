@@ -977,7 +977,6 @@ function TableViewBody() {
       tileSize,
       boardPad,
       targetRingOutset,
-      boardAnimationsEnabled: boardPerf.boardAnimationsEnabled,
       boardPanEnabled: boardPerf.boardPanEnabled,
     }),
     [
@@ -991,7 +990,6 @@ function TableViewBody() {
       tileSize,
       boardPad,
       targetRingOutset,
-      boardPerf.boardAnimationsEnabled,
       boardPerf.boardPanEnabled,
     ],
   );
@@ -2242,6 +2240,14 @@ function TableViewBody() {
                   >
                     <div className={tableStyles.turnPlayerName}>
                       <span className={tableStyles.turnPlayerNameRow}>
+                        <span className={tableStyles.turnPlayerAvatarWrap} aria-hidden>
+                          <PlayerAvatarStack
+                            avatar={p.avatar}
+                            color={p.color}
+                            size="board"
+                            animate={false}
+                          />
+                        </span>
                         {outOfGame ? (
                           <img
                             src="/icons/skull-icon.svg"

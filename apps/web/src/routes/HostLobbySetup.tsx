@@ -8,6 +8,7 @@ import {
   subscribeBoardPerformancePrefs,
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
+  writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
 import { defaultLobbyConfigDraft, saveLobbyConfigDraft } from "../lib/lobbyConfigDraft";
@@ -227,6 +228,18 @@ export function HostLobbySetup() {
                     style={checkboxStyle}
                   />
                   <span>{sv.table.settingsBoardAnimations}</span>
+                </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.tokenMoveAnimationsEnabled}
+                    onChange={(e) => {
+                      writeTokenMoveAnimationsEnabled(e.target.checked);
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{sv.table.settingsTokenMoveAnimations}</span>
                 </label>
               </div>
             </SubSection>

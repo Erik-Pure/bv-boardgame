@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 export const STAT_ICON_SRC = {
   attack: "/icons/attack.svg",
+  cards: "/icons/cards-icon.svg",
   hp: "/icons/hp.svg",
   pant: "/icons/pant.svg",
   klunk: "/icons/klunk.svg",

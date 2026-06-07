@@ -980,8 +980,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   max-width: 100%;
+}
+
+.turnPlayerAvatarWrap {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: block;
 }
 
 .turnPlayerSkull {
@@ -999,7 +1006,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .turnPlayerVitals {

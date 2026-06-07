@@ -3,7 +3,7 @@ import { dismissInvalidLevelUpOffersForPlayer, isLevelUpOfferStillValid } from "
 import { playerMaxHpFromBase } from "./playerMaxHp.js";
 import type { GameState, Pending, Player } from "./types.js";
 
-export type BrewerPerkChoice = "attack" | "shield" | "hp" | "pvp";
+export type BrewerPerkChoice = "attack" | "shield" | "hp" | "pvp" | "items";
 
 /** Säkerställ att äldre sparade partier inte får retroaktiva val. */
 export function normalizeBrewerPerkProgress(p: Player): void {
@@ -17,6 +17,7 @@ export function normalizeBrewerPerkProgress(p: Player): void {
   p.brewerShieldBonus = Math.max(0, Math.floor(p.brewerShieldBonus ?? 0));
   p.brewerPvpBonus = Math.max(0, Math.floor(p.brewerPvpBonus ?? 0));
   p.brewerHpBonus = Math.max(0, Math.floor(p.brewerHpBonus ?? 0));
+  p.brewerItemCardBonus = Math.max(0, Math.floor(p.brewerItemCardBonus ?? 0));
   const owed = Math.max(0, lvl - (p.brewerPerkLevelsClaimed ?? 0));
   p.pendingBrewerPerkLevels = owed;
 }
@@ -181,6 +182,8 @@ export function applyBrewerPerkChoice(
     p.brewerShieldBonus = (p.brewerShieldBonus ?? 0) + 1;
   } else if (choice === "pvp") {
     p.brewerPvpBonus = (p.brewerPvpBonus ?? 0) + 1;
+  } else if (choice === "items") {
+    p.brewerItemCardBonus = (p.brewerItemCardBonus ?? 0) + 1;
   } else {
     p.brewerHpBonus = (p.brewerHpBonus ?? 0) + 2;
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);

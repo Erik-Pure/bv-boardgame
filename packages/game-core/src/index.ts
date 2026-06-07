@@ -104,10 +104,16 @@ export {
 } from "./monsters.js";
 export {
   PLASTBACK_ACCESSORY_NAME,
+  PLASTBACK_CATALOG_ID,
   PLASTBACK_FULL_FLASK_COUNT,
+  equipTomFlaskaFromPlastback,
+  initPlastbackPack,
   plastbackAccessorySellPant,
   plastbackFlasksRemainingCount,
+  plastbackPackRemainingCount,
   syncPlastbackEmptyBottleSynergy,
+  takePlastbackPackBottle,
+  TOM_FLASKA_CATALOG_ID,
   TOM_FLASKA_WEAPON_NAME,
 } from "./plastbackSynergy.js";
 export {
@@ -121,6 +127,12 @@ export {
   isLegendariskBurkhjälmName,
 } from "./beerCanEquipment.js";
 export { combatReactionsAllAnswered } from "./combatReactionPhase.js";
+export {
+  effectiveItemPlayGoldCost,
+  itemPlayGoldCost,
+  playerHasCombatReactionPlayableItem,
+  playerHasFreeInventoryItemPlay,
+} from "./combatReactionAutopass.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
   ATTACKER_SELF_NEGATIVE_COMBAT_ITEM_IDS,
@@ -128,9 +140,17 @@ export {
   lengraddadBlockedForCombatParticipant,
 } from "./combatItemRestrictions.js";
 export {
+  adjustFlatItemValue,
   COMBAT_ITEM_BASE_ATTACK_MODS,
   combatItemAttackModForBoardLevel,
-} from "./combatItemMods.js";
+  combatItemAttackModForPlayer,
+  equipmentItemCardBonus,
+  flatCombatItemAttackDisplayBase,
+  flatItemUseAmount,
+  FLAT_ITEM_USE_BASE_AMOUNTS,
+  normalizeItemCardBonus,
+  playerTotalItemCardBonus,
+} from "./itemCardBonus.js";
 export { scaledCombatMod } from "./scaledCombatMod.js";
 export { XP_PER_KLUNK, PENALTY_XP_PER_KLUNK, grantKlunkWithXp } from "./klunkGrant.js";
 export {

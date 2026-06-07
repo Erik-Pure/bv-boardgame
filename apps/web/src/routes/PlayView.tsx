@@ -22,12 +22,16 @@ import {
   monsterLossKlunkTotal,
   monsterEncounterCardPreviewFromState,
   playerCanCombatIntervene,
+  playerHasFreeInventoryItemPlay,
   levelUpCostsForTargetLevel,
   penaltySipTotalForPlayer,
   plastbackAccessorySellPant,
+  plastbackPackRemainingCount,
   pvpLootPantStealAmount,
   previewHpAfterFlatDamage,
   effectiveMerchantBuyPrice,
+  effectiveItemPlayGoldCost,
+  itemPlayGoldCost,
   equipmentDamageNegate,
   findBossTileIndexInLevel,
   type ClientAction,
@@ -35,6 +39,7 @@ import {
   type CombatWinSummary,
   type EquipmentSlot,
   type GameState,
+  type ItemId,
   type ItemInstance,
   type MonsterId,
   type Pending,
@@ -50,6 +55,7 @@ import {
   attackerCannotSelfNegativeCombatItem,
   lengraddadBlockedForCombatParticipant,
   PENALTY_XP_PER_KLUNK,
+  playerTotalItemCardBonus,
 } from "@bv/game-core";
 import {
   equipmentCatalogByEquippedName,
@@ -65,8 +71,13 @@ import {
 import { isGameState, mergeGameStateDelta } from "../lib/gameTypes";
 import { itemImageSrc } from "../lib/itemImageSrc";
 import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
+import { combatTeamRollShowsSkullOnOne } from "../lib/combatCritFailUi";
 import { usePlaySfxSync } from "../hooks/usePlaySfxSync";
-import { readBoardPerformancePrefs } from "../lib/boardPerformancePrefs";
+import {
+  readBoardPerformancePrefs,
+  subscribeBoardPerformancePrefs,
+  writeMobileSfxEnabled,
+} from "../lib/boardPerformancePrefs";
 import { playOptimisticMoveRollSfx, playTableSfx } from "../lib/tableSfx";
 import { subscribeTurnVibration, vibrateMyTurn } from "../lib/turnVibration";
 import { EffectBadgePillStrip } from "../components/EffectBadgePillStrip";
@@ -571,6 +582,9 @@ export function PlayView() {
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem(RAINBOW_EFFECTS_STORAGE_KEY) !== "0";
   });
+  const [mobileSfxEnabled, setMobileSfxEnabled] = useState(
+    () => readBoardPerformancePrefs().mobileSfxEnabled,
+  );
   const [equipDetail, setEquipDetail] = useState<{
     slot: "weapon" | "armor" | "helmet" | "accessory";
   } | null>(null);
@@ -656,6 +670,8 @@ export function PlayView() {
     if (state.players.some((p) => p.id === myId)) return;
     setState(null);
   }, [status, state, myId]);
+  useEffect(() => subscribeBoardPerformancePrefs(() => setMobileSfxEnabled(readBoardPerformancePrefs().mobileSfxEnabled)), []);
+
   usePlaySfxSync({ state, meId: me?.id ?? null });
   const lobbyCardCoverId = state?.config.cardCover;
 
@@ -809,8 +825,12 @@ export function PlayView() {
   }, [me]);
   const itemInvBadgeOpts = useMemo<ItemInventoryBadgeOpts | undefined>(() => {
     if (!me || !state?.levels?.length) return undefined;
-    return { playerLevelIndex: me.levelIndex, levelCount: state.levels.length };
-  }, [me, state?.levels?.length, me?.levelIndex]);
+    return {
+      playerLevelIndex: me.levelIndex,
+      levelCount: state.levels.length,
+      itemCardBonus: playerTotalItemCardBonus(me),
+    };
+  }, [me, state?.levels?.length, me?.levelIndex, me?.brewerItemCardBonus, me?.equipment]);
   const mobileEquipmentCombatTotals = useMemo(() => {
     if (!me || state?.phase !== "playing") return null;
     return {
@@ -818,8 +838,9 @@ export function PlayView() {
       attack: monsterCombatEquipmentAttackBonus(me) + (me.nextCombatModifier ?? 0),
       shield: equipmentDamageNegate(me),
       bvb: pvpEquipmentDieBonusTotal(me),
+      itemCards: playerTotalItemCardBonus(me),
     };
-  }, [me, state?.phase]);
+  }, [me, state?.phase, me?.brewerItemCardBonus, me?.equipment]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const footerTurnCaption = useMemo(() => {
     if (!state || state.phase !== "playing" || !activeId) return null;
@@ -1073,17 +1094,8 @@ export function PlayView() {
     pending.assistId !== me.id &&
     (pending.reactors?.includes(me.id) ?? false) &&
     playerCanCombatIntervene(me);
-  const itemPlayGoldCost = (itemId: string): number => {
-    if (itemId === "six_sense") return 5;
-    if (itemId === "get_lucky") return 5;
-    if (itemId === "manopositiv") return 10;
-    if (itemId === "beard_back") return 5;
-    if (itemId === "rigged_game") return 5;
-    if (itemId === "spill_intentional") return 2;
-    if (itemId === "bribes") return 10;
-    if (itemId === "paidassasin") return 15;
-    return 0;
-  };
+  const itemPlayGoldCost = (itemId: string) =>
+    me ? effectiveItemPlayGoldCost(me, itemId as ItemId) : 0;
   const playerHasPlayablePositiveHelpItem = (pl: Player) =>
     (pl.inventory ?? []).some((it) => {
       const id = String(it.itemId);
@@ -1615,6 +1627,16 @@ export function PlayView() {
               <span className={styles.turnChoicePantaLabel}>
                 <TutorialInlineIcon src="/icons/bvb-icon.svg" color="#f8fafc" gap="0" />
                 <span>{sv.play.brewerPerkPvp}</span>
+              </span>
+            </ArcadeButton>
+            <ArcadeButton
+              variant="pink"
+              fullWidth
+              onClick={() => send({ type: "brewerPerkDecision", playerId: me.id, choice: "items" })}
+            >
+              <span className={styles.turnChoicePantaLabel}>
+                <TutorialInlineIcon src="/icons/cards-icon.svg" color="#f8fafc" gap="0" />
+                <span>{sv.play.brewerPerkItems}</span>
               </span>
             </ArcadeButton>
           </div>
@@ -2202,7 +2224,11 @@ export function PlayView() {
                 ) : null}
                 <div className={styles.sheetDiceCenter}>
                   {myTeamRoll ? (
-                    <DiceCube3D value={myTeamRoll.die} size={76} oneAsSkullIcon />
+                    <DiceCube3D
+                      value={myTeamRoll.die}
+                      size={76}
+                      oneAsSkullIcon={combatTeamRollShowsSkullOnOne(me)}
+                    />
                   ) : (
                     <DiceCube3D idleSpin spinning={!everyoneDone || combatDiceSpinning} size={76} />
                   )}
@@ -3731,11 +3757,6 @@ export function PlayView() {
           levelUpOverlayTimerRef.current = null;
         }, 3400);
       }
-      return;
-    }
-    const first = leveled[0];
-    if (first) {
-      showToast(sv.play.levelUpBrewerToast(first.curr));
     }
   }, [state, me, showToast, showResponsibleReminder, showMobileTutorial, allyCombatOutcome, allyCombatOutcomeDismissedKey]);
 
@@ -4204,7 +4225,8 @@ export function PlayView() {
       )}
       {state?.phase === "playing" &&
         me &&
-        personalTurnPrompt?.type === "levelUpOffer" && (
+        personalTurnPrompt?.type === "levelUpOffer" &&
+        personalTurnPrompt.playerId === me.id && (
         <CardFlipModalShell
           zIndex={112}
           backdropZIndex={60}
@@ -4809,7 +4831,11 @@ export function PlayView() {
                                               x{info.count}
                                             </span>
                                           ) : null}
-                                          <ItemInventoryAttackCorner itemId={itemId} instance={invInst} />
+                                          <ItemInventoryAttackCorner
+                                            itemId={itemId}
+                                            instance={invInst}
+                                            opts={itemInvBadgeOpts}
+                                          />
                                           <div
                                             style={{
                                               position: "absolute",
@@ -4826,7 +4852,7 @@ export function PlayView() {
                                               instance={invInst}
                                               opts={itemInvBadgeOpts}
                                             />
-                                            <ItemInventoryCostBadge itemId={itemId} />
+                                            <ItemInventoryCostBadge itemId={itemId} player={me} />
                                           </div>
                                         </div>
                                       </div>
@@ -5177,6 +5203,17 @@ export function PlayView() {
                 onChange={(e) => setRainbowEffectsEnabled(e.currentTarget.checked)}
               />
             </label>
+            <label className={styles.settingsToggleRow}>
+              <span className={styles.settingsStrongLine}>{sv.play.settingsMobileSfx}</span>
+              <input
+                type="checkbox"
+                checked={mobileSfxEnabled}
+                onChange={(e) => {
+                  writeMobileSfxEnabled(e.currentTarget.checked);
+                  setMobileSfxEnabled(readBoardPerformancePrefs().mobileSfxEnabled);
+                }}
+              />
+            </label>
 
             <div className={styles.settingsStatusCard}>
               <div className={styles.settingsMutedLabel}>{sv.play.settingsLobbyStatus}</div>
@@ -5380,16 +5417,29 @@ export function PlayView() {
                     </div>
                   ) : null}
                   {pieceName === "Plastback" && isMyTurn ? (
-                    <ArcadeButton
-                      variant="pink"
-                      fullWidth
-                      onClick={() => {
-                        send({ type: "sellAccessory", playerId: me.id });
-                        setEquipDetail(null);
-                      }}
-                    >
-                      {sv.play.sellPlastbackAccessory(plastbackAccessorySellPant(me))}
-                    </ArcadeButton>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <ArcadeButton
+                        variant="blue"
+                        fullWidth
+                        disabled={plastbackPackRemainingCount(me) <= 0}
+                        onClick={() => {
+                          send({ type: "takePlastbackBottle", playerId: me.id });
+                          setEquipDetail(null);
+                        }}
+                      >
+                        {sv.play.takePlastbackBottle(plastbackPackRemainingCount(me))}
+                      </ArcadeButton>
+                      <ArcadeButton
+                        variant="pink"
+                        fullWidth
+                        onClick={() => {
+                          send({ type: "sellAccessory", playerId: me.id });
+                          setEquipDetail(null);
+                        }}
+                      >
+                        {sv.play.sellPlastbackAccessory(plastbackAccessorySellPant(me))}
+                      </ArcadeButton>
+                    </div>
                   ) : null}
                 </>
               )}
@@ -6001,6 +6051,7 @@ function equipmentReplaceEffectSummaryLines(
   if (cat) {
     const s = formatShopItemEffectSummary(cat);
     if (s && s !== "—") return s.split(" · ").map((x) => x.trim()).filter(Boolean);
+    if (cat.rulesText?.trim()) return [cat.rulesText.trim()];
   }
   return equipmentModalDetailLines(slot, piece, pieceName);
 }
@@ -6046,6 +6097,7 @@ function equipmentModalDetailLines(
   if (cat) {
     const s = formatShopItemEffectSummary(cat);
     if (s && s !== "—") return s.split(" · ").map((x) => x.trim());
+    if (cat.rulesText?.trim()) return [cat.rulesText.trim()];
     return [];
   }
   return equipmentModalEffectLines(slot, piece);
@@ -6335,8 +6387,16 @@ function EquipmentModalEffectBadge(props: {
 }
 
 /** Attack-effekt på föremålsbricka: stor färgkodad text med outline, utan ikon/bakgrund (övre vänster). */
-function ItemInventoryAttackCorner({ itemId, instance }: { itemId: string; instance?: ItemInstance | null }) {
-  const b = itemInventoryEffectBadge(itemId, instance);
+function ItemInventoryAttackCorner({
+  itemId,
+  instance,
+  opts,
+}: {
+  itemId: string;
+  instance?: ItemInstance | null;
+  opts?: ItemInventoryBadgeOpts;
+}) {
+  const b = itemInventoryEffectBadge(itemId, instance, opts);
   if (!b || b.icon !== "attack") return null;
   const raw = b.label.trim();
   const isNegative =
@@ -6485,18 +6545,11 @@ function ItemInventoryEffectBadge({
   );
 }
 
-function ItemInventoryCostBadge({ itemId }: { itemId: string }) {
-  const itemCost: Record<string, number> = {
-    six_sense: 5,
-    get_lucky: 5,
-    manopositiv: 10,
-    beard_back: 5,
-    rigged_game: 5,
-    spill_intentional: 2,
-    bribes: 10,
-    paidassasin: 15,
-  };
-  const cost = itemCost[itemId] ?? 0;
+function ItemInventoryCostBadge({ itemId, player }: { itemId: string; player?: Player | null }) {
+  if (player && playerHasFreeInventoryItemPlay(player)) return null;
+  const cost = player
+    ? effectiveItemPlayGoldCost(player, itemId as ItemId)
+    : itemPlayGoldCost(itemId as ItemId);
   if (cost <= 0) return null;
   const src = ITEM_EFFECT_BADGE_ICONS.pant;
   return (
