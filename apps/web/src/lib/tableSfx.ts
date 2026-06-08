@@ -64,7 +64,12 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
     "/sfx/roll7.mp3",
   ],
   /** Dålig batch efter cardflip vid monster-intro (enemyIntro), som eventTile på händelse/skatt */
-  badBatch: ["/sfx/badbatch1.mp3", "/sfx/badbatch2.mp3", "/sfx/badbatch3.mp3"],
+  badBatch: [
+    "/sfx/badbatch1.mp3",
+    "/sfx/badbatch2.mp3",
+    "/sfx/badbatch3.mp3",
+    "/sfx/badbatch4.mp3",
+  ],
   /** Förlust mot dålig batch / monster (`combat_lose`) och BvB-rondförlust */
   lose: "/sfx/lose.m4a",
   /** Panta burkar (`chooseMerchant` eller landning på affärsruta): slump cans1–4 */
