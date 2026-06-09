@@ -1,6 +1,8 @@
 import type { MutableRefObject } from "react";
-import { brewerLevel, type GameState, type Player } from "@bv/game-core";
+import { type GameState } from "@bv/game-core";
 import { playTableSfx } from "./tableSfx";
+
+export { brewerDisplayLevel } from "@bv/game-core";
 
 export type PendingCard = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
 type PendingCombat = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
@@ -16,10 +18,6 @@ const BAD_BATCH_EVENT_CARD_IDS = new Set<string>(["event_apocalypse", "event_fau
 
 export function eventCardUsesBadBatchSfx(cardId: string): boolean {
   return BAD_BATCH_EVENT_CARD_IDS.has(cardId);
-}
-
-export function brewerDisplayLevel(player: Player): number {
-  return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
 }
 
 export function cardPendingKey(card: PendingCard): string {

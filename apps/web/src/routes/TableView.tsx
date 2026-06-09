@@ -3,10 +3,11 @@ import type { CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
+  brewerDisplayLevel,
   brewerKlunkProgressRatio,
-  brewerLevel,
   getCardDefById,
   isPlayerOnBoard,
+  playerPant,
   prunePlayerEmoteBursts,
   prunePlayerKlunkBursts,
   type GameState,
@@ -41,6 +42,7 @@ import { CardRichText } from "../components/CardRichText";
 import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { parseRolledDieFromCardText } from "../lib/eventCardDice";
+import { eventCardOutcomeToasts, type TableToastCategory } from "../lib/eventCardOutcomeToasts";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
 import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
 import {
@@ -112,11 +114,6 @@ const TILE_SVG: Record<TileType, string> = {
 
 function tileSvgHref(type: TileType): string {
   return TILE_SVG[type];
-}
-
-/** Bryggnivå som visas i UI (intern XP-nivå + 1, minst 1) — samma som mobil. */
-function brewerDisplayLevelForTable(player: Player): number {
-  return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
 }
 
 function tileTypeLabel(type: TileType): string {
@@ -214,7 +211,6 @@ const TABLE_ROLL_EVENT_CARD_IDS = new Set([
   "event_fastnatikylen",
 ]);
 
-type TableToastCategory = "sip" | "pvp" | "vaska" | "reward";
 type TableToast = {
   id: string;
   text: string;
@@ -248,194 +244,6 @@ function ringPathIndices(fromTileIndex: number, toTileIndex: number, ringTileCou
   const delta = useCw ? 1 : -1;
   const out: number[] = [from];
   for (let i = 1; i <= steps; i++) out.push(((from + i * delta) % n + n) % n);
-  return out;
-}
-
-function eventCardOutcomeToasts(
-  pending: Extract<NonNullable<GameState["pending"]>, { type: "card" }>,
-  playersById: Map<string, Player>,
-): Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> {
-  if (pending.kind !== "event") return [];
-  if (pending.cardId === "event_apocalypse") {
-    return [{ text: "Alla spelare får 1 straffklunk.", category: "sip", iconKinds: ["klunk"] }];
-  }
-  const out: Array<{ text: string; category: TableToastCategory; iconKinds: StatIconKind[] }> = [];
-  const selfName = playersById.get(pending.playerId)?.name ?? "Spelare";
-  const lines = pending.text.split("\n");
-  const rolledDie = parseRolledDieFromCardText(pending.text);
-  if (rolledDie != null) {
-    if (pending.cardId === "event_happyhour") {
-      if (rolledDie === 1) {
-        return [{ text: "Happy hour: alla andra får +2 pant.", category: "pvp", iconKinds: ["pant"] }];
-      }
-      if (rolledDie <= 3) {
-        return [{ text: `${selfName} får +5 pant.`, category: "pvp", iconKinds: ["pant"] }];
-      }
-      if (rolledDie <= 5) {
-        return [{ text: "Happy hour: alla får +5 pant.", category: "pvp", iconKinds: ["pant"] }];
-      }
-      return [
-        {
-          text: `${selfName} får +10 pant och +5 HP.`,
-          category: "pvp",
-          iconKinds: ["pant", "hp"],
-        },
-      ];
-    }
-    if (pending.cardId === "event_rotasoptunna") {
-      return [{ text: `${selfName} slog ${rolledDie} och får +${rolledDie * 2} pant.`, category: "pvp", iconKinds: ["pant"] }];
-    }
-    if (pending.cardId === "event_fastnatipant") {
-      const delta = rolledDie <= 2 ? -2 : rolledDie <= 4 ? -5 : 10;
-      return [
-        {
-          text: delta >= 0 ? `${selfName} får +${delta} pant.` : `${selfName} förlorar ${Math.abs(delta)} pant.`,
-          category: "pvp",
-          iconKinds: ["pant"],
-        },
-      ];
-    }
-    if (pending.cardId === "event_fastnatikylen") {
-      if (rolledDie <= 2) {
-        return [{ text: `${selfName} står över nästa drag.`, category: "pvp", iconKinds: ["attack"] }];
-      }
-      if (rolledDie === 3) return [{ text: `${selfName}: inget händer.`, category: "pvp", iconKinds: ["pant"] }];
-      return [{ text: `${selfName} får +5 pant.`, category: "pvp", iconKinds: ["pant"] }];
-    }
-    if (pending.cardId === "event_dubbelinget") {
-      const delta = rolledDie <= 3 ? -12 : 12;
-      return [
-        {
-          text: delta >= 0 ? `${selfName} vinner ${delta} pant.` : `${selfName} förlorar ${Math.abs(delta)} pant.`,
-          category: "pvp",
-          iconKinds: ["pant"],
-        },
-      ];
-    }
-    if (pending.cardId === "event_snurraflaskan") {
-      if (rolledDie === 1) return [{ text: `${selfName} tar 2 skada.`, category: "pvp", iconKinds: ["hp"] }];
-      if (rolledDie <= 3) return [{ text: `${selfName} får 1 straffklunk.`, category: "sip", iconKinds: ["klunk"] }];
-      if (rolledDie <= 5) return [{ text: `${selfName} får +3 pant.`, category: "pvp", iconKinds: ["pant"] }];
-      return [{ text: `${selfName} får slumpad utrustning.`, category: "reward", iconKinds: ["attack"] }];
-    }
-    if (pending.cardId === "event_pantad") {
-      if (rolledDie < 5) return [{ text: `${selfName} slog ${rolledDie}: ingen pant överfördes.`, category: "pvp", iconKinds: ["pant"] }];
-      const transferLine = lines.map((l) => l.trim()).find((l) => /fick\s+\d+\s+pant\./i.test(l));
-      if (transferLine) {
-        const m = /^(.+?)\s+var fattigast och fick\s+(\d+)\s+pant\./i.exec(transferLine);
-        if (m) {
-          return [{ text: `${selfName} gav ${m[2]} pant till ${m[1]}.`, category: "pvp", iconKinds: ["pant"] }];
-        }
-      }
-      return [{ text: `${selfName} slog ${rolledDie}: pant flyttades till fattigaste spelaren.`, category: "pvp", iconKinds: ["pant"] }];
-    }
-  }
-  if (pending.cardId === "event_baksmallebonus") {
-    const hpLine = lines
-      .map((l) => l.trim())
-      .find((line) => /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.test(line));
-    const m = hpLine ? /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(hpLine) : null;
-    const healed = m ? Math.max(0, Number(m[2]) - Number(m[1])) : 0;
-    return [{ text: `${selfName} får tillbaka ${healed} HP.`, category: "pvp", iconKinds: ["hp"] }];
-  }
-  const pushSip = (name: string, amount: number) => {
-    if (amount <= 0) return;
-    out.push({
-      text: `${name} får ${amount} straffklunk${amount === 1 ? "" : "ar"}.`,
-      category: "sip",
-      iconKinds: ["klunk"],
-    });
-  };
-  const pushHp = (name: string, delta: number) => {
-    if (delta === 0) return;
-    if (delta < 0) {
-      const dmg = Math.abs(delta);
-      out.push({
-        text: `${name} tar ${dmg} skada.`,
-        category: "pvp",
-        iconKinds: ["hp"],
-      });
-      return;
-    }
-    out.push({
-      text: `${name} läker ${delta} HP.`,
-      category: "pvp",
-      iconKinds: ["hp"],
-    });
-  };
-  const pushPant = (name: string, delta: number) => {
-    if (delta === 0) return;
-    if (delta > 0) {
-      out.push({
-        text: `${name} får ${delta} pant.`,
-        category: "pvp",
-        iconKinds: ["pant"],
-      });
-      return;
-    }
-    out.push({
-      text: `${name} förlorar ${Math.abs(delta)} pant.`,
-      category: "pvp",
-      iconKinds: ["pant"],
-    });
-  };
-  for (const raw of lines) {
-    const line = raw.trim();
-    const selfMatch = /^Klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
-    if (selfMatch) {
-      const before = Number(selfMatch[1]);
-      const after = Number(selfMatch[2]);
-      const gain = after - before;
-      pushSip(selfName, gain);
-      continue;
-    }
-    const selfPossessiveMatch = /^Dina\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
-    if (selfPossessiveMatch) {
-      const before = Number(selfPossessiveMatch[1]);
-      const after = Number(selfPossessiveMatch[2]);
-      const gain = after - before;
-      pushSip(selfName, gain);
-      continue;
-    }
-    const targetMatch = /^(.+?)\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
-    if (targetMatch) {
-      const name = targetMatch[1];
-      const before = Number(targetMatch[2]);
-      const after = Number(targetMatch[3]);
-      const gain = after - before;
-      pushSip(name, gain);
-      continue;
-    }
-    const selfHpMatch = /^HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
-    if (selfHpMatch) {
-      const before = Number(selfHpMatch[1]);
-      const after = Number(selfHpMatch[2]);
-      pushHp(selfName, after - before);
-      continue;
-    }
-    const targetHpMatch = /^(.+?)\s+HP:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
-    if (targetHpMatch) {
-      const name = targetHpMatch[1];
-      const before = Number(targetHpMatch[2]);
-      const after = Number(targetHpMatch[3]);
-      pushHp(name, after - before);
-      continue;
-    }
-    const selfPantMatch = /^Pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
-    if (selfPantMatch) {
-      const before = Number(selfPantMatch[1]);
-      const after = Number(selfPantMatch[2]);
-      pushPant(selfName, after - before);
-      continue;
-    }
-    const targetPantMatch = /^(.+?)\s+pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
-    if (targetPantMatch) {
-      const name = targetPantMatch[1];
-      const before = Number(targetPantMatch[2]);
-      const after = Number(targetPantMatch[3]);
-      pushPant(name, after - before);
-    }
-  }
   return out;
 }
 
@@ -614,9 +422,9 @@ function TableLobbyPlayerRow(props: {
       </div>
       <div
         className={`${u.inlineFlexGap12WrapEnd} ${tableStyles.lobbyStatsRow}`}
-        aria-label={sv.play.statsLine(p.hp, p.maxHp, p.gold, p.klunkar)}
+        aria-label={sv.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}
       >
-        <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={p.gold} klunkar={p.klunkar} iconSize={18} />
+        <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={playerPant(p)} klunkar={p.klunkar} iconSize={18} />
       </div>
       {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
       <div className={tableStyles.lobbyEquipGrid}>
@@ -779,7 +587,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     }
     const currLevels = new Map<string, number>();
     for (const p of state.players) {
-      currLevels.set(p.id, brewerDisplayLevelForTable(p));
+      currLevels.set(p.id, brewerDisplayLevel(p));
     }
     const prev = prevBrewerLevelsRef.current;
     prevBrewerLevelsRef.current = currLevels;
@@ -788,8 +596,8 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     const leveled = state.players
       .map((p) => ({
         player: p,
-        prev: prev.get(p.id) ?? brewerDisplayLevelForTable(p),
-        curr: currLevels.get(p.id) ?? brewerDisplayLevelForTable(p),
+        prev: prev.get(p.id) ?? brewerDisplayLevel(p),
+        curr: currLevels.get(p.id) ?? brewerDisplayLevel(p),
       }))
       .filter((x) => x.curr > x.prev);
     if (leveled.length === 0) return;
@@ -2213,7 +2021,7 @@ function TableViewBody() {
                 const active = cur?.id === p.id;
                 const outOfGame = !isPlayerOnBoard(p);
                 const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
-                const brewerLv = brewerDisplayLevelForTable(p);
+                const brewerLv = brewerDisplayLevel(p);
                 const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
                 return (
                   <div
@@ -2268,7 +2076,7 @@ function TableViewBody() {
                       <PlayerVitals
                         hp={p.hp}
                         maxHp={p.maxHp}
-                        pant={p.gold}
+                        pant={playerPant(p)}
                         klunkar={p.klunkar}
                         iconSize={22}
                         brewerRing={{ level: brewerLv, ratio: brewerRatio }}

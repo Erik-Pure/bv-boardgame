@@ -13,6 +13,11 @@ import type {
   PenaltySipQueueEntry,
   Player,
 } from "../types.js";
+import {
+  diffPlayerStatsToOutcomes,
+  snapshotPlayerStats,
+  type EventTableOutcome,
+} from "../eventTableOutcomes.js";
 import { grantKlunkWithXp } from "../klunkGrant.js";
 import { recordPantSpent } from "../sessionStats.js";
 import { beginCombatReactionsPhase } from "../combatReactionAutopass.js";
@@ -43,7 +48,16 @@ export type ShowCardFn = (state: GameState, params: {
   combatLoss?: CombatLoseSummary;
   equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId?: string; newName: string };
   queuedPenaltySipNotices?: PenaltySipQueueEntry[];
+  tableOutcomes?: EventTableOutcome[];
 }) => void;
+
+function tableOutcomesAfter(
+  before: ReturnType<typeof snapshotPlayerStats>,
+  state: GameState,
+  extras: EventTableOutcome[] = [],
+): EventTableOutcome[] {
+  return diffPlayerStatsToOutcomes(before, state.players, extras);
+}
 
 function penaltySipEntriesForKlunks(recipientId: string, klunkDelta: number | undefined, fromPlayerName: string): PenaltySipQueueEntry[] {
   const n = klunkDelta ?? 0;
@@ -249,6 +263,7 @@ export function resolveEventCardOnLand(params: {
 
   // Special: affects everyone
   if (card.id === "event_baksmallebonus") {
+    const snap = snapshotPlayerStats(state.players);
     const healed = p.klunkar >= 5 ? 3 : 1;
     p.hp = Math.min(p.maxHp, p.hp + healed);
     log(state, `Händelse: ${card.title}`);
@@ -259,10 +274,12 @@ export function resolveEventCardOnLand(params: {
       title: card.title,
       text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
       artKey: card.artKey,
+      tableOutcomes: tableOutcomesAfter(snap, state),
     });
     return;
   }
   if (card.id === "event_burkbonanza") {
+    const snap = snapshotPlayerStats(state.players);
     const gained = Math.max(0, Math.min(15, p.klunkar));
     p.gold += gained;
     log(state, `Händelse: ${card.title}`);
@@ -273,6 +290,7 @@ export function resolveEventCardOnLand(params: {
       title: card.title,
       text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
       artKey: card.artKey,
+      tableOutcomes: tableOutcomesAfter(snap, state),
     });
     return;
   }
@@ -294,10 +312,19 @@ export function resolveEventCardOnLand(params: {
         klunkCount: 1,
         fromPlayerName: from,
       })),
+      tableOutcomes: [
+        {
+          kind: "custom",
+          text: "Alla spelare får 1 straffklunk.",
+          category: "sip",
+          icons: ["klunk"],
+        },
+      ],
     });
     return;
   }
   if (card.id === "event_round_on_me") {
+    const snap = snapshotPlayerStats(state.players);
     for (const pl of state.players) pl.hp = Math.min(pl.maxHp, pl.hp + 1);
     const others = state.players.filter((x) => x.id !== p.id);
     for (const other of others) other.gold += 1;
@@ -310,10 +337,12 @@ export function resolveEventCardOnLand(params: {
       title: card.title,
       text: `${card.text}${formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar)}`,
       artKey: card.artKey,
+      tableOutcomes: tableOutcomesAfter(snap, state),
     });
     return;
   }
   if (card.id === "event_loser_wins") {
+    const snap = snapshotPlayerStats(state.players);
     grantKlunkWithXp(state, p, 2, { penaltyStraff: true });
     const activePlayers = state.players.filter(isPlayerActiveInMatch);
     let lowest: Player | null = activePlayers[0] ?? null;
@@ -339,6 +368,7 @@ export function resolveEventCardOnLand(params: {
       text: `${card.text}${lowHpLine}${yourSipsLine}`,
       artKey: card.artKey,
       queuedPenaltySipNotices: penaltySipEntriesForKlunks(p.id, p.klunkar - beforeKlunk, card.title),
+      tableOutcomes: tableOutcomesAfter(snap, state),
     });
     return;
   }
@@ -391,10 +421,13 @@ export function resolveEventCardOnLand(params: {
   }
 
   // Default: apply effects immediately
+  const snap = snapshotPlayerStats(state.players);
   const effectOut: EffectApplyOut = {};
   applyEffects({ state, player: p, effects: card.effects ?? [], rng, out: effectOut, ignoreArmorOnDamage: true });
   const grantedText = appendTextForGrantedItem(effectOut);
   const shouldReplaceBodyWithGrantedText = card.id === "event_find_item_random" && grantedText.length > 0;
+  const extras: EventTableOutcome[] =
+    effectOut.grantedItemId != null ? [{ kind: "equipmentGrant", playerId: p.id }] : [];
   log(state, `Händelse: ${card.title}`);
   showCard(state, {
     playerId: p.id,
@@ -408,6 +441,7 @@ export function resolveEventCardOnLand(params: {
     grantedItemId: effectOut.grantedItemId,
     equipmentReplaceOffer: effectOut.equipmentReplaceOffer,
     queuedPenaltySipNotices: penaltySipEntriesForKlunks(p.id, effectOut.klunkar, card.title),
+    tableOutcomes: tableOutcomesAfter(snap, state, extras),
   });
 }
 
@@ -469,6 +503,7 @@ export function handleCardOption(params: {
   if (pending.kind === "event" && (pending.cardId === "event_gift_sip" || pending.cardId === "event_friendly_offering")) {
     const target = state.players.find((x) => x.id === choiceId);
     if (!target) return { handled: true, error: "Ogiltigt mål" };
+    const snap = snapshotPlayerStats(state.players);
     const beforeTargetHp = target.hp;
     const beforeTargetSips = target.klunkar;
     if (pending.cardId === "event_gift_sip") {
@@ -488,12 +523,14 @@ export function handleCardOption(params: {
       text:
         `${pending.text}\nValt: ${target.name}` +
         formatTargetStatDeltas(target.name, beforeTargetHp, target.hp, beforeTargetSips, target.klunkar),
+      tableOutcomes: tableOutcomesAfter(snap, state),
     };
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_syndabock") {
     const target = state.players.find((x) => x.id === choiceId);
     if (!target) return { handled: true, error: "Ogiltigt mål" };
+    const snap = snapshotPlayerStats(state.players);
     const beforeTargetHp = target.hp;
     const beforeTargetSips = target.klunkar;
     const beforeSelfSips = p.klunkar;
@@ -523,11 +560,13 @@ export function handleCardOption(params: {
         `${pending.text}\nValt: ${target.name}` +
         formatTargetStatDeltas(target.name, beforeTargetHp, target.hp, beforeTargetSips, target.klunkar) +
         (beforeSelfSips !== p.klunkar ? `\nDina klunkar: ${beforeSelfSips} → ${p.klunkar}.` : ""),
+      tableOutcomes: tableOutcomesAfter(snap, state),
     };
     log(state, `${p.name} pekar ut ${target.name} som syndabock.`);
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_rotasoptunna" && choiceId === "roll") {
+    const snap = snapshotPlayerStats(state.players);
     const die = rollDie(rng, 6);
     const gained = die * 2;
     p.gold += gained;
@@ -537,11 +576,13 @@ export function handleCardOption(params: {
       text:
         `${pending.text}\nTärning: ${die} → +${gained} pant.` +
         formatSelfStatDeltas(p.gold - gained, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+      tableOutcomes: tableOutcomesAfter(snap, state),
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_fastnatipant" && choiceId === "roll") {
+    const snap = snapshotPlayerStats(state.players);
     const die = rollDie(rng, 6);
     const delta = die <= 2 ? -5 : die <= 4 ? -10 : 10;
     const beforeGold = p.gold;
@@ -550,11 +591,13 @@ export function handleCardOption(params: {
       ...pending,
       choices: undefined,
       text: `${pending.text}\nTärning: ${die}.` + formatSelfStatDeltas(beforeGold, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+      tableOutcomes: tableOutcomesAfter(snap, state),
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_happyhour" && choiceId === "roll") {
+    const snap = snapshotPlayerStats(state.players);
     const die = rollDie(rng, 6);
     if (die === 1) {
       for (const pl of state.players) if (pl.id !== p.id) pl.gold += 2;
@@ -566,18 +609,32 @@ export function handleCardOption(params: {
       p.gold += 10;
       p.hp = Math.min(p.maxHp, p.hp + 5);
     }
+    let tableOutcomes: EventTableOutcome[];
+    if (die === 1) {
+      tableOutcomes = [
+        { kind: "custom", text: "Happy hour: alla andra får +2 pant.", category: "pvp", icons: ["pant"] },
+      ];
+    } else if (die > 3 && die <= 5) {
+      tableOutcomes = [
+        { kind: "custom", text: "Happy hour: alla får +5 pant.", category: "pvp", icons: ["pant"] },
+      ];
+    } else {
+      tableOutcomes = tableOutcomesAfter(snap, state);
+    }
     state.pending = {
       ...pending,
       choices: undefined,
       text:
         `${pending.text}\nTärning: ${die}.` +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+      tableOutcomes,
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_dubbelinget") {
     if (choiceId === "roll") {
+      const snap = snapshotPlayerStats(state.players);
       const die = rollDie(rng, 6);
       const beforeGold = p.gold;
       if (die <= 3) {
@@ -591,18 +648,22 @@ export function handleCardOption(params: {
         text:
           `${pending.text}\nTärning: ${die}.` +
           formatSelfStatDeltas(beforeGold, p.gold, p.hp, p.hp, p.klunkar, p.klunkar),
+        tableOutcomes: tableOutcomesAfter(snap, state),
       };
       log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
       return { handled: true };
     }
   }
   if (pending.kind === "event" && pending.cardId === "event_snurraflaskan" && choiceId === "roll") {
+    const snap = snapshotPlayerStats(state.players);
     const die = rollDie(rng, 6);
     const effectOut: EffectApplyOut = {};
     if (die === 1) applyEffects({ state, player: p, effects: [{ type: "damage", amount: 2, source: "snurraflaskan" }], rng, out: effectOut, ignoreArmorOnDamage: true });
     else if (die <= 3) applyEffects({ state, player: p, effects: [{ type: "klunkar", amount: 1 }], rng, out: effectOut });
     else if (die <= 5) applyEffects({ state, player: p, effects: [{ type: "gold", amount: 3 }], rng, out: effectOut });
     else applyEffects({ state, player: p, effects: [{ type: "randomEquipment" }], rng, out: effectOut });
+    const extras: EventTableOutcome[] =
+      die >= 6 && effectOut.grantedItemId != null ? [{ kind: "equipmentGrant", playerId: p.id }] : [];
     state.pending = {
       ...pending,
       choices: undefined,
@@ -617,11 +678,13 @@ export function handleCardOption(params: {
         `${pending.text}\nTärning: ${die}.` +
         appendTextForGrantedItem(effectOut) +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+      tableOutcomes: tableOutcomesAfter(snap, state, extras),
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
   }
   if (pending.kind === "event" && pending.cardId === "event_fastnatikylen" && choiceId === "roll") {
+    const snap = snapshotPlayerStats(state.players);
     const die = rollDie(rng, 6);
     if (die <= 2) {
       p.skippedTurns = Math.max(0, p.skippedTurns) + 1;
@@ -630,12 +693,17 @@ export function handleCardOption(params: {
     } else if (die >= 4) {
       p.gold += 5;
     }
+    const tableOutcomes: EventTableOutcome[] =
+      die === 3
+        ? [{ kind: "custom", text: `${p.name}: inget händer.`, category: "pvp", icons: ["pant"] }]
+        : tableOutcomesAfter(snap, state);
     state.pending = {
       ...pending,
       choices: undefined,
       text:
         `${pending.text}\nTärning: ${die}.` +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+      tableOutcomes,
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
@@ -680,6 +748,30 @@ export function handleCardOption(params: {
         poorest.gold += transfer;
       }
     }
+    let tableOutcomes: EventTableOutcome[];
+    if (die >= 5 && poorest && transfer > 0) {
+      tableOutcomes = [
+        {
+          kind: "custom",
+          text: `${p.name} gav ${transfer} pant till ${poorest.name}.`,
+          category: "pvp",
+          icons: ["pant"],
+        },
+      ];
+    } else if (die < 5) {
+      tableOutcomes = [
+        {
+          kind: "custom",
+          text: `${p.name} slog ${die}: ingen pant överfördes.`,
+          category: "pvp",
+          icons: ["pant"],
+        },
+      ];
+    } else {
+      tableOutcomes = [
+        { kind: "custom", text: `${p.name}: ingen pant överfördes.`, category: "pvp", icons: ["pant"] },
+      ];
+    }
     state.pending = {
       ...pending,
       choices: undefined,
@@ -689,6 +781,7 @@ export function handleCardOption(params: {
           ? `\n${poorest.name} var fattigast och fick ${transfer} pant.`
           : "\nIngen pant överfördes.") +
         formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+      tableOutcomes,
     };
     log(state, `${p.name} slog ${die} på ${pending.cardId}.`);
     return { handled: true };
@@ -698,6 +791,7 @@ export function handleCardOption(params: {
   const choice = def.choices?.find((c) => c.id === choiceId);
   if (!choice) return { handled: true, error: "Ogiltigt val" };
 
+  const snap = snapshotPlayerStats(state.players);
   const effectOut: EffectApplyOut = {};
   applyEffects({
     state,
@@ -708,6 +802,8 @@ export function handleCardOption(params: {
     ignoreArmorOnDamage: pending.kind === "event",
   });
   log(state, `${p.name} väljer: ${choice.label}.`);
+  const extras: EventTableOutcome[] =
+    effectOut.grantedItemId != null ? [{ kind: "equipmentGrant", playerId: p.id }] : [];
 
   state.pending = {
     ...pending,
@@ -723,6 +819,7 @@ export function handleCardOption(params: {
       `${def.text}\nVal: ${choice.label}` +
       appendTextForGrantedItem(effectOut) +
       formatSelfStatDeltas(beforeGold, p.gold, beforeHp, p.hp, beforeKlunk, p.klunkar),
+    tableOutcomes: tableOutcomesAfter(snap, state, extras),
   };
   return { handled: true };
 }

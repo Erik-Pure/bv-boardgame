@@ -1,4 +1,5 @@
 import {
+  canAffordPant,
   computeMonsterDamage,
   type ClientAction,
   type GameState,
@@ -38,7 +39,7 @@ export function CombatHitMitigationSheet(props: {
     (pending.getLuckyRiskPlayerIds?.includes(damagePreviewPlayer.id) ?? false) ? rawFullHp * 2 : rawFullHp;
   const fullDamageHp = Math.max(0, Math.floor(doubledFullHp));
   const pantMitigationCost = isInterrobang ? 5 : isTransporter ? 10 : 0;
-  const canPayPantMitigation = pantMitigationCost === 0 || me.gold >= pantMitigationCost;
+  const canPayPantMitigation = pantMitigationCost === 0 || canAffordPant(me, pantMitigationCost);
   const detailText = isInterrobang
     ? canPayPantMitigation
       ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."

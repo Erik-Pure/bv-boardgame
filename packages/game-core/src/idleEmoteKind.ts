@@ -1,27 +1,6 @@
+import { playerHasPvpPreRoundItem } from "./itemRules.js";
 import { isPlayerActiveInMatch } from "./playerParticipation.js";
 import type { GameState, Pending, Player } from "./types.js";
-
-const PVP_PRE_ROUND_ITEM_IDS = new Set<string>([
-  "weak_beer",
-  "light_beer",
-  "folk_beer",
-  "tripwire",
-  "double_hops",
-  "beer_bomb",
-  "manopositiv",
-  "hangover",
-  "monster_hype",
-  "yeast_sabotage",
-  "spill_intentional",
-  "beard_back",
-  "six_sense",
-  "paidassasin",
-  "lengraddad",
-]);
-
-function playerHasPvpPreRoundItem(p: Player): boolean {
-  return (p.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(String(it.itemId)));
-}
 
 export type IdleEmoteKind =
   | { type: "otherTurn" }

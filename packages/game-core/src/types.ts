@@ -1,3 +1,4 @@
+import type { EventTableOutcome } from "./eventTableOutcomes.js";
 import type { MonsterId } from "./monsters.js";
 
 export type TileType =
@@ -355,6 +356,8 @@ export type Pending =
       };
       /** Sip-notiser som pushas vid `confirmCard` (Fortsätt), efter att klunkar redan tillämpats i state. */
       queuedPenaltySipNotices?: PenaltySipQueueEntry[];
+      /** Strukturerade bords-toasts (genereras av motorn vid händelseutfall). */
+      tableOutcomes?: EventTableOutcome[];
     }
   | {
       type: "equipmentReplaceOffer";

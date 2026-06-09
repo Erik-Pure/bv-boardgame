@@ -8,6 +8,8 @@ import {
   startGame,
   type ClientAction,
   type GameState,
+  type GameStateDeltaPatch,
+  type Player,
 } from "@bv/game-core";
 import { v4 as uuidv4 } from "uuid";
 
@@ -31,6 +33,8 @@ export interface Room {
   lastActivityAt: number;
   stateSeq: number;
   levelsSignature: string;
+  /** Senast broadcastade spelare (JSON per id) — för partiella player-deltas. */
+  lastBroadcastPlayerJsonById: Map<string, string>;
 }
 
 export interface PersistedRoom {
@@ -88,6 +92,29 @@ function computeLevelsSignature(state: GameState): string {
   return state.levels.map((lvl) => lvl.tiles.length).join(",");
 }
 
+function syncBroadcastPlayerCache(room: Room, players: Player[]): void {
+  room.lastBroadcastPlayerJsonById.clear();
+  for (const p of players) {
+    room.lastBroadcastPlayerJsonById.set(p.id, JSON.stringify(p));
+  }
+}
+
+function collectChangedPlayers(room: Room): { changed: Player[]; rosterChanged: boolean } {
+  const currentIds = new Set(room.state.players.map((p) => p.id));
+  const cachedIds = [...room.lastBroadcastPlayerJsonById.keys()];
+  const rosterChanged =
+    cachedIds.length !== currentIds.size || cachedIds.some((id) => !currentIds.has(id));
+  if (rosterChanged) {
+    return { changed: room.state.players, rosterChanged: true };
+  }
+  const changed: Player[] = [];
+  for (const p of room.state.players) {
+    const json = JSON.stringify(p);
+    if (room.lastBroadcastPlayerJsonById.get(p.id) !== json) changed.push(p);
+  }
+  return { changed, rosterChanged: false };
+}
+
 export function getOrCreateRoom(code: string): { room: Room; created: boolean } {
   const roomCode = code.trim().toUpperCase();
   const existing = rooms.get(roomCode);
@@ -102,6 +129,7 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
     lastActivityAt: Date.now(),
     stateSeq: 0,
     levelsSignature: computeLevelsSignature(state),
+    lastBroadcastPlayerJsonById: new Map(),
   };
   rooms.set(roomCode, room);
   return { room, created: true };
@@ -162,6 +190,7 @@ export function restorePersistedRooms(entries: PersistedRoom[]): number {
       lastActivityAt: Number.isFinite(entry.lastActivityAt) ? entry.lastActivityAt : Date.now(),
       stateSeq: Number.isFinite(entry.stateSeq) ? Math.max(0, Math.floor(entry.stateSeq)) : 0,
       levelsSignature: computeLevelsSignature(state),
+      lastBroadcastPlayerJsonById: new Map(),
     };
     rooms.set(code, room);
     restored += 1;
@@ -195,6 +224,7 @@ function sendPayload(conn: ClientConn, payload: string): void {
 }
 
 export function sendStateSnapshot(conn: ClientConn, room: Room): void {
+  syncBroadcastPlayerCache(room, room.state.players);
   const payload = JSON.stringify({ type: "state", state: room.state, seq: room.stateSeq });
   stats.broadcastsSent += 1;
   stats.bytesSent += payload.length;
@@ -230,41 +260,54 @@ export function prepareRoomStateForClients(room: Room): boolean {
   return true;
 }
 
-function buildStateDelta(room: Room): { seq: number; patch: Partial<GameState> } {
+function buildStateDelta(room: Room): { seq: number; patch: GameStateDeltaPatch } {
   const levelsSig = computeLevelsSignature(room.state);
   const includeLevels = levelsSig !== room.levelsSignature;
   room.levelsSignature = levelsSig;
-  return {
-    seq: room.stateSeq,
-    patch: {
-      phase: room.state.phase,
-      config: room.state.config,
-      players: room.state.players,
-      turnOrder: room.state.turnOrder,
-      currentTurnIndex: room.state.currentTurnIndex,
-      pending: room.state.pending,
-      deferredPending: room.state.deferredPending ?? null,
-      offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
-      log: room.state.log,
-      logSeq: room.state.logSeq,
-      winnerId: room.state.winnerId,
-      winnerName: room.state.winnerName,
-      goldenBeerCarrierId: room.state.goldenBeerCarrierId,
-      finalBossMonsterId: room.state.finalBossMonsterId,
-      finalBossLivesRemaining: room.state.finalBossLivesRemaining,
-      bossFinaleExitStartedAt: room.state.bossFinaleExitStartedAt,
-      combatEquipReplaceQueue: room.state.combatEquipReplaceQueue,
-      stolenEquipmentEscrow: room.state.stolenEquipmentEscrow,
-      treasureTaken: room.state.treasureTaken,
-      lastDiceRoll: room.state.lastDiceRoll,
-      lastDiceRollerId: room.state.lastDiceRollerId,
-      sipNotices: room.state.sipNotices,
-      tableItemPlayReveals: room.state.tableItemPlayReveals,
-      playerEmoteBursts: room.state.playerEmoteBursts,
-      playerKlunkBursts: room.state.playerKlunkBursts,
-      ...(includeLevels ? { levels: room.state.levels } : {}),
-    },
+
+  const { changed: changedPlayers, rosterChanged } = collectChangedPlayers(room);
+  const patch: GameStateDeltaPatch = {
+    phase: room.state.phase,
+    config: room.state.config,
+    turnOrder: room.state.turnOrder,
+    currentTurnIndex: room.state.currentTurnIndex,
+    pending: room.state.pending,
+    deferredPending: room.state.deferredPending ?? null,
+    offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
+    log: room.state.log,
+    logSeq: room.state.logSeq,
+    winnerId: room.state.winnerId,
+    winnerName: room.state.winnerName,
+    goldenBeerCarrierId: room.state.goldenBeerCarrierId,
+    finalBossMonsterId: room.state.finalBossMonsterId,
+    finalBossLivesRemaining: room.state.finalBossLivesRemaining,
+    bossFinaleExitStartedAt: room.state.bossFinaleExitStartedAt,
+    combatEquipReplaceQueue: room.state.combatEquipReplaceQueue,
+    stolenEquipmentEscrow: room.state.stolenEquipmentEscrow,
+    treasureTaken: room.state.treasureTaken,
+    lastDiceRoll: room.state.lastDiceRoll,
+    lastDiceRollerId: room.state.lastDiceRollerId,
+    sipNotices: room.state.sipNotices,
+    tableItemPlayReveals: room.state.tableItemPlayReveals,
+    playerEmoteBursts: room.state.playerEmoteBursts,
+    playerKlunkBursts: room.state.playerKlunkBursts,
+    ...(includeLevels ? { levels: room.state.levels } : {}),
   };
+
+  if (changedPlayers.length > 0) {
+    if (!rosterChanged && changedPlayers.length < room.state.players.length) {
+      patch.players = changedPlayers;
+      patch.playersPartial = true;
+      for (const p of changedPlayers) {
+        room.lastBroadcastPlayerJsonById.set(p.id, JSON.stringify(p));
+      }
+    } else {
+      patch.players = room.state.players;
+      syncBroadcastPlayerCache(room, room.state.players);
+    }
+  }
+
+  return { seq: room.stateSeq, patch };
 }
 
 export function broadcastState(room: Room): void {

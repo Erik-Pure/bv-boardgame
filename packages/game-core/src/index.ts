@@ -135,6 +135,26 @@ export {
 } from "./combatReactionAutopass.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
+  isPositiveHelpItemId,
+  playerHasPvpPreRoundItem,
+  POSITIVE_HELP_ITEM_IDS,
+  PVP_PRE_ROUND_ITEM_IDS,
+  PVP_ROLL_PHASE_ITEM_IDS,
+} from "./itemRules.js";
+export {
+  canUseItem,
+  pendingAllowsShortcutTaproom,
+  playerHasPlayablePositiveHelpItem,
+  type ItemUseTarget,
+} from "./canUseItem.js";
+export {
+  BREWER_LEVEL_XP_THRESHOLDS,
+  brewerDisplayLevel,
+  brewerDisplayLevelFromInternal,
+  brewerLevelFromXp,
+  xpThresholdForBrewerLevel,
+} from "./brewerXp.js";
+export {
   ATTACKER_SELF_NEGATIVE_COMBAT_ITEM_IDS,
   attackerCannotSelfNegativeCombatItem,
   lengraddadBlockedForCombatParticipant,
@@ -161,6 +181,12 @@ export {
 export type { BrewerPerkChoice } from "./brewerPerk.js";
 export { scaledCombatMod } from "./scaledCombatMod.js";
 export { XP_PER_KLUNK, PENALTY_XP_PER_KLUNK, grantKlunkWithXp } from "./klunkGrant.js";
+export { playerPant, canAffordPant } from "./playerPant.js";
+export {
+  isGameState,
+  mergeGameStateDelta,
+  type GameStateDeltaPatch,
+} from "./stateDelta.js";
 export {
   errorIfInactiveOtherPlayerTarget,
   isPlayerActiveInMatch,
@@ -204,3 +230,16 @@ export {
 } from "./cardRichTextParse.js";
 export { monsterEncounterCardPreviewFromState } from "./cards/runtime.js";
 export { shortcutDisplayPantGold } from "./shortcutDisplayCost.js";
+export type {
+  EventTableOutcome,
+  EventTableToastSpec,
+  TableToastCategory,
+  TableToastIcon,
+} from "./eventTableOutcomes.js";
+export {
+  diffPlayerStatsToOutcomes,
+  formatEventTableOutcomeToToast,
+  parseStatDeltaLinesToOutcomes,
+  resolveEventCardTableToasts,
+  snapshotPlayerStats,
+} from "./eventTableOutcomes.js";

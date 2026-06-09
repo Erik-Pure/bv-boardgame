@@ -93,6 +93,13 @@ import {
   lengraddadBlockedForCombatParticipant,
 } from "./combatItemRestrictions.js";
 import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
+import { pendingAllowsShortcutTaproom } from "./canUseItem.js";
+import {
+  isPositiveHelpItemId,
+  playerHasPvpPreRoundItem,
+  PVP_PRE_ROUND_ITEM_IDS,
+  PVP_ROLL_PHASE_ITEM_IDS,
+} from "./itemRules.js";
 import { flatItemUseAmount, playerTotalItemCardBonus } from "./itemCardBonus.js";
 import {
   EMOTE_COOLDOWN_MS,
@@ -342,15 +349,6 @@ function notifyItemPlayForTableAfterUse(
   appendTableItemPlayReveal(next, itemId, actorId, targetPlayerId, side);
 }
 
-const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
-  "light_beer",
-  "folk_beer",
-  "double_hops",
-  "beer_bomb",
-  "manopositiv",
-  "get_lucky",
-]);
-
 export const PVP_BEST_OF = 1;
 /** Max pant vinnaren kan ta från förloraren vid BvB-byte (choice `gold`). */
 export const PVP_LOOT_MAX_PANT = 10;
@@ -358,33 +356,8 @@ export const PVP_LOOT_MAX_PANT = 10;
 export function pvpLootPantStealAmount(loserGold: number): number {
   return Math.min(PVP_LOOT_MAX_PANT, Math.max(0, Math.floor(loserGold)));
 }
-const PVP_PRE_ROUND_ITEM_IDS: ReadonlySet<ItemId> = new Set([
-  "weak_beer",
-  "light_beer",
-  "folk_beer",
-  "tripwire",
-  "double_hops",
-  "beer_bomb",
-  "manopositiv",
-  "hangover",
-  "monster_hype",
-  "yeast_sabotage",
-  "spill_intentional",
-  "beard_back",
-  "six_sense",
-  "paidassasin",
-  "lengraddad",
-]);
-
-/** Under `awaitingRolls`: bara dessa (utöver att vara duellant). Övriga BvB-föremål spelas i förberedelsefasen. */
-const PVP_ROLL_PHASE_ITEM_IDS: ReadonlySet<ItemId> = new Set(["six_sense", "beard_back", "spill_intentional"]);
-
 /** Helande föremål som får spelas utan tur (ej under stupad bryggare / strid / BvB där charity blockeras nedan). */
 const HEALING_ANYTIME_ITEM_IDS: ReadonlySet<ItemId> = new Set(["healing_potion", "pretzel_snack", "charity"]);
-
-function playerHasPvpPreRoundItem(player: Player): boolean {
-  return (player.inventory ?? []).some((it) => PVP_PRE_ROUND_ITEM_IDS.has(it.itemId));
-}
 
 /** Går till slag när båda är uttryckligen klara eller saknar PvB-föremål att spela i förberedelsen. */
 function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending, { type: "pvp" }>): void {
@@ -417,10 +390,6 @@ function maybePvpPreRoundAutoReadyAfterItemUse(state: GameState, playerId: strin
     pending.roundItemReady[playerId] = true;
   }
   tryAdvancePvpPreRoundToRolls(state, pending);
-}
-
-function isPositiveHelpItemId(itemId: ItemId): boolean {
-  return POSITIVE_HELP_ITEM_IDS.has(itemId);
 }
 
 /** Sant om spelaren kan spela minst ett positivt hjälpkort (pantkostnad räknas, t.ex. Manopositiv/Get Lucky). */
@@ -1183,6 +1152,7 @@ function showCard(
     bossFinalWin?: { winnerName: string; bossName: string; roundLabel: string };
     equipmentReplaceOffer?: { slot: EquipmentSlot; catalogId?: string; newName: string };
     queuedPenaltySipNotices?: PenaltySipQueueEntry[];
+    tableOutcomes?: import("./eventTableOutcomes.js").EventTableOutcome[];
   },
 ): void {
   state.pending = {
@@ -1200,6 +1170,7 @@ function showCard(
     bossFinalWin: params.bossFinalWin,
     equipmentReplaceOffer: params.equipmentReplaceOffer,
     queuedPenaltySipNotices: params.queuedPenaltySipNotices,
+    tableOutcomes: params.tableOutcomes,
   };
 }
 
@@ -2283,15 +2254,6 @@ function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
   return Math.max(0, levelNumber * 10);
 }
 
-
-/** Genväg / Taproom-nyckel får användas under rörelseval, handel eller när du är den som ska lösa möte på rutan (kan fly till boss utan BvB först). */
-function pendingAllowsShortcutTaproom(pe: Pending | null, userId: string): boolean {
-  if (pe == null) return true;
-  if (pe.type === "moveChoice" && pe.playerId === userId) return true;
-  if (pe.type === "merchant" && pe.playerId === userId) return true;
-  if (pe.type === "encounterChoice" && pe.moverId === userId) return true;
-  return false;
-}
 
 function clearPendingSupersededByFloorTravel(state: GameState, userId: string): void {
   dismissInvalidLevelUpOffersForPlayer(state, userId);

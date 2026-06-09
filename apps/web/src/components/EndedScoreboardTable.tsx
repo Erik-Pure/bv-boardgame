@@ -1,7 +1,8 @@
 import {
+  brewerDisplayLevel,
   brewerKlunkProgressRatio,
-  brewerLevel,
   DEFAULT_PLAYER_SESSION_STATS,
+  playerPant,
   type Player,
 } from "@bv/game-core";
 import { sv } from "../lib/uiStrings";
@@ -28,11 +29,6 @@ function ScoreboardIconHeader(props: {
   );
 }
 
-/** Samma visningsnivå som mobil-header (intern nivå + 1, minimum 1). */
-function brewerLevelForUi(player: Player): number {
-  return Math.max(1, Math.floor(brewerLevel(player) || 0) + 1);
-}
-
 function sessionKlunkTotal(p: Player): number {
   const s = p.stats ?? DEFAULT_PLAYER_SESSION_STATS;
   return s.totalKlunksGained ?? 0;
@@ -49,7 +45,7 @@ function sortEndedPlayers(players: Player[], winnerId: string | null | undefined
     const bK = sessionKlunkTotal(b);
     if (bK !== aK) return bK - aK;
     if (b.klunkar !== a.klunkar) return b.klunkar - a.klunkar;
-    if (b.gold !== a.gold) return b.gold - a.gold;
+    if (playerPant(b) !== playerPant(a)) return playerPant(b) - playerPant(a);
     return a.name.localeCompare(b.name, "sv");
   });
 }
@@ -102,7 +98,7 @@ export function EndedScoreboardTable(props: {
               const leftVoluntary = p.leftVoluntarily === true;
               const s = p.stats ?? DEFAULT_PLAYER_SESSION_STATS;
               const klunkTotal = s.totalKlunksGained ?? 0;
-              const uiLevel = brewerLevelForUi(p);
+              const uiLevel = brewerDisplayLevel(p);
               const ratio = brewerKlunkProgressRatio(p.xp);
               return (
                 <tr key={p.id} className={[styles.bodyRow, isWinner ? styles.bodyRowWinner : ""].filter(Boolean).join(" ")}>
@@ -171,8 +167,8 @@ export function EndedScoreboardTable(props: {
                   <td className={styles.statCell} aria-label={sv.play.scoreboardKlunkCellAria(klunkTotal)}>
                     {klunkTotal}
                   </td>
-                  <td className={styles.statCell} aria-label={sv.play.scoreboardPantCellAria(p.gold)}>
-                    {p.gold}
+                  <td className={styles.statCell} aria-label={sv.play.scoreboardPantCellAria(playerPant(p))}>
+                    {playerPant(p)}
                   </td>
                   <td className={styles.statCell}>
                     {p.hp}/{p.maxHp}

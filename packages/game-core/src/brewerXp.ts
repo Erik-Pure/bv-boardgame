@@ -1,5 +1,17 @@
+import type { Player } from "./types.js";
+
 /** Explicita XP-trösklar för bryggnivå (UI visar intern nivå + 1, minimum 1). */
 export const BREWER_LEVEL_XP_THRESHOLDS = [120, 300, 620, 980, 1380] as const;
+
+/** Visad bryggnivå i UI från intern XP-index (intern nivå + 1, minst 1). */
+export function brewerDisplayLevelFromInternal(internalLevel: number): number {
+  return Math.max(1, Math.floor(internalLevel || 0) + 1);
+}
+
+/** Visad bryggnivå i UI (samma som mobil-header, bord och slutresultat). */
+export function brewerDisplayLevel(player: Player): number {
+  return brewerDisplayLevelFromInternal(brewerLevelFromXp(player.xp));
+}
 
 export function xpThresholdForBrewerLevel(level: number): number {
   const lvl = Math.max(0, Math.floor(level));
