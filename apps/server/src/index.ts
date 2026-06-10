@@ -433,6 +433,17 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
+      if (msg.type === "requestStateSnapshot") {
+        const room = getRoom(joined.roomCode);
+        if (!room) {
+          sendError(ws, "Rummet finns inte längre.");
+          return;
+        }
+        prepareRoomStateForClients(room);
+        sendStateSnapshot(joined.conn, room);
+        return;
+      }
+
       if (msg.type === "action") {
         const now = Date.now();
         if (now - actionWindowStartMs >= 1000) {

@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  readBoardPerformancePrefs,
+  subscribeBoardPerformancePrefs,
+} from "../lib/boardPerformancePrefs";
 import styles from "./DiceCube3D.module.css";
 
 const FACE_CLASS = [styles.f1, styles.f2, styles.f3, styles.f4, styles.f5, styles.f6] as const;
@@ -33,6 +37,14 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+function useFlatDice(): boolean {
+  const [flat, setFlat] = useState(() => !readBoardPerformancePrefs().boardAnimationsEnabled);
+  useEffect(() => subscribeBoardPerformancePrefs(() => {
+    setFlat(!readBoardPerformancePrefs().boardAnimationsEnabled);
+  }), []);
+  return flat;
+}
+
 function BlankFaces() {
   return (
     <>
@@ -43,6 +55,33 @@ function BlankFaces() {
   );
 }
 
+function FlatDiceFace({
+  size,
+  face,
+  oneAsSkullIcon,
+}: {
+  size: number;
+  face?: number;
+  oneAsSkullIcon?: boolean;
+}) {
+  const value = face == null ? null : toFaceValue(face);
+  return (
+    <div
+      className={styles.flatDie}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
+      aria-hidden
+    >
+      {value == null ? (
+        <img src="/icons/dice-icon.svg" alt="" width={Math.round(size * 0.72)} height={Math.round(size * 0.72)} draggable={false} />
+      ) : value === 1 && oneAsSkullIcon ? (
+        <img src="/icons/skull-icon.svg" alt="" width={Math.round(size * 0.55)} height={Math.round(size * 0.55)} draggable={false} />
+      ) : (
+        value
+      )}
+    </div>
+  );
+}
+
 export type DiceCube3DProps =
   | { idleSpin: true; spinning?: boolean; size?: number }
   /** `oneAsSkullIcon`: etta som röd dödskalle (monsterstrid). Lämna bort/false vid rörelse m.m. */
@@ -50,6 +89,14 @@ export type DiceCube3DProps =
 
 export function DiceCube3D(props: DiceCube3DProps) {
   const size = props.size ?? 72;
+  const flat = useFlatDice();
+  if (flat) {
+    if ("idleSpin" in props && props.idleSpin) {
+      return <FlatDiceFace size={size} />;
+    }
+    const { value, oneAsSkullIcon } = props;
+    return <FlatDiceFace size={size} face={value ?? undefined} oneAsSkullIcon={!!oneAsSkullIcon} />;
+  }
   if ("idleSpin" in props && props.idleSpin) {
     const spinning = props.spinning !== false;
     return <DiceIdleSpin size={size} spinning={spinning} />;

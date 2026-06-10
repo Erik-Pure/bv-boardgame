@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Saira+Semi+Condensed:wght@300;400;500;600;700;800&display=swap");
+html.bv-lite-performance * {
+  will-change: auto !important;
+}
 
 :root {
   /* Endast mörkt tema — spelet ska se likadant ut oavsett systeminställning. */

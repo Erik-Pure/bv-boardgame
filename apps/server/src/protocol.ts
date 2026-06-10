@@ -45,9 +45,16 @@ export const clientActionSchema = z.object({
 
 export type ClientActionEnvelope = z.infer<typeof clientActionSchema>;
 
+export const clientRequestStateSnapshotSchema = z.object({
+  type: z.literal("requestStateSnapshot"),
+});
+
+export type ClientRequestStateSnapshot = z.infer<typeof clientRequestStateSnapshotSchema>;
+
 export const clientMessageSchema = z.discriminatedUnion("type", [
   clientHelloSchema,
   clientActionSchema,
+  clientRequestStateSnapshotSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;

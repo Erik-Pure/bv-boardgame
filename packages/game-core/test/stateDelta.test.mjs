@@ -42,4 +42,66 @@ describe("mergeGameStateDelta", () => {
     const next = mergeGameStateDelta(prev, { pending: null });
     assert.equal(next.levels.length, 1);
   });
+
+  it("appends partial log entries", () => {
+    const prev = { ...baseState(), log: [{ at: 1, message: "start" }], logSeq: 1 };
+    const next = mergeGameStateDelta(prev, {
+      logPartial: true,
+      log: [{ at: 2, message: "move" }],
+      logSeq: 2,
+    });
+    assert.equal(next.log.length, 2);
+    assert.equal(next.log[1].message, "move");
+  });
+
+  it("rotates log when partial append hits 200-row cap", () => {
+    const prev = {
+      ...baseState(),
+      log: Array.from({ length: 200 }, (_, i) => ({ at: i, message: `line-${i}` })),
+      logSeq: 200,
+    };
+    const next = mergeGameStateDelta(prev, {
+      logPartial: true,
+      logTruncated: true,
+      log: [{ at: 999, message: "newest" }],
+      logSeq: 201,
+    });
+    assert.equal(next.log.length, 200);
+    assert.equal(next.log[0].message, "line-1");
+    assert.equal(next.log[199].message, "newest");
+  });
+
+  it("replaces full log when partial flag is absent", () => {
+    const prev = { ...baseState(), log: [{ at: 1, message: "old" }] };
+    const next = mergeGameStateDelta(prev, {
+      log: [{ at: 2, message: "fresh" }],
+    });
+    assert.equal(next.log.length, 1);
+    assert.equal(next.log[0].message, "fresh");
+  });
+
+  it("appends partial emote bursts and prunes expired", () => {
+    const now = Date.now();
+    const prev = {
+      ...baseState(),
+      playerEmoteBursts: [{ playerId: "a", emoteId: "happy", at: now - 1000 }],
+    };
+    const next = mergeGameStateDelta(prev, {
+      emoteBurstsPartial: true,
+      playerEmoteBursts: [{ playerId: "b", emoteId: "sad", at: now }],
+    });
+    assert.equal(next.playerEmoteBursts?.length, 2);
+    assert.equal(next.playerEmoteBursts?.[1]?.playerId, "b");
+  });
+
+  it("appends partial klunk bursts", () => {
+    const now = Date.now();
+    const prev = { ...baseState(), playerKlunkBursts: [] };
+    const next = mergeGameStateDelta(prev, {
+      klunkBurstsPartial: true,
+      playerKlunkBursts: [{ playerId: "a", at: now, klunkCount: 2 }],
+    });
+    assert.equal(next.playerKlunkBursts?.length, 1);
+    assert.equal(next.playerKlunkBursts?.[0]?.klunkCount, 2);
+  });
 });

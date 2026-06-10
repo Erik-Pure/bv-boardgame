@@ -1,3 +1,13 @@
+.flatDie {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #f8fafc, #cbd5e1);
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: 0 2px 0 #64748b;
+}
+
 .scene {
   --dice-size: 72px;
   --half: calc(var(--dice-size) / 2);

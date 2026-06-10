@@ -4,9 +4,9 @@ import {
   AVATAR_PLAYER_COLORS,
   avatarPartSrc,
   randomAvatarParts,
-  tintAvatarHeadSvg,
   type AvatarParts,
 } from "../lib/randomAvatar";
+import { loadTintedAvatarHeadMarkup } from "../lib/avatarHeadMarkupCache";
 import styles from "./RandomAvatarPreview.module.css";
 
 type RandomAvatarPreviewProps = {
@@ -28,18 +28,9 @@ export function RandomAvatarPreview({ initialColorIndex = 0 }: RandomAvatarPrevi
 
   useEffect(() => {
     let cancelled = false;
-    const src = avatarPartSrc("head", parts.head);
-    void fetch(src)
-      .then((res) => {
-        if (!res.ok) throw new Error(`head ${parts.head}`);
-        return res.text();
-      })
-      .then((raw) => {
-        if (!cancelled) setHeadMarkup(tintAvatarHeadSvg(raw, playerColor));
-      })
-      .catch(() => {
-        if (!cancelled) setHeadMarkup(null);
-      });
+    void loadTintedAvatarHeadMarkup(parts.head, playerColor).then((markup) => {
+      if (!cancelled) setHeadMarkup(markup);
+    });
     return () => {
       cancelled = true;
     };

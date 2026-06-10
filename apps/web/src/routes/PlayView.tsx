@@ -12,9 +12,11 @@ import {
 } from "@bv/game-core";
 import { type ItemInventoryBadgeOpts } from "../lib/inventoryEffectBadges";
 import { usePlaySfxSync } from "../hooks/usePlaySfxSync";
+import { useScreenWakeLock } from "../hooks/useScreenWakeLock";
 import {
   readBoardPerformancePrefs,
   subscribeBoardPerformancePrefs,
+  syncLitePerformanceDocumentClass,
 } from "../lib/boardPerformancePrefs";
 import { subscribeTurnVibration } from "../lib/turnVibration";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
@@ -36,6 +38,7 @@ import {
   PlayLevelUpOfferPrompt,
 } from "../components/play/PlayPersonalTurnPrompts";
 import { usePlayBottomSheetContent } from "../components/play/usePlayBottomSheetContent";
+import { PlayActionBusyProvider } from "../components/play/playActionBusy";
 import { usePlayGameSession } from "../components/play/usePlayGameSession";
 import { usePlayPendingTransitions } from "../components/play/usePlayPendingTransitions";
 import { PlayEndedOverlay } from "../components/play/PlayEndedOverlay";
@@ -161,8 +164,15 @@ export function PlayView() {
     requestReconnect,
     showReconnectOverlay,
     send,
+    actionBusy,
     leaveCurrentGame,
   } = usePlayGameSession({ room, name, showToast, navigate });
+
+  const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
+  useScreenWakeLock(
+    boardPerf.preventSleepEnabled &&
+      (state?.phase === "playing" || state?.phase === "lobby"),
+  );
 
   const {
     showResponsibleReminder,
@@ -178,7 +188,14 @@ export function PlayView() {
 
   const { xpGainPromptText, xpGainPromptKey, showXpGainPrompt } = usePlayXpGainPrompt();
 
-  useEffect(() => subscribeBoardPerformancePrefs(() => setMobileSfxEnabled(readBoardPerformancePrefs().mobileSfxEnabled)), []);
+  useEffect(() => {
+    syncLitePerformanceDocumentClass();
+    return subscribeBoardPerformancePrefs(() => {
+      setMobileSfxEnabled(readBoardPerformancePrefs().mobileSfxEnabled);
+      setBoardPerf(readBoardPerformancePrefs());
+      syncLitePerformanceDocumentClass();
+    });
+  }, []);
 
   usePlaySfxSync({ state, meId: me?.id ?? null });
   const lobbyCardCoverId = state?.config.cardCover;
@@ -505,6 +522,7 @@ export function PlayView() {
   const tutorialStep = MOBILE_TUTORIAL_STEPS[Math.max(0, Math.min(mobileTutorialStep, MOBILE_TUTORIAL_STEPS.length - 1))];
 
   return (
+    <PlayActionBusyProvider busy={actionBusy}>
     <div
       className={styles.page}
       style={{
@@ -807,6 +825,7 @@ export function PlayView() {
         </div>
       ) : null}
     </div>
+    </PlayActionBusyProvider>
   );
 }
 

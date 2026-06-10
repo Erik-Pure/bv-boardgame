@@ -35,7 +35,38 @@ export interface Room {
   levelsSignature: string;
   /** Senast broadcastade spelare (JSON per id) — för partiella player-deltas. */
   lastBroadcastPlayerJsonById: Map<string, string>;
+  /** Senast broadcastade logg-längd och sekvens — för partiella log-deltas. */
+  lastBroadcastLogLength: number;
+  lastBroadcastLogSeq: number;
+  /** Senast broadcastade JSON per state-fält (utom players/log/bursts). */
+  lastBroadcastFieldJson: Map<string, string>;
+  lastBroadcastEmoteBurstLength: number;
+  lastBroadcastKlunkBurstLength: number;
 }
+
+const BROADCAST_DELTA_FIELD_KEYS = [
+  "phase",
+  "config",
+  "turnOrder",
+  "currentTurnIndex",
+  "pending",
+  "deferredPending",
+  "offTurnPersonalPending",
+  "logSeq",
+  "winnerId",
+  "winnerName",
+  "goldenBeerCarrierId",
+  "finalBossMonsterId",
+  "finalBossLivesRemaining",
+  "bossFinaleExitStartedAt",
+  "combatEquipReplaceQueue",
+  "stolenEquipmentEscrow",
+  "treasureTaken",
+  "lastDiceRoll",
+  "lastDiceRollerId",
+  "sipNotices",
+  "tableItemPlayReveals",
+] as const satisfies readonly (keyof GameState)[];
 
 export interface PersistedRoom {
   code: string;
@@ -99,6 +130,115 @@ function syncBroadcastPlayerCache(room: Room, players: Player[]): void {
   }
 }
 
+function syncBroadcastLogCache(room: Room): void {
+  room.lastBroadcastLogLength = room.state.log.length;
+  room.lastBroadcastLogSeq = room.state.logSeq ?? room.state.log.length;
+}
+
+function stateFieldJson(state: GameState, key: (typeof BROADCAST_DELTA_FIELD_KEYS)[number]): string {
+  const value = state[key];
+  return JSON.stringify(value ?? null);
+}
+
+function syncBroadcastFieldCache(room: Room): void {
+  for (const key of BROADCAST_DELTA_FIELD_KEYS) {
+    room.lastBroadcastFieldJson.set(key, stateFieldJson(room.state, key));
+  }
+}
+
+function appendChangedStateFields(room: Room, patch: GameStateDeltaPatch): void {
+  for (const key of BROADCAST_DELTA_FIELD_KEYS) {
+    const json = stateFieldJson(room.state, key);
+    if (room.lastBroadcastFieldJson.get(key) === json) continue;
+    (patch as Record<string, unknown>)[key] = room.state[key];
+  }
+}
+
+function appendBurstArrayDelta(
+  room: Room,
+  field: "playerEmoteBursts" | "playerKlunkBursts",
+  lengthKey: "lastBroadcastEmoteBurstLength" | "lastBroadcastKlunkBurstLength",
+  partialKey: "emoteBurstsPartial" | "klunkBurstsPartial",
+  patch: GameStateDeltaPatch,
+): void {
+  const arr = room.state[field] ?? [];
+  const prevLen = room[lengthKey];
+  if (arr.length < prevLen) {
+    patch[field] = arr;
+    return;
+  }
+  if (arr.length > prevLen) {
+    patch[field] = arr.slice(prevLen);
+    patch[partialKey] = true;
+    return;
+  }
+  if (prevLen > 0 && arr.length === prevLen) {
+    const last = arr[arr.length - 1];
+    const cachedLastAt = room.lastBroadcastFieldJson.get(`${field}:lastAt`);
+    if (last && String(last.at) !== cachedLastAt) {
+      patch[field] = arr;
+    }
+  }
+}
+
+function appendBurstDeltas(room: Room, patch: GameStateDeltaPatch): void {
+  appendBurstArrayDelta(
+    room,
+    "playerEmoteBursts",
+    "lastBroadcastEmoteBurstLength",
+    "emoteBurstsPartial",
+    patch,
+  );
+  appendBurstArrayDelta(
+    room,
+    "playerKlunkBursts",
+    "lastBroadcastKlunkBurstLength",
+    "klunkBurstsPartial",
+    patch,
+  );
+}
+
+function syncBroadcastBurstCache(room: Room): void {
+  const emotes = room.state.playerEmoteBursts ?? [];
+  const klunks = room.state.playerKlunkBursts ?? [];
+  room.lastBroadcastEmoteBurstLength = emotes.length;
+  room.lastBroadcastKlunkBurstLength = klunks.length;
+  const emoteLast = emotes[emotes.length - 1];
+  const klunkLast = klunks[klunks.length - 1];
+  room.lastBroadcastFieldJson.set("playerEmoteBursts:lastAt", emoteLast ? String(emoteLast.at) : "");
+  room.lastBroadcastFieldJson.set("playerKlunkBursts:lastAt", klunkLast ? String(klunkLast.at) : "");
+}
+
+function appendLogDelta(room: Room, patch: GameStateDeltaPatch): void {
+  const logSeq = room.state.logSeq ?? room.state.log.length;
+  const prevLen = room.lastBroadcastLogLength;
+  const prevSeq = room.lastBroadcastLogSeq;
+  if (logSeq <= prevSeq) return;
+
+  const log = room.state.log;
+  const atCap = log.length >= 200;
+
+  if (log.length < prevLen) {
+    patch.log = log;
+    return;
+  }
+
+  if (log.length === prevLen && atCap) {
+    const newest = log[log.length - 1];
+    if (newest) {
+      patch.log = [newest];
+      patch.logPartial = true;
+      patch.logTruncated = true;
+    }
+    return;
+  }
+
+  if (log.length > prevLen) {
+    patch.log = log.slice(prevLen);
+    patch.logPartial = true;
+  }
+}
+
 function collectChangedPlayers(room: Room): { changed: Player[]; rosterChanged: boolean } {
   const currentIds = new Set(room.state.players.map((p) => p.id));
   const cachedIds = [...room.lastBroadcastPlayerJsonById.keys()];
@@ -130,6 +270,11 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
     stateSeq: 0,
     levelsSignature: computeLevelsSignature(state),
     lastBroadcastPlayerJsonById: new Map(),
+    lastBroadcastLogLength: 0,
+    lastBroadcastLogSeq: 0,
+    lastBroadcastFieldJson: new Map(),
+    lastBroadcastEmoteBurstLength: 0,
+    lastBroadcastKlunkBurstLength: 0,
   };
   rooms.set(roomCode, room);
   return { room, created: true };
@@ -191,6 +336,11 @@ export function restorePersistedRooms(entries: PersistedRoom[]): number {
       stateSeq: Number.isFinite(entry.stateSeq) ? Math.max(0, Math.floor(entry.stateSeq)) : 0,
       levelsSignature: computeLevelsSignature(state),
       lastBroadcastPlayerJsonById: new Map(),
+      lastBroadcastLogLength: 0,
+      lastBroadcastLogSeq: 0,
+      lastBroadcastFieldJson: new Map(),
+      lastBroadcastEmoteBurstLength: 0,
+      lastBroadcastKlunkBurstLength: 0,
     };
     rooms.set(code, room);
     restored += 1;
@@ -225,6 +375,9 @@ function sendPayload(conn: ClientConn, payload: string): void {
 
 export function sendStateSnapshot(conn: ClientConn, room: Room): void {
   syncBroadcastPlayerCache(room, room.state.players);
+  syncBroadcastLogCache(room);
+  syncBroadcastFieldCache(room);
+  syncBroadcastBurstCache(room);
   const payload = JSON.stringify({ type: "state", state: room.state, seq: room.stateSeq });
   stats.broadcastsSent += 1;
   stats.bytesSent += payload.length;
@@ -267,32 +420,9 @@ function buildStateDelta(room: Room): { seq: number; patch: GameStateDeltaPatch 
 
   const { changed: changedPlayers, rosterChanged } = collectChangedPlayers(room);
   const patch: GameStateDeltaPatch = {
-    phase: room.state.phase,
-    config: room.state.config,
-    turnOrder: room.state.turnOrder,
-    currentTurnIndex: room.state.currentTurnIndex,
-    pending: room.state.pending,
-    deferredPending: room.state.deferredPending ?? null,
-    offTurnPersonalPending: room.state.offTurnPersonalPending ?? null,
-    log: room.state.log,
-    logSeq: room.state.logSeq,
-    winnerId: room.state.winnerId,
-    winnerName: room.state.winnerName,
-    goldenBeerCarrierId: room.state.goldenBeerCarrierId,
-    finalBossMonsterId: room.state.finalBossMonsterId,
-    finalBossLivesRemaining: room.state.finalBossLivesRemaining,
-    bossFinaleExitStartedAt: room.state.bossFinaleExitStartedAt,
-    combatEquipReplaceQueue: room.state.combatEquipReplaceQueue,
-    stolenEquipmentEscrow: room.state.stolenEquipmentEscrow,
-    treasureTaken: room.state.treasureTaken,
-    lastDiceRoll: room.state.lastDiceRoll,
-    lastDiceRollerId: room.state.lastDiceRollerId,
-    sipNotices: room.state.sipNotices,
-    tableItemPlayReveals: room.state.tableItemPlayReveals,
-    playerEmoteBursts: room.state.playerEmoteBursts,
-    playerKlunkBursts: room.state.playerKlunkBursts,
     ...(includeLevels ? { levels: room.state.levels } : {}),
   };
+  appendChangedStateFields(room, patch);
 
   if (changedPlayers.length > 0) {
     if (!rosterChanged && changedPlayers.length < room.state.players.length) {
@@ -307,6 +437,9 @@ function buildStateDelta(room: Room): { seq: number; patch: GameStateDeltaPatch 
     }
   }
 
+  appendLogDelta(room, patch);
+  appendBurstDeltas(room, patch);
+
   return { seq: room.stateSeq, patch };
 }
 
@@ -316,6 +449,9 @@ export function broadcastState(room: Room): void {
   stats.broadcastsSent += 1;
   stats.bytesSent += payload.length;
   for (const c of room.conns) sendPayload(c, payload);
+  syncBroadcastLogCache(room);
+  syncBroadcastFieldCache(room);
+  syncBroadcastBurstCache(room);
   room.lastActivityAt = Date.now();
 }
 

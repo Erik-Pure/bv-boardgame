@@ -19,12 +19,19 @@ import { FinalBossCombatBackdrop } from "../components/FinalBossCombatBackdrop";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
 import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
-import { isGameState, mergeGameStateDelta } from "../lib/gameTypes";
+import {
+  applyFullGameState,
+  applyGameStateDelta,
+  createStateSeqTracker,
+  resetStateSeqTracker,
+} from "../lib/gameStateWsSync";
+import { isGameState } from "../lib/gameTypes";
 import { type ServerMessage } from "../lib/ws";
 import { useWsGameClient } from "../lib/useWsGameClient";
 import {
   readBoardPerformancePrefs,
   subscribeBoardPerformancePrefs,
+  syncLitePerformanceDocumentClass,
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
   writeBoardPreventSleepEnabled,
@@ -87,6 +94,7 @@ import { bossFinaleExitCssVars } from "../lib/bossFinaleTiming";
 import { useBossFinaleExit } from "../lib/useBossFinaleExit";
 import { PLAYER_MARKER_TOKEN_W } from "../lib/playerMarkerSvg";
 import { PlayerAvatarStack } from "../components/PlayerAvatarStack";
+import { TableBoardPlayerToken } from "../components/table/TableBoardPlayerToken";
 import u from "../styles/uiPrimitives.module.css";
 import tableStyles from "./TableView.module.css";
 import { readLobbyConfigDraft } from "../lib/lobbyConfigDraft";
@@ -499,6 +507,30 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
   const eventSipToastKeyRef = useRef<string | null>(null);
   const prevBrewerLevelsRef = useRef<Map<string, number> | null>(null);
 
+  const logSeq = state?.logSeq ?? state?.log?.length ?? 0;
+  const log = state?.log;
+  const sipNotices = state?.sipNotices;
+  const phase = state?.phase;
+  const players = state?.players;
+  const pending = state?.pending;
+
+  const brewerLevelsKey = useMemo(() => {
+    if (!players || phase !== "playing") return "";
+    return players.map((p) => `${p.id}:${brewerDisplayLevel(p)}`).join("|");
+  }, [players, phase]);
+
+  const eventToastKey = useMemo(() => {
+    const p = pending;
+    if (p?.type !== "card" || p.kind !== "event") return null;
+    return `${p.playerId}|${p.cardId}|${p.text}`;
+  }, [pending]);
+
+  const combatWinToastKey = useMemo(() => {
+    const p = pending;
+    if (p?.type !== "card" || p.cardId !== "combat_win" || !p.combatWin) return null;
+    return `${p.playerId}:${p.cardId}:${p.combatWin.enemyName}:${p.combatWin.rollTotal}:${p.combatWin.rewardGold}:${p.combatWin.rewardItems}`;
+  }, [pending]);
+
   useEffect(() => {
     if (!state) {
       toastInitRef.current = false;
@@ -545,11 +577,10 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
     toastLogSeqRef.current = seq;
-  }, [state]);
+  }, [state, logSeq, log]);
 
   useEffect(() => {
-    if (!state) return;
-    const sipNotices = state.sipNotices ?? [];
+    if (!sipNotices) return;
     const currentKeys = new Set<string>();
     const occurrence = new Map<string, number>();
     const incoming: TableToast[] = [];
@@ -578,22 +609,22 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (incoming.length > 0) {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
-  }, [state, playersById]);
+  }, [sipNotices, playersById]);
 
   useEffect(() => {
-    if (!state || state.phase !== "playing") {
+    if (phase !== "playing" || !players) {
       prevBrewerLevelsRef.current = null;
       return;
     }
     const currLevels = new Map<string, number>();
-    for (const p of state.players) {
+    for (const p of players) {
       currLevels.set(p.id, brewerDisplayLevel(p));
     }
     const prev = prevBrewerLevelsRef.current;
     prevBrewerLevelsRef.current = currLevels;
     if (!prev) return;
     const now = Date.now();
-    const leveled = state.players
+    const leveled = players
       .map((p) => ({
         player: p,
         prev: prev.get(p.id) ?? brewerDisplayLevel(p),
@@ -610,20 +641,19 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       expiresAt: now + TABLE_TOAST_TTL_MS,
     }));
     setTableToasts((prevToasts) => [...prevToasts, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
-  }, [state]);
+  }, [brewerLevelsKey, players, playersById, phase]);
 
   useEffect(() => {
-    if (!state) return;
-    const p = state.pending;
-    if (p?.type !== "card" || p.kind !== "event") return;
+    if (!eventToastKey || !pending) return;
+    const p = pending;
+    if (p.type !== "card" || p.kind !== "event") return;
     const outcomes = eventCardOutcomeToasts(p, playersById);
     if (outcomes.length === 0) return;
-    const key = `${p.playerId}|${p.cardId}|${p.text}`;
-    if (eventSipToastKeyRef.current === key) return;
-    eventSipToastKeyRef.current = key;
+    if (eventSipToastKeyRef.current === eventToastKey) return;
+    eventSipToastKeyRef.current = eventToastKey;
     const now = Date.now();
     const incoming: TableToast[] = outcomes.map((outcome, idx) => ({
-      id: `eventsip:${key}:${idx}`,
+      id: `eventsip:${eventToastKey}:${idx}`,
       text: outcome.text,
       category: outcome.category,
       iconKinds: outcome.iconKinds,
@@ -631,15 +661,14 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       expiresAt: now + TABLE_TOAST_TTL_MS,
     }));
     setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
-  }, [state, playersById]);
+  }, [eventToastKey, pending, playersById]);
 
   useEffect(() => {
-    if (!state) return;
-    const p = state.pending;
-    if (p?.type !== "card" || p.cardId !== "combat_win" || !p.combatWin) return;
-    const key = `${p.playerId}:${p.cardId}:${p.combatWin.enemyName}:${p.combatWin.rollTotal}:${p.combatWin.rewardGold}:${p.combatWin.rewardItems}`;
-    if (rewardToastKeyRef.current === key) return;
-    rewardToastKeyRef.current = key;
+    if (!combatWinToastKey || !pending) return;
+    const p = pending;
+    if (p.type !== "card" || p.cardId !== "combat_win" || !p.combatWin) return;
+    if (rewardToastKeyRef.current === combatWinToastKey) return;
+    rewardToastKeyRef.current = combatWinToastKey;
     const now = Date.now();
     const rewardRecipients = p.combatWin.teammateName
       ? `${p.combatWin.winnerName} och ${p.combatWin.teammateName}`
@@ -647,7 +676,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     const incoming: TableToast[] = [];
     if ((p.combatWin.rewardGold ?? 0) > 0) {
       incoming.push({
-        id: `${key}:reward-gold`,
+        id: `${combatWinToastKey}:reward-gold`,
         text: `Belöning till ${rewardRecipients}: +${p.combatWin.rewardGold} pant`,
         category: "reward",
         iconKinds: ["pant"],
@@ -657,7 +686,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     }
     if ((p.combatWin.rewardItems ?? 0) > 0) {
       incoming.push({
-        id: `${key}:reward-items`,
+        id: `${combatWinToastKey}:reward-items`,
         text: `Belöning till ${rewardRecipients}: ${p.combatWin.rewardItems} ${p.combatWin.rewardItems === 1 ? "skatt" : "skatter"}`,
         category: "reward",
         iconKinds: ["attack"],
@@ -670,7 +699,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (helpMateId && helpMateTitles.length > 0) {
       const helpMateName = playersById.get(helpMateId)?.name ?? "Hjälparen";
       incoming.push({
-        id: `${key}:help-mate-loot`,
+        id: `${combatWinToastKey}:help-mate-loot`,
         text: `Belöning till ${helpMateName}: ${helpMateTitles.join(", ")}`,
         category: "reward",
         iconKinds: ["attack"],
@@ -681,7 +710,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (incoming.length > 0) {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
-  }, [state]);
+  }, [combatWinToastKey, pending, playersById]);
 
   useEffect(() => {
     if (tableToasts.length === 0) return;
@@ -724,6 +753,8 @@ function TableViewBody() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
+  const stateSeqTrackerRef = useRef(createStateSeqTracker());
+  const requestSnapshotRef = useRef<() => void>(() => undefined);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
   /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
   const [showSidebarLog, setShowSidebarLog] = useState(false);
@@ -818,15 +849,36 @@ function TableViewBody() {
       onMessage: (m: ServerMessage) => {
         if (m.type === "error") setErr(m.message);
         if (m.type === "state" && isGameState(m.state)) {
-          setState(m.state);
+          const next = applyFullGameState(stateSeqTrackerRef.current, m.state, m.seq) ?? m.state;
+          setState(next);
           setErr(null);
         }
         if (m.type === "stateDelta") {
-          setState((prev) => mergeGameStateDelta(prev, m.patch));
+          setState((prev) =>
+            applyGameStateDelta(stateSeqTrackerRef.current, prev, m.seq, m.patch, () =>
+              requestSnapshotRef.current(),
+            ) ?? prev,
+          );
           setErr(null);
         }
       },
     });
+
+  requestSnapshotRef.current = () => {
+    clientRef.current?.send({ type: "requestStateSnapshot" });
+  };
+
+  useEffect(() => {
+    if (status === "connecting") resetStateSeqTracker(stateSeqTrackerRef.current);
+  }, [status]);
+
+  useEffect(() => {
+    syncLitePerformanceDocumentClass();
+    return subscribeBoardPerformancePrefs(() => {
+      setBoardPerf(readBoardPerformancePrefs());
+      syncLitePerformanceDocumentClass();
+    });
+  }, []);
 
   const kickPlayerFromTable = useCallback((playerId: string, displayName: string) => {
     if (!window.confirm(sv.table.tableKickConfirm(displayName))) return;
@@ -845,8 +897,6 @@ function TableViewBody() {
     if (state.levels?.length) return;
     requestReconnect();
   }, [status, state?.phase, state?.levels?.length, requestReconnect]);
-
-  useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
 
   useEffect(() => {
     if (!tableSettingsOpen) return;
@@ -1545,62 +1595,32 @@ function TableViewBody() {
                                 }
                               }
                               return (
-                                <g
+                                <TableBoardPlayerToken
                                   key={p.id}
-                                  filter="url(#playerTokenShadow)"
-                                >
-                                  <foreignObject
-                                    x={curTx}
-                                    y={curTy}
-                                    width={tw}
-                                    height={th}
-                                    overflow="visible"
-                                  >
-                                    <div
-                                      {...({
-                                        xmlns: "http://www.w3.org/1999/xhtml",
-                                      } as Record<string, string>)}
-                                      style={{
-                                        width: tw,
-                                        height: th,
-                                        pointerEvents: "none",
-                                        transform: isActiveBoardPlayer ? "scale(1.5)" : undefined,
-                                        transformOrigin: "50% 50%",
-                                      }}
-                                    >
-                                      <PlayerAvatarStack
-                                        avatar={p.avatar}
-                                        color={p.color}
-                                        size="board"
-                                        animate={
-                                          boardPerf.boardAnimationsEnabled && isActiveBoardPlayer
-                                        }
-                                      />
-                                    </div>
-                                  </foreignObject>
-                                  {showBoardMoveArrows && boardMoveChoiceArrows ? (
-                                    <g transform={`translate(${curTx}, ${curTy})`} pointerEvents="none">
-                                      <image
-                                        className="bv-move-choice-board-arrow"
-                                        href={`/icons/arrow-${boardMoveChoiceArrows.arrowLeft}.svg`}
-                                        x={moveArrowLeftPos.x}
-                                        y={moveArrowLeftPos.y}
-                                        width={moveArrowS}
-                                        height={moveArrowS}
-                                        aria-hidden={true}
-                                      />
-                                      <image
-                                        className="bv-move-choice-board-arrow"
-                                        href={`/icons/arrow-${boardMoveChoiceArrows.arrowRight}.svg`}
-                                        x={moveArrowRightPos.x}
-                                        y={moveArrowRightPos.y}
-                                        width={moveArrowS}
-                                        height={moveArrowS}
-                                        aria-hidden={true}
-                                      />
-                                    </g>
-                                  ) : null}
-                                </g>
+                                  playerId={p.id}
+                                  avatar={p.avatar}
+                                  color={p.color}
+                                  curTx={curTx}
+                                  curTy={curTy}
+                                  tw={tw}
+                                  th={th}
+                                  isActiveBoardPlayer={isActiveBoardPlayer}
+                                  boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
+                                  showBoardMoveArrows={!!showBoardMoveArrows}
+                                  moveArrowLeft={
+                                    showBoardMoveArrows && boardMoveChoiceArrows
+                                      ? boardMoveChoiceArrows.arrowLeft
+                                      : null
+                                  }
+                                  moveArrowRight={
+                                    showBoardMoveArrows && boardMoveChoiceArrows
+                                      ? boardMoveChoiceArrows.arrowRight
+                                      : null
+                                  }
+                                  moveArrowLeftPos={moveArrowLeftPos}
+                                  moveArrowRightPos={moveArrowRightPos}
+                                  moveArrowS={moveArrowS}
+                                />
                               );
                             })}
                           </g>
@@ -1626,18 +1646,20 @@ function TableViewBody() {
             <>
           {state?.phase === "lobby" ? (
             <div role="dialog" aria-label={sv.table.lobby} className={tableStyles.modalBackdropLobby}>
+              {boardPerf.boardAnimationsEnabled ? (
               <video
                 className={tableStyles.lobbyBgVideo}
                 autoPlay
                 loop
                 muted
                 playsInline
-                preload="auto"
+                preload="metadata"
                 aria-hidden
               >
                 <source src="/video/beer_bg.webm" type="video/webm" />
                 <source src="/video/beer_bg_1280.mp4" type="video/mp4" />
               </video>
+              ) : null}
               <div className={tableStyles.lobbyBgScrim} aria-hidden />
               <div className={tableStyles.modalCardLobby}>
                 <picture>

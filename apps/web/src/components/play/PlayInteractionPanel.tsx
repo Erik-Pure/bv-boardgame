@@ -42,7 +42,7 @@ import {
 import { isRingTopEdgeTile, moveChoiceDirectionHints } from "../../lib/moveChoiceDirectionHints";
 import { moveChoiceTileVisual } from "../../lib/moveChoiceTileVisual";
 import { equipmentImageSources } from "../../lib/equipmentImageSrc";
-import { ArcadeButton } from "../ArcadeButton";
+import { PlayArcadeButton as ArcadeButton } from "./PlayArcadeButton";
 import { DiceCube3D } from "../DiceCube3D";
 import { EffectBadgePillStrip } from "../EffectBadgePillStrip";
 import { PictureImg } from "../PictureImg";

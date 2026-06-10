@@ -1,4 +1,8 @@
 import { useSyncExternalStore } from "react";
+import {
+  isLitePerformanceActive,
+  subscribeBoardPerformancePrefs,
+} from "../lib/boardPerformancePrefs";
 import styles from "./beerBackdrop.module.css";
 
 /** Samma brytpunkt som övrig mobil-`/play`-layout. */
@@ -18,20 +22,30 @@ function useNarrowViewport() {
   return useSyncExternalStore(subscribeNarrowViewport, getNarrowViewportSnapshot, () => false);
 }
 
+function useLitePerformance() {
+  return useSyncExternalStore(
+    subscribeBoardPerformancePrefs,
+    isLitePerformanceActive,
+    () => false,
+  );
+}
+
 /** Loopande öl-bakgrund bakom slutresultat (bord + mobil). Ingen video på smala skärmar. */
 export function BeerBackdropLayers() {
   const narrow = useNarrowViewport();
+  const lite = useLitePerformance();
+  const showVideo = !narrow && !lite;
 
   return (
     <>
-      {!narrow ? (
+      {showVideo ? (
         <video
           className={styles.video}
           autoPlay
           loop
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           aria-hidden
         >
           <source src="/video/beer_bg.webm" type="video/webm" />

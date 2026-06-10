@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { PlayerAvatar } from "@bv/game-core";
-import { avatarPartSrc, tintAvatarHeadSvg } from "../lib/randomAvatar";
+import { loadTintedAvatarHeadMarkup } from "../lib/avatarHeadMarkupCache";
+import { avatarPartSrc } from "../lib/randomAvatar";
 import styles from "./PlayerAvatarStack.module.css";
 
 export type PlayerAvatarStackSize = "lobby" | "bvb" | "board" | "scoreboard";
@@ -20,7 +21,22 @@ const sizeClass: Record<PlayerAvatarStackSize, string> = {
   scoreboard: styles.sizeScoreboard,
 };
 
-export function PlayerAvatarStack({
+function playerAvatarStackPropsEqual(
+  prev: PlayerAvatarStackProps,
+  next: PlayerAvatarStackProps,
+): boolean {
+  return (
+    prev.color === next.color &&
+    prev.size === next.size &&
+    prev.animate === next.animate &&
+    prev.className === next.className &&
+    prev.avatar.head === next.avatar.head &&
+    prev.avatar.eyes === next.avatar.eyes &&
+    prev.avatar.mouth === next.avatar.mouth
+  );
+}
+
+function PlayerAvatarStackInner({
   avatar,
   color,
   size = "lobby",
@@ -31,18 +47,9 @@ export function PlayerAvatarStack({
 
   useEffect(() => {
     let cancelled = false;
-    const src = avatarPartSrc("head", avatar.head);
-    void fetch(src)
-      .then((res) => {
-        if (!res.ok) throw new Error(`head ${avatar.head}`);
-        return res.text();
-      })
-      .then((raw) => {
-        if (!cancelled) setHeadMarkup(tintAvatarHeadSvg(raw, color));
-      })
-      .catch(() => {
-        if (!cancelled) setHeadMarkup(null);
-      });
+    void loadTintedAvatarHeadMarkup(avatar.head, color).then((markup) => {
+      if (!cancelled) setHeadMarkup(markup);
+    });
     return () => {
       cancelled = true;
     };
@@ -75,3 +82,5 @@ export function PlayerAvatarStack({
     </div>
   );
 }
+
+export const PlayerAvatarStack = memo(PlayerAvatarStackInner, playerAvatarStackPropsEqual);

@@ -1,7 +1,7 @@
 import type { MutableRefObject } from "react";
 import { PENALTY_XP_PER_KLUNK, type ClientAction, type GameState, type Player } from "@bv/game-core";
 import { bossFinaleExitTotalMs } from "../../lib/useBossFinaleExit";
-import { ArcadeButton } from "../ArcadeButton";
+import { PlayArcadeButton as ArcadeButton } from "./PlayArcadeButton";
 import { DiceCube3D } from "../DiceCube3D";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";

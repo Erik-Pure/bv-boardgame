@@ -1,3 +1,5 @@
+import { isLitePerformanceActive } from "./boardPerformancePrefs";
+
 /**
  * Spel-SFX på mobil (/play). Triggas från useGameSfxSync via usePlaySfxSync.
  * Klunk spelas vid Skål i sip-modalen.
@@ -113,7 +115,7 @@ function getOrCreateAudio(src: string): HTMLAudioElement {
   let audio = audioBySrc.get(src);
   if (!audio) {
     audio = new Audio(src);
-    audio.preload = "auto";
+    audio.preload = isLitePerformanceActive() ? "none" : "auto";
     audioBySrc.set(src, audio);
   }
   return audio;
@@ -121,7 +123,7 @@ function getOrCreateAudio(src: string): HTMLAudioElement {
 
 /** Ladda/dekoda alla SFX (anropas vid första användartryck). */
 export function primeTableSfx(): void {
-  if (typeof window === "undefined" || sfxPrimed) return;
+  if (typeof window === "undefined" || sfxPrimed || isLitePerformanceActive()) return;
   sfxPrimed = true;
   for (const src of allSfxSrcPaths()) {
     const audio = getOrCreateAudio(src);
