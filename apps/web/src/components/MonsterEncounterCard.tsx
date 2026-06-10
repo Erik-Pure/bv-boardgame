@@ -120,6 +120,8 @@ export type MonsterEncounterCardProps = {
   framed?: boolean;
   /** När true: sträck till tillgänglig höjd (t.ex. CardFlipModalShell) och håll ölreferens längst ner. */
   fillAvailableHeight?: boolean;
+  /** Bräd-tv: 1-baserad våning efter namnet, t.ex. Kapten Interrobang (3). */
+  boardLevel?: number;
 };
 
 export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
@@ -258,18 +260,14 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
               minWidth: 0,
             }}
           >
-            <div
-              style={{
-                fontFamily: '"Permanent Marker", var(--heading), sans-serif',
-                fontWeight: 900,
-                fontSize: "clamp(17px, 5.8cqw, 21px)",
-                lineHeight: 1.1,
-                letterSpacing: 0.02,
-                wordBreak: "break-word",
-              }}
-            >
-              {props.title}
-            </div>
+            <span className={styles.monsterTitleRow}>
+              <span className={styles.monsterTitleName}>{props.title}</span>
+              {props.boardLevel != null && Number.isFinite(props.boardLevel) ? (
+                <span className={styles.boardLevelSuffix} aria-label={` våning ${props.boardLevel}`}>
+                  ({props.boardLevel})
+                </span>
+              ) : null}
+            </span>
             {showBossHearts ? (
               <span
                 aria-label={`Bossliv: ${heartsFilled} av ${heartsTotal}`}

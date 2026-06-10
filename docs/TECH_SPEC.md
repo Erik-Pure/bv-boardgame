@@ -4,8 +4,8 @@ Komplement till [DESIGN_SPEC.md](./DESIGN_SPEC.md). Målet är **låg kostnad**,
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.6 |
-| Senast uppdaterad | 2026-04-03 |
+| Version | 0.7 |
+| Senast uppdaterad | 2026-06-10 |
 
 ---
 
@@ -202,6 +202,13 @@ Dokumentation av beteenden som redan finns i `packages/game-core` / klienten (f�
 | **Aktiv tur — regnbåge** | Se §3.3. **Endast** `PlayView`; `TableView` använder fortfarande färgad tur-rad under header för vems tur det är. |
 | **Lobby — mobil UI** | Se §3.3: dölj inventory-stats tills `phase === "playing"`. |
 | **Monsterkort — footer-stats** | Se §3.3: delad parsning + footer med `StatIcon` + värde; items-vinst kan använda textsymbol (t.ex. ◆) där `StatIcon` saknar typ. |
+| **Monster våningsskalning** | `monsterNeedBonusForBoardLevel(levelIndex)` i `monsters.ts`: `levelIndex × MONSTER_NEED_BONUS_PER_LEVEL` (nu **2**) på `need` och HP-skada vid förlust (standardmonster). |
+| **Monsterkort — våning i titel** | `MonsterEncounterCard` prop `boardLevel` (1-baserad våning); `monsterBoardFloorLevel()` i `combatUi.ts`. Ej slutboss. |
+| **Affär — slumpa om** | Action **`merchantReroll`**: drar **5 pant** (`MERCHANT_REROLL_GOLD_COST`), ersätter hela `pending.items` via `rollMerchantItems`. |
+| **Förråd — strids-badge** | `itemInventoryEffectBadge` använder `combatItemAttackModForBoardLevel` när `playerLevelIndex` finns (mobil). |
+| **Lokal dev** | `npm run dev` väntar på `http://127.0.0.1:3001/health` (`scripts/wait-for-server.mjs`) innan Vite startar — undviker WS-proxy-fel vid uppstart. |
+
+**Deploy:** ändringar i **`packages/game-core`** (nya actions, balans) kräver **ombyggnad och omstart av spelservern** (`apps/server`). Frontend på Vercel räcker för enbart UI-ändringar; denna release innehåller **båda**.
 
 ---
 
@@ -228,6 +235,8 @@ Parametrar som bör hållas samlade och lätta att tweaka utan refaktor:
   - farliga monster (ex. `0.25`)
 - **Definition av “farligt monster”** (ex. styrka `>= 7`).
 - **Rörelse från item** (`nextMoveDoubleDice` för Skägget rakt bak; fältet `nextMoveBonus` finns kvar för kompatibilitet).
+- **Monster våningsbonus per plan:** `MONSTER_NEED_BONUS_PER_LEVEL` (nu **2**) i `monsters.ts`.
+- **Affärs-omslag:** `MERCHANT_REROLL_GOLD_COST` (**5**) i `engine.ts`.
 
 Rekommendation: flytta dessa till en dedikerad balanskonfig (t.ex. `packages/game-core/src/balance.ts`) och referera till den i både motor och dokumentation.
 
@@ -243,3 +252,4 @@ Rekommendation: flytta dessa till en dedikerad balanskonfig (t.ex. `packages/gam
 | 0.4 | 2026-03-25 | npm workspaces; §3.2 viewport/ResizeObserver, pan=−scale×center, boardPad/ram; §4.1 `vercel.json` + `VITE_WS_URL`; §10 kärnreferens (stat-rader, Sip Snatcher, Brewizard/Sourceress, `gold`→pant i UI); omnumrering §11 |
 | 0.5 | 2026-03-31 | Synk med aktuella regler: PvP omslag med rond, team battle med `chooseTeammate`, uppdaterade monster-lootregler (inkl. chans på 2 items), nya item-typer och rörelseitem (Skägget rakt bak) |
 | 0.6 | 2026-04-03 | §3.3 mobil: `activeTurnRainbow` (endast PlayView), lobby döljer stats tills start, monster-footer med ikon/siffror; tabell i §10 utökad |
+| 0.7 | 2026-06-10 | §10: monster +2/våning, `merchantReroll`, våning i monsterkort, mobil strids-badge; §12 balanskonstanter; deploy-notis game-core → server; `wait-for-server` i dev |

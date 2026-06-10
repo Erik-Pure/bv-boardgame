@@ -6,6 +6,7 @@ import {
   burkhjälmIIEffectiveDamageNegateFrom,
   CANMAN_DRAWS_INITIAL,
   COMBAT_ITEM_BASE_ATTACK_MODS,
+  combatItemAttackModForBoardLevel,
   EQUIPMENT_CATALOG,
   effectiveWeaponPiecePower,
   flatCombatItemAttackDisplayBase,
@@ -70,6 +71,24 @@ export type ItemInventoryBadgeOpts = {
   itemCardBonus?: number;
 };
 
+/** Stridsföremål: samma siffra som motorn och solfjädern (brädnivå + ev. itemCardBonus). */
+function combatAttackBadgeValues(
+  itemId: string,
+  opts?: ItemInventoryBadgeOpts,
+): Pick<EffectBadgeData, "label" | "labelTone"> | null {
+  if (!(itemId in COMBAT_ITEM_BASE_ATTACK_MODS)) return null;
+  const boardLevel = opts?.playerLevelIndex;
+  const mod =
+    boardLevel != null && Number.isFinite(boardLevel)
+      ? combatItemAttackModForBoardLevel(itemId, boardLevel, opts?.itemCardBonus)
+      : flatCombatItemAttackDisplayBase(itemId, opts?.itemCardBonus);
+  if (mod == null) return null;
+  return {
+    label: formatSigned(mod),
+    labelTone: mod < 0 ? "danger" : undefined,
+  };
+}
+
 function applyItemCardBonusToBadge(
   badge: EffectBadgeData,
   itemId: string,
@@ -77,17 +96,6 @@ function applyItemCardBonusToBadge(
 ): EffectBadgeData {
   const bonus = itemCardBonus ?? 0;
   if (bonus <= 0) return badge;
-
-  if (itemId in COMBAT_ITEM_BASE_ATTACK_MODS && badge.icon === "attack") {
-    const attackBase = flatCombatItemAttackDisplayBase(itemId, bonus);
-    if (attackBase != null) {
-      return {
-        ...badge,
-        label: formatSigned(attackBase),
-        labelTone: attackBase < 0 ? "danger" : undefined,
-      };
-    }
-  }
 
   const useAmt = flatItemUseAmount(itemId as ItemId, bonus);
   if (useAmt != null) {
@@ -321,6 +329,10 @@ export function itemInventoryEffectBadge(
   };
   const badge = m[String(itemId)] ?? null;
   if (!badge) return null;
+  if (badge.icon === "attack") {
+    const combatAttack = combatAttackBadgeValues(itemId, opts);
+    if (combatAttack) return { ...badge, ...combatAttack };
+  }
   return applyItemCardBonusToBadge(badge, itemId, opts?.itemCardBonus);
 }
 

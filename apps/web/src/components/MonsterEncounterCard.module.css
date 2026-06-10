@@ -1,3 +1,32 @@
+.monsterTitleRow {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 0.5em;
+  min-width: 0;
+}
+
+.monsterTitleName {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 900;
+  font-size: clamp(17px, 5.8cqw, 21px);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  word-break: break-word;
+}
+
+.boardLevelSuffix {
+  color: #f87171;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(15px, 5.2cqw, 19px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  transform: translateY(0.06em);
+}
+
 .wrap {
   position: relative;
   width: 100%;

@@ -77,6 +77,7 @@ export {
   PVP_BEST_OF,
   PVP_LOOT_MAX_PANT,
   pvpLootPantStealAmount,
+  MERCHANT_REROLL_GOLD_COST,
   rollMerchantItems,
   startGame,
 } from "./engine.js";

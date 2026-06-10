@@ -286,6 +286,7 @@ export const sv = {
     equipmentReplaceNewEffects: "Ny utrustning",
     lootEquipmentReplaceDecline: "Nej, behåll det jag har",
     merchantCantAfford: "Du har inte råd.",
+    merchantReroll: "Slumpa om",
     merchantShopCollapsedHint: "Minimerad — visa panelen för att se vad du kan köpa.",
     /** Plastback: argument = pant vid försäljning (= flaskor kvar i hållaren). */
     sellPlastbackAccessory: (pant: number) =>

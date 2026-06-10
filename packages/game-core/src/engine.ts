@@ -2247,6 +2247,7 @@ function catalogEquipmentToMerchantShopItem(eq: EquipmentShopItem, itemId: strin
 /** Exakt fyra varor visas: Helande brygd + tre slumpade från hela utrustningskatalogen. Köp per besök tills spelaren lämnar. */
 const MERCHANT_SHELF_SLOTS = 4;
 const MERCHANT_PRICE_MULTIPLIER = 1.1;
+export const MERCHANT_REROLL_GOLD_COST = 5;
 const SKIP_MONSTER_ENCOUNTER_GOLD_COST = 2;
 
 function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
@@ -5368,6 +5369,29 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       newName: TOM_FLASKA_WEAPON_NAME,
       fromPlastbackTake: true,
     };
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "merchantReroll" && next.pending?.type === "merchant") {
+    if (action.playerId !== next.pending.playerId) {
+      return { state, events: [], error: "Inte du som är vid Panta burkar" };
+    }
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Player not found" };
+    if (p.gold < MERCHANT_REROLL_GOLD_COST) {
+      return { state, events: [], error: "För lite pant" };
+    }
+    p.gold -= MERCHANT_REROLL_GOLD_COST;
+    recordPantSpent(next, p.id, MERCHANT_REROLL_GOLD_COST);
+    next.pending.items = rollMerchantItems(
+      rng,
+      new Set(next.config.disabledCardIds ?? []),
+      p.levelIndex,
+    );
+    log(
+      next,
+      `${p.name} slumpar om sortimentet i Panta burkar (−${MERCHANT_REROLL_GOLD_COST} pant).`,
+    );
     return { state: next, events: ["state"] };
   }
 

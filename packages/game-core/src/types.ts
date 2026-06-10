@@ -818,6 +818,7 @@ export type ClientAction =
   | { type: "confirmCard"; playerId: string }
   | { type: "chooseCardOption"; playerId: string; choiceId: string }
   | { type: "merchantBuy"; playerId: string; itemId: string | null }
+  | { type: "merchantReroll"; playerId: string }
   | { type: "useDoor"; playerId: string; method: "gold" | "sips" | "stay" }
   | { type: "levelUpDecision"; playerId: string; choice: "now" | "stay" }
   | { type: "brewerPerkDecision"; playerId: string; choice: "attack" | "shield" | "hp" | "pvp" | "items" }

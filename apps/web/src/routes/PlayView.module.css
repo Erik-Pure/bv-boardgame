@@ -1597,6 +1597,55 @@
   width: 100%;
 }
 
+.merchantShopFooterActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.merchantShopFooterBtn {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+}
+
+/* ArcadeButton .inner + .label — samma höjd och centrering som övriga footer-knappar. */
+.merchantShopFooterBtn > span {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 48px;
+  height: 100%;
+  justify-content: center !important;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.merchantShopFooterBtn > span > span {
+  justify-content: center !important;
+  width: 100%;
+  text-align: center;
+}
+
+.merchantRerollLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.merchantRerollCost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .merchantShopCollapsedHint {
   margin: 0;
   padding: 4px 2px 2px;

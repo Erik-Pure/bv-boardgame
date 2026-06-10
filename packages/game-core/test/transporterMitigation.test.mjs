@@ -6,6 +6,7 @@ import {
   CONFIG_NUMERIC,
   DEFAULT_PLAYER_SESSION_STATS,
   MONSTERS,
+  monsterNeedBonusForBoardLevel,
 } from "../dist/index.js";
 
 const transporter = MONSTERS.find((x) => x.id === "transporter");
@@ -110,13 +111,13 @@ describe("Transporter pant mitigation", () => {
       tileIndex: 0,
       monsterId: transporter.id,
       enemyName: transporter.name,
-      need: transporter.strength + 1,
+      need: transporter.strength + monsterNeedBonusForBoardLevel(1),
       needMod: 0,
       baseDamage: transporter.baseDamage,
       lossSipsOnLose: transporter.lossSipsOnLose,
       previewDie: 2,
       previewTotal: 2,
-      previewNeed: transporter.strength + 1,
+      previewNeed: transporter.strength + monsterNeedBonusForBoardLevel(1),
       previewWon: false,
       attackMods: {},
       reactors: [],

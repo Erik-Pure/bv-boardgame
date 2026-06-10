@@ -440,12 +440,15 @@ export function maxPlayerBoardLevel(players: readonly { levelIndex: number }[]):
   return Math.max(...players.map((p) => p.levelIndex));
 }
 
+/** Extra styrkekrav / HP-skada per brädnivå över våning 1 (våning 2 → +2, våning 3 → +4, …). */
+export const MONSTER_NEED_BONUS_PER_LEVEL = 2;
+
 /**
  * Extra per våning (0-baserat `levelIndex`) som läggs på **styrkekrav** i strid och på **HP-skada** vid
- * monsterförlust (samma +0/+1/+2 …). Påverkar inte pant eller klunkar i sig.
+ * monsterförlust (samma skala). Påverkar inte pant eller klunkar i sig.
  */
 export function monsterNeedBonusForBoardLevel(levelIndex: number): number {
-  return Math.max(0, Math.floor(levelIndex));
+  return Math.max(0, Math.floor(levelIndex)) * MONSTER_NEED_BONUS_PER_LEVEL;
 }
 
 /**

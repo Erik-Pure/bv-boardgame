@@ -102,6 +102,13 @@ export function combatLossKlunksForDisplay(
   return Math.max(0, base - red);
 }
 
+/** 1-baserad våning för dålig batch (ej slutboss / legacy boss-ruta). */
+export function monsterBoardFloorLevel(monsterId: string, levelIndex: number): number | undefined {
+  if (monsterId === "boss") return undefined;
+  if (isFinalBossMonsterId(monsterId as MonsterId)) return undefined;
+  return Math.max(1, Math.floor(levelIndex) + 1);
+}
+
 /** Props till `MonsterEncounterCard` från pågående strid (t.ex. team battle före medkämpeval). */
 export function monsterEncounterCardPropsFromCombatPending(
   p: Extract<Pending, { type: "combat" }>,
@@ -116,6 +123,7 @@ export function monsterEncounterCardPropsFromCombatPending(
       : 3;
   return {
     title: p.enemyName,
+    boardLevel: monsterBoardFloorLevel(p.monsterId, p.levelIndex),
     artKey: p.enemyArtKey,
     combatStrength: need,
     winGold: p.rewardGold ?? 0,

@@ -16,6 +16,7 @@ import {
   resolveCardRevealArtKey,
 } from "../../lib/cardArt";
 import {
+  monsterBoardFloorLevel,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
   resolveCombatLossViewer,
@@ -93,6 +94,7 @@ export function EnemyIntroModal(props: {
   bossPulsingBackdrop?: boolean;
   teammateName?: string;
   cardCoverId?: string | null;
+  boardLevel?: number;
 }) {
   const bossRoundLabel = (() => {
     const raw = props.bossLivesRemaining;
@@ -183,6 +185,7 @@ export function EnemyIntroModal(props: {
         >
           <MonsterEncounterCard
             title={props.enemyName}
+            boardLevel={props.boardLevel}
             artKey={props.enemyArtKey}
             combatStrength={props.need + (props.needMod ?? 0)}
             winGold={props.rewardGold ?? 0}
@@ -426,6 +429,12 @@ export function CardModal(props: {
     return monsterEncounterCardPreviewFromState(props.gameState, owner, monster);
   }, [props.gameState, props.cardOwnerPlayerId, props.cardId, props.kind]);
   const useMonsterLayout = !!mon;
+  const monsterFloorLevel = useMemo(() => {
+    if (!mon || !props.gameState || !props.cardOwnerPlayerId || props.kind !== "combat") return undefined;
+    const owner = props.gameState.players.find((p) => p.id === props.cardOwnerPlayerId);
+    if (!owner) return undefined;
+    return monsterBoardFloorLevel(mon.id, owner.levelIndex);
+  }, [mon, props.gameState, props.cardOwnerPlayerId, props.kind]);
   const effectiveWin =
     props.cardId === "combat_win"
       ? resolveCombatWinViewer(
@@ -649,6 +658,7 @@ export function CardModal(props: {
               <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginBottom: 0 }}>
                 <MonsterEncounterCard
                   title={props.title}
+                  boardLevel={monsterFloorLevel}
                   artKey={effectiveArtKey}
                   combatStrength={monsterScaled?.need ?? mon.strength}
                   winGold={monsterScaled?.rewardGold ?? mon.rewardGold}

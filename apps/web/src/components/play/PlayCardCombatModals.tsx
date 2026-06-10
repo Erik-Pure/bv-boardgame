@@ -18,6 +18,7 @@ import {
   buildCombatAllyWinSummary,
   combatAllyOutcomeRole,
   combatLossKlunksForDisplay,
+  monsterBoardFloorLevel,
   monsterEncounterCardPropsFromCombatPending,
   resolveCombatLossViewer,
   resolveCombatWinViewer,
@@ -189,6 +190,10 @@ export function PlayCardCombatModals(props: {
           }
           bossWinLootDash={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
           bossPulsingBackdrop={isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)}
+          boardLevel={monsterBoardFloorLevel(
+            myEnemyIntroPending.monsterId,
+            myEnemyIntroPending.levelIndex,
+          )}
           teammateName={
             myEnemyIntroPending.assistId
               ? state.players.find((p) => p.id === myEnemyIntroPending.assistId)?.name

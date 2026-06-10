@@ -117,4 +117,67 @@ describe("merchant shelf", () => {
     assert.equal(u.gold, 15);
     assert.equal((u.inventory ?? []).some((x) => x.itemId === "folk_beer"), true);
   });
+
+  it("merchantReroll costs 5 pant and replaces all shelf items", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 20 });
+    const beforeItems = [
+      { id: "a", slot: "heal", name: "Helande brygd", price: 5, healAmount: 3 },
+      { id: "b", slot: "weapon", name: "Testvapen", price: 8, power: 1 },
+    ];
+    const state = {
+      phase: "playing",
+      seed: 99,
+      config: gameConfig(),
+      roomCode: "MR",
+      players: [p1],
+      turnOrder: ["p1"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
+      pending: { type: "merchant", playerId: "p1", items: beforeItems },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: null,
+      finalBossLivesRemaining: null,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+    };
+    const r = applyAction(state, { type: "merchantReroll", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.players[0].gold, 15);
+    assert.equal(r.state.pending?.type, "merchant");
+    assert.equal(r.state.pending.items.length, 4);
+    assert.notDeepEqual(r.state.pending.items.map((i) => i.id), beforeItems.map((i) => i.id));
+  });
+
+  it("merchantReroll rejects when player cannot afford reroll", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 4 });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "MR2",
+      players: [p1],
+      turnOrder: ["p1"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
+      pending: {
+        type: "merchant",
+        playerId: "p1",
+        items: [{ id: "a", slot: "heal", name: "Helande brygd", price: 5, healAmount: 3 }],
+      },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: null,
+      finalBossLivesRemaining: null,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+    };
+    const r = applyAction(state, { type: "merchantReroll", playerId: "p1" });
+    assert.equal(r.error, "För lite pant");
+    assert.equal(r.state.players[0].gold, 4);
+  });
 });

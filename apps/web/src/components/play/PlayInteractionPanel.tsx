@@ -9,6 +9,7 @@ import {
   playerPant,
   combatReactionsAllAnswered,
   effectiveMerchantBuyPrice,
+  MERCHANT_REROLL_GOLD_COST,
   effectiveWeaponPiecePower,
   isBrewerPerkChoiceAvailable,
   isFinalBossMonsterId,
@@ -1754,13 +1755,39 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             })}
           </div>
         )}
-        <ArcadeButton
-          variant="gray"
-          fullWidth
-          onClick={() => send({ type: "merchantBuy", playerId: me.id, itemId: null })}
-        >
-          {sv.play.leave}
-        </ArcadeButton>
+        <div className={styles.merchantShopFooterActions}>
+          <ArcadeButton
+            variant="gray"
+            fullWidth
+            className={styles.merchantShopFooterBtn}
+            onClick={() => send({ type: "merchantBuy", playerId: me.id, itemId: null })}
+          >
+            {sv.play.leave}
+          </ArcadeButton>
+          <ArcadeButton
+            variant="pink"
+            fullWidth
+            className={styles.merchantShopFooterBtn}
+            aria-label={`${sv.play.merchantReroll} (${MERCHANT_REROLL_GOLD_COST} pant)`}
+            disabled={!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)}
+            onClick={() => {
+              if (!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)) {
+                showToast(sv.play.merchantCantAfford);
+                return;
+              }
+              playMerchantBuySfx();
+              send({ type: "merchantReroll", playerId: me.id });
+            }}
+          >
+            <span className={styles.merchantRerollLabel} aria-hidden>
+              {sv.play.merchantReroll}
+              <span className={styles.merchantRerollCost}>
+                ({MERCHANT_REROLL_GOLD_COST}
+                <StatIcon kind="pant" size={18} />)
+              </span>
+            </span>
+          </ArcadeButton>
+        </div>
       </div>
     );
   }

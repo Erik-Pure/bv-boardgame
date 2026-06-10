@@ -9,7 +9,7 @@
     "deploy:caprover": "dotenv -e .env -- sh -c 'caprover deploy -u \"$CAPROVER_URL\" -a \"$CAPROVER_APP\" --appToken \"$CAPROVER_APP_TOKEN\"'",
     "deploy:caprover:staging": "dotenv -e .env -- sh -c 'caprover deploy -u \"$CAPROVER_URL\" -a \"$CAPROVER_APP_STAGING\" --appToken \"$CAPROVER_APP_TOKEN_STAGING\"'",
     "build": "npm run -w @bv/game-core build && npm run -w server build && npm run -w web build",
-    "dev": "npm run -w @bv/game-core build && concurrently -n server,web -c magenta,green \"npm run -w server dev\" \"npm run -w web dev\"",
+    "dev": "npm run -w @bv/game-core build && concurrently -n server,web -c magenta,green \"npm run -w server dev\" \"node scripts/wait-for-server.mjs && npm run -w web dev\"",
     "dev:server": "npm run -w server dev",
     "dev:web": "npm run -w web dev",
     "smoke:server": "npm run -w server smoke",

@@ -19,6 +19,7 @@ import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
 import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import {
   combatLossKlunksForDisplay,
+  monsterBoardFloorLevel,
   monsterEncounterCardPropsFromCombatPending,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
@@ -395,6 +396,8 @@ function TableCombatBoardPanelInner(props: {
 
   const boardMonsterCardProps = {
     title: pending.enemyName,
+    boardLevel:
+      showMonsterCard ? monsterBoardFloorLevel(pending.monsterId, pending.levelIndex) : undefined,
     artKey: pending.enemyArtKey,
     combatStrength: need,
     winGold: pending.rewardGold ?? 0,

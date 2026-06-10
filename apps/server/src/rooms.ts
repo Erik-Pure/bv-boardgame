@@ -163,20 +163,21 @@ function appendBurstArrayDelta(
 ): void {
   const arr = room.state[field] ?? [];
   const prevLen = room[lengthKey];
+  const patchRec = patch as Record<string, unknown>;
   if (arr.length < prevLen) {
-    patch[field] = arr;
+    patchRec[field] = arr;
     return;
   }
   if (arr.length > prevLen) {
-    patch[field] = arr.slice(prevLen);
-    patch[partialKey] = true;
+    patchRec[field] = arr.slice(prevLen);
+    patchRec[partialKey] = true;
     return;
   }
   if (prevLen > 0 && arr.length === prevLen) {
     const last = arr[arr.length - 1];
     const cachedLastAt = room.lastBroadcastFieldJson.get(`${field}:lastAt`);
     if (last && String(last.at) !== cachedLastAt) {
-      patch[field] = arr;
+      patchRec[field] = arr;
     }
   }
 }

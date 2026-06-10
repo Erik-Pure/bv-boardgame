@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.70 |
-| Senast uppdaterad | 2026-06-07 |
+| Version | 0.71 |
+| Senast uppdaterad | 2026-06-10 |
 
 ---
 
@@ -191,7 +191,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - Spelet använder **konfigurerbart antal våningsplan** (nuvarande spann 2–5, default 3), med uppstigning enligt §7.3 och **boss endast på sista våningen**.
 - **Nivå 1 (första brädet):** lättare möten och grundloot.
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
-- **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+1 per brädesnivå** (`levelIndex`, samma som vanliga monster). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
+- **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+2 per brädesnivå** (`levelIndex`, samma skala som vanliga monster — se §7.3). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **4%** på nivå 1, **9%** på nivå 2, **14%** på nivå 3 och högre bräden).
 - **Slumpade föremål på sista planet:** **Genväg** och **Taproom-nyckel** ingår inte i slump-poolen när mottagaren står på **sista brädnivån** (ingen nästa våning att stiga till); se §10.1.
 
@@ -201,7 +201,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - När kravet nås kan spelaren få ett val att **stiga nu** eller **stanna kvar en tur till**.
 - Uppstigning kostar i nuvarande balans **ingen pant**.
 - Mobilflöde: informationskort (modal) för nivåbytet + valknappar i nedersta interaktionspanelen.
-- **Monster på våningen:** extra **styrkekrav** (`need`) är **+1 per brädesnivå** på planet (våning 1 → +0, våning 2 → +1, våning 3 → +2). Extra **HP-skada vid monsterförlust** skalar på samma sätt men **endast för standardmonster** (inte team battle och inte slutboss). Skalningen är lokal per plan, inte global efter “högsta spelaren”.
+- **Monster på våningen:** extra **styrkekrav** (`need`) är **+2 per brädesnivå** på planet (våning 1 → +0, våning 2 → +2, våning 3 → +4). Extra **HP-skada vid monsterförlust** skalar på samma sätt men **endast för standardmonster** (inte team battle och inte slutboss). Skalningen är lokal per plan, inte global efter “högsta spelaren”.
 - **Nedåt:** beslutsfattande för v1 — antingen ingen nedåtgång, eller tillåtet med separat regel (lägg till när beslutat).
 
 ### 7.4 Rutyper (tiles)
@@ -246,6 +246,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Reward-mix:** reward kan vara **itemkort eller utrustning** (blandad pool). Om mottagaren redan har utrustning i den slumpade slotten ska spelet erbjuda **bytesval** (ta emot och kasta befintligt, eller avböj) — **inte** tyst byta eller falla tillbaka till item. Flera utrustningsbelöningar efter samma strid hanteras **i kö** tills alla val är klara (§11).
 - **Tur efter stridsvinst:** när vinnaren bekräftat **dålig batch**-vinstkortet (`combat_win`) går **turen vidare** till nästa spelare. **Bytesval** från stridsloot (`fromCombatLoot`) och eventuellt **nivåupp** hanteras **parallellt** på vinnarens mobil (`offTurnPersonalPending` för nivå — samma princip som efter straffklunk). Andra spelare ska kunna agera utan att vänta på bytesval/nivåbeslut. I team battle gäller samma för varje spelare i loot-kön.
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus.
+- **Våningsnummer på dålig batch (UI):** efter batchnamnet visas **(N)** där **N** är **1-baserad våning** (`levelIndex + 1`) — t.ex. *Kapten Interrobang (3)*. Siffran och parentes i **rött**, typsnitt **Saira** (`var(--sans)`); namnet behåller **Permanent Marker**. Gäller **mobil** (monsterintro, team battle, stridskort) och **bord** (`MonsterEncounterCard`), men **inte** slutboss.
 
 **Särskilda monster (val som spelaren gör):**
 
@@ -319,6 +320,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln), **två slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**), och **ett slumpat stridsföremål** (+/− attack i strid — samma typer som **startföremål** vid spelstart, **7 pant** i handeln). Efter blandning visas **exakt fyra** erbjudanden. Föremål vars kort är inaktiverat i lobby (`disabledCardIds`) utesluts ur stridsföremål-poolen; om poolen då är tom ersätts fjärde platsen med en tredje utrustning.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, **föremålsbonus**, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen och **`itemCardBonus`** på rustning/hjälm/tillbehör om det finns i butiksraden.
+- **Slumpa om sortiment:** i handeln finns knappen **Slumpa om (5 pant)** bredvid **Lämna**. Kostar **5 pant**, ersätter **alla fyra** hyllplatser med nytt slump (`rollMerchantItems`); affären stängs inte. Action: **`merchantReroll`**.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
 
@@ -381,7 +383,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 
 **Nya utrustningar (nuvarande implementation):** **Linne** (rustning: +1 attack, −1 skadereduktion), **Dunjacka** (rustning: +5 max HP, −1 attack), **Keykeghjälm** (hjälm: +2 skadereduktion, −1 attack), **Störtkruka** (hjälm: +4 max HP), **Fyrklöver** (tillbehör: etta på stridstärning ger inte automatisk förlust), **Tom flaska** (vapen: +5 kraft, går sönder efter vinst), **Ölsejdel** (vapen: grundkraft + valfri klunk före monstertärning för högre vapenattack enligt `rulesText` / katalog), **Plastmugg** (vapen: **−2 attack**; medan den sitter utrustad kostar **alla föremål 0 pant att spela från förråd** — gäller poster i `ITEM_PLAY_GOLD_COST`, t.ex. Manopositiv, Get Lucky, Vaska; **affärspriser oförändrade**; inte Genväg/Taproom-rörelse), **VIB Member** (tillbehör: −2 pant i handeln), **Plastback** (tillbehör: förlänger **Tom flaska** till sex monstersegrar; **hållare** med **6 flaskor** (`plastbackPackRemaining`); **översikt:** pant-ikon-badge = **flaskor kvar i hållaren**; **Ta flaska** (egen tur) tar ut Tom flaska och minskar pack med 1 — vid upptagen vapenplats med annat vapen gäller **bytesval** (pack minskar först vid accept); Tom flaska redan utrustad **refreshar** till 6 vinster; **försäljning** ger pant = **endast pack**, inte utrustad flaskas vinster), **Livförsäkring** (tillbehör: vid stupad bryggare kan spelaren betala **10 pant** för fullt liv — se §12), **Hawaiiskojorta** (rustning: **+2 föremålskort**), **Pannband** (hjälm: **+1 föremålskort**), **Anteckningsblock** (tillbehör: **+1 föremålskort**).
 
-**Föremålsbonus (`itemCardBonus`):** permanent buff som **stärker platta siffror** på föremål — plus blir mer plus, minus mer minus (t.ex. −2 attack → −3, +3 HP → +4). Källor **adderas**: val vid **bryggnivå** (`brewerItemCardBonus`, se §13.1) plus utrustning med `itemCardBonus`. Påverkar **stridsföremål** med fast attackmod (alla poster i `COMBAT_ITEM_BASE_ATTACK_MODS`) samt engångsföremål **Helande brygd** (`healing_potion`), **Pretzel**, **Pantpåse** (`coin_purse`) och **Klunkkort** (`sip_card`). **Påverkar inte** kostnader (t.ex. Vaska 10 pant), multiplikatorer (×2), skip/Zzz, dynamiska effekter (charity), nivåberoende Genväg/Taproom eller Canman. Förråds- och affärs-badges samt spellogg visar **faktiska** värden efter bonus.
+**Föremålsbonus (`itemCardBonus`):** permanent buff som **stärker platta siffror** på föremål — plus blir mer plus, minus mer minus (t.ex. −2 attack → −3, +3 HP → +4). Källor **adderas**: val vid **bryggnivå** (`brewerItemCardBonus`, se §13.1) plus utrustning med `itemCardBonus`. Påverkar **stridsföremål** med fast attackmod (alla poster i `COMBAT_ITEM_BASE_ATTACK_MODS`) samt engångsföremål **Helande brygd** (`healing_potion`), **Pretzel**, **Pantpåse** (`coin_purse`) och **Klunkkort** (`sip_card`). **Påverkar inte** kostnader (t.ex. Vaska 10 pant), multiplikatorer (×2), skip/Zzz, dynamiska effekter (charity), nivåberoende Genväg/Taproom eller Canman. Förråds-badges på mobil visar **faktiska** stridsvärden efter bonus **och** brädnivå-skalning (`combatItemAttackModForBoardLevel`, samma som motorn och solfjädern). Katalog utan spelarkontext visar basvärde.
 
 **Global modal-bakgrund:** paneler som ska matcha spelkort/modaler använder CSS-variabeln **`--modal-panel-bg`** (`radial-gradient` mörkgrå → svart) i `index.css`.
 
@@ -547,8 +549,8 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 
 - **Startpant vid spelstart och omstart:** lobbyns **startpant** (default 5) per spelare vid spelstart och vid **Starta om på nytt**; livförsäkring och övriga pantflöden följer §12.
 - **Team-monsterfrekvens per nivå:** ~4% / 9% / 14%.
-- **Monster `need`:** +`levelIndex` på styrkekrav på den våningen (lokalt per plan).
-- **Monster förlust-skada (HP):** +`levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
+- **Monster `need`:** +`2 × levelIndex` på styrkekrav på den våningen (lokalt per plan; konstant `MONSTER_NEED_BONUS_PER_LEVEL = 2`).
+- **Monster förlust-skada (HP):** +`2 × levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
 - **Vinstrewards:** monster har **fasta** värden för pant + antal rewards (ingen chansrull på 1/2 items i nuvarande läge).
 - **Rewardtyp:** reward kan vara **itemkort eller utrustning** (mixad drop-pool); slumpat item följer samma **sista-nivå-filter** som `randomItem` (§10.1).
 - **Reaktionsfönster i PvE:** spelare kan spela **flera reaktionskort** innan de slutmarkerar med “gör inget”.
@@ -629,4 +631,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.68 | 2026-06-02 | §13.1 **Bryggnivåbonus**: max **3 val per kategori**; mobil **(n/3)** på knappar, inaktiverade vid 3/3; överskjutande nivåer auto-konsumeras utan bonus när alla kategorier maxade |
 | 0.69 | 2026-06-07 | §11 **Plastmugg** balans **−2 attack** + bild `plasticcup`; **Tom flaska** en attack-badge; §13.1 bordsslutresultat med **avatar vänster om namn** (ej mobil) |
 | 0.70 | 2026-06-07 | §2 **dålig batch**-SFX: ny `badbatch3` + **`badbatch4`** (käll-WAV → MP3); shuffle i `tableSfx` för monster-intro och Apocalypse-liknande händelsekort |
+| 0.71 | 2026-06-10 | §7.3/§19 monster **+2 per brädnivå** (`MONSTER_NEED_BONUS_PER_LEVEL`); §9.1 våning **(N)** på monsterkort (röd Saira, mobil + bord); §10.2 **Slumpa om** (5 pant, `merchantReroll`); §11 mobil förråd visar brädskalade stridsföremål |
 
