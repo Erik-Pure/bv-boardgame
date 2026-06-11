@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 
 function sectionTitle(text: string) {
   return (
@@ -103,13 +102,6 @@ export function GameRules() {
         I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka
         upp dina misslyckanden, växer din visdom. Man lär sig av sina misstag – men man lär sig snabbare av framgång.
       </p>
-      <p style={{ margin: "0 0 20px", opacity: 0.72, fontSize: 14 }}>
-        Vill du se alla kort? Se vår{" "}
-        <Link to="/cards" style={{ color: "#93c5fd" }}>
-          [Kortkatalog]
-        </Link>
-      </p>
-
       {sectionTitle("🎲 1. Spelets gång")}
       {tutorialImage("/tutorial/tut4.png", "Snabbguide: slå och välj väg")}
       <p>Varje tur börjar med ett val — sedan handling på rutorna du når:</p>
