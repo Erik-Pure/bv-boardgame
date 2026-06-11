@@ -39,75 +39,109 @@ export function Home() {
 
   return (
     <>
-    <div
-      style={{
-        maxWidth: 680,
-        margin: "0 auto",
-        padding: "40px 20px 56px",
-        minHeight: "100vh",
-        boxSizing: "border-box",
-        color: "#f8fafc",
-        background: "transparent",
-      }}
-    >
+    <div className={styles.homeShell}>
       <div className={styles.logoHero}>
         <div className={styles.logoGlowSpin} aria-hidden>
           <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
         </div>
         <img className={styles.logoImage} src="/icons/bmm-logo.png" alt="Bryggmästarnas Mästare" />
       </div>
-      <ArcadeButton variant="pink" size="lg" fullWidth={false} onClick={() => nav("/join")}>
-        {sv.home.primaryJoin}
-      </ArcadeButton>
 
-      <div style={{ margin: "28px 0", borderTop: "1px solid rgba(148,163,184,0.25)", }}>
-        <h4>Starta ett nytt spel</h4>
-        <p style={{ marginBottom: 28 }}>Skapa upp en ny lobby och bjud in dina vänner att spela. Vi rekommenderar att du använder en stor skärm som alla deltagare kan se, och spela lite musik medans ni spelar.</p>
-        <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={() => nav("/host-lobby")}>
+      <div className={styles.heroCtaRow}>
+        <ArcadeButton variant="pink" size="lg" fullWidth onClick={() => nav("/join")}>
+          {sv.home.primaryJoin}
+        </ArcadeButton>
+        <ArcadeButton variant="gray" size="lg" fullWidth onClick={() => nav("/host-lobby")}>
           {sv.home.createLobby}
         </ArcadeButton>
-        <figure className={styles.explainerFigure}>
-          <PictureImg
-            className={styles.explainerImg}
-            sources={publicRasterSources("/icons/bmm-explainer.png")}
-            alt={sv.home.explainerAlt}
-            loading="lazy"
-            decoding="async"
-          />
-        </figure>
       </div>
+    </div>
 
-      <nav
-        style={{
-          marginTop: 40,
-          paddingTop: 28,
-          borderTop: "1px solid rgba(148,163,184,0.25)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 14,
-        }}
-      >
-        <Link
-          to="/rules"
-          style={{
-            color: "#94a3b8",
-            fontSize: 15,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
-          {sv.home.footerRules}
-        </Link>
-        <Link
-          to="/login"
-          style={{
-            color: "#94a3b8",
-            fontSize: 15,
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
+    <section className={styles.homeWideOuter} aria-labelledby="home-how-to-heading">
+      <div className={styles.homeWideInner}>
+        <h4 id="home-how-to-heading" className={styles.howToTitle}>
+          {sv.home.howToPlayTitle}
+        </h4>
+        <div className={styles.howToGrid}>
+          <figure className={styles.explainerFigure}>
+            <PictureImg
+              className={styles.explainerImg}
+              sources={publicRasterSources("/icons/bmm-explainer.png")}
+              alt={sv.home.explainerAlt}
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+          <div className={styles.howToTextCol}>
+            <p className={styles.howToBody}><strong>{sv.home.howToPlayLead}</strong></p>
+            <p className={styles.howToBody}>{sv.home.howToPlayBody}</p>
+            <p className={styles.howToBody}>{sv.home.howToPlayDeviceBody}</p>
+            <p className={styles.howToBody}>{sv.home.howToPlayCheersBody}</p>
+            <ArcadeButton
+              className={styles.howToRulesBtn}
+              variant="gray"
+              size="sm"
+              onClick={() => nav("/rules")}
+            >
+              {sv.home.footerRules}
+            </ArcadeButton>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className={styles.homeWideOuter} aria-labelledby="home-promo-heading">
+      <div className={styles.homeWideInner}>
+        <h4 id="home-promo-heading" className={styles.promoSectionTitle}>
+          {sv.home.promoSectionTitle}
+        </h4>
+        <div className={styles.promoGrid}>
+          {sv.home.promoCards.map((card) => (
+            <a
+              key={card.href}
+              className={styles.promoCard}
+              href={card.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <div
+                className={styles.promoCardMedia}
+                style={{ backgroundImage: `url(${card.image})` }}
+                aria-hidden
+              />
+              <div className={styles.promoCardOverlay} aria-hidden />
+              <div className={styles.promoCardContent}>
+                <div className={styles.promoCardTitle}>{card.title}</div>
+                <p className={styles.promoCardBody}>{card.body}</p>
+                <span className={styles.promoCardCta}>{card.cta}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+        <div className={styles.promoSocial}>
+          <p className={styles.promoSocialLabel}>{sv.home.promoSocialLabel}</p>
+          <div className={styles.promoSocialLinks}>
+            {sv.home.promoSocialLinks.map((link, index) => (
+              <span key={link.href} className={styles.promoSocialItem}>
+                {index > 0 ? <span className={styles.promoSocialSep} aria-hidden>·</span> : null}
+                <a
+                  className={styles.promoSocialLink}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {link.label}
+                </a>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div className={styles.homeShell}>
+      <nav className={styles.homeFooterNav}>
+        <Link className={styles.homeFooterLink} to="/login">
           Logga in
         </Link>
       </nav>

@@ -63,7 +63,16 @@ export const sv = {
     title: "Bryggmästarnas Mästare",
     subtitle: "De dåliga batcherna",
     primaryJoin: "Gå med i ett spel",
-    createLobby: "Skapa lobby",
+    createLobby: "Starta nytt spel",
+    howToPlayTitle: "Så spelar ni",
+    howToPlayLead:
+      "Starta spelet och bjud in dina vänner (eller fiender, vi dömer ingen).",
+    howToPlayBody:
+      'Vi rekommenderar att ni slänger upp spelet på en gigantisk skärm så ingen kan skylla på "dålig syn" när de förlorar, och glöm inte att sätta på lite bakgrundsmusik för att dämpa den stela tystnaden.',
+    howToPlayDeviceBody:
+      "Alla bänkar sig med valfri skärm i högsta hugg (mobil, platta eller din gamla trotjänare till laptop). Har den en webbläsare? Perfekt.",
+    howToPlayCheersBody:
+      "Och du... glöm inte vätskeersättningen. Ladda upp med något iskallt i glaset, gärna från Bryggverket såklart. Skål! 🍻",
     explainerAlt: "Översikt: så spelar ni Bryggmästarnas Mästare med mobil och storskärm",
     footerCards: "Kortkatalog",
     footerRules: "Spelets regler",
@@ -76,6 +85,41 @@ export const sv = {
     ageGateDeclineBody:
       "Spelet är till för vuxna. Du kan stänga fliken eller komma tillbaka när du uppfyller ålderskravet.",
     ageGateBack: "Tillbaka",
+    promoSectionTitle: "Upptäck mer från Bryggverket",
+    promoCards: [
+      {
+        title: "Bryggverket",
+        body: "Umeåbryggeriet bakom spelet. Läs om ölen, om oss på bryggeriet, och boka din nästa ölprovning.",
+        href: "https://www.bryggverket.se/",
+        cta: "Bryggverket",
+        image: "/landing/bv-bryggverket.png",
+      },
+      {
+        title: "Köp öl från Bryggverket",
+        body: "Många sorter du möter i spelet finns på riktigt — perfekt inför nästa spelkväll.",
+        href: "https://www.systembolaget.se/sortiment/?q=bryggverket",
+        cta: "Systembolaget",
+        image: "/landing/bv-systemet.png",
+      },
+      {
+        title: "Köp kläder från Bryggverket",
+        body: "Visste du att du kan köpa kläderna i spelet på riktigt? Tröjor, kepsar och merch väntar.",
+        href: "https://brewmerch.se/varumarke/bryggverket/",
+        cta: "Brewmerch",
+        image: "/landing/bv-clothes.png",
+      },
+    ] as const,
+    promoSocialLabel: "Följ oss på sociala medier",
+    promoSocialLinks: [
+      {
+        label: "Instagram",
+        href: "https://www.instagram.com/bryggverket/",
+      },
+      {
+        label: "Facebook",
+        href: "https://www.facebook.com/bryggverket/",
+      },
+    ] as const,
   },
   joinPage: {
     title: "Gå med i spel",

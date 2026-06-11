@@ -114,8 +114,353 @@
   }
 }
 
+.homeShell {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 20px 0;
+  box-sizing: border-box;
+  color: #f8fafc;
+  background: transparent;
+}
+
+.homeShell:last-of-type {
+  padding-bottom: 56px;
+}
+
+.heroCtaRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.homeWideOuter {
+  margin-top: 48px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.homeWideInner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.howToTitle {
+  margin: 0 0 20px;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-align: center;
+}
+
+.howToGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.howToTextCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100%;
+  padding-top: 4px;
+  text-align: left;
+}
+
+.howToBody {
+  margin: 0;
+  font-size: clamp(0.9rem, 1.1vw, 1rem);
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.howToBody + .howToBody {
+  margin-top: 14px;
+}
+
+.howToRulesBtn {
+  margin-top: 16px;
+}
+
+.homeFooterNav {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.homeFooterLink {
+  color: #94a3b8;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.homeFooterLink:hover {
+  color: #f9a8d4;
+}
+
+.homeFooterLink:focus-visible {
+  outline: 2px solid rgba(250, 204, 21, 0.75);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 560px) {
+  .heroCtaRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .howToGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .howToTextCol {
+    padding-top: 0;
+  }
+}
+
+.promoSectionTitle {
+  margin: 0 0 20px;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-align: center;
+}
+
+.promoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.promoSocial {
+  margin-top: 22px;
+  text-align: center;
+}
+
+.promoSocialLabel {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.promoSocialLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+}
+
+.promoSocialItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.promoSocialSep {
+  color: rgba(148, 163, 184, 0.55);
+  user-select: none;
+}
+
+.promoSocialLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.promoSocialLink:hover {
+  color: #f9a8d4;
+}
+
+.promoSocialLink:focus-visible {
+  outline: 2px solid rgba(250, 204, 21, 0.75);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.promoCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 440px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background-color: rgba(0, 0, 0, 0.65);
+  color: #f8fafc;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.promoCardMedia {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 0.45s ease;
+  will-change: transform;
+}
+
+.promoCard:hover .promoCardMedia {
+  transform: scale(1.06);
+}
+
+.promoCard:focus-visible {
+  outline: 2px solid rgba(250, 204, 21, 0.75);
+  outline-offset: 2px;
+}
+
+.promoCardOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.58);
+  transition: opacity 0.25s ease;
+}
+
+.promoCard:hover .promoCardOverlay,
+.promoCard:focus-visible .promoCardOverlay {
+  opacity: 1;
+}
+
+.promoCardContent {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 16px 18px;
+}
+
+.promoCardContent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.72) 52%,
+    rgba(0, 0, 0, 0.28) 82%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.promoCardTitle {
+  margin: 0 0 8px;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(17px, 1.45vw, 22px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
+}
+
+.promoCardBody {
+  margin: 0;
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.45;
+  color: #e2e8f0;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.75);
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.promoCardCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  font-size: clamp(13px, 1vw, 16px);
+  font-weight: 700;
+  color: #f9a8d4;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+  transition:
+    opacity 0.22s ease,
+    max-height 0.22s ease,
+    margin-top 0.22s ease;
+  pointer-events: none;
+}
+
+.promoCard:hover .promoCardCta,
+.promoCard:focus-visible .promoCardCta {
+  margin-top: 10px;
+  max-height: 28px;
+  opacity: 1;
+}
+
+@media (min-width: 900px) {
+  .promoCard {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 720px) {
+  .homeWideInner {
+    padding: 0 16px;
+  }
+
+  .promoGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .promoCard {
+    min-height: 360px;
+  }
+}
+
+@media (hover: none) {
+  .promoCardOverlay {
+    opacity: 0;
+  }
+
+  .promoCardContent {
+    opacity: 1;
+  }
+
+  .promoCardCta {
+    margin-top: 10px;
+    max-height: 28px;
+    opacity: 1;
+  }
+}
+
 .explainerFigure {
-  margin: 24px 0 0;
+  margin: 0;
   width: 100%;
   border-radius: 14px;
   overflow: hidden;
@@ -155,5 +500,18 @@
     animation: none;
     transform: scale(0.9);
     opacity: 0.56;
+  }
+
+  .promoCardMedia {
+    transition: none;
+  }
+
+  .promoCard:hover .promoCardMedia {
+    transform: none;
+  }
+
+  .promoCardOverlay,
+  .promoCardCta {
+    transition: none;
   }
 }
