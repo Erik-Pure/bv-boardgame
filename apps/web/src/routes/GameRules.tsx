@@ -157,11 +157,6 @@ export function GameRules() {
           <strong>Dålig batch / BvB:</strong> Strid mot en misslyckad brygd eller utmana en medspelare (Bryggare mot Bryggare).
         </li>
       </ul>
-      <p style={{ marginTop: 12, opacity: 0.88, fontSize: 15 }}>
-        <strong>Handel:</strong> Det finns ingen affärsruta på brädet — butiken nås via{" "}
-        {inlineIcon("/icons/panta-icon.svg", "#fb923c")}
-        <strong>Panta burkar</strong> i början av din tur (se avsnitt 1).
-      </p>
 
       {sectionTitle("⚔️ 4. Strider, mutor och sabotage")}
       {tutorialImage("/tutorial/tut2.png", "Snabbguide: dåliga batchar, mutor och sabotage")}
