@@ -66,7 +66,9 @@ export function Home() {
         <img className={styles.logoImage} src="/icons/bmm-logo.png" alt="Bryggmästarnas Mästare" />
       </div>
 
-      <div className={styles.heroCtaRow}>
+      <div className={styles.heroCtaBlock}>
+        <p className={styles.playtestBadge}>{sv.home.playtestBadge}</p>
+        <div className={styles.heroCtaRow}>
         <ArcadeButton
           className={`${styles.heroCtaBtn} ${styles.heroJoinBtn}`}
           variant="pink"
@@ -89,6 +91,7 @@ export function Home() {
           </span>
           {sv.home.createLobby}
         </ArcadeButton>
+        </div>
       </div>
     </div>
 

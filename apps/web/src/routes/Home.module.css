@@ -127,6 +127,30 @@
   padding-bottom: 56px;
 }
 
+.heroCtaBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.playtestBadge {
+  margin: 0;
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-size: clamp(1.5rem, 5.5vw, 2rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fef9c3;
+  text-align: center;
+  text-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.65),
+    0 0 28px rgba(250, 204, 21, 0.28);
+}
+
 .heroCtaRow {
   display: flex;
   flex-direction: row;

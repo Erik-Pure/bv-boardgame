@@ -64,6 +64,8 @@ export const sv = {
     subtitle: "De dåliga batcherna",
     primaryJoin: "Gå med i spel",
     createLobby: "Starta nytt spel",
+    /** Etikett ovanför startknapparna under beta. */
+    playtestBadge: "BETA",
     howToPlayTitle: "Så spelar ni",
     howToPlayLead:
       "Starta spelet och bjud in dina vänner (eller fiender, vi dömer ingen).",
