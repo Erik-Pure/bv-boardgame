@@ -158,9 +158,50 @@ async function testSecurityNegativePaths() {
   badProtocolWs.close();
 }
 
+async function testStartGameRequiresTable() {
+  const roomCode = "E2ENST";
+  const host = await connectAndHello({ roomCode, playerName: "Host", as: "controller" });
+  const guest = await connectAndHello({ roomCode, playerName: "Guest", as: "controller" });
+  const hostId = host.helloAck.playerId;
+  const guestId = guest.helloAck.playerId;
+
+  host.ws.send(
+    JSON.stringify({
+      type: "action",
+      actionId: "e2e-host-ready",
+      action: { type: "setReady", playerId: hostId, ready: true },
+    }),
+  );
+  guest.ws.send(
+    JSON.stringify({
+      type: "action",
+      actionId: "e2e-guest-ready",
+      action: { type: "setReady", playerId: guestId, ready: true },
+    }),
+  );
+  await delay(100);
+
+  host.ws.send(
+    JSON.stringify({
+      type: "action",
+      actionId: "e2e-start-no-table",
+      action: { type: "startGame", playerId: hostId },
+    }),
+  );
+  const err = await waitForMessage(host.inbox, (m) => m?.type === "error");
+  assert(
+    typeof err.message === "string" && err.message.includes("Storskärmen"),
+    "startGame without table should fail",
+  );
+
+  host.ws.close();
+  guest.ws.close();
+}
+
 async function main() {
   await testHealthAndReady();
   await testControllerAndTableInterop();
+  await testStartGameRequiresTable();
   await testSecurityNegativePaths();
   console.log("e2e-check ok");
 }

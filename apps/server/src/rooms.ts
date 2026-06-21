@@ -768,6 +768,14 @@ export function hasControllerConnection(room: Room, playerId: string): boolean {
   return false;
 }
 
+/** Minst en öppen storskärmsanslutning (`as: table`) — krävs för att starta parti. */
+export function hasOpenTableConnection(room: Room): boolean {
+  for (const c of room.conns) {
+    if (c.role === "table" && c.ws.readyState === c.ws.OPEN) return true;
+  }
+  return false;
+}
+
 export function handleAction(room: Room, conn: ClientConn, raw: unknown): string | null {
   const startedAt = Date.now();
   stats.actionsHandled += 1;
@@ -811,6 +819,10 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
     }
 
     if (room.state.phase === "lobby" && action?.type === "startGame") {
+      if (!hasOpenTableConnection(room)) {
+        stats.actionErrors += 1;
+        return "Storskärmen måste vara ansluten innan spelet kan starta.";
+      }
       const seed = Math.floor(Math.random() * 1_000_000_000);
       const res = startGame(room.state, conn.playerId, seed);
       if (res.error) return res.error;
