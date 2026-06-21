@@ -10,6 +10,25 @@ import styles from "./Home.module.css";
 
 const HOME_AGE_GATE_KEY = "bv:homeAgeGateAck";
 
+function MobileDeviceIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="18.5" r="0.75" fill="currentColor" />
+    </svg>
+  );
+}
+
+function LargeScreenIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="4" width="20" height="13" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 21h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 17v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function readHomeAgeGateAck(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -48,10 +67,26 @@ export function Home() {
       </div>
 
       <div className={styles.heroCtaRow}>
-        <ArcadeButton variant="pink" size="lg" fullWidth onClick={() => nav("/join")}>
+        <ArcadeButton
+          className={`${styles.heroCtaBtn} ${styles.heroJoinBtn}`}
+          variant="pink"
+          size="lg"
+          onClick={() => nav("/join")}
+        >
+          <span data-arcade-label-icon="" className={styles.homeCtaIcon} aria-hidden>
+            <MobileDeviceIcon />
+          </span>
           {sv.home.primaryJoin}
         </ArcadeButton>
-        <ArcadeButton variant="gray" size="lg" fullWidth onClick={() => nav("/host-lobby")}>
+        <ArcadeButton
+          className={styles.heroCtaBtn}
+          variant="gray"
+          size="lg"
+          onClick={() => nav("/host-lobby")}
+        >
+          <span data-arcade-label-icon="" className={styles.homeCtaIcon} aria-hidden>
+            <LargeScreenIcon />
+          </span>
           {sv.home.createLobby}
         </ArcadeButton>
       </div>

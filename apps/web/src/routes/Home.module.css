@@ -128,10 +128,50 @@
 }
 
 .heroCtaRow {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
   gap: 12px;
   width: 100%;
+}
+
+.heroCtaBtn {
+  max-width: 100%;
+}
+
+.heroCtaBtn > span > span {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.heroJoinBtn > span {
+  --btn-border: rgba(251, 207, 232, 0.55);
+  --btn-bg:
+    radial-gradient(100% 130% at 24% 10%, rgba(253, 242, 248, 0.35), transparent 54%),
+    radial-gradient(120% 115% at 78% 26%, rgba(244, 114, 182, 0.28), transparent 58%),
+    linear-gradient(180deg, #f472b6 0%, #ec4899 52%, #db2777 100%);
+  --btn-shadow:
+    0 10px 24px rgba(190, 24, 93, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  --btn-shadow-pressed:
+    0 6px 14px rgba(190, 24, 93, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.homeCtaIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1.25em;
+  height: 1.25em;
+  color: inherit;
+}
+
+.homeCtaIcon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .homeWideOuter {
@@ -217,12 +257,6 @@
   outline: 2px solid rgba(250, 204, 21, 0.75);
   outline-offset: 2px;
   border-radius: 4px;
-}
-
-@media (max-width: 560px) {
-  .heroCtaRow {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 720px) {

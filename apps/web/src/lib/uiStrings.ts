@@ -62,7 +62,7 @@ export const sv = {
   home: {
     title: "Bryggmästarnas Mästare",
     subtitle: "De dåliga batcherna",
-    primaryJoin: "Gå med i ett spel",
+    primaryJoin: "Gå med i spel",
     createLobby: "Starta nytt spel",
     howToPlayTitle: "Så spelar ni",
     howToPlayLead:

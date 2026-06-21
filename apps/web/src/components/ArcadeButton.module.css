@@ -72,6 +72,21 @@
   vertical-align: baseline;
 }
 
+.label:has([data-arcade-label-icon]) > .labelText {
+  width: auto;
+  flex: 1 1 auto;
+}
+
+.variant_pink [data-arcade-label-icon],
+.variant_blue [data-arcade-label-icon] {
+  color: #ffffff;
+  -webkit-text-fill-color: currentColor;
+}
+
+.variant_gray [data-arcade-label-icon] {
+  color: #374151;
+}
+
 .btn:active .inner {
   transform: translateY(1px) scale(0.995);
   box-shadow: var(--btn-shadow-pressed, 0 5px 12px rgba(0, 0, 0, 0.28));
