@@ -52,23 +52,18 @@ export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => v
         <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
         <EndedSpotlightCarousel players={state.players} />
         <div style={{ marginTop: 20, width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+          {feedbackUrl ? (
+            <ArcadeButton
+              variant="gray"
+              fullWidth
+              onClick={() => window.open(feedbackUrl, "_blank", "noopener,noreferrer")}
+            >
+              {sv.play.gameOverFeedback}
+            </ArcadeButton>
+          ) : null}
           <ArcadeButton variant="pink" fullWidth onClick={onLeaveHome}>
             {sv.play.gameOverLeaveToHome}
           </ArcadeButton>
-          {feedbackUrl ? (
-            <>
-              <ArcadeButton
-                variant="gray"
-                fullWidth
-                onClick={() => window.open(feedbackUrl, "_blank", "noopener,noreferrer")}
-              >
-                {sv.play.gameOverFeedback}
-              </ArcadeButton>
-              <p className={u.o75} style={{ margin: 0, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>
-                {sv.play.gameOverFeedbackHint}
-              </p>
-            </>
-          ) : null}
         </div>
       </div>
     </div>

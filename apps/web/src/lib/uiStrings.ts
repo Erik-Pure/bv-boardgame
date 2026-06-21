@@ -478,7 +478,6 @@ export const sv = {
     gameOverLeaveToHome: "Avsluta spelet",
     /** Valfri länk till Google Forms efter avslutat parti (mobil). */
     gameOverFeedback: "Ge feedback (valfritt)",
-    gameOverFeedbackHint: "Öppnar ett kort formulär i ny flik — tar ca 1–2 minuter.",
     spotlightRegionAria: "Höjdpunkter",
     spotlightMostOnesTitle: "Flest ettor",
     spotlightMostPantSpentTitle: "Mest spenderad pant",
