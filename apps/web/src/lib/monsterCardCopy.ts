@@ -7,6 +7,7 @@ function isRedundantMonsterStatLine(line: string): boolean {
   if (/^Vid vinst:\s*\+?\d+\s*pant\s*och\s*\d+\s*item\.?$/i.test(t)) return true;
   if (/^Vid vinst:\s*\+?\d+\s*pant\.?$/i.test(t)) return true;
   if (/^Vid vinst:\s*\d+\s*item\.?$/i.test(t)) return true;
+  if (/^Lagstrid:\s*välj en medkämpe innan striden\.?$/i.test(t)) return true;
   if (/^Team battle:\s*välj en medkämpe innan striden\.?$/i.test(t)) return true;
   return false;
 }

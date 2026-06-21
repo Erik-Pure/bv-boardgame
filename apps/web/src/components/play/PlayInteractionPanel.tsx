@@ -820,7 +820,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           </div>
           {teammate ? (
             <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>
-              {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
+              {pending.teamBattleRequired ? `${sv.play.teamBattleLabel}:` : "Ölkompis:"}{" "}
               {attacker?.name ?? "—"} {attackerRoll ? "har slagit" : "har inte slagit"} · {teammate.name}{" "}
               {teammateRoll ? "har slagit" : "har inte slagit"}
             </div>

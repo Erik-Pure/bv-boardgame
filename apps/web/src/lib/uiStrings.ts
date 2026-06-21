@@ -137,7 +137,7 @@ export const sv = {
     /** Footern (mobil): kort rad till höger om lobby-länken */
     wsReconnectFooterConnecting: "Ansluter…",
     wsReconnectFooterWaiting: (n: number) => (n > 0 ? `Försök ${n}` : "Nytt försök snart…"),
-    notConnected: "Inte ansluten till servern (WebSocket).",
+    notConnected: "Inte ansluten till servern.",
     lobbySheet: (ready: number, total: number) => `Lobby — redo: ${ready} / ${total}`,
     unready: "Ångra redo",
     ready: "Redo",
@@ -153,7 +153,8 @@ export const sv = {
     equipmentDefenseFromGearAria: (n: number) => `Sköld — skadersläckning från utrustning: ${n}`,
     equipmentBvbFromGearAria: (n: number) => `BvB-bonus på tärningsslag från utrustning: ${n}`,
     continue: "Fortsätt",
-    chooseTeammate: "Team battle — välj en medkämpe",
+    chooseTeammate: "Lagstrid — välj en medkämpe",
+    teamBattleLabel: "Lagstrid",
     teammateMustFight: "Vald spelare måste strida med dig i denna runda.",
     waitAttackerChooseTeammate: (name: string) => `Väntar på att ${name} väljer medkämpe…`,
     teammatePicked: (name: string) => `Medkämpe: ${name}`,
@@ -167,7 +168,7 @@ export const sv = {
     skipMonsterEncounter: "Undvik dålig batch (−2 pant)",
     skipMonsterEncounterToast: (playerName: string, enemyName: string) =>
       `${playerName} undviker ${enemyName} (−2 pant)`,
-    beerBroUnavailableTeamBattle: "Ölkompis kan inte användas i team battle — välj medkämpe i stället.",
+    beerBroUnavailableTeamBattle: "Ölkompis kan inte användas i lagstrid — välj medkämpe i stället.",
     beerBroAlreadyHelping: "En Ölkompis hjälper redan i den här striden.",
     theAttacker: "angriparen",
     yourD6: "Din t6",
@@ -475,6 +476,9 @@ export const sv = {
     winner: "Vinnare",
     /** Knapp i modalen när spelet är slut — går till startsidan. */
     gameOverLeaveToHome: "Avsluta spelet",
+    /** Valfri länk till Google Forms efter avslutat parti (mobil). */
+    gameOverFeedback: "Ge feedback (valfritt)",
+    gameOverFeedbackHint: "Öppnar ett kort formulär i ny flik — tar ca 1–2 minuter.",
     spotlightRegionAria: "Höjdpunkter",
     spotlightMostOnesTitle: "Flest ettor",
     spotlightMostPantSpentTitle: "Mest spenderad pant",
@@ -595,7 +599,9 @@ export const sv = {
     combatOverlayTitle: "Bräde — dålig batch",
     combatPhase1: "1 — Möte",
     combatPhaseTeam: "0 — Välj medkämpe",
-    teamBattleIntroTitle: "Team battle",
+    teamBattleIntroTitle: "Lagstrid",
+    teamBattleLabel: "Lagstrid",
+    teamBattleWaitTeammate: "väntar på val av medkämpe",
     teamBattleNextOpponent: "Motståndare",
     teamBattleIntroBody: (attacker: string) =>
       `${attacker} väljer medkämpe på sin mobil innan striden börjar.`,

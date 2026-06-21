@@ -363,7 +363,7 @@
     {
       "id": "item_pretzel_snack",
       "kind": "item",
-      "title": "Pretzel",
+      "title": "Kringla",
       "text": "Använd: återställ 2 HP hos dig eller en annan spelare.",
       "artKey": "item/pretzel",
       "effects": [

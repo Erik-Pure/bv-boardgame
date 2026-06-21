@@ -325,7 +325,7 @@ describe("BvB duel flow", () => {
       }),
     });
     const r = applyAction(state, { type: "pvpLootChoice", playerId: "p2", choice: "gold" });
-    assert.equal(r.error, "Only the winner can choose loot");
+    assert.equal(r.error, "Endast vinnaren kan välja byte");
   });
 
   it("pvpRoll rejects duplicate roll from same player", () => {

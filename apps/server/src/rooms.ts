@@ -587,7 +587,7 @@ export function joinRoom(params: {
     }
     room.state.log.push({
       at: Date.now(),
-      message: `Lobby configured: mode=${room.state.config.gameMode}, turn=${room.state.config.turnSeconds}s.`,
+      message: `Värden sparade lobbyinställningar.`,
     });
   }
 

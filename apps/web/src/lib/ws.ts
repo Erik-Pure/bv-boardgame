@@ -211,7 +211,7 @@ export function createClient(params: {
         log.debug("send blocked; readyState=", ws.readyState);
         params.onMessage({
           type: "error",
-          message: "Not connected to the server (WebSocket not open).",
+          message: "Inte ansluten till servern.",
         });
         return;
       }

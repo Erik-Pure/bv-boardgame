@@ -249,6 +249,10 @@ function reconcilePlayingPersonalPrompts(state: GameState): void {
 /** Normalisera inläst/sparad state (config, avatar, perk-prompts). */
 export function normalizeLoadedGameState(state: GameState): void {
   normalizeConfig(state);
+  if (state.gameStartedAt == null && (state.phase === "playing" || state.phase === "ended")) {
+    const startLine = state.log.find((e) => e.message.includes("börjar!"));
+    if (startLine) state.gameStartedAt = startLine.at;
+  }
   if (state.phase === "playing") {
     reconcilePlayingPersonalPrompts(state);
   }
@@ -268,6 +272,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     log: [],
     winnerId: null,
     winnerName: null,
+    gameStartedAt: null,
     goldenBeerCarrierId: null,
     finalBossMonsterId: null,
     finalBossLivesRemaining: null,
@@ -374,7 +379,7 @@ function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending
     pending.phase = "awaitingRolls";
     pending.rolls = {};
     /** Låt `tableItemPlayReveals` vara kvar under `awaitingRolls` så bordets solfjäder visar alla spelade BvB-föremål tills båda slagit. Rensning sker i `pvpRoll` när båda tärningar finns. */
-    log(state, "Båda PvP-spelare är redo — slagrundan startar.");
+    log(state, "Båda duellanterna är redo — slagrundan startar.");
   }
 }
 
@@ -2065,7 +2070,7 @@ export function lobbyAddPlayer(
 ): ApplyResult {
   const next = cloneState(state);
   if (next.players.length >= MAX_PLAYERS) {
-    return { state, events: [], error: "Lobby full" };
+    return { state, events: [], error: "Lobbyn är full" };
   }
   const color = PLAYER_COLORS[next.players.length % PLAYER_COLORS.length]!;
   const p: Player = {
@@ -2142,6 +2147,7 @@ export function startGame(
     }
   }
   next.phase = "playing";
+  next.gameStartedAt = Date.now();
   next.turnOrder = next.players.map((p) => p.id);
   next.currentTurnIndex = 0;
   for (const p of next.players) {
@@ -2343,7 +2349,7 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   const attackerWins = ar >= br;
   const winner = attackerWins ? a : b;
   const loser = attackerWins ? b : a;
-  log(state, `PvP: ${a.name} (${ar}) vs ${b.name} (${br}) — ${winner.name} vinner!`);
+  log(state, `BvB: ${a.name} (${ar}) vs ${b.name} (${br}) — ${winner.name} vinner!`);
   return {
     type: "pvp",
     attackerId: a.id,
@@ -2848,7 +2854,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan välja" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
     const p = next.players.find((x) => x.id === pending.attackerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     if (p.equipment.accessory?.canSkipMonsterEncounter !== true) {
       return { state, events: [], error: "Du kan inte undvika dåliga batcher utan rätt accessoar" };
     }
@@ -2877,10 +2883,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "chooseCombatTeammate" && next.pending?.type === "combat" && next.pending.phase === "chooseTeammate") {
     const pending = next.pending;
-    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Only attacker can choose teammate" };
+    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan välja medkämpe" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
     const teammate = next.players.find((x) => x.id === action.teammateId);
-    if (!teammate) return { state, events: [], error: "Teammate not found" };
+    if (!teammate) return { state, events: [], error: "Medkämpen hittades inte" };
     if (teammate.id === pending.attackerId) return { state, events: [], error: "Du kan inte välja dig själv" };
     if (!isPlayerActiveInMatch(teammate)) {
       return { state, events: [], error: "Medkämpen är ute ur spelet" };
@@ -2890,7 +2896,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.reacted = {};
     pending.phase = "enemyIntro";
     const attacker = next.players.find((x) => x.id === pending.attackerId);
-    log(next, `${attacker?.name ?? "Angriparen"} väljer ${teammate.name} som medkämpe i team battle.`);
+    log(next, `${attacker?.name ?? "Angriparen"} väljer ${teammate.name} som medkämpe i lagstrid.`);
     return { state: next, events: ["state"] };
   }
 
@@ -3250,7 +3256,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "weak_beer");
         pending.roundItemReady ??= {};
@@ -3290,7 +3296,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? user.id;
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "light_beer");
         pending.roundItemReady ??= {};
@@ -3333,7 +3339,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? user.id;
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "folk_beer");
         pending.roundItemReady ??= {};
@@ -3372,7 +3378,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "tripwire");
         pending.roundItemReady ??= {};
@@ -3411,7 +3417,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? user.id;
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "double_hops");
         pending.roundItemReady ??= {};
@@ -3454,7 +3460,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? user.id;
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "beer_bomb");
         pending.roundItemReady ??= {};
@@ -3501,7 +3507,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? user.id;
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         const mod = applyPlayableItemAttackMod(next, user, targetId, "manopositiv");
         pending.roundItemReady ??= {};
@@ -3583,7 +3589,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "hangover");
         pending.roundItemReady ??= {};
@@ -3618,7 +3624,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "paidassasin");
         pending.roundItemReady ??= {};
@@ -3899,7 +3905,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         applyPlayableItemAttackMod(next, user, targetId, "monster_hype");
         pending.roundItemReady ??= {};
@@ -3938,7 +3944,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (isPvpPreRound && pending.type === "pvp") {
         targetId = action.targetPlayerId ?? (user.id === pending.attackerId ? pending.defenderId : pending.attackerId);
         if (targetId !== pending.attackerId && targetId !== pending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
         pending.pvpYeastSabotageVictimId = targetId;
         applyPlayableItemAttackMod(next, user, targetId, "yeast_sabotage");
@@ -4298,7 +4304,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (target.id === user.id) return { state, events: [], error: "Du kan inte välja dig själv" };
       if (inPvpSpillEligible && pvpPending?.type === "pvp") {
         if (target.id !== pvpPending.attackerId && target.id !== pvpPending.defenderId) {
-          return { state, events: [], error: "Ogiltigt PvP-mål" };
+          return { state, events: [], error: "Ogiltigt BvB-mål" };
         }
       }
       let spillSide: TableItemPlaySidePayload | undefined;
@@ -4519,7 +4525,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte din tur" };
     }
     const chooser = next.players.find((x) => x.id === action.playerId);
-    if (!chooser) return { state, events: [], error: "Player not found" };
+    if (!chooser) return { state, events: [], error: "Spelaren hittades inte" };
     const sipBonus = chooser.equipment.weapon?.sipAttackBonus ?? 0;
     if (sipBonus <= 0) return { state, events: [], error: "Inget vapen med sip-bonus" };
     const sipPay = sipWeaponExtraAttackCosts(chooser.equipment.weapon);
@@ -4565,7 +4571,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
 
     const roller = next.players.find((x) => x.id === action.playerId);
-    if (!roller) return { state, events: [], error: "Player not found" };
+    if (!roller) return { state, events: [], error: "Spelaren hittades inte" };
     const tempMod = roller.nextCombatModifier ?? 0;
     roller.nextCombatModifier = 0;
     const mod = (pending.attackMods?.[roller.id] ?? 0) + tempMod;
@@ -4735,7 +4741,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
   if (action.type === "combatRollAck" && next.pending?.type === "combat" && next.pending.phase === "rollPreview") {
     const pending = next.pending;
-    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Only attacker can continue" };
+    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan fortsätta" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
     finalizeCombatAfterRollPreview(
       next,
@@ -4751,7 +4757,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     next.pending.phase === "chooseHitMitigation"
   ) {
     const pending = next.pending;
-    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Only attacker can choose" };
+    if (action.playerId !== pending.attackerId) return { state, events: [], error: "Endast angriparen kan välja" };
     if (action.playerId !== cp.id) return { state, events: [], error: "Inte din tur" };
     if (action.choice !== "sip" && action.choice !== "no_sip") return { state, events: [], error: "Ogiltigt val" };
     const p = next.players.find((x) => x.id === pending.attackerId);
@@ -4846,7 +4852,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (!opt) return { state, events: [], error: "Ogiltigt val" };
 
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
 
     clearTableItemPlay(next);
     p.levelIndex = opt.target.levelIndex;
@@ -4929,7 +4935,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte din tur" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     const optRes = handleCardOption({ state: next, player: p, pending, choiceId: action.choiceId, rng, log });
     if (optRes.handled) {
       if (optRes.error) return { state, events: [], error: optRes.error };
@@ -5001,7 +5007,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Inte ditt val" };
       }
       const thief = next.players.find((x) => x.id === action.playerId);
-      if (!thief) return { state, events: [], error: "Player not found" };
+      if (!thief) return { state, events: [], error: "Spelaren hittades inte" };
       finishStealEquipmentReplaceDecision(next, action.playerId, action.accept, postOffer);
       combatP.postReactionEquipmentOffer = undefined;
       next.pending = combatP;
@@ -5025,7 +5031,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte din tur" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     const turnPid = erPending.playerId;
     if (action.accept) {
       if (erPending.fromPlastbackTake) {
@@ -5082,10 +5088,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Ogiltigt mötesläge" };
     }
     if (action.playerId !== pending.moverId) {
-      return { state, events: [], error: "Only the active player can choose" };
+      return { state, events: [], error: "Endast den aktiva spelaren kan välja" };
     }
     const mover = next.players.find((p) => p.id === pending.moverId);
-    if (!mover) return { state, events: [], error: "Player not found" };
+    if (!mover) return { state, events: [], error: "Spelaren hittades inte" };
 
     if (action.choice === "tile") {
       log(next, `${mover.name} väljer att lösa rutan (ingen BvB).`);
@@ -5132,7 +5138,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Välj BvB i mötesmenyn först" };
     }
     if (action.playerId !== pending.moverId) {
-      return { state, events: [], error: "Only the active player can choose" };
+      return { state, events: [], error: "Endast den aktiva spelaren kan välja" };
     }
     if (!pending.opponentIds.includes(action.opponentId)) {
       return { state, events: [], error: "Ogiltig motståndare" };
@@ -5209,7 +5215,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (pending.rolls[action.playerId]) return { state, events: [], error: "You already rolled" };
 
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     const rawRoll = rollD6WithOptionalSixSense(p, rng);
     const rawDie = rawRoll.die;
     const attackDoubled = p.nextCombatAttackDiceDouble === true;
@@ -5377,7 +5383,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte du som är vid Panta burkar" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     if (p.gold < MERCHANT_REROLL_GOLD_COST) {
       return { state, events: [], error: "För lite pant" };
     }
@@ -5400,7 +5406,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte du som är vid Panta burkar" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     if (action.itemId === null) {
       log(next, `${p.name} lämnar Panta burkar.`);
       next.pending = null;
@@ -5458,7 +5464,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte du som väljer nivåuppstigning" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     if (action.choice === "stay") {
       log(next, `${p.name} stannar kvar på sin nuvarande våning.`);
       if (next.pending?.type === "levelUpOffer" && next.pending.playerId === p.id) {
@@ -5511,7 +5517,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Inte du som väljer bryggbonus" };
     }
     const p = next.players.find((x) => x.id === action.playerId);
-    if (!p) return { state, events: [], error: "Player not found" };
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
     if (!isBrewerPerkChoiceAvailable(p, action.choice)) {
       return { state, events: [], error: "Den kategorin är redan maxad (3/3)" };
     }
@@ -5560,11 +5566,11 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   if (action.type === "pvpLootChoice" && next.pending?.type === "pvp" && next.pending.phase === "chooseLoot") {
     const pending = next.pending;
     if (action.playerId !== pending.winnerId) {
-      return { state, events: [], error: "Only the winner can choose loot" };
+      return { state, events: [], error: "Endast vinnaren kan välja byte" };
     }
     const winner = next.players.find((x) => x.id === pending.winnerId);
     const loser = next.players.find((x) => x.id === pending.loserId);
-    if (!winner || !loser) return { state, events: [], error: "Player not found" };
+    if (!winner || !loser) return { state, events: [], error: "Spelaren hittades inte" };
     recordPvpMatchOutcome(next, winner.id, loser.id);
     const theftBlocked = loser.equipment.accessory?.preventTheft === true;
     let deferredEquipReplace: Extract<Pending, { type: "equipmentReplaceOffer" }> | null = null;
@@ -5869,10 +5875,10 @@ function advanceTurn(state: GameState): void {
     if ((n.skippedTurns ?? 0) > 0) {
       n.skippedTurns -= 1;
       if (n.skipTurnReasons && n.skipTurnReasons.length > 0) n.skipTurnReasons.shift();
-      log(state, `— ${n.name} skips a turn —`);
+      log(state, `— ${n.name} står över sin tur —`);
       continue;
     }
-    log(state, `— ${n.name}'s turn —`);
+    log(state, `— ${n.name}s tur —`);
     applyArmorHealHpPerTurnAtTurnStart(state, n);
     surfaceActivePlayerCombatLoot(state);
     return;

@@ -360,11 +360,11 @@ function TableCombatBoardPanelInner(props: {
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamWaitMuted}>
-          Team battle: <b>väntar på val av medkämpe</b>
+          {sv.table.teamBattleLabel}: <b>{sv.table.teamBattleWaitTeammate}</b>
         </div>
       ) : pending.assistId ? (
         <div className={combatStyles.teammateChosenBannerLeft}>
-          {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
+          {pending.teamBattleRequired ? `${sv.table.teamBattleLabel}:` : "Ölkompis:"}{" "}
           <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>
@@ -381,11 +381,11 @@ function TableCombatBoardPanelInner(props: {
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamBattlePickTeammate}>
-          Team battle: <b>väntar på val av medkämpe</b>
+          {sv.table.teamBattleLabel}: <b>{sv.table.teamBattleWaitTeammate}</b>
         </div>
       ) : pending.assistId ? (
         <div className={combatStyles.teammateChosenBanner}>
-          {pending.teamBattleRequired ? "Team battle:" : "Ölkompis:"}{" "}
+          {pending.teamBattleRequired ? `${sv.table.teamBattleLabel}:` : "Ölkompis:"}{" "}
           <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>

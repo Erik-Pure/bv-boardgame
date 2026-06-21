@@ -134,9 +134,9 @@ app.get("/auth/google/callback", async (req, reply) => {
   const q = (req.query ?? {}) as { code?: string; state?: string };
   const code = String(q.code ?? "");
   const state = String(q.state ?? "");
-  if (!code || !state) return reply.code(400).send({ ok: false, error: "missing code/state" });
+  if (!code || !state) return reply.code(400).send({ ok: false, error: "Saknar kod eller state" });
   const done = await authService.handleGoogleCallback({ code, state });
-  if (!done) return reply.code(401).send({ ok: false, error: "google auth failed" });
+  if (!done) return reply.code(401).send({ ok: false, error: "Google-inloggning misslyckades" });
   reply.header("Set-Cookie", serializeSessionCookie(done.sessionId, 30 * 24 * 60 * 60));
   return reply.redirect("/");
 });
@@ -429,7 +429,7 @@ wss.on("connection", (ws, req) => {
       }
 
       if (!joined) {
-        sendError(ws, "Not connected (send hello first)");
+        sendError(ws, "Anslut först (hello).");
         return;
       }
 
@@ -473,7 +473,7 @@ wss.on("connection", (ws, req) => {
         log.debug("broadcast state", joined.roomCode);
       }
     } catch (e) {
-      sendError(ws, e instanceof Error ? e.message : "Unknown error");
+      sendError(ws, e instanceof Error ? e.message : "Okänt fel");
     }
   });
 

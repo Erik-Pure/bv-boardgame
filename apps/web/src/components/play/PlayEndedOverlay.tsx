@@ -4,11 +4,13 @@ import { BeerBackdropLayers } from "../BeerBackdropLayers";
 import { EndedScoreboardTable } from "../EndedScoreboardTable";
 import { EndedSpotlightCarousel } from "../EndedSpotlightCarousel";
 import u from "../../styles/uiPrimitives.module.css";
+import { buildFeedbackFormUrl, isFeedbackFormConfigured } from "../../lib/feedbackFormUrl";
 import { sv } from "../../lib/uiStrings";
 
 export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => void }) {
   const { state, onLeaveHome } = props;
   if (state.phase !== "ended") return null;
+  const feedbackUrl = isFeedbackFormConfigured() ? buildFeedbackFormUrl(state) : null;
   return (
     <div
       role="dialog"
@@ -49,10 +51,24 @@ export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => v
         </p>
         <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
         <EndedSpotlightCarousel players={state.players} />
-        <div style={{ marginTop: 20, width: "100%" }}>
+        <div style={{ marginTop: 20, width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
           <ArcadeButton variant="pink" fullWidth onClick={onLeaveHome}>
             {sv.play.gameOverLeaveToHome}
           </ArcadeButton>
+          {feedbackUrl ? (
+            <>
+              <ArcadeButton
+                variant="gray"
+                fullWidth
+                onClick={() => window.open(feedbackUrl, "_blank", "noopener,noreferrer")}
+              >
+                {sv.play.gameOverFeedback}
+              </ArcadeButton>
+              <p className={u.o75} style={{ margin: 0, fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>
+                {sv.play.gameOverFeedbackHint}
+              </p>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

@@ -211,7 +211,7 @@ export function CardsCatalog() {
             Översikt: kort från <code className={catalogStyles.codeInline}>cards.json</code>, utrustning från{" "}
             <code className={catalogStyles.codeInline}>equipmentDefs.ts</code>, monster från{" "}
             <code className={catalogStyles.codeInline}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
-            <strong>team battle</strong> och <strong>slutbossar</strong>.
+            <strong>lagstrid</strong> och <strong>slutbossar</strong>.
           </>
         )}
       </p>
@@ -302,14 +302,14 @@ export function CardsCatalog() {
 
       <MonsterSection
         title="Monster — vanliga (solo)"
-        subtitle="Ingen team battle, inte slutboss."
+        subtitle="Ingen lagstrid, inte slutboss."
         monsters={soloMonsters}
       />
       <MonsterSection
-        title="Monster — team battle"
-        subtitle="Kräver medkämpe; angripare väljer teammate."
+        title="Monster — lagstrid"
+        subtitle="Kräver medkämpe; angriparen väljer vem som slåss med."
         monsters={teamMonsters}
-        badge={{ text: "Team", color: "rgba(96,165,250,0.95)" }}
+        badge={{ text: "Lag", color: "rgba(96,165,250,0.95)" }}
       />
       <MonsterSection
         title="Monster — slutbossar"
@@ -425,7 +425,7 @@ function MonsterCatalogCard(props: {
         <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{m.name}</div>
         <div style={{ fontSize: 12, opacity: 0.8 }}>
           Styrka {m.strength}
-          {m.teamBattleRequired ? ` · +${m.teamBattleBonusGold ?? 0} pant/medhjälpare vid team-seger` : null}
+          {m.teamBattleRequired ? ` · +${m.teamBattleBonusGold ?? 0} pant/medkämpe vid lagseger` : null}
         </div>
         {m.rulesText ? (
           <>

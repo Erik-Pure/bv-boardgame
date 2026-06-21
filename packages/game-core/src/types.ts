@@ -742,6 +742,8 @@ export interface GameState {
   logSeq?: number;
   winnerId: string | null;
   winnerName: string | null;
+  /** Epoch ms när partiet startade (`startGame`); null i lobby. */
+  gameStartedAt: number | null;
   goldenBeerCarrierId: string | null;
   /** Slutboss på sista nivån (en av {@link FINAL_BOSS_IDS}); sätts vid spelstart. */
   finalBossMonsterId: MonsterId | null;
