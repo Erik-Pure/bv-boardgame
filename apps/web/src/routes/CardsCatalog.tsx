@@ -43,6 +43,22 @@ const EQUIP_SLOT_ORDER: Array<EquipmentShopItem["slot"]> = ["weapon", "armor", "
 const EXTRA_OVERVIEW_EQUIPMENT: EquipmentShopItem[] = [
   { id: "special_robotarm", slot: "weapon", name: "Robotarm", price: 0, power: 0, pvpDieBonus: 1 },
   { id: "special_robothjalm", slot: "helmet", name: "Robothjälm", price: 0, damageNegate: 1 },
+  {
+    id: "special_rabarbersvard",
+    slot: "weapon",
+    name: "Rabarbersvärd",
+    price: 0,
+    power: 3,
+    rulesText: "Kan endast erhållas genom att vinna mot Rabarbar.",
+  },
+  {
+    id: "special_korsbarshjalm",
+    slot: "helmet",
+    name: "Körsbärshjälm",
+    price: 0,
+    pvpDieBonus: 3,
+    rulesText: "Kan endast erhållas genom att vinna mot Rabarbar.",
+  },
 ];
 const CATALOG_SECTION_LABEL: CSSProperties = {
   fontSize: 10,

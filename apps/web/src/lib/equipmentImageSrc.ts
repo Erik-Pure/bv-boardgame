@@ -68,6 +68,8 @@ export function equipmentUniqueImageSrc(name?: string): string | null {
     "Taproom-nyckelring": "/equipment/accessory/taproom-nyckelring.webp",
     Robotarm: "/equipment/weapon/robot-arm.webp",
     Robothjälm: "/equipment/helmet/robot-helm.webp",
+    Rabarbersvärd: "/equipment/weapon/rhubarbsword.webp",
+    Körsbärshjälm: "/equipment/helmet/cherryhelmet.webp",
   };
   if (map[name]) return map[name]!;
   const can = /^Burkrustning\s+(\d+)$/.exec(name);

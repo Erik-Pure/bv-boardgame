@@ -1079,6 +1079,22 @@ function grantRandomCombatReward(
       return { title: "Robothjälm" };
     }
   }
+  if (winMonsterId === "rabarbar" && rng() < 0.5) {
+    const rabarbarSlots: Array<"weapon" | "helmet"> = [];
+    if (!player.equipment.weapon) rabarbarSlots.push("weapon");
+    if (!player.equipment.helmet) rabarbarSlots.push("helmet");
+    if (rabarbarSlots.length > 0) {
+      const slot = pick(rng, rabarbarSlots);
+      if (slot === "weapon") {
+        player.equipment.weapon = { name: "Rabarbersvärd", power: 3 };
+        log(state, `${player.name} får Rabarbersvärd efter segern mot ${sourceName}!`);
+        return { title: "Rabarbersvärd" };
+      }
+      player.equipment.helmet = { name: "Körsbärshjälm", pvpDieBonus: 3, combatBonus: 0 };
+      log(state, `${player.name} får Körsbärshjälm efter segern mot ${sourceName}!`);
+      return { title: "Körsbärshjälm" };
+    }
+  }
   const equipmentRoll = rng() < 0.45;
   if (equipmentRoll) {
     const equipRoll = tryGrantRandomEquipmentOrOffer(player, rng, state.config.maxHp);

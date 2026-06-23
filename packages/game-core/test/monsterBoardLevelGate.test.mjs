@@ -18,7 +18,7 @@ function pickMonsterForLevel(rng, levelIndex) {
 }
 
 describe("monster board level gate", () => {
-  it("Stoorn, Enhörningsryttare och Demonkrigare har minBoardLevelIndex 1", () => {
+  it("Stoorn, Enhörningsryttare, Demonkrigare och Rabarbar har minBoardLevelIndex 1", () => {
     for (const id of LATE_RANDOM_MONSTER_IDS) {
       const m = MONSTERS.find((x) => x.id === id);
       assert.ok(m, id);

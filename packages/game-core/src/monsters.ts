@@ -2,6 +2,7 @@ export type MonsterId =
   | "skum_banan"
   | "folke_bengtsson"
   | "rabarbapappa"
+  | "rabarbar"
   | "brottningsmatch"
   | "keg_lifter"
   | "imperial_dragon_stout"
@@ -106,6 +107,18 @@ const MONSTER_DEFS: MonsterDefInput[] = [
     rewardItems: 2,
     rewardXp: 50,
     artKey: "monster/rabarbapappa",
+  },
+  {
+    id: "rabarbar",
+    name: "Rabarbar",
+    strength: 8,
+    baseDamage: 5,
+    rulesText: "",
+    rewardGold: 2,
+    rewardItems: 4,
+    rewardXp: 100,
+    artKey: "monster/rabarbar",
+    minBoardLevelIndex: 1,
   },
   {
     id: "brottningsmatch",
@@ -413,6 +426,7 @@ export const LATE_RANDOM_MONSTER_IDS: readonly MonsterId[] = [
   "imperial_dragon_stout",
   "enhorningsryttare",
   "demonkrigare",
+  "rabarbar",
 ];
 
 export function monsterAvailableAtBoardLevel(
