@@ -1919,6 +1919,46 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.settingsLanguageRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settingsLanguageToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settingsLanguageBtn,
+.settingsLanguageBtnActive {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.settingsLanguageBtnActive {
+  color: #fef9c3;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+.settingsLanguageSep {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .settingsStatusCard {
   padding: 10px 12px;
   border-radius: 12px;

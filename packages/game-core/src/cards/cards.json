@@ -724,7 +724,7 @@
       "id": "item_shortcut",
       "kind": "item",
       "title": "Genväg",
-      "text": "Använd på din tur: betala pant för att gå upp en nivå — eller på sista våningen teleporteras du direkt till slutbossens ruta för motsvarande kostnad som för den våningen.",
+      "text": "Använd på din tur: betala 10 pant och teleportera till en valfri annan spelare. Landningen följer vanliga regler (möte med spelare på rutan, rutaeffekt).",
       "artKey": "item/shortcut",
       "effects": []
     },

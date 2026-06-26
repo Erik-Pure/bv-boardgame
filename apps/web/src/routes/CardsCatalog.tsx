@@ -4,7 +4,10 @@ import {
   allCards,
   EQUIPMENT_CATALOG,
   FINAL_BOSS_IDS,
-  finalBossCardTagline,
+  getCardDefById,
+  getEquipmentDisplay,
+  getFinalBossTagline,
+  getMonsterDisplay,
   MONSTERS,
   type CardDef,
   type CardKind,
@@ -13,10 +16,11 @@ import {
 } from "@bv/game-core";
 import { artAttributionLabel, artImageSources, hasArtAttribution } from "../lib/cardArt";
 import { CatalogImageBadgeStrip, cardDefOverviewBadges } from "../lib/catalogCardOverviewBadges";
-import { formatShopItemEffectSummary } from "../lib/equipmentEffectSummary";
+import { formatLocalizedShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/inventoryEffectBadges";
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
-import { capitalizeWord, equipmentSlotSv } from "../lib/uiStrings";
+import { useLocale, useUiStrings } from "../lib/locale/LocaleContext";
+import { capitalizeWord, equipmentSlotLabel, type UiStrings } from "../lib/uiStrings";
 import { PictureImg } from "../components/PictureImg";
 import { RandomAvatarPreview } from "../components/RandomAvatarPreview";
 import { CardRichText, TextWithBoldNumbers } from "../components/CardRichText";
@@ -30,14 +34,17 @@ import catalogStyles from "./CardsCatalog.module.css";
 
 const KIND_ORDER: CardKind[] = ["event", "item", "combat", "treasure", "rest", "empty"];
 
-const KIND_LABEL_SV: Record<CardKind, string> = {
-  event: "Händelse",
-  item: "Föremål",
-  combat: "Strid / system",
-  treasure: "Skatt",
-  rest: "Vila",
-  empty: "Tom",
-};
+function kindLabel(kind: CardKind, catalog: UiStrings["catalog"]): string {
+  const map: Record<CardKind, string> = {
+    event: catalog.kindEvent,
+    item: catalog.kindItem,
+    combat: catalog.kindCombat,
+    treasure: catalog.kindTreasure,
+    rest: catalog.kindRest,
+    empty: catalog.kindEmpty,
+  };
+  return map[kind];
+}
 
 const EQUIP_SLOT_ORDER: Array<EquipmentShopItem["slot"]> = ["weapon", "armor", "helmet", "accessory"];
 const EXTRA_OVERVIEW_EQUIPMENT: EquipmentShopItem[] = [
@@ -112,7 +119,7 @@ function monsterOverviewBadges(m: MonsterDef): EffectBadgeData[] {
   return badges;
 }
 
-function groupCardsByKind(cards: CardDef[]): Map<CardKind, CardDef[]> {
+function groupCardsByKind(cards: CardDef[], locale: string): Map<CardKind, CardDef[]> {
   const m = new Map<CardKind, CardDef[]>();
   for (const k of KIND_ORDER) m.set(k, []);
   for (const c of cards) {
@@ -121,12 +128,12 @@ function groupCardsByKind(cards: CardDef[]): Map<CardKind, CardDef[]> {
     m.set(c.kind, list);
   }
   for (const list of m.values()) {
-    list.sort((a, b) => a.title.localeCompare(b.title, "sv"));
+    list.sort((a, b) => a.title.localeCompare(b.title, locale));
   }
   return m;
 }
 
-function groupEquipmentBySlot(items: EquipmentShopItem[]): Map<EquipmentShopItem["slot"], EquipmentShopItem[]> {
+function groupEquipmentBySlot(items: EquipmentShopItem[], locale: string): Map<EquipmentShopItem["slot"], EquipmentShopItem[]> {
   const m = new Map<EquipmentShopItem["slot"], EquipmentShopItem[]>();
   for (const s of EQUIP_SLOT_ORDER) m.set(s, []);
   for (const it of items) {
@@ -135,12 +142,12 @@ function groupEquipmentBySlot(items: EquipmentShopItem[]): Map<EquipmentShopItem
     m.set(it.slot, list);
   }
   for (const list of m.values()) {
-    list.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+    list.sort((a, b) => a.name.localeCompare(b.name, locale));
   }
   return m;
 }
 
-function splitItemCardsByPolarity(cards: CardDef[]): {
+function splitItemCardsByPolarity(cards: CardDef[], locale: string): {
   positive: CardDef[];
   negative: CardDef[];
 } {
@@ -150,19 +157,24 @@ function splitItemCardsByPolarity(cards: CardDef[]): {
     if (NEGATIVE_ITEM_CARD_IDS.has(c.id)) negative.push(c);
     else positive.push(c);
   }
-  positive.sort((a, b) => a.title.localeCompare(b.title, "sv"));
-  negative.sort((a, b) => a.title.localeCompare(b.title, "sv"));
+  positive.sort((a, b) => a.title.localeCompare(b.title, locale));
+  negative.sort((a, b) => a.title.localeCompare(b.title, locale));
   return { positive, negative };
 }
 
 export function CardsCatalog() {
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const c = ui.catalog;
   const [onlyBeerRef, setOnlyBeerRef] = useState(false);
 
   const byKind = useMemo(() => {
-    let cards = allCards().filter((c) => !HIDDEN_CATALOG_CARD_IDS.has(c.id) && c.kind !== "treasure");
-    if (onlyBeerRef) cards = cards.filter((c) => hasArtAttribution(c.artKey));
-    return groupCardsByKind(cards);
-  }, [onlyBeerRef]);
+    let cards = allCards()
+      .filter((card) => !HIDDEN_CATALOG_CARD_IDS.has(card.id) && card.kind !== "treasure")
+      .map((card) => getCardDefById(card.id, locale) ?? card);
+    if (onlyBeerRef) cards = cards.filter((card) => hasArtAttribution(card.artKey));
+    return groupCardsByKind(cards, locale);
+  }, [onlyBeerRef, locale]);
 
   const equipmentBySlot = useMemo(() => {
     if (onlyBeerRef) {
@@ -170,8 +182,8 @@ export function CardsCatalog() {
       for (const s of EQUIP_SLOT_ORDER) empty.set(s, []);
       return empty;
     }
-    return groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT]);
-  }, [onlyBeerRef]);
+    return groupEquipmentBySlot([...EQUIPMENT_CATALOG, ...EXTRA_OVERVIEW_EQUIPMENT], locale);
+  }, [onlyBeerRef, locale]);
 
   const { soloMonsters, teamMonsters, bossMonsters } = useMemo(() => {
     const bossIds = new Set(FINAL_BOSS_IDS);
@@ -184,12 +196,13 @@ export function CardsCatalog() {
       else if (m.teamBattleRequired) team.push(m);
       else solo.push(m);
     }
-    const sort = (a: MonsterDef, b: MonsterDef) => a.name.localeCompare(b.name, "sv");
+    const sort = (a: MonsterDef, b: MonsterDef) =>
+      getMonsterDisplay(a.id, locale).name.localeCompare(getMonsterDisplay(b.id, locale).name, locale);
     solo.sort(sort);
     team.sort(sort);
     bosses.sort(sort);
     return { soloMonsters: solo, teamMonsters: team, bossMonsters: bosses };
-  }, [onlyBeerRef]);
+  }, [onlyBeerRef, locale]);
 
   const beerRefCount = useMemo(() => {
     let n = 0;
@@ -201,7 +214,7 @@ export function CardsCatalog() {
   return (
     <div className={catalogStyles.pageRoot}>
       <div className={catalogStyles.catalogHeaderRow}>
-        <h1 className={catalogStyles.catalogTitle}>Kortkatalog</h1>
+        <h1 className={catalogStyles.catalogTitle}>{c.title}</h1>
         <div className={catalogStyles.catalogHeaderActions}>
           <button
             type="button"
@@ -209,25 +222,27 @@ export function CardsCatalog() {
             aria-pressed={onlyBeerRef}
             onClick={() => setOnlyBeerRef((v) => !v)}
           >
-            {onlyBeerRef ? "Visar ölreferens" : "Endast ölreferens"}
+            {onlyBeerRef ? c.filterActive : c.filterInactive}
           </button>
           <Link to="/" className={catalogStyles.catalogHomeLink}>
-            Till startsidan
+            {c.homeLink}
           </Link>
         </div>
       </div>
       <p className={catalogStyles.catalogIntro}>
         {onlyBeerRef ? (
           <>
-            Visar <strong>{beerRefCount}</strong> kort och monster med registrerad ölreferens (etikett under bilden).
-            Utrustning har inga ölreferenser i katalogen.
+            {c.introBeerRefBefore} <strong>{beerRefCount}</strong> {c.introBeerRefAfter}
           </>
         ) : (
           <>
-            Översikt: kort från <code className={catalogStyles.codeInline}>cards.json</code>, utrustning från{" "}
-            <code className={catalogStyles.codeInline}>equipmentDefs.ts</code>, monster från{" "}
-            <code className={catalogStyles.codeInline}>monsters.ts</code> uppdelade i <strong>vanliga</strong>,{" "}
-            <strong>lagstrid</strong> och <strong>slutbossar</strong>.
+            {c.introFullBeforeCards} <code className={catalogStyles.codeInline}>{c.introFullCardsFile}</code>
+            {c.introFullBeforeEquip}{" "}
+            <code className={catalogStyles.codeInline}>{c.introFullEquipFile}</code>
+            {c.introFullBeforeMonsters}{" "}
+            <code className={catalogStyles.codeInline}>{c.introFullMonstersFile}</code> {c.introFullTail}{" "}
+            <strong>{c.introFullVanliga}</strong>, <strong>{c.introFullLagstrid}</strong> {c.introFullAnd}{" "}
+            <strong>{c.introFullBossar}</strong>.
           </>
         )}
       </p>
@@ -238,17 +253,17 @@ export function CardsCatalog() {
         const list = byKind.get(kind) ?? [];
         if (list.length === 0) return null;
         if (kind === "item") {
-          const { positive, negative } = splitItemCardsByPolarity(list);
+          const { positive, negative } = splitItemCardsByPolarity(list, locale);
           return (
             <section key={kind} className={catalogStyles.sectionMb36}>
               <h2 className={catalogStyles.h2Section}>
-                {KIND_LABEL_SV[kind]}{" "}
+                {kindLabel(kind, c)}{" "}
                 <span className={catalogStyles.countMuted}>({list.length})</span>
               </h2>
               {positive.length > 0 ? (
                 <div className={catalogStyles.itemPolarityBlock}>
                   <h3 className={catalogStyles.h3Positive}>
-                    Positiva <span className={catalogStyles.countMuted}>({positive.length})</span>
+                    {c.positive} <span className={catalogStyles.countMuted}>({positive.length})</span>
                   </h3>
                   <div className={catalogStyles.catalogCardGrid}>
                     {positive.map((card) => (
@@ -260,7 +275,7 @@ export function CardsCatalog() {
               {negative.length > 0 ? (
                 <div>
                   <h3 className={catalogStyles.h3Negative}>
-                    Negativa <span className={catalogStyles.countMuted}>({negative.length})</span>
+                    {c.negative} <span className={catalogStyles.countMuted}>({negative.length})</span>
                   </h3>
                   <div className={catalogStyles.catalogCardGrid}>
                     {negative.map((card) => (
@@ -275,7 +290,7 @@ export function CardsCatalog() {
         return (
           <section key={kind} className={catalogStyles.sectionMb36}>
             <h2 className={catalogStyles.h2Section}>
-              {KIND_LABEL_SV[kind]} <span className={catalogStyles.countMuted}>({list.length})</span>
+              {kindLabel(kind, c)} <span className={catalogStyles.countMuted}>({list.length})</span>
             </h2>
             <div className={catalogStyles.catalogCardGrid}>
               {list.map((card) => (
@@ -289,16 +304,16 @@ export function CardsCatalog() {
       {!onlyBeerRef ? (
         <section className={catalogStyles.sectionMb36}>
         <h2 className={catalogStyles.h2SectionTight}>
-          Utrustning{" "}
+          {c.equipmentTitle}{" "}
           <span className={catalogStyles.countMuted}>
             ({EQUIPMENT_CATALOG.length + EXTRA_OVERVIEW_EQUIPMENT.length})
           </span>
         </h2>
-        <p className={catalogStyles.equipIntro}>Handelskatalog / loot-pool. Bild = unik art om den finns, annars slot-siluett.</p>
+        <p className={catalogStyles.equipIntro}>{c.equipmentIntro}</p>
         {EQUIP_SLOT_ORDER.map((slot) => {
           const list = equipmentBySlot.get(slot) ?? [];
           if (list.length === 0) return null;
-          const label = capitalizeWord(equipmentSlotSv(slot));
+          const label = capitalizeWord(equipmentSlotLabel(slot, locale));
           return (
             <div key={slot} className={catalogStyles.equipSlotBlock}>
               <h3 className={catalogStyles.h3EquipSlot}>
@@ -317,21 +332,21 @@ export function CardsCatalog() {
       ) : null}
 
       <MonsterSection
-        title="Monster — vanliga (solo)"
-        subtitle="Ingen lagstrid, inte slutboss."
+        title={c.monsterSoloTitle}
+        subtitle={c.monsterSoloSubtitle}
         monsters={soloMonsters}
       />
       <MonsterSection
-        title="Monster — lagstrid"
-        subtitle="Kräver medkämpe; angriparen väljer vem som slåss med."
+        title={c.monsterTeamTitle}
+        subtitle={c.monsterTeamSubtitle}
         monsters={teamMonsters}
-        badge={{ text: "Lag", color: "rgba(96,165,250,0.95)" }}
+        badge={{ text: c.badgeTeam, color: "rgba(96,165,250,0.95)" }}
       />
       <MonsterSection
-        title="Monster — slutbossar"
-        subtitle={`Slumpas en per parti (${FINAL_BOSS_IDS.join(", ")}). Individuell strid.`}
+        title={c.monsterBossTitle}
+        subtitle={c.monsterBossSubtitle(FINAL_BOSS_IDS.join(", "))}
         monsters={bossMonsters}
-        badge={{ text: "Boss", color: "rgba(248,113,113,0.95)" }}
+        badge={{ text: c.badgeBoss, color: "rgba(248,113,113,0.95)" }}
         showBossTagline
       />
     </div>
@@ -345,13 +360,14 @@ function MonsterSection(props: {
   badge?: { text: string; color: string };
   showBossTagline?: boolean;
 }) {
+  const c = useUiStrings().catalog;
   if (props.monsters.length === 0) {
     return (
       <section className={catalogStyles.sectionMb24}>
         <h2 className={catalogStyles.h2SectionTight}>
           {props.title} <span className={catalogStyles.countMuted}>(0)</span>
         </h2>
-        <p className={catalogStyles.emptyHint}>Inga poster i denna kategori.</p>
+        <p className={catalogStyles.emptyHint}>{c.emptyCategory}</p>
       </section>
     );
   }
@@ -380,10 +396,14 @@ function MonsterCatalogCard(props: {
   badge?: { text: string; color: string };
   showBossTagline?: boolean;
 }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const c = ui.catalog;
   const m = props.monster;
+  const display = getMonsterDisplay(m.id, locale);
   const sources = artImageSources(m.artKey);
   const attr = artAttributionLabel(m.artKey);
-  const tagline = props.showBossTagline ? finalBossCardTagline(m.id) : null;
+  const tagline = props.showBossTagline ? getFinalBossTagline(m.id, locale) : null;
   return (
     <article
       style={{
@@ -438,15 +458,15 @@ function MonsterCatalogCard(props: {
         <CatalogImageBadgeStrip badges={monsterOverviewBadges(m)} />
       </div>
       <div style={{ ...CATALOG_CARD_BODY_WRAP, gap: 6 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{m.name}</div>
+        <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{display.name}</div>
         <div style={{ fontSize: 12, opacity: 0.8 }}>
-          Styrka {m.strength}
-          {m.teamBattleRequired ? ` · +${m.teamBattleBonusGold ?? 0} pant/medkämpe vid lagseger` : null}
+          {c.strength(m.strength)}
+          {m.teamBattleRequired ? c.teamBattleBonus(m.teamBattleBonusGold ?? 0) : null}
         </div>
-        {m.rulesText ? (
+        {display.rulesText ? (
           <>
-            <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
-            <CardRichText text={m.rulesText} style={CARD_FLAVOUR_TEXT_STYLE} />
+            <div style={CATALOG_SECTION_LABEL}>{c.flavourAndRules}</div>
+            <CardRichText text={display.rulesText} style={CARD_FLAVOUR_TEXT_STYLE} />
           </>
         ) : null}
         {tagline ? (
@@ -455,13 +475,19 @@ function MonsterCatalogCard(props: {
             style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35, fontStyle: "normal" }}
           />
         ) : null}
-        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}
+        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>{ui.cardModal.etikettRef} {attr}</div> : null}
       </div>
     </article>
   );
 }
 
 function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const c = ui.catalog;
+  const display = getEquipmentDisplay(item.id, locale);
+  const name = display.name === item.id ? item.name : display.name;
+  const rulesText = display.rulesText || item.rulesText || "";
   const sources = equipmentImageSources(item.name, item.slot);
   const src = sources.webp ?? sources.fallback;
   return (
@@ -506,18 +532,18 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
         <CatalogImageBadgeStrip badges={equipmentShopCatalogBadges(item)} />
       </div>
       <div style={{ ...CATALOG_CARD_BODY_WRAP, gap: 6 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{item.name}</div>
-        <div style={CARD_ITEM_DETAIL_TEXT_STYLE}>{formatShopItemEffectSummary(item)}</div>
-        {item.rulesText ? (
+        <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{name}</div>
+        <div style={CARD_ITEM_DETAIL_TEXT_STYLE}>{formatLocalizedShopItemEffectSummary(item, locale, ui)}</div>
+        {rulesText ? (
           <>
-            <div style={CATALOG_SECTION_LABEL}>Smaktext & regler</div>
+            <div style={CATALOG_SECTION_LABEL}>{c.flavourAndRules}</div>
             <div style={CARD_FLAVOUR_TEXT_STYLE}>
-              <TextWithBoldNumbers value={item.rulesText} />
+              <TextWithBoldNumbers value={rulesText} />
             </div>
           </>
         ) : null}
         <div style={{ fontSize: 11, opacity: 0.65 }}>
-          {capitalizeWord(equipmentSlotSv(item.slot))} · {item.price} pant
+          {c.depositPrice(capitalizeWord(equipmentSlotLabel(item.slot, locale)), item.price)}
         </div>
       </div>
     </article>
@@ -525,6 +551,8 @@ function EquipmentCatalogCard({ item }: { item: EquipmentShopItem }) {
 }
 
 function CatalogCard({ card }: { card: CardDef }) {
+  const ui = useUiStrings();
+  const c = ui.catalog;
   const sources = artImageSources(card.artKey);
   const attr = artAttributionLabel(card.artKey);
   const overviewBadges = cardDefOverviewBadges(card);
@@ -566,7 +594,7 @@ function CatalogCard({ card }: { card: CardDef }) {
         </div>
         {card.flavourText ? (
           <>
-            <div style={CATALOG_SECTION_LABEL}>Smaktext</div>
+            <div style={CATALOG_SECTION_LABEL}>{c.flavour}</div>
             <div style={CARD_FLAVOUR_TEXT_STYLE}>
               <TextWithBoldNumbers value={card.flavourText} />
             </div>
@@ -574,11 +602,11 @@ function CatalogCard({ card }: { card: CardDef }) {
         ) : null}
         {card.text ? (
           <>
-            <div style={CATALOG_SECTION_LABEL}>{card.flavourText ? "Regler" : "Korttext"}</div>
+            <div style={CATALOG_SECTION_LABEL}>{card.flavourText ? c.rules : c.cardText}</div>
             <CardRichText text={card.text} rollOutcomes={card.rollOutcomes} style={CARD_BODY_TEXT_STYLE} />
           </>
         ) : null}
-        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>Etikett: {attr}</div> : null}
+        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>{ui.cardModal.etikettRef} {attr}</div> : null}
       </div>
     </article>
   );

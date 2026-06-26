@@ -67,7 +67,7 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
   const lite = shouldUseLitePerformanceDefaults();
   return {
     boardPanEnabled: readBool(STORAGE_PAN, true),
-    boardAnimationsEnabled: readBool(STORAGE_ANIM, !lite),
+    boardAnimationsEnabled: readBool(STORAGE_ANIM, true),
     tokenMoveAnimationsEnabled: readBool(STORAGE_TOKEN_ANIM, !lite),
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, isMobileTouchDevice()),
     mobileSfxEnabled: readBool(STORAGE_MOBILE_SFX, true),

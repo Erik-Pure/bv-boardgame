@@ -1,5 +1,5 @@
 import { CombatOutcomeThumb } from "./CombatOutcomeThumb";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 
 const PANT_ICON = "/icons/pant-icon.svg";
 const PANT_TINT = "#d1d5db";
@@ -45,15 +45,16 @@ function parseTreasurePant(text: string, cardId: string): { intro: string; pant:
   if (cardId !== "treasure_cache") {
     return { intro: text.trim(), pant: null };
   }
-  const m = text.match(/\+(\d+)\s*pant/i);
+  const m = text.match(/\+(\d+)\s*(?:pant|cans)/i);
   if (!m) return { intro: text.trim(), pant: null };
   const pant = parseInt(m[1], 10);
-  const intro = text.replace(/\s*\+\s*\d+\s*pant\.?/i, "").trim();
+  const intro = text.replace(/\s*\+\s*\d+\s*(?:pant|cans)\.?/i, "").trim();
   return { intro, pant };
 }
 
 /** Skattkort — samma visuella språk som vinst/förlust (ark, tumme-byte, belöningsruta). */
 export function TreasureCardContent(props: { title: string; text: string; cardId: string }) {
+  const ui = useUiStrings();
   const { intro, pant } = parseTreasurePant(props.text, props.cardId);
   const isEmpty = props.cardId === "treasure_empty";
 
@@ -98,7 +99,7 @@ export function TreasureCardContent(props: { title: string; text: string; cardId
               marginBottom: 10,
             }}
           >
-            {sv.play.treasureLootHeading}
+            {ui.play.treasureLootHeading}
           </div>
           <div
             style={{

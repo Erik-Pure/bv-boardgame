@@ -1,6 +1,8 @@
 import type { CSSProperties, RefObject } from "react";
 import { ArcadeButton } from "../ArcadeButton";
-import { MOBILE_TUTORIAL_STEPS, type MobileTutorialStep } from "./mobileTutorialSteps";
+import { BrandLogoImg } from "../BrandLogoImg";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
+import type { MobileTutorialStep } from "./mobileTutorialSteps";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
 
@@ -8,19 +10,22 @@ export function PlayMobileTutorial(props: {
   open: boolean;
   step: MobileTutorialStep | undefined;
   stepIndex: number;
+  stepCount: number;
   bodyNeedsScroll: boolean;
   bodyScrollRef: RefObject<HTMLDivElement | null>;
   onDismiss: () => void;
   onBack: () => void;
   onNext: () => void;
 }) {
-  const { open, step, stepIndex, bodyNeedsScroll, bodyScrollRef, onDismiss, onBack, onNext } = props;
+  const ui = useUiStrings();
+  const t = ui.tutorial;
+  const { open, step, stepIndex, stepCount, bodyNeedsScroll, bodyScrollRef, onDismiss, onBack, onNext } = props;
   if (!open || !step) return null;
 
   return (
     <div onMouseDown={(e) => e.stopPropagation()} className={styles.tutorialOverlay}>
       <div className={styles.tutorialPanel}>
-        <div className={styles.tutorialHeader}>Snabbguide</div>
+        <div className={styles.tutorialHeader}>{t.header}</div>
         <div
           ref={bodyScrollRef}
           className={[styles.tutorialBodyScrollArea, styles.tutorialBodyScroll].join(" ")}
@@ -37,9 +42,9 @@ export function PlayMobileTutorial(props: {
           >
             {step.showLogo ? (
               <div className={styles.tutorialLogoWrap}>
-                <img
-                  src="/icons/bmm-logo.png"
-                  alt="Bryggmästarnas Mästare"
+                <BrandLogoImg
+                  variant="stacked"
+                  alt={t.logoAlt}
                   draggable={false}
                   className={styles.tutorialLogo}
                 />
@@ -67,25 +72,25 @@ export function PlayMobileTutorial(props: {
           }
         >
           <div className={`${u.textCenter} ${u.o85} ${u.fs12} ${styles.tutorialFooterPage}`}>
-            {stepIndex + 1} / {MOBILE_TUTORIAL_STEPS.length}
+            {stepIndex + 1} / {stepCount}
           </div>
           <div className={styles.tutorialFooterButtons}>
             {stepIndex > 0 ? (
               <ArcadeButton variant="gray" fullWidth onClick={onBack}>
-                Tillbaka
+                {t.back}
               </ArcadeButton>
             ) : (
               <ArcadeButton variant="gray" fullWidth onClick={onDismiss}>
-                Hoppa över
+                {t.skip}
               </ArcadeButton>
             )}
-            {stepIndex < MOBILE_TUTORIAL_STEPS.length - 1 ? (
+            {stepIndex < stepCount - 1 ? (
               <ArcadeButton variant="pink" fullWidth onClick={onNext}>
-                Nästa
+                {t.next}
               </ArcadeButton>
             ) : (
               <ArcadeButton variant="pink" fullWidth onClick={onDismiss}>
-                Kör igång
+                {t.start}
               </ArcadeButton>
             )}
           </div>

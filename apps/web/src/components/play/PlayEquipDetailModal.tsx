@@ -2,6 +2,8 @@ import {
   BEER_CAN_HELM1_NAME,
   BEER_CAN_RUSTNING_NAME,
   beerCanSetPiecesEquippedCount,
+  getEquipmentDisplay,
+  getEquipmentDisplayByEquippedName,
   isBeerCanShieldName,
   plastbackAccessorySellPant,
   plastbackPackRemainingCount,
@@ -12,12 +14,14 @@ import {
 import { equipmentCatalogByEquippedName } from "../../lib/inventoryEffectBadges";
 import { equipmentModalDetailLines } from "../../lib/playInteractionEquipmentEffects";
 import { equipmentUniqueImageSrc } from "../../lib/equipmentImageSrc";
+import { CardRichText } from "../CardRichText";
 import { ArcadeButton } from "../ArcadeButton";
 import { EquipIcon } from "./EquipIcon";
 import { PlayModal } from "./PlayModal";
 import { EquipmentModalEffectBadge, ITEM_MODAL_TITLE_STYLE } from "./playModalBadges";
 import u from "../../styles/uiPrimitives.module.css";
-import { capitalizeWord, equipmentSlotSv, sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import { capitalizeWord, equipmentSlotLabel } from "../../lib/uiStrings";
 
 export type EquipDetailSelection = { slot: EquipmentSlot };
 
@@ -29,6 +33,8 @@ export function PlayEquipDetailModal(props: {
   cardCoverId?: string | null;
   send: (action: ClientAction) => void;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const { equipDetail, onClose, me, isMyTurn, cardCoverId, send } = props;
   if (!equipDetail) return null;
 
@@ -50,10 +56,13 @@ export function PlayEquipDetailModal(props: {
           ? me.equipment.helmet?.name
           : me.equipment.accessory?.name;
   const equipped = !!pieceName;
-  const slotLabel = capitalizeWord(equipmentSlotSv(slot));
-  const modalTitle = pieceName ?? slotLabel;
+  const slotLabel = capitalizeWord(equipmentSlotLabel(slot, locale));
+  const display = equipped ? getEquipmentDisplayByEquippedName(pieceName, locale) : null;
+  const modalTitle = display?.name ?? pieceName ?? slotLabel;
   const catalogRow = equipped ? equipmentCatalogByEquippedName(pieceName) : undefined;
-  const bodyLines = equipped ? equipmentModalDetailLines(slot, equipPiece, pieceName) : [];
+  const rulesText =
+    catalogRow != null ? getEquipmentDisplay(catalogRow.id, locale).rulesText?.trim() : undefined;
+  const bodyLines = equipped ? equipmentModalDetailLines(slot, equipPiece, pieceName, ui, locale) : [];
   const uniqueArt = pieceName ? equipmentUniqueImageSrc(pieceName) : null;
 
   return (
@@ -106,7 +115,7 @@ export function PlayEquipDetailModal(props: {
           />
         </div>
         {!equipped ? (
-          <div style={{ opacity: 0.9, fontSize: 15 }}>{sv.play.emptySlot}</div>
+          <div style={{ opacity: 0.9, fontSize: 15 }}>{ui.play.emptySlot}</div>
         ) : (
           <>
             {bodyLines.length > 0 ? (
@@ -116,17 +125,15 @@ export function PlayEquipDetailModal(props: {
                 ))}
               </div>
             ) : null}
-            {catalogRow?.rulesText ? (
-              <div
+            {rulesText ? (
+              <CardRichText
+                text={rulesText}
                 style={{
                   opacity: 0.88,
                   fontSize: 14,
                   lineHeight: 1.5,
-                  whiteSpace: "pre-wrap",
                 }}
-              >
-                {catalogRow.rulesText}
-              </div>
+              />
             ) : null}
             {pieceName === "Plastback" && isMyTurn ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -139,7 +146,7 @@ export function PlayEquipDetailModal(props: {
                     onClose();
                   }}
                 >
-                  {sv.play.takePlastbackBottle(plastbackPackRemainingCount(me))}
+                  {ui.play.takePlastbackBottle(plastbackPackRemainingCount(me))}
                 </ArcadeButton>
                 <ArcadeButton
                   variant="pink"
@@ -149,7 +156,7 @@ export function PlayEquipDetailModal(props: {
                     onClose();
                   }}
                 >
-                  {sv.play.sellPlastbackAccessory(plastbackAccessorySellPant(me))}
+                  {ui.play.sellPlastbackAccessory(plastbackAccessorySellPant(me))}
                 </ArcadeButton>
               </div>
             ) : null}

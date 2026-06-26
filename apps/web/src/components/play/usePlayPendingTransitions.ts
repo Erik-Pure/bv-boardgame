@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import type { ClientAction, GameState, Pending, Player } from "@bv/game-core";
+import { localizeRewardDisplayTitles, localizeSipNoticeBody, type ClientAction, type GameState, type Pending, type Player } from "@bv/game-core";
 import { combatAllyOutcomeKey } from "../../lib/combatUi";
-import { sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function usePlayPendingTransitions(options: {
   pending: Pending | null;
@@ -19,6 +19,8 @@ export function usePlayPendingTransitions(options: {
   onRollDieScreen: boolean;
   allyCombatOutcomeAckRef: MutableRefObject<Set<string>>;
 }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
   const {
     pending,
     me,
@@ -90,7 +92,10 @@ export function usePlayPendingTransitions(options: {
           loot.push(...cw.helpMateGrantedRewardTitles);
         }
         if (loot.length > 0) {
-          showToast(sv.play.combatWinGrantedLootToast(loot), Math.min(9000, 2800 + loot.length * 1200));
+          showToast(
+            ui.play.combatWinGrantedLootToast(localizeRewardDisplayTitles(loot, locale)),
+            Math.min(9000, 2800 + loot.length * 1200),
+          );
         }
       }
     }
@@ -108,7 +113,7 @@ export function usePlayPendingTransitions(options: {
           (hmImpact.hpLost > 0 || hmImpact.klunksGained > 0)
         ) {
           showToast(
-            sv.play.combatLoseAllyImpactToast("helpMate", hmImpact.hpLost, hmImpact.klunksGained),
+            ui.play.combatLoseAllyImpactToast("helpMate", hmImpact.hpLost, hmImpact.klunksGained),
             impactToastMs,
           );
         }
@@ -119,7 +124,7 @@ export function usePlayPendingTransitions(options: {
           (broImpact.hpLost > 0 || broImpact.klunksGained > 0)
         ) {
           showToast(
-            sv.play.combatLoseAllyImpactToast("beerBro", broImpact.hpLost, broImpact.klunksGained),
+            ui.play.combatLoseAllyImpactToast("beerBro", broImpact.hpLost, broImpact.klunksGained),
             impactToastMs,
           );
         }
@@ -138,7 +143,7 @@ export function usePlayPendingTransitions(options: {
     ) {
       const helperName =
         state?.players.find((p) => p.id === prev.helpSelectedHelperId)?.name ?? "Spelaren";
-      showToast(sv.play.combatHelpDeniedToast(helperName));
+      showToast(ui.play.combatHelpDeniedToast(helperName));
     }
     combatHelpCancelBySelfRef.current = false;
 
@@ -173,11 +178,11 @@ export function usePlayPendingTransitions(options: {
     if (lastToastSipNoticeRef.current === sig) return;
     lastToastSipNoticeRef.current = sig;
     const msg =
-      mySipNotice.body?.trim() ||
-      sv.play.pekaArgtDamageToast(mySipNotice.fromPlayerName || sv.sipNotice.fallbackFrom);
+      localizeSipNoticeBody(mySipNotice.body?.trim(), locale) ||
+      ui.play.pekaArgtDamageToast(mySipNotice.fromPlayerName || ui.sipNotice.fallbackFrom);
     showToast(msg, 4500);
     send({ type: "sipNoticeAck", playerId: me.id });
-  }, [mySipNotice, me?.id, showToast, send]);
+  }, [mySipNotice, me?.id, showToast, send, locale, ui]);
 
   useEffect(() => {
     if (!myEnemyIntroPending || status !== "connected" || !me) {

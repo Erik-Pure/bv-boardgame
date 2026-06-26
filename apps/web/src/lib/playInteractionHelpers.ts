@@ -7,16 +7,40 @@ export const CONTRACT_ICON_REWARD_COLOR = "#facc15";
 
 export const BREWER_PERK_BUTTONS: {
   choice: BrewerPerkChoice;
-  label: string;
   icon: string;
   variant: "pink" | "blue";
 }[] = [
-  { choice: "attack", label: "+1 styrka", icon: "/icons/attack.svg", variant: "pink" },
-  { choice: "shield", label: "+1 sköld", icon: "/icons/armor-icon.svg", variant: "blue" },
-  { choice: "hp", label: "+2 HP", icon: "/icons/hp.svg", variant: "pink" },
-  { choice: "pvp", label: "+1 BvB", icon: "/icons/bvb-icon.svg", variant: "blue" },
-  { choice: "items", label: "+1 föremålskort", icon: "/icons/cards-icon.svg", variant: "pink" },
+  { choice: "attack", icon: "/icons/attack.svg", variant: "pink" },
+  { choice: "shield", icon: "/icons/armor-icon.svg", variant: "blue" },
+  { choice: "hp", icon: "/icons/hp.svg", variant: "pink" },
+  { choice: "pvp", icon: "/icons/bvb-icon.svg", variant: "blue" },
+  { choice: "items", icon: "/icons/cards-icon.svg", variant: "pink" },
 ];
+
+export type BrewerPerkChoiceLabels = {
+  brewerPerkAttack: string;
+  brewerPerkShield: string;
+  brewerPerkHp: string;
+  brewerPerkPvp: string;
+  brewerPerkItems: string;
+};
+
+export function brewerPerkChoiceLabel(labels: BrewerPerkChoiceLabels, choice: BrewerPerkChoice): string {
+  switch (choice) {
+    case "attack":
+      return labels.brewerPerkAttack;
+    case "shield":
+      return labels.brewerPerkShield;
+    case "hp":
+      return labels.brewerPerkHp;
+    case "pvp":
+      return labels.brewerPerkPvp;
+    case "items":
+      return labels.brewerPerkItems;
+    default:
+      return choice;
+  }
+}
 
 /** Föremål som kan spelas vid ingripande i andras PvE-strid (reaktionsfasen). */
 export const COMBAT_INTERVENE_PLAYABLE_ITEM_IDS = new Set<string>([

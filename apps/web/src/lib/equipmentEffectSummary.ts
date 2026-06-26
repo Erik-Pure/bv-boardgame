@@ -1,8 +1,147 @@
-import type { ShopItem } from "@bv/game-core";
-import { formatInventoryItemShopEffectSummary, shopItemEffectSupplementText } from "./inventoryEffectBadges";
+import type { GameLocale, ShopItem } from "@bv/game-core";
+import { formatCanAmount, getCard, getEquipmentDisplay } from "@bv/game-core";
+import { formatInventoryItemShopEffectSummary } from "./inventoryEffectBadges";
+import type { UiStrings } from "./uiStrings";
+
+function isEquipmentShopItem(
+  it: ShopItem,
+): it is ShopItem & { slot: "weapon" | "armor" | "helmet" | "accessory" } {
+  return (
+    it.slot === "weapon" || it.slot === "armor" || it.slot === "helmet" || it.slot === "accessory"
+  );
+}
+
+function localizedShopItemSupplement(it: ShopItem, locale: GameLocale, ui: UiStrings): string | undefined {
+  if (it.id === "ex_plastback") {
+    return locale === "en" ? ui.play.shopPlastbackSupplement : "Tom flaska: 6 strider";
+  }
+  return undefined;
+}
+
+function formatShopItemEffectSummaryEn(it: ShopItem, ui: UiStrings): string {
+  const p = ui.play;
+  if (it.slot === "heal") {
+    const n = it.healAmount ?? 4;
+    return `+${n} HP`;
+  }
+  if (it.slot === "gold" && typeof it.goldAmount === "number") {
+    return p.shopGoldDeposit(it.goldAmount);
+  }
+  if (it.slot === "inventory" && it.inventoryItemId) {
+    return formatInventoryItemShopEffectSummary(it.inventoryItemId);
+  }
+
+  const parts: string[] = [];
+  if (typeof it.power === "number") {
+    parts.push(p.shopPower(it.power));
+  }
+  if (typeof it.pvpDieBonus === "number" && it.pvpDieBonus !== 0) {
+    parts.push(p.shopPvpOnRoll(it.pvpDieBonus));
+  }
+  if (typeof it.gainGoldOnWin === "number" && it.gainGoldOnWin > 0) {
+    parts.push(p.equipmentWinGold(it.gainGoldOnWin));
+  }
+  if (typeof it.gainGoldPerCombat === "number" && it.gainGoldPerCombat > 0) {
+    parts.push(p.shopPerFightGold(it.gainGoldPerCombat));
+  }
+  if (typeof it.gainGoldPerPenaltyKlunk === "number" && it.gainGoldPerPenaltyKlunk > 0) {
+    parts.push(p.equipmentGoldPerPenaltyKlunk(it.gainGoldPerPenaltyKlunk));
+  }
+  if (typeof it.randomOtherDamageOnWin === "number" && it.randomOtherDamageOnWin > 0) {
+    parts.push(p.equipmentRandomOtherDamage(it.randomOtherDamageOnWin));
+  }
+  if (it.breakOnWin) {
+    parts.push(p.shopBreaksAfterWin);
+  }
+  if (typeof it.powerAtGold10 === "number") parts.push(p.equipmentPowerAtGold10(it.powerAtGold10));
+  if (typeof it.powerAtGold20 === "number") parts.push(p.equipmentPowerAtGold20(it.powerAtGold20));
+  if (typeof it.powerAtGold30 === "number") parts.push(p.equipmentPowerAtGold30(it.powerAtGold30));
+  if (typeof it.combatBonus === "number" && it.combatBonus !== 0) {
+    parts.push(p.shopAttackSigned(it.combatBonus));
+  }
+  if (typeof it.sipAttackBonus === "number" && it.sipAttackBonus > 0) {
+    const kl = Math.max(0, Math.floor(it.sipWeaponBonusKlunks ?? 0));
+    if (kl > 0) {
+      const basePow = typeof it.power === "number" ? it.power : 1;
+      const tot = basePow + it.sipAttackBonus;
+      parts.push(p.equipmentSipWeaponKlunkBonus(kl, tot, basePow));
+    } else {
+      const cost =
+        typeof it.sipWeaponBonusGoldCost === "number"
+          ? Math.max(0, Math.floor(it.sipWeaponBonusGoldCost))
+          : it.name === "Dubbelpipa"
+            ? 4
+            : it.name === "Enkelpipa"
+              ? 2
+              : 0;
+      if (cost > 0) parts.push(p.equipmentSipWeaponPantBonus(cost, it.sipAttackBonus));
+      else parts.push(p.equipmentSipWeaponFreeBonus(it.sipAttackBonus));
+    }
+  }
+  if (typeof it.monsterLossSipReduction === "number" && it.monsterLossSipReduction > 0) {
+    parts.push(p.shopMonsterLossSip(it.monsterLossSipReduction));
+  }
+  if (typeof it.bonusHp === "number" && it.bonusHp !== 0) {
+    parts.push(it.bonusHp > 0 ? `+${it.bonusHp} max HP` : `${it.bonusHp} max HP`);
+  }
+  if (typeof it.healHpPerTurn === "number" && it.healHpPerTurn > 0) {
+    parts.push(p.healHpPerTurn(it.healHpPerTurn));
+  }
+  const beerSetPieceIds = new Set(["ea_can_armor", "eh_beer_cap_helm_1", "ex_buckler"]);
+  if (beerSetPieceIds.has(it.id)) {
+    if (it.id === "ea_can_armor") parts.push(p.shopBeerSetArmor);
+    else if (it.id === "eh_beer_cap_helm_1") parts.push(p.shopBeerSetHelm);
+    else parts.push(p.shopBeerSetShield);
+  } else if (it.id === "eh_beer_cap_helm_2" && typeof it.damageNegate === "number" && it.damageNegate > 0) {
+    parts.push(p.shopDamageNegateFromLevel4(it.damageNegate));
+  } else if (typeof it.damageNegate === "number") {
+    parts.push(p.shopDamageNegate(it.damageNegate));
+  }
+  if (typeof it.gainKlunkPerCombat === "number" && it.gainKlunkPerCombat > 0) {
+    parts.push(p.shopPerFightSip(it.gainKlunkPerCombat));
+  }
+  if (it.preventTheft) parts.push(p.shopCannotBeStolen);
+  if (typeof it.levelUpDiscountGold === "number" && it.levelUpDiscountGold > 0) {
+    parts.push(p.shopLevelUpDiscount(it.levelUpDiscountGold));
+  }
+  if (typeof it.merchantDiscountGold === "number" && it.merchantDiscountGold > 0) {
+    parts.push(p.shopMerchantDiscount(it.merchantDiscountGold));
+  }
+  if (it.canSkipMonsterEncounter) parts.push(p.shopCanSkipMonsterFight);
+  if (typeof it.bossDamageNegateBonus === "number" && it.bossDamageNegateBonus > 0) {
+    parts.push(p.equipmentBossDamageNegate(it.bossDamageNegateBonus));
+  }
+  if (typeof it.penaltySipExtra === "number" && it.penaltySipExtra > 0) {
+    parts.push(p.equipmentPenaltySipExtra(it.penaltySipExtra));
+  }
+  if (typeof it.gainGoldOnDamageTaken === "number" && it.gainGoldOnDamageTaken > 0) {
+    parts.push(p.equipmentGoldOnDamage(it.gainGoldOnDamageTaken));
+  }
+  if (typeof it.klunkAttackBonus10 === "number") parts.push(p.equipmentKlunkAttack10(it.klunkAttackBonus10));
+  if (typeof it.klunkAttackBonus20 === "number") parts.push(p.equipmentKlunkAttack20(it.klunkAttackBonus20));
+  if (it.negateAllOnce) parts.push(p.shopNegateAllOnce);
+  if (it.pvpCannotBeChallenged) parts.push(p.shopCannotBeChallengedBvb);
+  if (typeof it.moveBonus === "number") parts.push(p.moveSteps(it.moveBonus));
+  if (it.ignoreCombatCritFailOnOne) {
+    parts.push(p.shopIgnoreCritFailOnOne);
+  }
+  if (typeof it.deathContinueCost === "number" && it.deathContinueCost > 0) {
+    parts.push(p.shopDeathContinue(it.deathContinueCost));
+  }
+  if (typeof it.itemCardBonus === "number" && it.itemCardBonus > 0) {
+    parts.push(p.shopItemCardBonus(it.itemCardBonus));
+  }
+  if (it.freeInventoryItemPlay) {
+    parts.push(p.shopFreeItemPlay);
+  }
+  if (parts.length > 0) return parts.join(" · ");
+  const supplement = localizedShopItemSupplement(it, "en", ui);
+  if (supplement) return supplement;
+  return "—";
+}
 
 /**
- * Kort svensk beskrivning av affärsrad / katalograd så att siffror stämmer med spelet.
+ * Kort beskrivning av affärsrad / katalograd så att siffror stämmer med spelet.
  * Används i Panta burkar och kortkatalogens utrustningsöversikt.
  */
 export function formatShopItemEffectSummary(it: ShopItem): string {
@@ -124,7 +263,33 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     parts.push("Föremål: gratis att spela");
   }
   if (parts.length > 0) return parts.join(" · ");
-  const supplement = shopItemEffectSupplementText(it);
-  if (supplement) return supplement;
+  if (it.id === "ex_plastback") return "Tom flaska: 6 strider";
   return "—";
+}
+
+/** Locale-aware shop item description (detail view, replace preview, catalog). */
+export function formatLocalizedShopItemEffectSummary(
+  it: ShopItem,
+  locale: GameLocale,
+  ui: UiStrings,
+): string {
+  if (locale === "en") {
+    if (isEquipmentShopItem(it)) {
+      const rulesText = getEquipmentDisplay(it.id, locale).rulesText?.trim();
+      if (rulesText) return rulesText;
+    }
+    if (it.slot === "inventory" && it.inventoryItemId) {
+      try {
+        const text = getCard(`item_${it.inventoryItemId}`, "en").text?.trim();
+        if (text) return text;
+      } catch {
+        // fall through
+      }
+    }
+    if (it.slot === "gold" && typeof it.goldAmount === "number") {
+      return ui.play.shopGoldDeposit(it.goldAmount);
+    }
+    return formatShopItemEffectSummaryEn(it, ui);
+  }
+  return formatShopItemEffectSummary(it);
 }

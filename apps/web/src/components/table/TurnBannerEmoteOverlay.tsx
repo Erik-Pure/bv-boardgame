@@ -21,8 +21,11 @@ import tableStyles from "../../routes/TableView.module.css";
 
 type Anchor = { x: number; y: number };
 
-const KLUNK_BURST_ICON_SPACING_PX = 24;
+/** Synlig storlek på TV/bräde — håll i synk med `.turnPlayerEmoteFloatOnBoard` i TableView.module.css */
+export const BOARD_BURST_ICON_PX = 140;
+const KLUNK_BURST_ICON_SPACING_PX = 44;
 const KLUNK_BURST_ICON_MAX_VISIBLE = 6;
+const BOARD_BURST_PAIR_OFFSET_PX = 56;
 
 function klunkBurstIconCount(burst: { klunkCount?: number }): number {
   return Math.min(
@@ -79,7 +82,7 @@ export function TurnBannerEmoteOverlay(props: {
   }, [measureAnchors, scrollerRef]);
 
   const now = Date.now();
-  const burstOffsetPx = 30;
+  const burstOffsetPx = BOARD_BURST_PAIR_OFFSET_PX;
   return (
     <div className={tableStyles.turnPlayerEmoteOverlay} aria-hidden>
       {players.flatMap((p) => {
@@ -102,8 +105,8 @@ export function TurnBannerEmoteOverlay(props: {
                 key={`klunk-${p.id}-${klunk.at}-${i}`}
                 src={KLUNK_BURST_ICON_SRC}
                 alt=""
-                width={76}
-                height={76}
+                width={BOARD_BURST_ICON_PX}
+                height={BOARD_BURST_ICON_PX}
                 className={tableStyles.turnPlayerEmoteFloatOnBoard}
                 style={{
                   left: x,
@@ -120,8 +123,8 @@ export function TurnBannerEmoteOverlay(props: {
               key={`emote-${p.id}-${emote.at}`}
               src={EMOTE_ICON_SRC[emote.emoteId]}
               alt=""
-              width={76}
-              height={76}
+              width={BOARD_BURST_ICON_PX}
+              height={BOARD_BURST_ICON_PX}
               className={tableStyles.turnPlayerEmoteFloatOnBoard}
               style={{
                 left: anchor.x + (klunk ? burstOffsetPx + klunkHalfSpan : 0),

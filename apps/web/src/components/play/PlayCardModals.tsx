@@ -3,6 +3,9 @@ import {
   FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
   getCardDefById,
+  localizeSipNoticeBody,
+  localizeSipNoticeFromPlayerName,
+  localizeSipNoticeTitle,
   monsterEncounterCardPreviewFromState,
   monsterLossKlunkTotal,
   type CombatLoseSummary,
@@ -36,7 +39,8 @@ import { PictureImg } from "../PictureImg";
 import { TreasureCardContent } from "../TreasureCardContent";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import { localizePendingCard } from "../../lib/localizePendingCard";
 
 function monsterFromCardId(cardId: string) {
   const m = /^monster:(.+)$/.exec(cardId);
@@ -96,6 +100,7 @@ export function EnemyIntroModal(props: {
   cardCoverId?: string | null;
   boardLevel?: number;
 }) {
+  const ui = useUiStrings();
   const bossRoundLabel = (() => {
     const raw = props.bossLivesRemaining;
     if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
@@ -137,7 +142,7 @@ export function EnemyIntroModal(props: {
               marginBottom: 2,
             }}
           >
-            DU MÖTER
+            {ui.play.combatMeetYou}
           </div>
         ) : null}
         {props.teammateName ? (
@@ -150,7 +155,7 @@ export function EnemyIntroModal(props: {
               textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)",
             }}
           >
-            {sv.play.teammatePicked(props.teammateName)}
+            {ui.play.teammatePicked(props.teammateName)}
           </div>
         ) : null}
       </div>
@@ -216,7 +221,7 @@ export function EnemyIntroModal(props: {
         >
           <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, opacity: 0.95 }}>{props.enemyName}</div>
           <div style={{ opacity: 0.9 }}>
-            {sv.play.strength}: <b>{props.need + (props.needMod ?? 0)}</b>
+            {ui.play.strength}: <b>{props.need + (props.needMod ?? 0)}</b>
           </div>
         </div>
       )}
@@ -234,12 +239,19 @@ export function SipNoticeCardModal(props: {
   noticeKind?: SipNoticeKind;
   imageEquipmentName?: string;
 }) {
-  const from = props.fromPlayerName?.trim() || sv.sipNotice.fallbackFrom;
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const from = localizeSipNoticeFromPlayerName(
+    props.fromPlayerName?.trim() || ui.sipNotice.fallbackFrom,
+    locale,
+  );
   const count = Math.max(1, Math.floor(props.klunkCount));
   const hasCustom = !!props.customTitle || !!props.customBody;
   const duelLoss = props.noticeKind === "duel_loss";
-  const title = props.customTitle?.trim() || sv.sipNotice.title;
-  const body = props.customBody?.trim();
+  const title = duelLoss
+    ? ui.sipNotice.duelLossTitle
+    : localizeSipNoticeTitle(props.customTitle?.trim() || ui.sipNotice.title, locale);
+  const body = localizeSipNoticeBody(props.customBody, locale);
   const equipmentArtSrc = props.imageEquipmentName
     ? equipmentUniqueImageSrc(props.imageEquipmentName)
     : null;
@@ -374,7 +386,7 @@ export function SipNoticeCardModal(props: {
               maxWidth: "100%",
             }}
           >
-            {sv.sipNotice.bodyPrefix(count)}
+            {ui.sipNotice.bodyPrefix(count)}
             <span style={{ color: SIP_NOTICE_FROM_COLOR, fontWeight: 800 }}>{`«${from}»`}</span>.
           </p>
         )}
@@ -389,7 +401,7 @@ export function SipNoticeCardModal(props: {
               opacity: 0.72,
             }}
           >
-            {sv.sipNotice.xpGain(count)}
+            {ui.sipNotice.xpGain(count)}
           </p>
         ) : null}
       </div>
@@ -402,6 +414,11 @@ export function CardModal(props: {
   text: string;
   artKey?: string;
   grantedItemId?: string;
+  equipmentReplaceOffer?: {
+    slot: "weapon" | "armor" | "helmet" | "accessory";
+    catalogId?: string;
+    newName: string;
+  };
   kind: "event" | "combat" | "rest" | "treasure" | "empty";
   cardId: string;
   combatWin?: CombatWinSummary;
@@ -414,8 +431,38 @@ export function CardModal(props: {
   gameState?: GameState | null;
   cardOwnerPlayerId?: string;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
+  const localized = useMemo(
+    () =>
+      localizePendingCard(
+        {
+          type: "card",
+          playerId: props.cardOwnerPlayerId ?? "",
+          cardId: props.cardId,
+          kind: props.kind,
+          title: props.title,
+          text: props.text,
+          grantedItemId: props.grantedItemId,
+          equipmentReplaceOffer: props.equipmentReplaceOffer,
+        },
+        locale,
+      ),
+    [
+      props.cardOwnerPlayerId,
+      props.cardId,
+      props.kind,
+      props.title,
+      props.text,
+      props.grantedItemId,
+      props.equipmentReplaceOffer,
+      locale,
+    ],
+  );
+  const cardTitle = localized.title;
+  const cardText = localized.text;
   const effectiveArtKey = resolveCardRevealArtKey(props.artKey, props.grantedItemId, {
-    cardText: props.text,
+    cardText,
     cardId: props.cardId,
   });
   const mon = props.kind === "combat" ? monsterFromCardId(props.cardId) : undefined;
@@ -520,14 +567,14 @@ export function CardModal(props: {
           </CombatSheetFrame>
         ) : showDoorLocked ? (
           <CombatSheetFrame
-            sheetTitle={props.title}
+            sheetTitle={cardTitle}
             titleStyle={{ textAlign: "center", fontSize: 22, letterSpacing: "0.02em", marginBottom: 14 }}
           >
-            <LevelUpLockedCardContent text={props.text} />
+            <LevelUpLockedCardContent text={cardText} />
           </CombatSheetFrame>
         ) : showTreasure ? (
-          <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
-            <TreasureCardContent title={props.title} text={props.text} cardId={props.cardId} />
+          <CombatSheetFrame sheetTitle={ui.play.treasureCardSheetTitle}>
+            <TreasureCardContent title={cardTitle} text={cardText} cardId={props.cardId} />
           </CombatSheetFrame>
         ) : eventStoryLayout ? (
           <div
@@ -583,7 +630,7 @@ export function CardModal(props: {
                     minWidth: 0,
                   }}
                 >
-                  {props.title}
+                  {cardTitle}
                 </div>
               </div>
               <div
@@ -615,8 +662,8 @@ export function CardModal(props: {
                 />
               </div>
               <CardRichText
-                text={props.text}
-                rollOutcomes={getCardDefById(props.cardId)?.rollOutcomes}
+                text={cardText}
+                rollOutcomes={getCardDefById(props.cardId, locale)?.rollOutcomes}
                 style={{
                   opacity: 0.98,
                   color: "#e5e7eb",
@@ -632,7 +679,7 @@ export function CardModal(props: {
                   color: "rgba(226, 232, 240, 0.9)",
                 }}
               >
-                {sv.cardModal.hintOwnerContinue}
+                {ui.cardModal.hintOwnerContinue}
               </div>
               {showBeerRef ? <div style={{ flex: "1 1 0", minHeight: 0 }} aria-hidden /> : null}
               {showBeerRef ? (
@@ -652,12 +699,12 @@ export function CardModal(props: {
         ) : (
           <>
             {!useMonsterLayout ? (
-              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, color: "#ffffff" }}>{props.title}</div>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8, color: "#ffffff" }}>{cardTitle}</div>
             ) : null}
             {useMonsterLayout && mon ? (
               <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginBottom: 0 }}>
                 <MonsterEncounterCard
-                  title={props.title}
+                  title={cardTitle}
                   boardLevel={monsterFloorLevel}
                   artKey={effectiveArtKey}
                   combatStrength={monsterScaled?.need ?? mon.strength}
@@ -666,7 +713,7 @@ export function CardModal(props: {
                   winXp={monsterScaled?.rewardXp ?? mon.rewardXp}
                   lossDamage={monsterScaled?.baseDamage ?? mon.baseDamage}
                   lossKlunks={monsterLossKlunkTotal(mon)}
-                  specialRules={props.text.trim() || undefined}
+                  specialRules={cardText.trim() || undefined}
                   fillAvailableHeight
                 />
               </div>
@@ -674,7 +721,7 @@ export function CardModal(props: {
               <>
                 <CardArtFrame artKey={effectiveArtKey} />
                 <div style={{ opacity: 0.98, color: "#ffffff", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-                  {props.text}
+                  {cardText}
                 </div>
               </>
             )}

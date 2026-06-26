@@ -144,8 +144,17 @@ describe("canUseItem", () => {
       phase: "choosePvpOrTile",
       tileType: "empty",
     });
-    assert.equal(canUseItem(state, "p1", "shortcut", "self"), true);
-    assert.equal(canUseItem(state, "p2", "shortcut", "self"), false);
+    assert.equal(canUseItem(state, "p1", "shortcut", "other"), true);
+    assert.equal(canUseItem(state, "p2", "shortcut", "other"), false);
+  });
+
+  it("shortcut blocked without enough pant or other active players", () => {
+    const solo = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 30 });
+    assert.equal(canUseItem(playingState([solo]), "p1", "shortcut", "other"), false);
+
+    const poor = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 5 });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false });
+    assert.equal(canUseItem(playingState([poor, p2]), "p1", "shortcut", "other"), false);
   });
 
   it("lengraddad blocked for combat participant; allowed for third-party reactor", () => {

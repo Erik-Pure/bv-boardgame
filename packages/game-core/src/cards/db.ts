@@ -1,27 +1,77 @@
 import dbJson from "./cards.json" with { type: "json" };
+import cardTextEnJson from "./cardText.en.json" with { type: "json" };
+import type { GameLocale } from "../locale.js";
 import type { ItemId } from "../types.js";
-import type { CardDef, CardKind, CardsDb } from "./types.js";
+import type { CardChoice, CardDef, CardKind, CardRollOutcomeRow, CardsDb } from "./types.js";
+
+export type { GameLocale } from "../locale.js";
 
 const db = dbJson as unknown as CardsDb;
+
+type CardTextOverlay = {
+  title?: string;
+  text?: string;
+  choices?: CardChoice[];
+  rollOutcomes?: CardRollOutcomeRow[];
+};
+
+type CardTextEnDb = {
+  cards: Record<string, CardTextOverlay>;
+};
+
+const cardTextEn = cardTextEnJson as unknown as CardTextEnDb;
 
 const byId = new Map<string, CardDef>();
 for (const c of db.cards) byId.set(c.id, c);
 
-export function getCard(id: string): CardDef {
+function applyLocaleOverlay(def: CardDef, locale: GameLocale): CardDef {
+  if (locale === "sv") return def;
+  const overlay = cardTextEn.cards[def.id];
+  if (!overlay) return def;
+  return {
+    ...def,
+    ...(overlay.title !== undefined ? { title: overlay.title } : {}),
+    ...(overlay.text !== undefined ? { text: overlay.text } : {}),
+    ...(overlay.rollOutcomes !== undefined ? { rollOutcomes: overlay.rollOutcomes } : {}),
+    ...(overlay.choices !== undefined
+      ? {
+          choices: def.choices?.map((choice) => {
+            const choiceOverlay = overlay.choices?.find((c) => c.id === choice.id);
+            return choiceOverlay?.label !== undefined
+              ? { ...choice, label: choiceOverlay.label }
+              : choice;
+          }),
+        }
+      : {}),
+  };
+}
+
+export function getCard(id: string, locale: GameLocale = "sv"): CardDef {
   const c = byId.get(id);
   if (!c) throw new Error(`Unknown card: ${id}`);
-  return c;
+  return applyLocaleOverlay(c, locale);
 }
 
 /** Slår upp kortdefinition utan att kasta (t.ex. UI för rik korttext). */
-export function getCardDefById(id: string): CardDef | undefined {
-  return byId.get(id);
+export function getCardDefById(id: string, locale: GameLocale = "sv"): CardDef | undefined {
+  const c = byId.get(id);
+  if (!c) return undefined;
+  return applyLocaleOverlay(c, locale);
+}
+
+/** Resolve localized card title from Swedish title stored in server state (sip notices, etc.). */
+export function getCardTitleBySvTitle(svTitle: string, locale: GameLocale): string | null {
+  const trimmed = svTitle.trim();
+  if (!trimmed) return null;
+  const found = db.cards.find((c) => c.title === trimmed);
+  if (!found) return null;
+  return getCardDefById(found.id, locale)?.title ?? null;
 }
 
 /** Visningsnamn för ett inventory-`itemId` (samma titel som på kortet `item_${itemId}`). */
-export function itemDisplayTitle(itemId: string): string {
+export function itemDisplayTitle(itemId: string, locale: GameLocale = "sv"): string {
   try {
-    return getCard(`item_${itemId}`).title;
+    return getCard(`item_${itemId}`, locale).title;
   } catch {
     return itemId;
   }
@@ -73,4 +123,3 @@ export function itemDeckItemIdsForRandomGrant(
 export function allCards(): CardDef[] {
   return db.cards.slice();
 }
-

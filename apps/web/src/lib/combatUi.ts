@@ -1,16 +1,22 @@
 import {
+  getFinalBossTagline,
+  getMonsterDisplay,
+  getMonsterDisplayBySvName,
+  getEquipmentDisplayByEquippedName,
   isFinalBossMonsterId,
   MONSTERS,
   MONSTER_LOSS_SIP_FLAT,
   monsterLossKlunkTotal,
   type CombatLoseSummary,
   type CombatWinSummary,
+  type GameLocale,
   type GameState,
   type MonsterId,
   type Pending,
 } from "@bv/game-core";
 import type { MonsterEncounterCardProps } from "../components/MonsterEncounterCard";
-import { sv } from "./uiStrings";
+import { monsterSpecialRulesForDisplay } from "./monsterCardCopy";
+import type { UiStrings } from "./uiStrings";
 
 /** Valfri undertitel i mobil vinst/förlust-kort (t.ex. stridshjälpare). */
 export type CombatOutcomeUiSubtitle = { uiSubtitle?: string };
@@ -109,20 +115,75 @@ export function monsterBoardFloorLevel(monsterId: string, levelIndex: number): n
   return Math.max(1, Math.floor(levelIndex) + 1);
 }
 
+/** Localized enemy label for combat win/loss cards (server stores Swedish monster name). */
+export function localizeCombatOutcomeEnemy(
+  enemyName: string,
+  locale: GameLocale,
+  fallback: string,
+): string {
+  const trimmed = enemyName.trim();
+  if (!trimmed) return fallback;
+  if (locale === "sv") return trimmed;
+  const monster = getMonsterDisplayBySvName(trimmed, locale);
+  if (monster?.name) return monster.name;
+  if (trimmed === "Dålig batch") return fallback;
+  return trimmed;
+}
+
+export function localizeCombatAssistRollNote(note: string | undefined, locale: GameLocale): string | undefined {
+  if (!note?.trim() || locale === "sv") return note;
+  const m = /^Ölkompis-slag inkluderat:\s*\+(\d+)\.?$/i.exec(note.trim());
+  if (m) return `Beer buddy roll included: +${m[1]}.`;
+  return note;
+}
+
+export function localizeCombatRedirectNote(note: string | undefined, locale: GameLocale): string | undefined {
+  if (!note?.trim() || locale === "sv") return note;
+  const m = /^Rabarbapappan slog om till:\s*(.+?)\.?$/i.exec(note.trim());
+  if (m) return `Uncle Rhubarb redirected to: ${m[1]}.`;
+  return note;
+}
+
+export function localizeCombatLostEquipmentName(name: string | undefined, locale: GameLocale): string | undefined {
+  if (!name?.trim() || locale === "sv") return name;
+  return getEquipmentDisplayByEquippedName(name, locale)?.name ?? name;
+}
+
+/** Localized monster name + special rules from combat pending (server fields are Swedish). */
+export function localizedCombatMonster(
+  p: Pick<Extract<Pending, { type: "combat" }>, "monsterId" | "enemyName" | "enemyIntroText">,
+  locale: GameLocale,
+): { name: string; specialRules?: string } {
+  const id = p.monsterId as MonsterId;
+  const display = getMonsterDisplay(id, locale);
+  const tagline = isFinalBossMonsterId(id) ? getFinalBossTagline(id, locale) : null;
+  const rulesSource = tagline ?? display.rulesText;
+  return {
+    name: display.name || p.enemyName,
+    specialRules: monsterSpecialRulesForDisplay(rulesSource),
+  };
+}
+
 /** Props till `MonsterEncounterCard` från pågående strid (t.ex. team battle före medkämpeval). */
 export function monsterEncounterCardPropsFromCombatPending(
   p: Extract<Pending, { type: "combat" }>,
-  opts?: { finalBossLivesRemaining?: number | null; monsterLossSipReduction?: number },
+  opts?: {
+    finalBossLivesRemaining?: number | null;
+    monsterLossSipReduction?: number;
+    locale?: GameLocale;
+  },
 ): MonsterEncounterCardProps {
   const need = p.need + (p.needMod ?? 0);
   const id = p.monsterId as MonsterId;
   const isBoss = isFinalBossMonsterId(id);
+  const locale = opts?.locale ?? "sv";
+  const localized = localizedCombatMonster(p, locale);
   const bossLives =
     opts?.finalBossLivesRemaining != null && Number.isFinite(opts.finalBossLivesRemaining)
       ? opts.finalBossLivesRemaining
       : 3;
   return {
-    title: p.enemyName,
+    title: localized.name,
     boardLevel: monsterBoardFloorLevel(p.monsterId, p.levelIndex),
     artKey: p.enemyArtKey,
     combatStrength: need,
@@ -133,7 +194,7 @@ export function monsterEncounterCardPropsFromCombatPending(
     lossKlunks: combatLossKlunksForDisplay(p, {
       monsterLossSipReduction: opts?.monsterLossSipReduction,
     }),
-    specialRules: p.enemyIntroText?.trim() || undefined,
+    specialRules: localized.specialRules,
     bossLivesRemaining: isBoss ? bossLives : undefined,
     bossWinLootAsDash: isBoss,
     framed: true,
@@ -217,6 +278,7 @@ export function buildCombatAllyWinSummary(
   cw: CombatWinSummary,
   role: "helpMate" | "beerBro",
   viewerName: string,
+  ui: UiStrings,
 ): CombatWinSummary & CombatOutcomeUiSubtitle {
   const attacker = cw.winnerName.trim() || "Spelaren";
   const enemy = cw.enemyName;
@@ -232,7 +294,7 @@ export function buildCombatAllyWinSummary(
       ...base,
       winnerName: viewerName,
       rewardItems: cw.helpMateGrantedRewardTitles?.length ?? 0,
-      uiSubtitle: sv.play.combatWinSubtitleHelpMate(attacker, enemy),
+      uiSubtitle: ui.play.combatWinSubtitleHelpMate(attacker, enemy),
     };
   }
   return {
@@ -249,6 +311,7 @@ export function buildCombatAllyLossSummary(
   cl: CombatLoseSummary,
   role: "helpMate" | "beerBro",
   viewerName: string,
+  ui: UiStrings,
 ): CombatLoseSummary & CombatOutcomeUiSubtitle {
   const impact = role === "helpMate" ? cl.helpMateImpact : cl.assistPartnerImpact;
   const attacker = cl.playerName.trim() || "Spelaren";
@@ -256,7 +319,7 @@ export function buildCombatAllyLossSummary(
   const hpLost = Math.max(0, Math.floor(impact?.hpLost ?? 0));
   const klunksGained = Math.max(0, Math.floor(impact?.klunksGained ?? 0));
   const subtitleFn =
-    role === "helpMate" ? sv.play.combatLoseSubtitleHelpMate : sv.play.combatLoseSubtitleBeerBro;
+    role === "helpMate" ? ui.play.combatLoseSubtitleHelpMate : ui.play.combatLoseSubtitleBeerBro;
   return {
     playerName: viewerName,
     enemyName: enemy,

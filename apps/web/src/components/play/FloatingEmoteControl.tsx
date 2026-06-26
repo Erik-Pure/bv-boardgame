@@ -7,7 +7,7 @@ import {
   type EmoteId,
   type Player,
 } from "@bv/game-core";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import styles from "../../routes/PlayView.module.css";
 
 export function FloatingEmoteControl(props: {
@@ -15,6 +15,7 @@ export function FloatingEmoteControl(props: {
   send: (action: ClientAction) => void;
   bottom: string | number;
 }) {
+  const ui = useUiStrings();
   const { me, send, bottom } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -62,13 +63,13 @@ export function FloatingEmoteControl(props: {
       <button
         type="button"
         className={styles.floatingEmoteTrigger}
-        aria-label={pickerOpen ? sv.play.emoteClosePickerAria : sv.play.emoteOpenPickerAria}
+        aria-label={pickerOpen ? ui.play.emoteClosePickerAria : ui.play.emoteOpenPickerAria}
         title={
           onCooldown
-            ? sv.play.emoteCooldown
+            ? ui.play.emoteCooldown
             : pickerOpen
-              ? sv.play.emoteClosePickerAria
-              : sv.play.emoteOpenPickerAria
+              ? ui.play.emoteClosePickerAria
+              : ui.play.emoteOpenPickerAria
         }
         disabled={onCooldown}
         aria-expanded={pickerOpen}
@@ -111,7 +112,7 @@ export function FloatingEmoteControl(props: {
       <div
         className={styles.floatingEmoteChoices}
         role="group"
-        aria-label={sv.play.emotePickerAria}
+        aria-label={ui.play.emotePickerAria}
         aria-hidden={!pickerOpen}
       >
         {EMOTE_IDS.map((id) => (
@@ -120,7 +121,7 @@ export function FloatingEmoteControl(props: {
             type="button"
             className={styles.floatingEmoteChoice}
             tabIndex={pickerOpen && !onCooldown ? 0 : -1}
-            aria-label={sv.play.emoteSendAria(id)}
+            aria-label={ui.play.emoteSendAria(id)}
             disabled={!pickerOpen || onCooldown}
             onClick={() => handleEmote(id)}
           >

@@ -1,3 +1,5 @@
+import { useUiStrings } from "../lib/locale/LocaleContext";
+import { BrandLogoImg } from "../components/BrandLogoImg";
 
 function sectionTitle(text: string) {
   return (
@@ -66,6 +68,9 @@ function inlineIcon(src: string, color: string) {
 }
 
 export function GameRules() {
+  const ui = useUiStrings();
+  const r = ui.rules;
+
   return (
     <div
       style={{
@@ -80,116 +85,98 @@ export function GameRules() {
         textAlign: "left",
       }}
     >
-      <picture>
-        <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
-        <source srcSet="/icons/bmm-logo-horisontal.webp" type="image/webp" />
-        <img
-          src="/icons/bmm-logo-horisontal.png"
-          alt="Bryggmästarnas Mästare"
-          style={{
-            display: "block",
-            width: "min(100%, 560px)",
-            height: "auto",
-            margin: "16px auto 12px",
-          }}
-          draggable={false}
-        />
-      </picture>
+      <BrandLogoImg
+        variant="horizontal"
+        alt={r.logoAlt}
+        style={{
+          display: "block",
+          width: "min(100%, 560px)",
+          height: "auto",
+          margin: "16px auto 12px",
+        }}
+        draggable={false}
+      />
       <h1 style={{ margin: "0 0 10px", fontSize: "clamp(1.7rem, 5.2vw, 2.3rem)", fontWeight: 900, color: "#fff", textAlign: "center" }}>
-        Spelregler
+        {r.title}
       </h1>
-      <p style={{ margin: "0 0 12px", opacity: 0.92, fontSize: 16 }}>
-        I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka
-        upp dina misslyckanden, växer din visdom. Man lär sig av sina misstag – men man lär sig snabbare av framgång.
-      </p>
-      {sectionTitle("🎲 1. Spelets gång")}
-      {tutorialImage("/tutorial/tut4.png", "Snabbguide: slå och välj väg")}
-      <p>Varje tur börjar med ett val — sedan handling på rutorna du når:</p>
+      <p style={{ margin: "0 0 12px", opacity: 0.92, fontSize: 16 }}>{r.intro}</p>
+      {sectionTitle(r.section1Title)}
+      {tutorialImage("/tutorial/tut4.png", r.section1ImageAlt)}
+      <p>{r.section1TurnIntro}</p>
       <p style={{ marginTop: 12 }}>
-        <strong>Förflyttning:</strong> Slå rörelsetärningen och flytta exakt så många steg tärningen visar i valfri riktning.
+        <strong>{r.movementLabel}</strong> {r.movementText}
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Panta burkar:</strong> I stället för att slå tärningen kan du handla (kräver minst 5 pant). Pjäsen står kvar;
-        tur avslutas när du lämnar butiken.
+        <strong>{r.recycleLabel}</strong> {r.recycleText}
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Förberedelser:</strong> Innan du landar på en ruta får du spela föremål från handen för att förbättra dina odds
-        eller optimera dina stats.
+        <strong>{r.prepLabel}</strong> {r.prepText}
       </p>
 
-      {sectionTitle("📈 2. Erfarenhet (XP) & Nivåer")}
-      <p>
-        Du klättrar i nivå genom att samla Erfarenhetspoäng (XP). Ju högre nivå du når, desto mer XP krävs för nästa steg.
+      {sectionTitle(r.section2Title)}
+      <p>{r.xpIntro}</p>
+      <p style={{ marginTop: 12 }}>
+        <strong>{r.winXpLabel}</strong> {r.winXpText}
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Vinst i strid (Räddad batch):</strong> Att besegra en dålig batch ger en rejäl dos XP (se värde på kortet).
-      </p>
-      <p style={{ marginTop: 12 }}>
-        <strong>Förlust i strid (Straffklunkar):</strong> Om du förlorar tvingas du dricka straffklunkar. Varje klunk härdar dig
-        och ger en liten mängd XP – även motgångar för dig framåt!
+        <strong>{r.lossXpLabel}</strong> {r.lossXpText}
       </p>
       <p style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.32)", background: "rgba(15,23,42,0.45)" }}>
-        <strong>Nivå upp!</strong>
+        <strong>{r.levelUpBoxTitle}</strong>
         <br />
-        "Dina erfarenheter – från räddade batcher till bittra läxor i glaset – har gett resultat. Du lämnar nu nybörjarträsket
-        bakom dig. Vågar du höja svårighetsgraden, eller har du redan fått nog?"
+        {r.levelUpBoxText}
       </p>
 
-      {sectionTitle("🧭 3. Rutor och händelser")}
-      {tutorialImage("/tutorial/tut3.png", "Snabbguide: hantera rutan")}
-      <p>När du landar på en ruta aktiveras dess effekt omedelbart:</p>
+      {sectionTitle(r.section3Title)}
+      {tutorialImage("/tutorial/tut3.png", r.section3ImageAlt)}
+      <p>{r.section3Intro}</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
           {inlineIcon("/icons/event-icon.svg", "#60a5fa")}
-          <strong>Händelse:</strong> Slumpmässiga möten som kan hjälpa eller stjälpa din resa.
+          <strong>{r.tileEventLabel}</strong> {r.tileEventText}
         </li>
         <li>
           {inlineIcon("/icons/reward-icon.svg", "#facc15")}
-          <strong>Skatt:</strong> Möjlighet att hitta ny utrustning eller kraftfulla föremål.
+          <strong>{r.tileTreasureLabel}</strong> {r.tileTreasureText}
         </li>
         <li>
           {inlineIcon("/icons/heart-icon.svg", "#f472b6")}
-          <strong>Vila:</strong> Återhämtning av HP så att du orkar fortsätta bryggandet.
+          <strong>{r.tileRestLabel}</strong> {r.tileRestText}
         </li>
         <li>
           {inlineIcon("/icons/monster-icon.svg", "#ef4444")}
           {inlineIcon("/icons/bvb-icon.svg", "#d1d5db")}
-          <strong>Dålig batch / BvB:</strong> Strid mot en misslyckad brygd eller utmana en medspelare (Bryggare mot Bryggare).
+          <strong>{r.tileCombatLabel}</strong> {r.tileCombatText}
         </li>
       </ul>
 
-      {sectionTitle("⚔️ 4. Strider, mutor och sabotage")}
-      {tutorialImage("/tutorial/tut2.png", "Snabbguide: dåliga batchar, mutor och sabotage")}
-      <p>
-        I strid jämförs din Totalstyrka (Tärningsslag + Utrustning + Föremål) mot fiendens styrka.
+      {sectionTitle(r.section4Title)}
+      {tutorialImage("/tutorial/tut2.png", r.section4ImageAlt)}
+      <p>{r.combatIntro}</p>
+      <p style={{ marginTop: 12 }}>
+        <strong>{r.combatWinLabel}</strong> {r.combatWinYouGet} {inlineIcon("/icons/lvlup.svg", "#60a5fa")}, {r.combatWinPant}{" "}
+        {inlineIcon("/icons/pant-icon.svg", "#d1d5db")} {r.combatWinAndTreasure} {inlineIcon("/icons/reward-icon.svg", "#facc15")}.
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Vinst:</strong> Du får XP {inlineIcon("/icons/lvlup.svg", "#60a5fa")}, pant{" "}
-        {inlineIcon("/icons/pant-icon.svg", "#d1d5db")} och skatter {inlineIcon("/icons/reward-icon.svg", "#facc15")}.
+        <strong>{r.combatLossLabel}</strong> {r.combatLossYouLose} {inlineIcon("/icons/heart-icon.svg", "#f472b6")} {r.combatLossAndSips}{" "}
+        {inlineIcon("/icons/klunk-icon.svg", "#facc15")} {r.combatLossSipXpNote}
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Förlust:</strong> Du tappar HP {inlineIcon("/icons/heart-icon.svg", "#f472b6")} och dricker straffklunkar{" "}
-        {inlineIcon("/icons/klunk-icon.svg", "#facc15")} (som i sin tur ger XP).
+        <strong>{r.combatCritLabel}</strong> {r.combatCritBeforeDie} {inlineIcon("/icons/skull-icon.svg", "#ef4444")} {r.combatCritAfterDie}
       </p>
       <p style={{ marginTop: 12 }}>
-        <strong>Kritisk miss:</strong> En etta på tärningen {inlineIcon("/icons/skull-icon.svg", "#ef4444")} är alltid en
-        förlust.
-      </p>
-      <p style={{ marginTop: 12 }}>
-        <strong>Interaktion:</strong> Medspelare kan ofta påverka strider genom att hjälpa eller sabotera, ibland mot betalning
-        i pant.
+        <strong>{r.combatInteractLabel}</strong> {r.combatInteractText}
       </p>
 
-      {sectionTitle("🏆 5. Vinstvillkor")}
-      {tutorialImage("/tutorial/tut1.png", "Snabbguide: nivåer, bossen och vinst")}
-      <p>När en spelare når den högsta nivån inleds slutskedet. Spelet kan vinnas på två sätt:</p>
+      {sectionTitle(r.section5Title)}
+      {tutorialImage("/tutorial/tut1.png", r.section5ImageAlt)}
+      <p>{r.section5Intro}</p>
       <ul style={{ margin: "8px 0", paddingLeft: 22 }}>
         <li>
-          <strong>Mästerbryggaren:</strong> Besegra slutbossen (som har 3 liv) före alla andra.
+          <strong>{r.winMasterLabel}</strong> {r.winMasterText}
         </li>
         <li>
-          <strong>Sista klunken:</strong> Om alla andra spelare förlorar sitt HP eller ger upp, vinner den sista kvarvarande
-          bryggaren.
+          <strong>{r.winLastLabel}</strong> {r.winLastText}
         </li>
       </ul>
     </div>

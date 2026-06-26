@@ -1,9 +1,10 @@
 import { ArcadeButton } from "../ArcadeButton";
 import { PlayModal } from "./PlayModal";
-import { readBoardPerformancePrefs, writeMobileSfxEnabled } from "../../lib/boardPerformancePrefs";
+import { readBoardPerformancePrefs, writeBoardAnimationsEnabled, writeMobileSfxEnabled } from "../../lib/boardPerformancePrefs";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv, wsStatusLabel } from "../../lib/uiStrings";
+import { useUiStrings, useLocale, useSetLocale } from "../../lib/locale/LocaleContext";
+import { wsStatusLabel } from "../../lib/uiStrings";
 
 export function PlaySettingsModals(props: {
   cardCoverId: string | undefined;
@@ -17,11 +18,15 @@ export function PlaySettingsModals(props: {
   onConfirmLeave: () => void;
   rainbowEffectsEnabled: boolean;
   onRainbowEffectsChange: (enabled: boolean) => void;
+  boardAnimationsEnabled: boolean;
   mobileSfxEnabled: boolean;
   onMobileSfxChange: (enabled: boolean) => void;
   onOpenTutorial: () => void;
   onRequestLeave: () => void;
 }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const setLocale = useSetLocale();
   const {
     cardCoverId,
     room,
@@ -34,6 +39,7 @@ export function PlaySettingsModals(props: {
     onConfirmLeave,
     rainbowEffectsEnabled,
     onRainbowEffectsChange,
+    boardAnimationsEnabled,
     mobileSfxEnabled,
     onMobileSfxChange,
     onOpenTutorial,
@@ -43,10 +49,39 @@ export function PlaySettingsModals(props: {
   return (
     <>
       {showSettings ? (
-        <PlayModal cardCoverId={cardCoverId} title={sv.play.settingsTitle} onClose={onCloseSettings} instantFront>
+        <PlayModal cardCoverId={cardCoverId} title={ui.play.settingsTitle} onClose={onCloseSettings} instantFront>
           <div className={u.stack12}>
+            <div className={styles.settingsLanguageRow}>
+              <span className={styles.settingsStrongLine}>{ui.play.settingsLanguage}</span>
+              <div
+                className={styles.settingsLanguageToggle}
+                role="group"
+                aria-label={ui.home.languageLabel}
+              >
+                <button
+                  type="button"
+                  className={locale === "sv" ? styles.settingsLanguageBtnActive : styles.settingsLanguageBtn}
+                  onClick={() => setLocale("sv")}
+                  aria-pressed={locale === "sv"}
+                >
+                  {ui.home.languageSv}
+                </button>
+                <span className={styles.settingsLanguageSep} aria-hidden>
+                  |
+                </span>
+                <button
+                  type="button"
+                  className={locale === "en" ? styles.settingsLanguageBtnActive : styles.settingsLanguageBtn}
+                  onClick={() => setLocale("en")}
+                  aria-pressed={locale === "en"}
+                >
+                  {ui.home.languageEn}
+                </button>
+              </div>
+            </div>
+
             <label className={styles.settingsToggleRow}>
-              <span className={styles.settingsStrongLine}>{sv.play.settingsRainbowEffects}</span>
+              <span className={styles.settingsStrongLine}>{ui.play.settingsRainbowEffects}</span>
               <input
                 type="checkbox"
                 checked={rainbowEffectsEnabled}
@@ -54,7 +89,15 @@ export function PlaySettingsModals(props: {
               />
             </label>
             <label className={styles.settingsToggleRow}>
-              <span className={styles.settingsStrongLine}>{sv.play.settingsMobileSfx}</span>
+              <span className={styles.settingsStrongLine}>{ui.play.settingsDiceAnimations}</span>
+              <input
+                type="checkbox"
+                checked={boardAnimationsEnabled}
+                onChange={(e) => writeBoardAnimationsEnabled(e.currentTarget.checked)}
+              />
+            </label>
+            <label className={styles.settingsToggleRow}>
+              <span className={styles.settingsStrongLine}>{ui.play.settingsMobileSfx}</span>
               <input
                 type="checkbox"
                 checked={mobileSfxEnabled}
@@ -66,36 +109,36 @@ export function PlaySettingsModals(props: {
             </label>
 
             <div className={styles.settingsStatusCard}>
-              <div className={styles.settingsMutedLabel}>{sv.play.settingsLobbyStatus}</div>
-              <div className={styles.settingsStrongLine}>{sv.play.lobbyHeader(room, wsStatusLabel(status))}</div>
+              <div className={styles.settingsMutedLabel}>{ui.play.settingsLobbyStatus}</div>
+              <div className={styles.settingsStrongLine}>{ui.play.lobbyHeader(room, wsStatusLabel(status, locale))}</div>
               {footerTurnCaption ? (
                 <>
-                  <div className={styles.settingsMutedLabelSpaced}>{sv.play.settingsTurnStatus}</div>
+                  <div className={styles.settingsMutedLabelSpaced}>{ui.play.settingsTurnStatus}</div>
                   <div className={styles.settingsStrongLine}>{footerTurnCaption}</div>
                 </>
               ) : null}
             </div>
 
             <ArcadeButton variant="gray" fullWidth onClick={onOpenTutorial}>
-              {sv.play.settingsOpenTutorial}
+              {ui.play.settingsOpenTutorial}
             </ArcadeButton>
 
             <ArcadeButton variant="gray" fullWidth onClick={onRequestLeave}>
-              {sv.play.settingsLeaveGame}
+              {ui.play.settingsLeaveGame}
             </ArcadeButton>
           </div>
         </PlayModal>
       ) : null}
 
       {showLeaveConfirm ? (
-        <PlayModal cardCoverId={cardCoverId} title={sv.play.settingsLeaveGame} onClose={onCloseLeaveConfirm} instantFront>
+        <PlayModal cardCoverId={cardCoverId} title={ui.play.settingsLeaveGame} onClose={onCloseLeaveConfirm} instantFront>
           <div className={u.stack12}>
-            <div className={`${u.o9} ${u.fs14}`}>Är du säker på att du vill lämna spelet?</div>
+            <div className={`${u.o9} ${u.fs14}`}>{ui.play.settingsLeaveGameConfirm}</div>
             <ArcadeButton variant="pink" fullWidth onClick={onConfirmLeave}>
-              {sv.play.settingsLeaveGame}
+              {ui.play.settingsLeaveGame}
             </ArcadeButton>
             <ArcadeButton variant="gray" fullWidth onClick={onCloseLeaveConfirm}>
-              Avbryt
+              {ui.play.settingsLeaveGameCancel}
             </ArcadeButton>
           </div>
         </PlayModal>

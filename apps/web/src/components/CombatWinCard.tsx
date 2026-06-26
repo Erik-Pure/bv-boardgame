@@ -2,7 +2,8 @@ import type { CombatWinSummary } from "@bv/game-core";
 import { ArcadeButton } from "./ArcadeButton";
 import { CombatOutcomeThumb } from "./CombatOutcomeThumb";
 import { CombatSheetFrame } from "./CombatResultSheet";
-import { sv } from "../lib/uiStrings";
+import { localizeCombatOutcomeEnemy } from "../lib/combatUi";
+import { useLocale, useUiStrings } from "../lib/locale/LocaleContext";
 
 const PANT_ICON = "/icons/pant-icon.svg";
 const REWARD_ICON = "/icons/reward-icon.svg";
@@ -57,19 +58,29 @@ function RewardLine({
   );
 }
 
-function combatWinSubtitleFor(data: CombatWinSummary & { uiSubtitle?: string }): string {
+function combatWinSubtitleFor(
+  data: CombatWinSummary & { uiSubtitle?: string },
+  ui: ReturnType<typeof useUiStrings>,
+  locale: ReturnType<typeof useLocale>,
+): string {
   if (data.uiSubtitle?.trim()) return data.uiSubtitle.trim();
-  const enemyLabel = data.enemyName.trim() || sv.play.combatWinEnemyFallback;
-  if (data.winnerName === "Ni") return sv.play.combatWinTeamLegacy;
+  const enemyLabel = localizeCombatOutcomeEnemy(
+    data.enemyName,
+    locale,
+    ui.play.combatWinEnemyFallback,
+  );
+  if (data.winnerName === "Ni") return ui.play.combatWinTeamLegacy;
   if (data.teammateName) {
-    return sv.play.combatWinSubtitleTeam(data.winnerName, data.teammateName, enemyLabel);
+    return ui.play.combatWinSubtitleTeam(data.winnerName, data.teammateName, enemyLabel);
   }
-  return sv.play.combatWinSubtitle(data.winnerName, enemyLabel);
+  return ui.play.combatWinSubtitle(data.winnerName, enemyLabel);
 }
 
 export function CombatWinCardContent(props: { data: CombatWinSummary }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
   const { data } = props;
-  const subtitle = combatWinSubtitleFor(data);
+  const subtitle = combatWinSubtitleFor(data, ui, locale);
 
   return (
     <div
@@ -94,14 +105,14 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
           letterSpacing: "0.04em",
         }}
       >
-        {sv.play.combatWinTitle}
+        {ui.play.combatWinTitle}
       </h1>
       <CombatOutcomeThumb outcome="win" />
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>
         {subtitle}
       </p>
       <p style={{ fontFamily: "var(--sans)", fontSize: 16, margin: 0, opacity: 0.92 }}>
-        {sv.play.combatWinRoll(data.rollTotal, data.need)}
+        {ui.play.combatWinRoll(data.rollTotal, data.need)}
       </p>
 
       <div style={{ width: "100%", maxWidth: 340, marginTop: 10, textAlign: "center" }}>
@@ -115,7 +126,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
             textAlign: "center",
           }}
         >
-          {sv.play.combatWinRewards}
+          {ui.play.combatWinRewards}
         </div>
         <div
           style={{
@@ -153,7 +164,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
               lineHeight: 1.4,
             }}
           >
-            {sv.play.combatWinRandomOtherSip(data.randomOtherSipRecipientName)}
+            {ui.play.combatWinRandomOtherSip(data.randomOtherSipRecipientName)}
           </p>
         ) : null}
       </div>
@@ -162,6 +173,7 @@ export function CombatWinCardContent(props: { data: CombatWinSummary }) {
 }
 
 export function CombatWinCard(props: { data: CombatWinSummary; onContinue: () => void }) {
+  const ui = useUiStrings();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0, width: "100%" }}>
       <CombatSheetFrame showSheetTitle={false}>
@@ -177,7 +189,7 @@ export function CombatWinCard(props: { data: CombatWinSummary; onContinue: () =>
             fontSize: 15,
           }}
         >
-          {sv.play.combatWinContinue}
+          {ui.play.combatWinContinue}
         </span>
       </ArcadeButton>
     </div>

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { CardFlipModalShell } from "./CardFlipModalShell";
 import cardFlipShellStyles from "./CardFlipModalShell.module.css";
 import { useTableOverlayContentScale } from "../lib/tablePresentationScale";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 import type { MonsterEncounterCardProps } from "./MonsterEncounterCard";
 import { MonsterEncounterCard } from "./MonsterEncounterCard";
 
@@ -81,11 +81,12 @@ export function TeamBattleIntroCard(props: {
   /** Visas under rubriken — samma data som i monsterintro efter medkämpeval. */
   monster?: MonsterEncounterCardProps;
 }) {
+  const ui = useUiStrings();
   const overlayScale = useTableOverlayContentScale();
   const tableScale = props.variant === "table" ? overlayScale : 1;
   const isPlayVariant = props.variant === "play";
   const hasMonster = !!props.monster;
-  const teamBattleTitle = <h2 style={TITLE_STYLE}>{sv.table.teamBattleIntroTitle}</h2>;
+  const teamBattleTitle = <h2 style={TITLE_STYLE}>{ui.table.teamBattleIntroTitle}</h2>;
   const centeredMonsterColumnStyle: CSSProperties = {
     width: isPlayVariant ? "min(400px, 100%)" : "auto",
     display: "grid",
@@ -120,7 +121,7 @@ export function TeamBattleIntroCard(props: {
           maxWidth: 400,
         }}
       >
-        {sv.table.teamBattleIntroBody(props.attackerName)}
+        {ui.table.teamBattleIntroBody(props.attackerName)}
       </p>
       <p
         style={{
@@ -132,7 +133,7 @@ export function TeamBattleIntroCard(props: {
           maxWidth: 380,
         }}
       >
-        {sv.table.teamBattleIntroHint}
+        {ui.table.teamBattleIntroHint}
       </p>
     </>
   );

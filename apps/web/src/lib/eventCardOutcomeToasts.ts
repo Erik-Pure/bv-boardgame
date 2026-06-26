@@ -1,6 +1,7 @@
 import {
   resolveEventCardTableToasts,
   type EventTableToastSpec,
+  type GameLocale,
   type TableToastCategory,
   type TableToastIcon,
 } from "@bv/game-core";
@@ -24,9 +25,10 @@ function iconToStatKind(icon: TableToastIcon): StatIconKind {
 export function eventCardOutcomeToasts(
   pending: PendingEventCard,
   playersById: Map<string, Player>,
+  locale: GameLocale = "sv",
 ): EventCardOutcomeToast[] {
   const players = [...playersById.values()];
-  const specs: EventTableToastSpec[] = resolveEventCardTableToasts(pending, players);
+  const specs: EventTableToastSpec[] = resolveEventCardTableToasts(pending, players, locale);
   return specs.map((spec) => ({
     text: spec.text,
     category: spec.category,

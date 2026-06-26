@@ -20,13 +20,15 @@ import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import {
   combatLossKlunksForDisplay,
   monsterBoardFloorLevel,
+  localizedCombatMonster,
   monsterEncounterCardPropsFromCombatPending,
   parseLegacyCombatLoseText,
   parseLegacyCombatWinText,
   resolveCombatLossViewer,
   resolveCombatWinViewer,
 } from "../../lib/combatUi";
-import { sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import type { UiStrings } from "../../lib/uiStrings";
 import {
   TABLE_BOARD_MODAL_CARD_ANIMATION,
   TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
@@ -81,6 +83,12 @@ function formatSignedDiceModifier(sum: number): string | null {
   return sum > 0 ? `+${sum}` : String(sum);
 }
 
+function hitMitigationBoardHint(monsterId: string | undefined, table: UiStrings["table"]): string {
+  if (monsterId === "kapten_interrobang") return table.attackerChoosesInterrobangHit;
+  if (monsterId === "transporter") return table.attackerChoosesTransporterHit;
+  return table.attackerChoosesHit(2);
+}
+
 function helpContractLabel(contract: "free" | "pant" | "treasure" | "split" | undefined): string {
   switch (contract) {
     case "free":
@@ -127,6 +135,8 @@ function TableCombatBoardPanelInner(props: {
    */
   monsterResultHoldover?: MonsterCombatResultHoldover | null;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const { state, playersById, boardAnimationsEnabled = true, monsterResultHoldover: hold } = props;
   const overlayScale = useTableOverlayContentScale();
   const vvHeight = useVisualViewportHeight();
@@ -280,12 +290,14 @@ function TableCombatBoardPanelInner(props: {
             0,
             Math.floor(att?.equipment.weapon?.monsterLossSipReduction ?? 0),
           ),
+          locale,
         })}
       />
     );
   }
 
   const attacker = state.players.find((p) => p.id === pending.attackerId);
+  const localizedMonster = localizedCombatMonster(pending, locale);
   const isFinalBossCombat = isFinalBossMonsterId(pending.monsterId as MonsterId);
   const need = pending.need + (pending.needMod ?? 0);
   const showMonsterCard = pending.monsterId !== "boss";
@@ -333,11 +345,11 @@ function TableCombatBoardPanelInner(props: {
 
   const phaseLine =
     pending.phase === "chooseTeammate"
-      ? sv.table.combatPhaseTeam
+      ? ui.table.combatPhaseTeam
       : pending.phase === "enemyIntro"
-        ? sv.table.combatPhase1
+        ? ui.table.combatPhase1
         : pending.phase === "reactions"
-          ? sv.table.combatPhase2
+          ? ui.table.combatPhase2
           : pending.phase === "helpChooseHelper"
             ? "2.5 — Välj hjälpare"
             : pending.phase === "helpAwaitDecision"
@@ -347,24 +359,24 @@ function TableCombatBoardPanelInner(props: {
               : pending.phase === "helpAwaitCard"
                 ? "2.7 — Väntar hjälpkort"
           : pending.phase === "chooseHitMitigation"
-            ? sv.table.combatPhase3Choice
-            : sv.table.combatPhase3Result;
+            ? ui.table.combatPhase3Choice
+            : ui.table.combatPhase3Result;
 
   /** Boss / icke-kort: behåll äldre batch- + fasrubriker. */
   const combatBoardBossHeaderLines = (
     <>
-      <div className={combatStyles.caption12Muted}>{sv.table.combatOverlayTitle}</div>
+      <div className={combatStyles.caption12Muted}>{ui.table.combatOverlayTitle}</div>
       <div className={combatStyles.phaseLine12}>{phaseLine}</div>
       <div className={combatStyles.fightLine14}>
-        <b>{attacker?.name ?? "?"}</b> {sv.table.isFighting}
+        <b>{attacker?.name ?? "?"}</b> {ui.table.isFighting}
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamWaitMuted}>
-          {sv.table.teamBattleLabel}: <b>{sv.table.teamBattleWaitTeammate}</b>
+          {ui.table.teamBattleLabel}: <b>{ui.table.teamBattleWaitTeammate}</b>
         </div>
       ) : pending.assistId ? (
         <div className={combatStyles.teammateChosenBannerLeft}>
-          {pending.teamBattleRequired ? `${sv.table.teamBattleLabel}:` : "Ölkompis:"}{" "}
+          {pending.teamBattleRequired ? `${ui.table.teamBattleLabel}:` : `${ui.play.combatBeerBroLabel} `}
           <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>
@@ -377,15 +389,15 @@ function TableCombatBoardPanelInner(props: {
     <>
       {finalBossRoundLabel ? <div className={combatStyles.finalBossRoundTitle}>{finalBossRoundLabel}</div> : null}
       <div className={combatStyles.monsterMeetTitle}>
-        {(attacker?.name ?? "?").toLocaleUpperCase("sv-SE")} MÖTER
+        {ui.table.combatMeetBanner(attacker?.name ?? "?")}
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamBattlePickTeammate}>
-          {sv.table.teamBattleLabel}: <b>{sv.table.teamBattleWaitTeammate}</b>
+          {ui.table.teamBattleLabel}: <b>{ui.table.teamBattleWaitTeammate}</b>
         </div>
       ) : pending.assistId ? (
         <div className={combatStyles.teammateChosenBanner}>
-          {pending.teamBattleRequired ? `${sv.table.teamBattleLabel}:` : "Ölkompis:"}{" "}
+          {pending.teamBattleRequired ? `${ui.table.teamBattleLabel}:` : `${ui.play.combatBeerBroLabel} `}
           <span className={combatStyles.fw900}>
             {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
           </span>
@@ -395,7 +407,7 @@ function TableCombatBoardPanelInner(props: {
   );
 
   const boardMonsterCardProps = {
-    title: pending.enemyName,
+    title: localizedMonster.name,
     boardLevel:
       showMonsterCard ? monsterBoardFloorLevel(pending.monsterId, pending.levelIndex) : undefined,
     artKey: pending.enemyArtKey,
@@ -410,7 +422,7 @@ function TableCombatBoardPanelInner(props: {
         Math.floor(attacker?.equipment.weapon?.monsterLossSipReduction ?? 0),
       ),
     }),
-    specialRules: pending.enemyIntroText?.trim() || undefined,
+    specialRules: localizedMonster.specialRules,
     bossLivesRemaining: isFinalBossCombat ? (state.finalBossLivesRemaining ?? 3) : undefined,
     bossWinLootAsDash: isFinalBossCombat,
   };
@@ -468,16 +480,16 @@ function TableCombatBoardPanelInner(props: {
       >
         <div style={{ textAlign: "center", color: "#e5e7eb", width: "100%" }}>
           <CombatSheetFrame
-            sheetTitle={sv.table.combatPhase3Choice}
+            sheetTitle={ui.table.combatPhase3Choice}
             titleStyle={{ textAlign: "center", fontSize: 16, marginBottom: 8 }}
           >
             {typeof pending.previewTotal === "number" && typeof pending.previewNeed === "number" ? (
               <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 12 }}>
-                Slag: {pending.previewTotal} (krävde {pending.previewNeed})
+                {ui.play.combatWinRoll(pending.previewTotal, pending.previewNeed)}
               </div>
             ) : null}
             <div style={{ fontSize: 14, lineHeight: 1.45, opacity: 0.92 }}>
-              {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
+              {hitMitigationBoardHint(pending.monsterId, ui.table)}
             </div>
           </CombatSheetFrame>
         </div>
@@ -600,7 +612,7 @@ function TableCombatBoardPanelInner(props: {
                     {sipWeaponTakenBonus != null ? (
                       <div className={combatStyles.modifierStackGap2}>
                         <span className={combatStyles.sipBonusBig}>+{sipWeaponTakenBonus}</span>
-                        <span className={combatStyles.sipTakenCaption}>{sv.table.diceModifierSipTakenSub}</span>
+                        <span className={combatStyles.sipTakenCaption}>{ui.table.diceModifierSipTakenSub}</span>
                       </div>
                     ) : null}
                   </div>
@@ -621,7 +633,7 @@ function TableCombatBoardPanelInner(props: {
               {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
               {pending.phase === "chooseHitMitigation" ? (
                 <div className={combatStyles.hitMitigationHint}>
-                  {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
+                  {hitMitigationBoardHint(pending.monsterId, ui.table)}
                 </div>
               ) : null}
             </div>
@@ -655,9 +667,9 @@ function TableCombatBoardPanelInner(props: {
         )
       ) : (
         <>
-          <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
+          <div className={combatStyles.enemyTitle24}>{localizedMonster.name}</div>
           <div className={combatStyles.strengthLine}>
-            {sv.table.strength}: {need}
+            {ui.table.strength}: {need}
           </div>
         </>
       )}
@@ -673,12 +685,12 @@ function TableCombatBoardPanelInner(props: {
           }
           style={{ marginTop: monsterDiceHeroLayout ? 2 : 12 }}
         >
-          {sv.play.waitIntervene}
+          {ui.play.waitIntervene}
         </div>
       )}
       {pending.phase === "helpChooseHelper" ? (
         <div className={combatStyles.hintLine13}>
-          <b>{sv.table.combatHelpAsking}</b>{" "}
+          <b>{ui.table.combatHelpAsking}</b>{" "}
           {(pending.helpCandidateIds ?? [])
             .map((id) => playersById.get(id)?.name ?? id)
             .join(", ")}
@@ -686,20 +698,20 @@ function TableCombatBoardPanelInner(props: {
       ) : null}
       {pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId ? (
         <div className={combatStyles.hintLine13}>
-          {sv.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
+          {ui.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
         </div>
       ) : null}
       {pending.phase === "helpAwaitRequesterDecision" && pending.helpSelectedHelperId ? (
         <div className={combatStyles.hintLine13}>
-          {sv.table.combatHelpAwaitDecision(playersById.get(pending.attackerId)?.name ?? "angriparen")}
+          {ui.table.combatHelpAwaitDecision(playersById.get(pending.attackerId)?.name ?? "angriparen")}
         </div>
       ) : null}
       {pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId ? (
         <div className={combatStyles.hintLine13}>
-          {sv.table.combatHelpAwaitCard(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
+          {ui.table.combatHelpAwaitCard(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
           {pending.helpAccepted && pending.helpContract ? (
             <div className={combatStyles.helpContractSub}>
-              {sv.table.combatHelpAcceptedContract(
+              {ui.table.combatHelpAcceptedContract(
                 playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren",
                 helpContractLabel(pending.helpContract),
               )}
@@ -716,7 +728,7 @@ function TableCombatBoardPanelInner(props: {
           {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
           {pending.phase === "chooseHitMitigation" ? (
             <div className={combatStyles.hitChoiceLine}>
-              {sv.table.attackerChoosesHit(pending.monsterId === "kapten_interrobang" ? 3 : 2)}
+              {hitMitigationBoardHint(pending.monsterId, ui.table)}
             </div>
           ) : null}
         </div>
@@ -735,9 +747,9 @@ function TableCombatBoardPanelInner(props: {
         contentScale={combatBlockScale}
       >
         <div className={combatStyles.innerBossIntro}>
-          <div className={combatStyles.enemyTitle24}>{pending.enemyName}</div>
+          <div className={combatStyles.enemyTitle24}>{localizedMonster.name}</div>
           <div className={combatStyles.strengthLine}>
-            {sv.table.strength}: {need}
+            {ui.table.strength}: {need}
           </div>
         </div>
       </CardFlipModalShell>

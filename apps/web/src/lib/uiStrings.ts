@@ -1,23 +1,39 @@
-import type { TileType } from "@bv/game-core";
+import type { GameLocale, TileType } from "@bv/game-core";
+import { en } from "./uiStringsEn";
 
 /** WebSocket-status → visningstext */
-export function wsStatusLabel(s: string): string {
+export function wsStatusLabel(s: string, locale: GameLocale = "sv"): string {
+  if (locale === "en") {
+    if (s === "connecting") return "connecting";
+    if (s === "connected") return "connected";
+    if (s === "disconnected") return "disconnected";
+    return s;
+  }
   if (s === "connecting") return "ansluter";
   if (s === "connected") return "ansluten";
   if (s === "disconnected") return "frånkopplad";
   return s;
 }
 
-export function phaseLabelSv(phase: string): string {
+export function phaseLabel(phase: string, locale: GameLocale = "sv"): string {
+  if (locale === "en") {
+    if (phase === "lobby") return "lobby";
+    if (phase === "playing") return "in progress";
+    if (phase === "ended") return "ended";
+    return phase;
+  }
   if (phase === "lobby") return "lobby";
   if (phase === "playing") return "spel pågår";
   if (phase === "ended") return "avslutat";
   return phase;
 }
 
-export function pendingTypeLabelSv(t: string | undefined): string {
+/** @deprecated use phaseLabel */
+export const phaseLabelSv = (phase: string) => phaseLabel(phase, "sv");
+
+export function pendingTypeLabel(t: string | undefined, locale: GameLocale = "sv"): string {
   if (!t) return "—";
-  const m: Record<string, string> = {
+  const mSv: Record<string, string> = {
     moveChoice: "rörelseval",
     card: "kort",
     equipmentReplaceOffer: "byte av utrustning",
@@ -28,10 +44,25 @@ export function pendingTypeLabelSv(t: string | undefined): string {
     combat: "dålig batch",
     pvp: "BvB",
   };
+  const mEn: Record<string, string> = {
+    moveChoice: "move choice",
+    card: "card",
+    equipmentReplaceOffer: "equipment swap",
+    merchant: "recycle cans",
+    door: "level up",
+    levelUpOffer: "level choice",
+    encounterChoice: "encounter choice",
+    combat: "bad batch",
+    pvp: "BvB",
+  };
+  const m = locale === "en" ? mEn : mSv;
   return m[t] ?? t;
 }
 
-export const tileTypeSv: Record<TileType, string> = {
+/** @deprecated use pendingTypeLabel */
+export const pendingTypeLabelSv = (t: string | undefined) => pendingTypeLabel(t, "sv");
+
+const TILE_TYPE_SV: Record<TileType, string> = {
   empty: "Tom",
   event: "Händelse",
   combat: "Dålig batch",
@@ -42,22 +73,49 @@ export const tileTypeSv: Record<TileType, string> = {
   boss: "Boss",
 };
 
-export function equipmentSlotSv(slot: string): string {
-  const m: Record<string, string> = {
+const TILE_TYPE_EN: Record<TileType, string> = {
+  empty: "Empty",
+  event: "Event",
+  combat: "Bad batch",
+  merchant: "Recycle cans",
+  door: "Level up",
+  rest: "Rest",
+  treasure: "Treasure",
+  boss: "Boss",
+};
+
+export function tileTypeLabel(tile: TileType, locale: GameLocale = "sv"): string {
+  return (locale === "en" ? TILE_TYPE_EN : TILE_TYPE_SV)[tile];
+}
+
+/** @deprecated use tileTypeLabel */
+export const tileTypeSv = TILE_TYPE_SV;
+
+export function equipmentSlotLabel(slot: string, locale: GameLocale = "sv"): string {
+  const mSv: Record<string, string> = {
     weapon: "vapen",
     armor: "rustning",
     helmet: "hjälm",
     accessory: "tillbehör",
   };
+  const mEn: Record<string, string> = {
+    weapon: "weapon",
+    armor: "armor",
+    helmet: "helmet",
+    accessory: "accessory",
+  };
+  const m = locale === "en" ? mEn : mSv;
   return m[slot] ?? slot;
 }
+
+/** @deprecated use equipmentSlotLabel */
+export const equipmentSlotSv = (slot: string) => equipmentSlotLabel(slot, "sv");
 
 export function capitalizeWord(s: string): string {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Samlad svensk copy tills riktig i18n finns */
 export const sv = {
   home: {
     title: "Bryggmästarnas Mästare",
@@ -122,6 +180,11 @@ export const sv = {
         href: "https://www.facebook.com/bryggverket/",
       },
     ] as const,
+    loginLink: "Logga in",
+    deployedVersionTitle: "Deployad version",
+    languageLabel: "Språk",
+    languageSv: "SV",
+    languageEn: "EN",
   },
   joinPage: {
     title: "Gå med i spel",
@@ -163,6 +226,8 @@ export const sv = {
     waitTeammateCombatRoll: (name: string) => `${name} ska fortfarande slå sin tärning.`,
     waitTeamSecondRoll: "Väntar på lagkamratens tärning.",
     chooseBeerBroPartner: "Välj spelare som slår med angriparen (egen t6 + vapen):",
+    combatMeetYou: "DU MÖTER",
+    combatBeerBroLabel: "Ölkompis:",
     attackerViewingEncounter: (name: string) => `${name} tittar på mötet…`,
     bossFinaleVictory: "SEGER!",
     bossFinaleWinner: (name: string) => `${name} vinner!`,
@@ -176,6 +241,9 @@ export const sv = {
     yourD6: "Din t6",
     beerBroD6: "Ölkompis t6",
     attackTotalVs: (total: number, need: number) => `Attack totalt ${total} mot styrka ${need}`,
+    /** Under stridstärning efter slag (siffra + ikon visas separat i UI). */
+    combatRollAttackTotalLabel: "Attack totalt",
+    combatRollVsLabel: "mot",
     waitAttackerContinue: (name: string) => `Väntar på att ${name} fortsätter…`,
     youLostTotal: (total: number, need: number) => `Du förlorade: totalt ${total} mot styrka ${need}`,
     hitChoiceIntro: (enemy: string) => `${enemy} — välj hur du tar träffen:`,
@@ -185,6 +253,13 @@ export const sv = {
     fullDamageNoSip: (n: number) => `Full skada (${n}), ingen klunk`,
     /** Kapten Interrobang / Transporter: sekundär knapp utan pant/kompensation */
     takeFullDamageHp: (n: number) => `Ta full skada (${n} skada)`,
+    /** Kapten Interrobang: val efter förlust. */
+    hitMitigationInterrobangDetail:
+      "Betala 5 pant för att minska skadan med 3, eller ta full skada.",
+    hitMitigationInterrobangPrimary: "Betala 5 pant (−3 skada)",
+    /** Transporter: val efter förlust. */
+    hitMitigationTransporterDetail: "Betala 10 pant för att ta 0 skada, eller ta full skada.",
+    hitMitigationTransporterPrimary: "Betala 10 pant (0 skada)",
     /** När spelaren inte har pant för Kapten Interrobang / Transporter. */
     hitMitigationPantOnlyFullDamage: (cost: number) =>
       `Du har inte ${cost} pant — ta full skada.`,
@@ -266,6 +341,8 @@ export const sv = {
     pvpRoundRevealBothAcked: "Klart — går vidare…",
     yourD6TotalWeapon: (die: number, total: number) => `Din t6: ${die} · totalt ${total} med vapen.`,
     youRolled: "Du har slagit",
+    combatPlayerHasRolled: "har slagit",
+    combatPlayerHasNotRolled: "har inte slagit",
     rollPvpDie: "Slå BvB-tärning",
     pvpPreRoundItemsHint: "Spela föremål för att påverka striden.",
     pvpReady: "Klar",
@@ -335,6 +412,31 @@ export const sv = {
     merchantCantAfford: "Du har inte råd.",
     merchantReroll: "Slumpa om",
     merchantShopCollapsedHint: "Minimerad — visa panelen för att se vad du kan köpa.",
+    /** Affärsdetalj: mekanisk effektrad när kortregel saknas (sv). */
+    shopPower: (n: number) => (n >= 0 ? `Kraft +${n}` : `Kraft ${n}`),
+    shopGoldDeposit: (n: number) => `+${n} pant`,
+    shopPvpOnRoll: (n: number) => (n > 0 ? `BvB: +${n} på slag` : `BvB: ${n} på slag`),
+    shopPerFightGold: (n: number) => `Per strid: +${n} pant`,
+    shopBreaksAfterWin: "Går sönder efter vinst",
+    shopMonsterLossSip: (n: number) => `Vid förlust mot monster: −${n} straffklunk`,
+    shopAttackSigned: (n: number) => (n > 0 ? `Attack +${n}` : `Attack ${n}`),
+    shopBeerSetArmor: "Burk-set rustning: +2 / +4 / +10 max HP (1–3 delar)",
+    shopBeerSetHelm: "Burk-set hjälm: +1 / +2 / +3 attack (1–3 delar)",
+    shopBeerSetShield: "Burk-set sköld: +1 / +2 / +3 skada bort (1–3 delar)",
+    shopDamageNegateFromLevel4: (n: number) => `Skada −${n} (aktiv från nivå 4)`,
+    shopDamageNegate: (v: number) => (v >= 0 ? `Skada −${v}` : `Skada +${Math.abs(v)}`),
+    shopPerFightSip: (n: number) => `Per strid: +${n} klunk`,
+    shopCannotBeStolen: "Kan inte bli bestulen",
+    shopLevelUpDiscount: (n: number) => `Nivå upp: −${n} pant`,
+    shopMerchantDiscount: (n: number) => `Handel: −${n} billigare i affären`,
+    shopCanSkipMonsterFight: "Kan välja att undvika monsterstrid",
+    shopNegateAllOnce: "Blockar all skada en gång",
+    shopCannotBeChallengedBvb: "Kan inte utmanas i BvB",
+    shopIgnoreCritFailOnOne: "Etta på stridstärning ger inte automatisk förlust",
+    shopDeathContinue: (n: number) => `Vid död: betala ${n} pant för fullt liv`,
+    shopItemCardBonus: (n: number) => `+${n} föremålskort`,
+    shopFreeItemPlay: "Föremål: gratis att spela",
+    shopPlastbackSupplement: "Tom flaska: 6 strider",
     /** Plastback: argument = pant vid försäljning (= flaskor kvar i hållaren). */
     sellPlastbackAccessory: (pant: number) =>
       pant > 0 ? `Sälj Plastback (+${pant} pant)` : "Sälj Plastback",
@@ -397,12 +499,16 @@ export const sv = {
     players: "Spelare",
     settings: "Inställningar",
     settingsTitle: "Inställningar",
+    settingsLanguage: "Språk",
     settingsRainbowEffects: "Regnbågseffekt",
+    settingsDiceAnimations: "Snurrande 3D-tärning",
     settingsMobileSfx: "Ljudeffekter",
     settingsLobbyStatus: "Anslutning",
     settingsTurnStatus: "Turstatus",
     settingsOpenTutorial: "Läs spelregler",
     settingsLeaveGame: "Lämna spelet",
+    settingsLeaveGameConfirm: "Är du säker på att du vill lämna spelet?",
+    settingsLeaveGameCancel: "Avbryt",
     /** Mobil efter join: ansvarsfullt spelande / alkohol (obligatorisk bekräftelse). */
     responsibleReminderTitle: "En viktig påminnelse",
     responsibleReminderBody:
@@ -434,6 +540,9 @@ export const sv = {
     lobbyBoardSizeXLarge: "Extra stor",
     lobbyLevelCount: "Antal nivåer",
     lobbyHardcore: "Hardcore (ingen omstart vid 0 HP)",
+    lobbySetupTitle: "Lobbyinställningar",
+    lobbyHardcoreModeLabel: "Hardcore mode (endast 1 liv)",
+    lobbyWakeLockDisableScreen: "Inaktivera sömnläge för skärm",
     lobbyWakeLockBeforeStart: "Håll skärmen vaken redan i lobby",
     /** Lobby: sektion för kosmetik (kortbaksida, framtida pjäsar, ramar …). */
     lobbyAppearance: "Utseende",
@@ -513,8 +622,15 @@ export const sv = {
     itemNotFound: "Föremålet hittades inte.",
     chooseTarget: "Välj mål",
     use: "Använd",
+    itemsUseOnSelf: "Använd själv",
     itemsUseHint: "Du kan använda föremål på din tur eller under stridsreaktioner.",
     itemsPassiveHint: "Detta föremål behöver inte användas — det gäller automatiskt så länge det ligger i förrådet.",
+    itemShortcutNoBossTile: "Ingen bossruta på sista våningen.",
+    itemShortcutBossCost: (goldCost: number, onBoss: boolean) =>
+      `Nuvarande kostnad: ${goldCost} pant (${onBoss ? "lös slutbossrutan direkt — du står redan på rutan." : "gå direkt till slutbossens ruta."})`,
+    itemShortcutTopFloor: "Du är redan på översta våningen.",
+    itemShortcutLevelCost: (goldCost: number, levelNumber: number) =>
+      `Nuvarande kostnad: ${goldCost} pant (till nivå ${levelNumber}).`,
     modalClose: "Stäng",
     emptySlot: "Tom plats.",
     armorNegateAllOnce: "Nollställ all skada en gång (går sedan sönder)",
@@ -524,6 +640,25 @@ export const sv = {
     combatBonus: (n: number) => `Stridsbonus +${n}`,
     moveSteps: (n: number) => `Rörelse +${n} steg`,
     powerPlus: (n: number) => `Kraft +${n}`,
+    equipmentWinGold: (n: number) => `Vid vinst: +${n} pant.`,
+    equipmentRandomOtherDamage: (n: number) => `Vid vinst: slumpad annan spelare tar ${n} skada.`,
+    equipmentPowerAtGold10: (n: number) => `Vid 10+ pant: kraft +${n}.`,
+    equipmentPowerAtGold20: (n: number) => `Vid 20+ pant: kraft +${n}.`,
+    equipmentPowerAtGold30: (n: number) => `Vid 30+ pant: kraft +${n}.`,
+    equipmentSipWeaponKlunkBonus: (kl: number, tot: number, base: number) =>
+      `Strid mot monster: valfritt ${kl} klunk före stridstärningen → +${tot} attack från vapnet (+${base} utan klunk).`,
+    equipmentSipWeaponPantBonus: (cost: number, bonus: number) =>
+      `Strid mot monster: valfri betalning ${cost} pant före stridstärningen för +${bonus} attack.`,
+    equipmentSipWeaponFreeBonus: (bonus: number) =>
+      `Strid mot monster: valfri bonus före stridstärningen för +${bonus} attack.`,
+    equipmentPvpCannotBeChallenged:
+      "Andra spelare kan inte utmana dig till BvB, men du kan utmana dem.",
+    equipmentGoldOnDamage: (n: number) => `När du tar skada: få +${n} pant.`,
+    equipmentBossDamageNegate: (n: number) => `Mot boss: nollställ ytterligare ${n} skada per träff.`,
+    equipmentPenaltySipExtra: (n: number) => `När du får straffklunk: drick ${n} extra klunk.`,
+    equipmentGoldPerPenaltyKlunk: (n: number) => `Per straffklunk: +${n} pant.`,
+    equipmentKlunkAttack10: (n: number) => `Vid 10+ klunkar: +${n} attack.`,
+    equipmentKlunkAttack20: (n: number) => `Vid 20+ klunkar: +${n} attack.`,
     pvpWeaponDieBonus: (n: number) =>
       `I dueller (BvB): +${n} på slagtotalen (påverkar inte strid mot dålig batch).`,
     combatCardSheetTitle: "Dålig batch",
@@ -621,6 +756,10 @@ export const sv = {
       `${name} hjälper till (${contract}).`,
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
+    attackerChoosesInterrobangHit:
+      "Angriparen väljer: betala 5 pant (−3 skada) eller full träff.",
+    attackerChoosesTransporterHit:
+      "Angriparen väljer: betala 10 pant (0 skada) eller full träff.",
     /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */
     diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} mot pantkostnad (valfritt)`,
     diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} mot pantkostnad (valfritt)`,
@@ -643,6 +782,7 @@ export const sv = {
     board: "Bräde",
     /** Brädvy: aktuell turs färgfält, höger — nästa i turnOrder */
     turnBannerNext: (name: string) => `Nästa: ${name}`,
+    combatMeetBanner: (name: string) => `${name.toLocaleUpperCase("sv-SE")} MÖTER`,
     /** Sömnmedel: kommande hoppade turer innan spelaren får agera normalt */
     playerStatusSleepSkip: (skippedTurns: number) =>
       skippedTurns === 1
@@ -655,6 +795,17 @@ export const sv = {
     /** Bräd-tv: spelare och mottagare */
     tableItemPlayActorTargetLine: (actorName: string, targetName: string) =>
       `${actorName} · ${targetName}`,
+    /** Bräd-toast när straffklunk-notis pushas (ej custom modal-body). */
+    sipNoticeToast: (recipientName: string, count: number) =>
+      `${recipientName} får ${count} straffklunk${count === 1 ? "" : "ar"}.`,
+    brewerLevelUpToast: (name: string, level: number) => `${name} når bryggnivå ${level}!`,
+    combatRewardGoldToast: (recipients: string, amount: number) =>
+      `Belöning till ${recipients}: +${amount} pant`,
+    combatRewardItemsToast: (recipients: string, count: number) =>
+      `Belöning till ${recipients}: ${count} ${count === 1 ? "skatt" : "skatter"}`,
+    combatRewardHelpMateToast: (name: string, titles: string) => `Belöning till ${name}: ${titles}`,
+    toastFallbackPlayer: "Spelare",
+    toastFallbackHelper: "Hjälparen",
     floorN: (n: number) => `Nivå ${n}`,
     lobby: "Lobby",
     status: "Status",
@@ -669,6 +820,7 @@ export const sv = {
     die: "Tärning",
     pending: "Väntande",
     lobbyList: "Lobby",
+    lobbyScanQrToJoin: "Skanna för att gå med i lobbyn",
     /** Bords-tv: ta bort en spelare ur rummet (t.ex. måste gå). */
     tableKickPlayer: "Ta bort från spelet",
     /** Knapptext (kort) — hel rad i `tableKickPlayer` + `title`. */
@@ -770,7 +922,7 @@ export const sv = {
     },
     shortcut: {
       title: "Genväg",
-      text: "På din tur: betala för nästa våning och stig — eller på sista våningen betala samma nivåtaxa och hamna på slutbossens ruta.",
+      text: "På din tur: betala 10 pant och teleportera till en valfri annan spelare.",
     },
     taproom_key: {
       title: "Taproom-nyckel",
@@ -816,6 +968,7 @@ export const sv = {
     ack: "Okej",
     /** Bekräftelse efter duell-förlust-notis (annat tonläge än övriga anpassade notices). */
     duelAck: "Okej",
+    duelLossTitle: "Du förlorade duellen",
     xpGain: (count: number) => `+${Math.max(1, Math.floor(count)) * 10} XP`,
     fallbackFrom: "en annan spelare",
   },
@@ -830,5 +983,198 @@ export const sv = {
     empty: (label: string) => `${label} (tom)`,
     view: (label: string) => `${label} (visa)`,
   },
+  rules: {
+    logoAlt: "Bryggmästarnas Mästare",
+    title: "Spelregler",
+    intro:
+      "I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka upp dina misslyckanden, växer din visdom. Man lär sig av sina misstag – men man lär sig snabbare av framgång.",
+    section1Title: "🎲 1. Spelets gång",
+    section1ImageAlt: "Snabbguide: slå och välj väg",
+    section1TurnIntro: "Varje tur börjar med ett val — sedan handling på rutorna du når:",
+    movementLabel: "Förflyttning:",
+    movementText:
+      "Slå rörelsetärningen och flytta exakt så många steg tärningen visar i valfri riktning.",
+    recycleLabel: "Panta burkar:",
+    recycleText:
+      "I stället för att slå tärningen kan du handla (kräver minst 5 pant). Pjäsen står kvar; tur avslutas när du lämnar butiken.",
+    prepLabel: "Förberedelser:",
+    prepText:
+      "Innan du landar på en ruta får du spela föremål från handen för att förbättra dina odds eller optimera dina stats.",
+    section2Title: "📈 2. Erfarenhet (XP) & Nivåer",
+    xpIntro:
+      "Du klättrar i nivå genom att samla Erfarenhetspoäng (XP). Ju högre nivå du når, desto mer XP krävs för nästa steg.",
+    winXpLabel: "Vinst i strid (Räddad batch):",
+    winXpText: "Att besegra en dålig batch ger en rejäl dos XP (se värde på kortet).",
+    lossXpLabel: "Förlust i strid (Straffklunkar):",
+    lossXpText:
+      "Om du förlorar tvingas du dricka straffklunkar. Varje klunk härdar dig och ger en liten mängd XP – även motgångar för dig framåt!",
+    levelUpBoxTitle: "Nivå upp!",
+    levelUpBoxText:
+      "Dina erfarenheter – från räddade batcher till bittra läxor i glaset – har gett resultat. Du lämnar nu nybörjarträsket bakom dig. Vågar du höja svårighetsgraden, eller har du redan fått nog?",
+    section3Title: "🧭 3. Rutor och händelser",
+    section3ImageAlt: "Snabbguide: hantera rutan",
+    section3Intro: "När du landar på en ruta aktiveras dess effekt omedelbart:",
+    tileEventLabel: "Händelse:",
+    tileEventText: "Slumpmässiga möten som kan hjälpa eller stjälpa din resa.",
+    tileTreasureLabel: "Skatt:",
+    tileTreasureText: "Möjlighet att hitta ny utrustning eller kraftfulla föremål.",
+    tileRestLabel: "Vila:",
+    tileRestText: "Återhämtning av HP så att du orkar fortsätta bryggandet.",
+    tileCombatLabel: "Dålig batch / BvB:",
+    tileCombatText: "Strid mot en misslyckad brygd eller utmana en medspelare (Bryggare mot Bryggare).",
+    section4Title: "⚔️ 4. Strider, mutor och sabotage",
+    section4ImageAlt: "Snabbguide: dåliga batchar, mutor och sabotage",
+    combatIntro:
+      "I strid jämförs din Totalstyrka (Tärningsslag + Utrustning + Föremål) mot fiendens styrka.",
+    combatWinLabel: "Vinst:",
+    combatWinYouGet: "Du får XP",
+    combatWinPant: "pant",
+    combatWinAndTreasure: "och skatter",
+    combatLossLabel: "Förlust:",
+    combatLossYouLose: "Du tappar HP",
+    combatLossAndSips: "och dricker straffklunkar",
+    combatLossSipXpNote: "(som i sin tur ger XP).",
+    combatCritLabel: "Kritisk miss:",
+    combatCritBeforeDie: "En etta på tärningen",
+    combatCritAfterDie: "är alltid en förlust.",
+    combatInteractLabel: "Interaktion:",
+    combatInteractText:
+      "Medspelare kan ofta påverka strider genom att hjälpa eller sabotera, ibland mot betalning i pant.",
+    section5Title: "🏆 5. Vinstvillkor",
+    section5ImageAlt: "Snabbguide: nivåer, bossen och vinst",
+    section5Intro: "När en spelare når den högsta nivån inleds slutskedet. Spelet kan vinnas på två sätt:",
+    winMasterLabel: "Mästerbryggaren:",
+    winMasterText: "Besegra slutbossen (som har 3 liv) före alla andra.",
+    winLastLabel: "Sista klunken:",
+    winLastText:
+      "Om alla andra spelare förlorar sitt HP eller ger upp, vinner den sista kvarvarande bryggaren.",
+  },
+  tutorial: {
+    header: "Snabbguide",
+    logoAlt: "Bryggmästarnas Mästare",
+    back: "Tillbaka",
+    skip: "Hoppa över",
+    next: "Nästa",
+    start: "Kör igång",
+    step1Title: "Välkommen till Bryggmästarnas Mästare!",
+    step1SaveBatches: "Rädda de dåliga batcherna",
+    step1SaveBatchesRest:
+      "för att samla XP och klättra i nivå – först att besegra slutbossen på sista nivån vinner!",
+    step1Sabotage: "Sabotera eller samarbeta med dina motståndare på vägen",
+    step2Title: "Slå och välj väg",
+    step2Move:
+      "I början av din tur väljer du antingen att slå rörelsetärningen och flytta så många rutor som tärningen visar åt vald riktning, eller att",
+    step2Recycle: "Panta burkar",
+    step2RecycleRest: "(kräver minst 5 pant) — då står du kvar och handlar i stället för att gå.",
+    step2Items: "Du kan även spela föremål från din hand för att rusta upp dig.",
+    step3Title: "Hantera rutan",
+    step3Event: "Händelse: Slumpmässiga händelser som kan hjälpa eller förstöra för dig.",
+    step3Treasure: "Skatt: Hitta ny utrustning och föremål.",
+    step3Rest: "Vila: Återhämta dig och få tillbaka 3 HP.",
+    step3Combat: "Dålig batch: Gör dig redo för strid!",
+    step3Bvb: "BvB: Bryggare mot bryggare, en rond. Vinnaren väljer ett byte från förloraren.",
+    step4Title: "Dåliga batchar, mutor och sabotage",
+    step4Strength:
+      "Styrkekollen: Ditt tärningskast + utrustning & föremål måste vara lika med eller högre än fiendens styrka.",
+    step4Win: "Vinst:",
+    step4WinPantWord: "Pant",
+    step4WinTreasureWord: "Skatter",
+    step4WinXpWord: "XP",
+    step4Loss: "Förlust:",
+    step4LossHpWord: "HP",
+    step4LossSipsWord: "klunkar.",
+    step4Crit: "Kritisk miss: En 1:a på tärningen är alltid en förlust!",
+    step4Social:
+      "Socialt spel: Medspelare kan hjälpa eller sabotera. Du kan be om hjälp mot betalning (Pant/Skatter) – de kan välja att acceptera eller avstå.",
+    step5Title: "Nivåer, Bossen och Vinst",
+    step5XpYouGet: "Du får",
+    step5XpFromSips: "XP av klunkar och",
+    step5XpFromMonsters: "monstersegrar.",
+    step5Boss: "Slutbossen: Besegra bossen på sista nivån för att vinna spelet. Bossen är tuff och har 3 liv.",
+    step5LastStanding: "Sist kvar: Om alla andra åker ut vinner du spelet.",
+    step5ElimBeforeHp: "Eliminering: Om dina",
+    step5ElimAfterHp:
+      "HP når noll är du ute ur spelet. Du kan välja att starta om från början eller ge upp.",
+  },
+  catalog: {
+    title: "Kortkatalog",
+    filterActive: "Visar ölreferens",
+    filterInactive: "Endast ölreferens",
+    homeLink: "Till startsidan",
+    introBeerRefBefore: "Visar",
+    introBeerRefAfter:
+      "kort och monster med registrerad ölreferens (etikett under bilden). Utrustning har inga ölreferenser i katalogen.",
+    introFullBeforeCards: "Översikt: kort från",
+    introFullCardsFile: "cards.json",
+    introFullBeforeEquip: ", utrustning från",
+    introFullEquipFile: "equipmentDefs.ts",
+    introFullBeforeMonsters: ", monster från",
+    introFullMonstersFile: "monsters.ts",
+    introFullTail: "uppdelade i",
+    introFullAnd: "och",
+    introFullVanliga: "vanliga",
+    introFullLagstrid: "lagstrid",
+    introFullBossar: "slutbossar",
+    kindEvent: "Händelse",
+    kindItem: "Föremål",
+    kindCombat: "Strid / system",
+    kindTreasure: "Skatt",
+    kindRest: "Vila",
+    kindEmpty: "Tom",
+    positive: "Positiva",
+    negative: "Negativa",
+    equipmentTitle: "Utrustning",
+    equipmentIntro:
+      "Handelskatalog / loot-pool. Bild = unik art om den finns, annars slot-siluett.",
+    monsterSoloTitle: "Monster — vanliga (solo)",
+    monsterSoloSubtitle: "Ingen lagstrid, inte slutboss.",
+    monsterTeamTitle: "Monster — lagstrid",
+    monsterTeamSubtitle: "Kräver medkämpe; angriparen väljer vem som slåss med.",
+    monsterBossTitle: "Monster — slutbossar",
+    monsterBossSubtitle: (bossIds: string) =>
+      `Slumpas en per parti (${bossIds}). Individuell strid.`,
+    badgeTeam: "Lag",
+    badgeBoss: "Boss",
+    emptyCategory: "Inga poster i denna kategori.",
+    strength: (n: number) => `Styrka ${n}`,
+    teamBattleBonus: (gold: number) => ` · +${gold} pant/medkämpe vid lagseger`,
+    flavourAndRules: "Smaktext & regler",
+    flavour: "Smaktext",
+    cardText: "Korttext",
+    rules: "Regler",
+    depositPrice: (slot: string, price: number) => `${slot} · ${price} pant`,
+  },
+  app: {
+    loading: "Laddar…",
+    loginTitle: "Logga in",
+    loginReadingStatus: "Läser inloggningsstatus…",
+    loginLoggedInPrefix: "Inloggad som",
+    loginLoggedInTier: (tier: string) => `Tier: ${tier}`,
+    loginLogout: "Logga ut",
+    loginLead: "Logga in som host med OTP eller Google.",
+    loginEmailPlaceholder: "E-post",
+    loginCodePlaceholder: "Kod (dev: 123456)",
+    loginSendCode: "Skicka kod",
+    loginVerifyCode: "Verifiera kod",
+    loginGoogle: "Fortsätt med Google",
+    loginCodeSent: "Kod skickad. Kontrollera e-post/logg och verifiera.",
+    loginHomeLink: "Till startsidan",
+    loginErrorReadStatus: "Kunde inte läsa inloggningsstatus.",
+    loginErrorReachServer: "Kunde inte nå auth-servern.",
+    loginErrorInvalidEmail: "Ange en giltig e-postadress.",
+    loginErrorSendCode: "Kunde inte skicka engångskod.",
+    loginErrorMissingFields: "Ange både e-post och kod.",
+    loginErrorBadCode: "Fel eller utgången kod.",
+    loginErrorVerify: "Kunde inte verifiera kod.",
+    loginErrorLogout: "Kunde inte logga ut.",
+  },
 };
+
+export type UiStrings = typeof sv;
+
+export const uiStrings: Record<GameLocale, UiStrings> = { sv, en: en as unknown as UiStrings };
+
+export function getUiStrings(locale: GameLocale): UiStrings {
+  return uiStrings[locale];
+}
 

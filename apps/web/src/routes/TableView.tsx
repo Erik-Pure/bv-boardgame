@@ -5,13 +5,21 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   brewerDisplayLevel,
   brewerKlunkProgressRatio,
+  classifyTableToastMessage,
+  formatLogEntry,
   getCardDefById,
+  getEquipmentDisplayByEquippedName,
   isPlayerOnBoard,
+  localizeRewardDisplayTitles,
+  localizeTableToastLog,
+  LOG_MESSAGE_KEYS,
   playerPant,
   prunePlayerEmoteBursts,
   prunePlayerKlunkBursts,
+  tableToastIconKinds,
   type GameState,
   type Player,
+  type GameLocale,
   type TileType,
 } from "@bv/game-core";
 import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
@@ -41,6 +49,7 @@ import {
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
 import { EndedSpotlightCarousel } from "../components/EndedSpotlightCarousel";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { BrandLogoImg } from "../components/BrandLogoImg";
 import { CombatLoseCardContent } from "../components/CombatLoseCard";
 import { CombatWinCardContent } from "../components/CombatWinCard";
 import { CombatSheetFrame } from "../components/CombatResultSheet";
@@ -50,6 +59,7 @@ import { CardArtAttribution } from "../components/CardArtAttribution";
 import { artAttributionLabel, artImageSrcForPending, resolveCardRevealArtKey } from "../lib/cardArt";
 import { parseRolledDieFromCardText } from "../lib/eventCardDice";
 import { eventCardOutcomeToasts, type TableToastCategory } from "../lib/eventCardOutcomeToasts";
+import { localizePendingCard } from "../lib/localizePendingCard";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
 import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
 import {
@@ -69,7 +79,8 @@ import {
   resolveCombatWinViewer,
   shouldShowFinalBossCombatBackdrop,
 } from "../lib/combatUi";
-import { sv, wsStatusLabel, tileTypeSv } from "../lib/uiStrings";
+import { useUiStrings, useLocale } from "../lib/locale/LocaleContext";
+import { wsStatusLabel, tileTypeLabel } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { useScreenWakeLock } from "../hooks/useScreenWakeLock";
@@ -122,10 +133,6 @@ const TILE_SVG: Record<TileType, string> = {
 
 function tileSvgHref(type: TileType): string {
   return TILE_SVG[type];
-}
-
-function tileTypeLabel(type: TileType): string {
-  return tileTypeSv[type];
 }
 
 /** Flera pjäser på samma ruta — liten kluster-layout (inte på rad). */
@@ -209,6 +216,12 @@ const TABLE_ITEM_PLAY_LIFT_PX = 34;
 const TABLE_TOAST_TTL_MS = 8000;
 const TABLE_TOAST_EXIT_MS = 320;
 const TABLE_TOAST_MAX_VISIBLE = 5;
+
+const SKIP_ENCOUNTER_TOAST_LOG_KEYS = new Set<string>([
+  LOG_MESSAGE_KEYS.itemVaskaSkip,
+  LOG_MESSAGE_KEYS.itemBribeSkip,
+  LOG_MESSAGE_KEYS.combatSkipEncounter,
+]);
 const TABLE_ROLL_EVENT_CARD_IDS = new Set([
   "event_pantad",
   "event_dubbelinget",
@@ -255,89 +268,14 @@ function ringPathIndices(fromTileIndex: number, toTileIndex: number, ringTileCou
   return out;
 }
 
-/** Ikoner i ordning: klunk → pant → hp (en rad per toast). */
-function tableToastIconKinds(message: string, category: TableToastCategory): StatIconKind[] {
-  const m = message.toLowerCase();
-  if (category === "vaska") {
-    return ["attack"];
-  }
-  if (category === "reward") {
-    if (m.includes("skatt")) return ["attack"];
-    return ["pant"];
-  }
-  let klunk = false;
-  let pant = false;
-  let hp = false;
-  if (category === "sip") {
-    klunk = true;
-  } else {
-    if (
-      m.includes("straffklunk") ||
-      m.includes("+1 klunk") ||
-      (m.includes("klunk") && (m.includes("ger ") || m.includes("får ")))
-    ) {
-      klunk = true;
-    }
-    if (
-      m.includes(" pant") ||
-      m.includes("pant från") ||
-      m.includes("pant i") ||
-      m.includes("pant.") ||
-      /\d+\s+pant\b/.test(m)
-    ) {
-      pant = true;
-    }
-    if (m.includes("skada")) {
-      hp = true;
-    }
-    if (!klunk && !pant && !hp) {
-      pant = true;
-    }
-  }
-  const out: StatIconKind[] = [];
-  if (klunk) out.push("klunk");
-  if (pant) out.push("pant");
-  if (hp) out.push("hp");
-  return out;
-}
-
-function isMonsterEncounterSkipToast(message: string): boolean {
-  const m = message.toLowerCase();
-  if (m.includes("undviker batchmötet")) return true;
-  if (m.includes("mutar sig ur batchmötet") || m.includes("mutar sig ur")) return true;
-  if (m.includes("skippar den dåliga batchen")) return true;
-  if (m.includes("skippar monstr") || m.includes("skippar monstret")) return true;
-  return m.includes("vaska") && m.includes("skippar");
-}
-
-function classifyTableToastMessage(message: string): TableToastCategory | null {
-  const m = message.toLowerCase();
-  /** Vaska, Mutor, Mantel — undvik batchmöte (loggrad på brädet). */
-  if (isMonsterEncounterSkipToast(m)) {
-    return "vaska";
-  }
-  const isSip =
-    m.includes("straffklunk") ||
-    (m.includes(" klunk") && (m.includes("ger ") || m.includes("dricker") || m.includes("får ")));
-  if (isSip) return "sip";
-  const isPvpLoot =
-    m.includes("efter duellen") ||
-    m.includes(" i pvp") ||
-    m.includes(" tar ") ||
-    m.includes(" takes ") ||
-    m.includes(" tog ") ||
-    m.includes("pant från");
-  if (isPvpLoot) return "pvp";
-  return null;
-}
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
-function tablePlayerAfflictionLines(p: Player): string[] {
+function tablePlayerAfflictionLines(p: Player, ui: ReturnType<typeof useUiStrings>): string[] {
   const lines: string[] = [];
   if ((p.skippedTurns ?? 0) > 0) {
-    lines.push(sv.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
+    lines.push(ui.table.playerStatusSleepSkip(p.skippedTurns ?? 0));
   }
   if (p.skipTurnReasons?.includes("oil")) {
-    lines.push(`(${sv.table.playerStatusOilInEye})`);
+    lines.push(`(${ui.table.playerStatusOilInEye})`);
   }
   return lines;
 }
@@ -357,8 +295,9 @@ function TablePreGameLobbyPlayerRow(props: {
   kickEnabled: boolean;
   onKickPlayer: (playerId: string, displayName: string) => void;
 }) {
+  const ui = useUiStrings();
   const { p, kickEnabled, onKickPlayer } = props;
-  const afflictions = tablePlayerAfflictionLines(p);
+  const afflictions = tablePlayerAfflictionLines(p, ui);
   const tintStyle = { "--player-color": p.color } as CSSProperties;
   return (
     <div className={u.flexRowGap10}>
@@ -374,19 +313,19 @@ function TablePreGameLobbyPlayerRow(props: {
         </div>
       </div>
       <span
-        title={p.ready ? sv.play.ready : sv.play.unready}
+        title={p.ready ? ui.play.ready : ui.play.unready}
         className={`${tableStyles.readyIndicator} ${p.ready ? tableStyles.readyIndicatorOn : tableStyles.readyIndicatorOff}`}
-        aria-label={p.ready ? sv.play.ready : sv.play.unready}
+        aria-label={p.ready ? ui.play.ready : ui.play.unready}
       />
       <button
         type="button"
         className={tableStyles.tableKickButton}
         disabled={!kickEnabled}
-        title={sv.table.tableKickPlayer}
-        aria-label={sv.table.tableKickPlayerAria(p.name)}
+        title={ui.table.tableKickPlayer}
+        aria-label={ui.table.tableKickPlayerAria(p.name)}
         onClick={() => onKickPlayer(p.id, p.name)}
       >
-        {sv.table.tableKickPlayerButton}
+        {ui.table.tableKickPlayerButton}
       </button>
     </div>
   );
@@ -397,12 +336,14 @@ function TableLobbyPlayerRow(props: {
   kickEnabled: boolean;
   onKickPlayer: (playerId: string, displayName: string) => void;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const { p, kickEnabled, onKickPlayer } = props;
-  const afflictions = tablePlayerAfflictionLines(p);
-  const weaponName = p.equipment.weapon?.name ?? "—";
-  const armorName = p.equipment.armor?.name ?? "—";
-  const helmetName = p.equipment.helmet?.name ?? "—";
-  const accessoryName = p.equipment.accessory?.name ?? "—";
+  const afflictions = tablePlayerAfflictionLines(p, ui);
+  const weaponName = getEquipmentDisplayByEquippedName(p.equipment.weapon?.name, locale)?.name ?? "—";
+  const armorName = getEquipmentDisplayByEquippedName(p.equipment.armor?.name, locale)?.name ?? "—";
+  const helmetName = getEquipmentDisplayByEquippedName(p.equipment.helmet?.name, locale)?.name ?? "—";
+  const accessoryName = getEquipmentDisplayByEquippedName(p.equipment.accessory?.name, locale)?.name ?? "—";
   const dotStyle = { "--player-color": p.color } as CSSProperties;
   return (
     <div className={tableStyles.lobbyCard}>
@@ -413,7 +354,7 @@ function TableLobbyPlayerRow(props: {
             {p.name}
             {p.isHost ? " (värd)" : ""}
           </span>
-          <span aria-label={p.ready ? sv.play.ready : sv.play.unready}>
+          <span aria-label={p.ready ? ui.play.ready : ui.play.unready}>
             {p.ready ? "✅" : "⛔"}
           </span>
         </div>
@@ -421,32 +362,32 @@ function TableLobbyPlayerRow(props: {
           type="button"
           className={tableStyles.tableKickButton}
           disabled={!kickEnabled}
-          title={sv.table.tableKickPlayer}
-          aria-label={sv.table.tableKickPlayerAria(p.name)}
+          title={ui.table.tableKickPlayer}
+          aria-label={ui.table.tableKickPlayerAria(p.name)}
           onClick={() => onKickPlayer(p.id, p.name)}
         >
-          {sv.table.tableKickPlayerButton}
+          {ui.table.tableKickPlayerButton}
         </button>
       </div>
       <div
         className={`${u.inlineFlexGap12WrapEnd} ${tableStyles.lobbyStatsRow}`}
-        aria-label={sv.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}
+        aria-label={ui.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}
       >
         <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={playerPant(p)} klunkar={p.klunkar} iconSize={18} />
       </div>
       {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
       <div className={tableStyles.lobbyEquipGrid}>
         <div className={u.ellipsis}>
-          {sv.play.equipWeapon}: {weaponName}
+          {ui.play.equipWeapon}: {weaponName}
         </div>
         <div className={u.ellipsis}>
-          {sv.play.equipArmor}: {armorName}
+          {ui.play.equipArmor}: {armorName}
         </div>
         <div className={u.ellipsis}>
-          {sv.play.equipHelmet}: {helmetName}
+          {ui.play.equipHelmet}: {helmetName}
         </div>
         <div className={u.ellipsis}>
-          {sv.play.equipAccessory}: {accessoryName}
+          {ui.play.equipAccessory}: {accessoryName}
         </div>
       </div>
     </div>
@@ -462,6 +403,7 @@ function PlayerVitals(props: {
   /** Samma level-ring som mobil (`LevelRingCell`). */
   brewerRing?: { level: number; ratio: number };
 }) {
+  const ui = useUiStrings();
   return (
     <div className={tableStyles.playerVitalsRow}>
       <span className={tableStyles.playerVitalsItem}>
@@ -479,7 +421,7 @@ function PlayerVitals(props: {
       {props.brewerRing ? (
         <span className={`${tableStyles.playerVitalsItem} ${tableStyles.playerVitalsLevelRingWrap}`}>
           <LevelRingCell
-            ariaLabel={sv.play.levelUpProgressAria(props.brewerRing.level)}
+            ariaLabel={ui.play.levelUpProgressAria(props.brewerRing.level)}
             level={props.brewerRing.level}
             ratio={props.brewerRing.ratio}
             size="compact"
@@ -498,7 +440,8 @@ export function TableView() {
   );
 }
 
-function useTableToasts(state: GameState | null, playersById: Map<string, Player>) {
+function useTableToasts(state: GameState | null, playersById: Map<string, Player>, locale: GameLocale) {
+  const ui = useUiStrings();
   const [tableToasts, setTableToasts] = useState<TableToast[]>([]);
   const toastLogSeqRef = useRef<number | null>(null);
   const toastInitRef = useRef(false);
@@ -562,13 +505,17 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     for (let i = start; i < logs.length; i++) {
       const entry = logs[i];
       if (!entry?.message) continue;
-      const category = classifyTableToastMessage(entry.message);
+      const message = localizeTableToastLog(formatLogEntry(entry, locale), locale);
+      let category = classifyTableToastMessage(message);
+      if (!category && entry.key && SKIP_ENCOUNTER_TOAST_LOG_KEYS.has(entry.key)) {
+        category = "vaska";
+      }
       if (!category) continue;
       incoming.push({
         id: `${seq}-${i}-${entry.at}`,
-        text: entry.message,
+        text: message,
         category,
-        iconKinds: tableToastIconKinds(entry.message, category),
+        iconKinds: tableToastIconKinds(message, category),
         createdAt: now,
         expiresAt: now + TABLE_TOAST_TTL_MS,
       });
@@ -577,7 +524,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
     toastLogSeqRef.current = seq;
-  }, [state, logSeq, log]);
+  }, [state, logSeq, log, locale]);
 
   useEffect(() => {
     if (!sipNotices) return;
@@ -594,11 +541,11 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       if (prevSipNoticeKeysRef.current.has(key)) continue;
       /** Mobil-modalbesked (t.ex. duell-förlust): ingen klunkCount — ska inte bli "straffklunk" på brädet (loggen har redan / är korrekt). */
       if (n.title || n.body || n.noticeKind != null) continue;
-      const recipientName = playersById.get(n.recipientId)?.name ?? "Spelare";
+      const recipientName = playersById.get(n.recipientId)?.name ?? ui.table.toastFallbackPlayer;
       const count = Math.max(1, Math.floor(n.klunkCount ?? 1));
       incoming.push({
         id: `sipnotice:${key}`,
-        text: `${recipientName} får ${count} straffklunk${count === 1 ? "" : "ar"}.`,
+        text: ui.table.sipNoticeToast(recipientName, count),
         category: "sip",
         iconKinds: ["klunk"],
         createdAt: now,
@@ -609,7 +556,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (incoming.length > 0) {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
-  }, [sipNotices, playersById]);
+  }, [sipNotices, playersById, ui]);
 
   useEffect(() => {
     if (phase !== "playing" || !players) {
@@ -634,20 +581,20 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (leveled.length === 0) return;
     const incoming: TableToast[] = leveled.map((x, idx) => ({
       id: `levelup:${x.player.id}:${x.curr}:${now}:${idx}`,
-      text: `${x.player.name} når bryggnivå ${x.curr}!`,
+      text: ui.table.brewerLevelUpToast(x.player.name, x.curr),
       category: "reward",
       iconKinds: ["xp"],
       createdAt: now,
       expiresAt: now + TABLE_TOAST_TTL_MS,
     }));
     setTableToasts((prevToasts) => [...prevToasts, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
-  }, [brewerLevelsKey, players, playersById, phase]);
+  }, [brewerLevelsKey, players, playersById, phase, ui]);
 
   useEffect(() => {
     if (!eventToastKey || !pending) return;
     const p = pending;
     if (p.type !== "card" || p.kind !== "event") return;
-    const outcomes = eventCardOutcomeToasts(p, playersById);
+    const outcomes = eventCardOutcomeToasts(p, playersById, locale);
     if (outcomes.length === 0) return;
     if (eventSipToastKeyRef.current === eventToastKey) return;
     eventSipToastKeyRef.current = eventToastKey;
@@ -661,7 +608,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       expiresAt: now + TABLE_TOAST_TTL_MS,
     }));
     setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
-  }, [eventToastKey, pending, playersById]);
+  }, [eventToastKey, pending, playersById, locale]);
 
   useEffect(() => {
     if (!combatWinToastKey || !pending) return;
@@ -671,13 +618,13 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     rewardToastKeyRef.current = combatWinToastKey;
     const now = Date.now();
     const rewardRecipients = p.combatWin.teammateName
-      ? `${p.combatWin.winnerName} och ${p.combatWin.teammateName}`
+      ? `${p.combatWin.winnerName} ${locale === "en" ? "and" : "och"} ${p.combatWin.teammateName}`
       : p.combatWin.winnerName;
     const incoming: TableToast[] = [];
     if ((p.combatWin.rewardGold ?? 0) > 0) {
       incoming.push({
         id: `${combatWinToastKey}:reward-gold`,
-        text: `Belöning till ${rewardRecipients}: +${p.combatWin.rewardGold} pant`,
+        text: ui.table.combatRewardGoldToast(rewardRecipients, p.combatWin.rewardGold ?? 0),
         category: "reward",
         iconKinds: ["pant"],
         createdAt: now,
@@ -687,7 +634,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if ((p.combatWin.rewardItems ?? 0) > 0) {
       incoming.push({
         id: `${combatWinToastKey}:reward-items`,
-        text: `Belöning till ${rewardRecipients}: ${p.combatWin.rewardItems} ${p.combatWin.rewardItems === 1 ? "skatt" : "skatter"}`,
+        text: ui.table.combatRewardItemsToast(rewardRecipients, p.combatWin.rewardItems ?? 0),
         category: "reward",
         iconKinds: ["attack"],
         createdAt: now,
@@ -697,10 +644,13 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     const helpMateId = p.combatWin.helpMatePlayerId;
     const helpMateTitles = p.combatWin.helpMateGrantedRewardTitles ?? [];
     if (helpMateId && helpMateTitles.length > 0) {
-      const helpMateName = playersById.get(helpMateId)?.name ?? "Hjälparen";
+      const helpMateName = playersById.get(helpMateId)?.name ?? ui.table.toastFallbackHelper;
       incoming.push({
         id: `${combatWinToastKey}:help-mate-loot`,
-        text: `Belöning till ${helpMateName}: ${helpMateTitles.join(", ")}`,
+        text: ui.table.combatRewardHelpMateToast(
+          helpMateName,
+          localizeRewardDisplayTitles(helpMateTitles, locale).join(", "),
+        ),
         category: "reward",
         iconKinds: ["attack"],
         createdAt: now,
@@ -710,7 +660,7 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
     if (incoming.length > 0) {
       setTableToasts((prev) => [...prev, ...incoming].slice(-TABLE_TOAST_MAX_VISIBLE));
     }
-  }, [combatWinToastKey, pending, playersById]);
+  }, [combatWinToastKey, pending, playersById, locale, ui]);
 
   useEffect(() => {
     if (tableToasts.length === 0) return;
@@ -738,6 +688,8 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
 
 function TableViewBody() {
   const MOVE_TOKEN_ANIM_MS = 1_500;
+  const locale = useLocale();
+  const ui = useUiStrings();
   const navigate = useNavigate();
   const overlayContentScale = useTableOverlayContentScale();
   const [sp] = useSearchParams();
@@ -881,7 +833,7 @@ function TableViewBody() {
   }, []);
 
   const kickPlayerFromTable = useCallback((playerId: string, displayName: string) => {
-    if (!window.confirm(sv.table.tableKickConfirm(displayName))) return;
+    if (!window.confirm(ui.table.tableKickConfirm(displayName))) return;
     clientRef.current?.send({ type: "action", action: { type: "tableKickPlayer", targetPlayerId: playerId } });
   }, [clientRef]);
 
@@ -937,6 +889,10 @@ function TableViewBody() {
     return () => window.clearTimeout(t);
   }, [tableCardPendingKey]);
   const pendingCard: PendingCard | null = state?.pending?.type === "card" ? state.pending : null;
+  const displayPendingCard = useMemo(
+    () => (pendingCard ? localizePendingCard(pendingCard, locale) : null),
+    [pendingCard, locale],
+  );
   const isBossFinalWinCard = pendingCard?.cardId === "boss_final_win";
   const bossFinaleExit = useBossFinaleExit({
     active: isBossFinalWinCard,
@@ -1052,9 +1008,9 @@ function TableViewBody() {
   }, [state, pendingMoveChoice]);
   const showMoveTurnCornerHud = !!cur && (highlightRollMoveOrigin || pendingMoveChoice?.playerId === cur.id);
   const moveTurnCornerLabel =
-    cur && showMoveTurnCornerHud ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
-  const centerTurnReminderText = cur ? `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur` : "";
-  const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur) : [];
+    cur && showMoveTurnCornerHud ? ui.play.footerTurnOther(cur.name) : "";
+  const centerTurnReminderText = cur ? ui.play.footerTurnOther(cur.name) : "";
+  const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur, ui) : [];
   const boardPlayers = state?.players ?? [];
   const [emoteDisplayTick, setEmoteDisplayTick] = useState(0);
   const hasActiveTurnBannerBursts = useMemo(() => {
@@ -1087,7 +1043,7 @@ function TableViewBody() {
     if (cur && showMoveTurnCornerHud) {
       lastShownMoveHudRef.current = {
         id: cur.id,
-        label: `${cur.name}${cur.name.endsWith("s") ? "" : "s"} tur`,
+        label: ui.play.footerTurnOther(cur.name),
       };
     }
     const prevVisible = prevShowMoveTurnHudRef.current;
@@ -1101,7 +1057,7 @@ function TableViewBody() {
       }
     }
     prevShowMoveTurnHudRef.current = showMoveTurnCornerHud;
-  }, [cur, showMoveTurnCornerHud]);
+  }, [cur, showMoveTurnCornerHud, ui]);
   const [animNowMs, setAnimNowMs] = useState(0);
   useEffect(() => {
     if (state?.pending?.type !== "moveChoice") return;
@@ -1225,14 +1181,14 @@ function TableViewBody() {
   const itemPlayFanCards = useMemo(() => {
     if (!state) return [];
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
-      return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!);
+      return expandReactionPlaysToFanCards(state, state.pending.reactionItemPlays!, locale);
     }
     const reveals = state.tableItemPlayReveals;
     if (reveals && reveals.length > 0) {
-      return expandTableRevealsToFanCards(state, reveals);
+      return expandTableRevealsToFanCards(state, reveals, locale);
     }
     return [];
-  }, [state]);
+  }, [state, locale]);
   const showItemPlayFan = itemPlayFanCards.length > 0;
   const turnBannerBottomReservePx =
     playingTurn && currentTurnAfflictions.length > 0
@@ -1243,26 +1199,26 @@ function TableViewBody() {
   const bannerReserveStyle = {
     "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
   } as CSSProperties;
-  const tableToasts = useTableToasts(state, playersById);
+  const tableToasts = useTableToasts(state, playersById, locale);
 
   return (
     <div className={tableStyles.tableRoot}>
       <div className={tableStyles.headerBarWrap}>
         <header className={tableStyles.tableHeader}>
           <div className={tableStyles.headerLobbyRow}>
-            <span className={tableStyles.headerLobbyCode} title={`${sv.table.lobby}: ${room}`}>
-              {sv.table.lobby}: {room}
+            <span className={tableStyles.headerLobbyCode} title={`${ui.table.lobby}: ${room}`}>
+              {ui.table.lobby}: {room}
             </span>
           </div>
           <div className={tableStyles.headerRightControls}>
             <span className={tableStyles.headerStatusText}>
-              {sv.table.status}: {wsStatusLabel(status)}
+              {ui.table.status}: {wsStatusLabel(status, locale)}
             </span>
             <div className={tableStyles.headerToolbar}>
               <button
                 type="button"
                 className={tableStyles.tableHeaderIconBtn}
-                aria-label={sv.table.openSettings}
+                aria-label={ui.table.openSettings}
                 aria-expanded={tableSettingsOpen}
                 onClick={() => setTableSettingsOpen(true)}
               >
@@ -1284,8 +1240,8 @@ function TableViewBody() {
                 type="button"
                 className={tableStyles.tableHeaderIconBtn}
                 data-active={sidebarOpen ? "true" : "false"}
-                aria-label={sv.play.players}
-                title={sv.play.players}
+                aria-label={ui.play.players}
+                title={ui.play.players}
                 aria-expanded={sidebarOpen}
                 onClick={() => setSidebarOpen((o) => !o)}
               >
@@ -1368,7 +1324,7 @@ function TableViewBody() {
                       opacity={0.92}
                       className={tableStyles.svgLabelStroke}
                     >
-                      {sv.table.floorN(li + 1)}
+                      {ui.table.floorN(li + 1)}
                     </text>
                     <g className={lit ? tableStyles.boardTilesLit : tableStyles.boardTilesDimmed}>
                       {level.tiles.map((t, i) => {
@@ -1444,7 +1400,7 @@ function TableViewBody() {
                                 opacity={0.95}
                                 className={tableStyles.svgTileLabelStroke}
                               >
-                                {tileTypeLabel(t.type)}
+                                {tileTypeLabel(t.type, locale)}
                               </text>
                             ) : null}
                           </g>
@@ -1645,7 +1601,7 @@ function TableViewBody() {
           viewportOverlayChildren={
             <>
           {state?.phase === "lobby" ? (
-            <div role="dialog" aria-label={sv.table.lobby} className={tableStyles.modalBackdropLobby}>
+            <div role="dialog" aria-label={ui.table.lobby} className={tableStyles.modalBackdropLobby}>
               {boardPerf.boardAnimationsEnabled ? (
               <video
                 className={tableStyles.lobbyBgVideo}
@@ -1662,21 +1618,17 @@ function TableViewBody() {
               ) : null}
               <div className={tableStyles.lobbyBgScrim} aria-hidden />
               <div className={tableStyles.modalCardLobby}>
-                <picture>
-                  <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
-                  <source srcSet="/icons/bmm-logo-horisontal.webp" type="image/webp" />
-                  <img
-                    src="/icons/bmm-logo-horisontal.png"
-                    alt="Bryggmästarnas Mästare"
-                    draggable={false}
-                    className={tableStyles.lobbyLogo}
-                  />
-                </picture>
+                <BrandLogoImg
+                  variant="horizontal"
+                  alt={ui.home.title}
+                  draggable={false}
+                  className={tableStyles.lobbyLogo}
+                />
                 <div className={tableStyles.lobbyCodeRow}>
                   <div className={tableStyles.lobbyCodeDisplay}>{room}</div>
                 </div>
-                <h2 className={tableStyles.lobbySheetTitle}>{sv.table.lobby}</h2>
-                <div className={tableStyles.lobbyReadyLine}>{sv.table.readyAll(readyCount, state.players.length)}</div>
+                <h2 className={tableStyles.lobbySheetTitle}>{ui.table.lobby}</h2>
+                <div className={tableStyles.lobbyReadyLine}>{ui.table.readyAll(readyCount, state.players.length)}</div>
                 <div className={u.gridCenter8Mb16}>
                   <div className={tableStyles.qrFrame} title={joinQrUrl}>
                     <QRCodeSVG
@@ -1686,7 +1638,7 @@ function TableViewBody() {
                       className={tableStyles.lobbyQrCode}
                     />
                   </div>
-                  <div className={u.caption12o86Center}>Skanna för att gå med i lobbyn</div>
+                  <div className={u.caption12o86Center}>{ui.table.lobbyScanQrToJoin}</div>
                 </div>
                 <div className={u.stack8}>
                   {state.players.map((p) => (
@@ -1701,18 +1653,18 @@ function TableViewBody() {
               </div>
             </div>
           ) : state?.phase === "ended" ? (
-            <div role="dialog" aria-label={sv.play.gameOver} className={tableStyles.modalBackdropEnded}>
+            <div role="dialog" aria-label={ui.play.gameOver} className={tableStyles.modalBackdropEnded}>
               <BeerBackdropLayers />
               <div className={tableStyles.modalCardEnded}>
-                <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
+                <h2 className={u.gameOverTitle}>{ui.play.gameOver}</h2>
                 <p className={u.gameOverWinnerLine}>
-                  {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
+                  {ui.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
                 <EndedScoreboardTable variant="table" players={state.players} winnerId={state.winnerId} />
                 <EndedSpotlightCarousel players={state.players} />
                 <div className={u.mt20w100}>
                   <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
-                    {sv.play.gameOverLeaveToHome}
+                    {ui.play.gameOverLeaveToHome}
                   </ArcadeButton>
                 </div>
               </div>
@@ -1726,13 +1678,13 @@ function TableViewBody() {
               <div
                 className={tableStyles.merchantShoppingOverlay}
                 aria-live="polite"
-                aria-label={sv.table.merchantShoppingAria(shopPlayer.name)}
+                aria-label={ui.table.merchantShoppingAria(shopPlayer.name)}
               >
                 <div
                   className={tableStyles.merchantShoppingInner}
                   data-anim-off={animDots ? undefined : "true"}
                 >
-                  <span>{sv.table.merchantShopping(shopPlayer.name)}</span>
+                  <span>{ui.table.merchantShopping(shopPlayer.name)}</span>
                   {animDots ? (
                     <>
                       <span className={tableStyles.merchantDot} aria-hidden>
@@ -1799,13 +1751,13 @@ function TableViewBody() {
           className={tableStyles.tableSidebarAside}
           data-open={sidebarOpen ? "true" : "false"}
         >
-          <h2 className={tableStyles.sidebarGameTitle}>{sv.table.game}</h2>
-          {!state && <div className={tableStyles.waitingLine}>{sv.table.waitingState}</div>}
+          <h2 className={tableStyles.sidebarGameTitle}>{ui.table.game}</h2>
+          {!state && <div className={tableStyles.waitingLine}>{ui.table.waitingState}</div>}
           {err && <div className={tableStyles.sidebarError}>{err}</div>}
 
           {state && (
             <>
-              <h3>{sv.table.lobbyList}</h3>
+              <h3>{ui.table.lobbyList}</h3>
               <div className={u.stack8}>
                 {state.players.map((p) => (
                   <TableLobbyPlayerRow
@@ -1822,18 +1774,18 @@ function TableViewBody() {
                   type="checkbox"
                   checked={showSidebarLog}
                   onChange={(e) => setShowSidebarLog(e.target.checked)}
-                  aria-label={sv.table.sidebarShowLog}
+                  aria-label={ui.table.sidebarShowLog}
                 />
-                <span>{sv.table.sidebarShowLog}</span>
+                <span>{ui.table.sidebarShowLog}</span>
               </label>
 
               {showSidebarLog ? (
                 <>
-                  <h3>{sv.table.log}</h3>
+                  <h3>{ui.table.log}</h3>
                   <div ref={logRef} className={tableStyles.sidebarLog}>
                     {state.log.slice(-30).map((l, i) => (
                       <div key={i} className={tableStyles.sidebarLogLine}>
-                        {l.message}
+                        {formatLogEntry(l, locale)}
                       </div>
                     ))}
                   </div>
@@ -1892,7 +1844,7 @@ function TableViewBody() {
             return (
               <div className={tableStyles.brewerDownPanel}>
                 <CombatSheetFrame
-                  sheetTitle={sv.play.brewerDownTitle}
+                  sheetTitle={ui.play.brewerDownTitle}
                   titleStyle={{
                     textAlign: "center",
                     fontFamily: '"Permanent Marker", var(--heading), sans-serif',
@@ -1911,7 +1863,7 @@ function TableViewBody() {
                   />
                   <div className={tableStyles.brewerDownName}>{name}</div>
                   <div className={tableStyles.brewerDownBody}>
-                    {sv.table.brewerDownWaitPhone(name)}
+                    {ui.table.brewerDownWaitPhone(name)}
                   </div>
                 </CombatSheetFrame>
               </div>
@@ -1920,12 +1872,13 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {pendingCard && tableCardModalReady && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
+      {displayPendingCard && tableCardModalReady && !showMonsterCombatOutcomeOnCard && showTableRollEventCard ? (
         <TableEventRollHeroOverlay
-          card={pendingCard}
+          card={displayPendingCard}
           contentScale={overlayContentScale}
           boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
           cardCoverId={state?.config.cardCover}
+          locale={locale}
         />
       ) : null}
 
@@ -1997,9 +1950,13 @@ function TableViewBody() {
                 .filter(Boolean)
                 .join(" ")}
             >
-              <TablePendingCardContent pending={state.pending} viewerName={cardOwner?.name} />
+              <TablePendingCardContent
+                pending={displayPendingCard ?? state.pending}
+                viewerName={cardOwner?.name}
+                locale={locale}
+              />
               {!eventStoryFrame && !(bossFinaleExit.exiting && isBossFinalWinCard) ? (
-                <div className={tableStyles.pendingWaitingHint}>{sv.table.waitingConfirmPhone}</div>
+                <div className={tableStyles.pendingWaitingHint}>{ui.table.waitingConfirmPhone}</div>
               ) : null}
             </div>
             {bossFinaleExit.starVisible && isBossFinalWinCard ? (
@@ -2064,7 +2021,7 @@ function TableViewBody() {
                       ["--turn-player-bg" as string]: active && !outOfGame ? p.color : "rgba(255,255,255,0.04)",
                       ["--turn-active-player-color" as string]: p.color,
                     }}
-                    title={[p.name, sv.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p)]
+                    title={[p.name, ui.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p, ui)]
                       .filter(Boolean)
                       .join(" · ")}
                   >
@@ -2137,7 +2094,7 @@ function TableViewBody() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="table-settings-title" className={tableStyles.tableSettingsTitle}>
-              {sv.table.settingsTitle}
+              {ui.table.settingsTitle}
             </h2>
             <label className={tableStyles.tableSettingsRow}>
               <input
@@ -2148,7 +2105,7 @@ function TableViewBody() {
                   setBoardPerf(readBoardPerformancePrefs());
                 }}
               />
-              <span>{sv.table.settingsBoardPan}</span>
+              <span>{ui.table.settingsBoardPan}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input
@@ -2159,7 +2116,7 @@ function TableViewBody() {
                   setBoardPerf(readBoardPerformancePrefs());
                 }}
               />
-              <span>{sv.table.settingsBoardAnimations}</span>
+              <span>{ui.table.settingsBoardAnimations}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input
@@ -2170,7 +2127,7 @@ function TableViewBody() {
                   setBoardPerf(readBoardPerformancePrefs());
                 }}
               />
-              <span>{sv.table.settingsTokenMoveAnimations}</span>
+              <span>{ui.table.settingsTokenMoveAnimations}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input
@@ -2181,21 +2138,21 @@ function TableViewBody() {
                   setBoardPerf(readBoardPerformancePrefs());
                 }}
                 disabled={!wakeLockAvailable}
-                aria-label={sv.table.wakeLockToggle}
+                aria-label={ui.table.wakeLockToggle}
               />
-              <span title={!wakeLockAvailable ? sv.table.wakeLockUnsupported : undefined}>{sv.table.wakeLockToggle}</span>
+              <span title={!wakeLockAvailable ? ui.table.wakeLockUnsupported : undefined}>{ui.table.wakeLockToggle}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input
                 type="checkbox"
                 checked={showTileTypeLabels}
                 onChange={(e) => setShowTileTypeLabels(e.target.checked)}
-                aria-label={sv.table.tileTypeLabels}
+                aria-label={ui.table.tileTypeLabels}
               />
-              <span>{sv.table.tileTypeLabels}</span>
+              <span>{ui.table.tileTypeLabels}</span>
             </label>
             <ArcadeButton variant="gray" fullWidth onClick={() => setTableSettingsOpen(false)}>
-              {sv.table.settingsClose}
+              {ui.table.settingsClose}
             </ArcadeButton>
           </div>
         </div>
@@ -2204,14 +2161,14 @@ function TableViewBody() {
       {showReconnectOverlay ? (
         <div className={tableStyles.reconnectBar}>
           <div className={tableStyles.reconnectBarText}>
-            {sv.table.lobby}: {room} · {wsStatusLabel(status)}
+            {ui.table.lobby}: {room} · {wsStatusLabel(status, locale)}
           </div>
           <WsReconnectFooterHint
             phase={overlayPhase}
             attempt={reconnectAttemptN}
-            connectingShort={sv.table.wsReconnectFooterConnecting}
-            waitingShort={sv.table.wsReconnectFooterWaiting}
-            retryLabel={sv.table.wsRetry}
+            connectingShort={ui.table.wsReconnectFooterConnecting}
+            waitingShort={ui.table.wsReconnectFooterWaiting}
+            retryLabel={ui.table.wsRetry}
             onRetry={requestReconnect}
           />
         </div>
@@ -2285,7 +2242,10 @@ function TableEventStoryCardFrame(props: {
   card: PendingCard;
   showWaitingHint?: boolean;
   cardStyle?: CSSProperties;
+  locale?: GameLocale;
 }) {
+  const ui = useUiStrings();
+  const locale = props.locale ?? useLocale();
   const revealArtKey = resolveCardRevealArtKey(props.card.artKey, props.card.grantedItemId);
   const showBeerRef = !!artAttributionLabel(revealArtKey);
   return (
@@ -2310,17 +2270,17 @@ function TableEventStoryCardFrame(props: {
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
             }}
-            alt={sv.table.cardArtAlt}
+            alt={ui.table.cardArtAlt}
             className={tableStyles.eventCardArt}
           />
         </div>
         <CardRichText
           className={tableStyles.eventCardBody}
           text={props.card.text}
-          rollOutcomes={getCardDefById(props.card.cardId)?.rollOutcomes}
+          rollOutcomes={getCardDefById(props.card.cardId, locale)?.rollOutcomes}
         />
         {props.showWaitingHint ? (
-          <div className={tableStyles.eventCardHint}>{sv.table.waitingConfirmPhone}</div>
+          <div className={tableStyles.eventCardHint}>{ui.table.waitingConfirmPhone}</div>
         ) : null}
         {showBeerRef ? <div className={tableStyles.eventCardSpacer} aria-hidden /> : null}
         {showBeerRef ? (
@@ -2338,6 +2298,7 @@ function TableEventRollHeroOverlay(props: {
   contentScale: number;
   boardAnimationsEnabled: boolean;
   cardCoverId?: string | null;
+  locale?: ReturnType<typeof useLocale>;
 }) {
   const effectiveScale = props.contentScale > 1 ? props.contentScale : 1;
   const rolledDie = parseRolledDieFromCardText(props.card.text);
@@ -2410,7 +2371,7 @@ function TableEventRollHeroOverlay(props: {
                   monsterCardFrameStyles.wrapEventStory,
                 ].join(" ")}
               >
-                <TableEventStoryCardFrame card={props.card} showWaitingHint />
+                <TableEventStoryCardFrame card={props.card} showWaitingHint locale={props.locale} />
               </div>
             </CardFlipScene>
           </div>
@@ -2424,7 +2385,13 @@ function isFoundItemRevealCard(cardId: string): boolean {
   return cardId.startsWith("event_find_item_") || cardId.startsWith("treasure_item_");
 }
 
-function TablePendingCardContent(props: { pending: PendingCard; viewerName?: string }) {
+function TablePendingCardContent(props: {
+  pending: PendingCard;
+  viewerName?: string;
+  locale?: GameLocale;
+}) {
+  const ui = useUiStrings();
+  const locale = props.locale ?? useLocale();
   const p = props.pending;
   const winData =
     p.cardId === "combat_win"
@@ -2467,14 +2434,14 @@ function TablePendingCardContent(props: { pending: PendingCard; viewerName?: str
           <h2 className={tableStyles.bossFinalWinTitle}>{p.title}</h2>
           <img
             src={artSrc}
-            alt={sv.table.cardArtAlt}
+            alt={ui.table.cardArtAlt}
             className={tableStyles.bossFinalWinArt}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = "/card-placeholder.png";
             }}
           />
-          <p className={tableStyles.bossFinalWinVictory}>{sv.play.bossFinaleVictory}</p>
-          <p className={tableStyles.bossFinalWinWinner}>{sv.play.bossFinaleWinner(winnerName)}</p>
+          <p className={tableStyles.bossFinalWinVictory}>{ui.play.bossFinaleVictory}</p>
+          <p className={tableStyles.bossFinalWinWinner}>{ui.play.bossFinaleWinner(winnerName)}</p>
           {p.bossFinalWin?.bossName ? (
             <p className={tableStyles.bossFinalWinBossName}>{p.bossFinalWin.bossName}</p>
           ) : null}
@@ -2486,7 +2453,7 @@ function TablePendingCardContent(props: { pending: PendingCard; viewerName?: str
     return (
       <div className={tableStyles.centeredCardContent}>
         <CombatSheetFrame
-          sheetTitle={sv.table.hiddenItemFoundTitle}
+          sheetTitle={ui.table.hiddenItemFoundTitle}
           titleStyle={{ textAlign: "center", fontSize: 30, letterSpacing: "0.03em", marginBottom: 14 }}
         >
           <TableHiddenItemRevealCardContent />
@@ -2497,7 +2464,7 @@ function TablePendingCardContent(props: { pending: PendingCard; viewerName?: str
   if (p.kind === "treasure" && !p.cardId.startsWith("treasure_item_")) {
     return (
       <div className={tableStyles.centeredCardContent}>
-        <CombatSheetFrame sheetTitle={sv.play.treasureCardSheetTitle}>
+        <CombatSheetFrame sheetTitle={ui.play.treasureCardSheetTitle}>
           <TreasureCardContent title={p.title} text={p.text} cardId={p.cardId} />
         </CombatSheetFrame>
       </div>
@@ -2523,18 +2490,19 @@ function TablePendingCardContent(props: { pending: PendingCard; viewerName?: str
         monsterCardFrameStyles.wrapEventStory,
       ].join(" ")}
     >
-      <TableEventStoryCardFrame card={p} showWaitingHint />
+      <TableEventStoryCardFrame card={p} showWaitingHint locale={locale} />
     </div>
   );
 }
 
 function TableHiddenItemRevealCardContent() {
+  const ui = useUiStrings();
   return (
     <div className={tableStyles.infoRevealCard}>
       <div aria-hidden className={`${tableStyles.infoRevealIconCircle} ${tableStyles.hiddenItemCircle}`}>
         <span aria-hidden className={tableStyles.hiddenItemGlyph} />
       </div>
-      <p className={tableStyles.infoRevealText}>{sv.table.hiddenItemFoundBody}</p>
+      <p className={tableStyles.infoRevealText}>{ui.table.hiddenItemFoundBody}</p>
     </div>
   );
 }

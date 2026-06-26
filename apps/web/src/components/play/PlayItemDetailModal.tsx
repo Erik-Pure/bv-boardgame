@@ -7,7 +7,7 @@ import { ItemModalEffectBadge, ITEM_MODAL_TITLE_STYLE } from "./playModalBadges"
 import type { ItemDetailSelection } from "./PlayItemDetailSheet";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function PlayItemDetailModal(props: {
   itemDetail: ItemDetailSelection | null;
@@ -18,11 +18,12 @@ export function PlayItemDetailModal(props: {
   itemMetaForView: (itemId: string) => { title: string; text: string; target: ItemUseTarget };
   itemInvBadgeOpts?: ItemInventoryBadgeOpts;
 }) {
+  const ui = useUiStrings();
   const { itemDetail, onClose, me, state, cardCoverId, itemMetaForView, itemInvBadgeOpts } = props;
   if (!itemDetail || !me || !state) return null;
 
   const inst = (me.inventory ?? []).find((x) => x.instanceId === itemDetail.instanceId);
-  const modalTitle = inst ? itemMetaForView(inst.itemId).title : sv.play.itemNotFound;
+  const modalTitle = inst ? itemMetaForView(inst.itemId).title : ui.play.itemNotFound;
 
   return (
     <PlayModal
@@ -39,7 +40,7 @@ export function PlayItemDetailModal(props: {
       titleStyle={inst ? ITEM_MODAL_TITLE_STYLE : undefined}
     >
       {!inst ? (
-        <div style={{ opacity: 0.9 }}>{sv.play.itemNotFound}</div>
+        <div style={{ opacity: 0.9 }}>{ui.play.itemNotFound}</div>
       ) : (
         <div className={u.stack10}>
           <div className={styles.itemModalArtFrame}>

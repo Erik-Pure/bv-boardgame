@@ -4,7 +4,7 @@ import { UserMenuIcon } from "../UserMenuIcon";
 import { playerPant, type Player } from "@bv/game-core";
 import type { StatFlash } from "./playInventoryUi";
 import styles from "../../routes/PlayView.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 function statsRadialToneClass(icon: StatIconKind, flash: "up" | "down"): string | null {
   const map: Partial<Record<StatIconKind, Record<"up" | "down", string>>> = {
@@ -110,6 +110,7 @@ export function PlayHeader(props: {
   xpGainPromptText: string | null;
   xpGainPromptKey: number;
 }) {
+  const ui = useUiStrings();
   const {
     me,
     displayName,
@@ -159,8 +160,8 @@ export function PlayHeader(props: {
         >
           <button
             type="button"
-            aria-label={sv.play.settings}
-            title={sv.play.settings}
+            aria-label={ui.play.settings}
+            title={ui.play.settings}
             onClick={onOpenSettings}
             className={styles.headerPlayersBtn}
           >
@@ -188,8 +189,8 @@ export function PlayHeader(props: {
           </div>
           <button
             type="button"
-            aria-label={sv.play.players}
-            title={sv.play.players}
+            aria-label={ui.play.players}
+            title={ui.play.players}
             disabled={!hasState}
             onClick={onOpenPlayers}
             className={styles.headerPlayersBtn}
@@ -213,7 +214,7 @@ export function PlayHeader(props: {
                 lowHpDanger={me.hp <= 3}
               />
               <PlayerStatCell
-                ariaLabel={`${sv.play.pant} ${playerPant(me)}`}
+                ariaLabel={`${ui.play.pant} ${playerPant(me)}`}
                 value={String(playerPant(me))}
                 icon="pant"
                 flash={pantFlash}
@@ -221,7 +222,7 @@ export function PlayHeader(props: {
                 iconSize={32}
               />
               <PlayerStatCell
-                ariaLabel={`${sv.play.klunkar} ${me.klunkar}`}
+                ariaLabel={`${ui.play.klunkar} ${me.klunkar}`}
                 value={String(me.klunkar)}
                 icon="klunk"
                 flash={klunkFlash}
@@ -230,7 +231,7 @@ export function PlayHeader(props: {
               />
               <div className={styles.levelRingCellWrap}>
                 <LevelRingCell
-                  ariaLabel={sv.play.levelUpProgressAria(brewerLevel)}
+                  ariaLabel={ui.play.levelUpProgressAria(brewerLevel)}
                   level={brewerLevel}
                   ratio={brewerRatio}
                 />

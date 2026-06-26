@@ -19,13 +19,16 @@ import {
   combatAllyOutcomeRole,
   combatLossKlunksForDisplay,
   monsterBoardFloorLevel,
+  localizedCombatMonster,
   monsterEncounterCardPropsFromCombatPending,
   resolveCombatLossViewer,
   resolveCombatWinViewer,
 } from "../../lib/combatUi";
 import { isMyPending } from "../../lib/playInteractionHelpers";
 import styles from "../../routes/PlayView.module.css";
-import { capitalizeWord, sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import { localizeFinalBossRoundLabel } from "@bv/game-core";
+import { capitalizeWord } from "../../lib/uiStrings";
 
 type AllyCombatOutcome = {
   pending: Extract<Pending, { type: "card" }>;
@@ -36,6 +39,7 @@ type AllyCombatOutcome = {
 function resolveAllyCombatOutcomeCard(
   allyCombatOutcome: AllyCombatOutcome | null,
   me: Player | null,
+  ui: ReturnType<typeof useUiStrings>,
 ): {
   cardId: "combat_win" | "combat_lose";
   combatWin?: CombatWinSummary;
@@ -46,7 +50,7 @@ function resolveAllyCombatOutcomeCard(
   if (p.cardId === "combat_win" && p.combatWin) {
     return {
       cardId: p.cardId,
-      combatWin: resolveCombatWinViewer(buildCombatAllyWinSummary(p.combatWin, role, me.name), me.name) ?? undefined,
+      combatWin: resolveCombatWinViewer(buildCombatAllyWinSummary(p.combatWin, role, me.name, ui), me.name) ?? undefined,
       combatLoss: undefined,
     };
   }
@@ -54,7 +58,7 @@ function resolveAllyCombatOutcomeCard(
     return {
       cardId: p.cardId,
       combatWin: undefined,
-      combatLoss: resolveCombatLossViewer(buildCombatAllyLossSummary(p.combatLoss, role, me.name), me.name) ?? undefined,
+      combatLoss: resolveCombatLossViewer(buildCombatAllyLossSummary(p.combatLoss, role, me.name, ui), me.name) ?? undefined,
     };
   }
   return null;
@@ -75,6 +79,8 @@ export function PlayCardCombatModals(props: {
   bossFinalePending: Extract<Pending, { type: "card" }> | null;
   bossFinaleExiting: boolean;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const {
     state,
     me,
@@ -93,8 +99,8 @@ export function PlayCardCombatModals(props: {
 
   const myPending = isMyPending(pending, me);
   const allyCombatOutcomeCard = useMemo(
-    () => resolveAllyCombatOutcomeCard(allyCombatOutcome, me),
-    [allyCombatOutcome, me],
+    () => resolveAllyCombatOutcomeCard(allyCombatOutcome, me, ui),
+    [allyCombatOutcome, me, ui],
   );
 
   if (state.phase !== "playing") return null;
@@ -110,6 +116,7 @@ export function PlayCardCombatModals(props: {
             text={pending.text}
             artKey={pending.artKey}
             grantedItemId={pending.grantedItemId}
+            equipmentReplaceOffer={pending.equipmentReplaceOffer}
             kind={pending.kind}
             cardId={pending.cardId}
             combatWin={pending.combatWin}
@@ -127,8 +134,9 @@ export function PlayCardCombatModals(props: {
           title={allyCombatOutcome.pending.title}
           text={allyCombatOutcome.pending.text}
           artKey={allyCombatOutcome.pending.artKey}
-          grantedItemId={allyCombatOutcome.pending.grantedItemId}
-          kind={allyCombatOutcome.pending.kind}
+            grantedItemId={allyCombatOutcome.pending.grantedItemId}
+            equipmentReplaceOffer={allyCombatOutcome.pending.equipmentReplaceOffer}
+            kind={allyCombatOutcome.pending.kind}
           cardId={allyCombatOutcomeCard.cardId}
           combatWin={allyCombatOutcomeCard.combatWin}
           combatLoss={allyCombatOutcomeCard.combatLoss}
@@ -147,7 +155,7 @@ export function PlayCardCombatModals(props: {
             cardCoverId={cardCoverId}
             attackerName={
               state.players.find((p) => p.id === pending.attackerId)?.name ??
-              capitalizeWord(sv.play.theAttacker)
+              capitalizeWord(ui.play.theAttacker)
             }
             monster={monsterEncounterCardPropsFromCombatPending(pending, {
               finalBossLivesRemaining: state.finalBossLivesRemaining,
@@ -158,6 +166,7 @@ export function PlayCardCombatModals(props: {
                     ?.monsterLossSipReduction ?? 0,
                 ),
               ),
+              locale,
             })}
           />
         )}
@@ -167,7 +176,7 @@ export function PlayCardCombatModals(props: {
         !needsBrewerPerkChoice &&
         !skipMonsterIntroBecauseCantAffordSkip && (
         <EnemyIntroModal
-          enemyName={myEnemyIntroPending.enemyName}
+          enemyName={localizedCombatMonster(myEnemyIntroPending, locale).name}
           enemyArtKey={myEnemyIntroPending.enemyArtKey}
           need={myEnemyIntroPending.need}
           needMod={myEnemyIntroPending.needMod}
@@ -181,7 +190,7 @@ export function PlayCardCombatModals(props: {
               Math.floor(me.equipment.weapon?.monsterLossSipReduction ?? 0),
             ),
           })}
-          specialRules={myEnemyIntroPending.enemyIntroText?.trim() || undefined}
+          specialRules={localizedCombatMonster(myEnemyIntroPending, locale).specialRules}
           showCard={myEnemyIntroPending.monsterId !== "boss"}
           bossLivesRemaining={
             isFinalBossMonsterId(myEnemyIntroPending.monsterId as MonsterId)
@@ -225,7 +234,10 @@ export function PlayCardCombatModals(props: {
           <BossFinaleOverlay
             roundLabel={
               bossFinalePending.bossFinalWin?.roundLabel ??
-              `RUNDA ${FINAL_BOSS_LIFE_TOTAL} AV ${FINAL_BOSS_LIFE_TOTAL}`
+              localizeFinalBossRoundLabel(
+                `RUNDA ${FINAL_BOSS_LIFE_TOTAL} AV ${FINAL_BOSS_LIFE_TOTAL}`,
+                locale,
+              )
             }
             winnerName={bossFinalePending.bossFinalWin?.winnerName ?? bossFinalePending.text}
             bossName={bossFinalePending.bossFinalWin?.bossName}

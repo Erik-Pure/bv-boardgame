@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { BrandLogoImg } from "../components/BrandLogoImg";
 import { lobbyFieldControlStyle, lobbyFieldLabelTextStyle } from "../lib/lobbyFormFieldStyle";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 import styles from "./JoinGame.module.css";
 
 export function JoinGame() {
+  const ui = useUiStrings();
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const initialRoom = useMemo(() => (sp.get("room") ?? "").trim().toUpperCase(), [sp]);
@@ -31,19 +33,19 @@ export function JoinGame() {
           <div className={styles.logoGlowSpin} aria-hidden>
             <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
           </div>
-          <img
+          <BrandLogoImg
+            variant="stacked"
             className={styles.logoImage}
-            src="/icons/bmm-logo.png"
-            alt="Bryggmästarnas Mästare"
+            alt={ui.home.title}
           />
         </div>
         <h1 style={{ margin: "20px 0 8px", fontSize: "clamp(1.5rem, 5vw, 1.85rem)", fontWeight: 800 }}>
-          {sv.joinPage.title}
+          {ui.joinPage.title}
         </h1>
 
         <div style={{ display: "grid", gap: 14, textAlign: "left" }}>
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={lobbyFieldLabelTextStyle}>{sv.joinPage.roomLabel}</span>
+            <span style={lobbyFieldLabelTextStyle}>{ui.joinPage.roomLabel}</span>
             <input
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
@@ -58,11 +60,11 @@ export function JoinGame() {
             />
           </label>
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={lobbyFieldLabelTextStyle}>{sv.joinPage.nameLabel}</span>
+            <span style={lobbyFieldLabelTextStyle}>{ui.joinPage.nameLabel}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={sv.joinPage.namePlaceholder}
+              placeholder={ui.joinPage.namePlaceholder}
               autoComplete="nickname"
               style={lobbyFieldControlStyle}
             />
@@ -75,7 +77,7 @@ export function JoinGame() {
               nav(`/play?room=${encodeURIComponent(roomCode.trim())}&name=${encodeURIComponent(name.trim() || "Bryggare")}`)
             }
           >
-            {sv.joinPage.connect}
+            {ui.joinPage.connect}
           </ArcadeButton>
         </div>
       </div>

@@ -4,6 +4,7 @@ import {
   applyAction,
   CONFIG_NUMERIC,
   MERCHANT_SELLABLE_COMBAT_ITEM_IDS,
+  MERCHANT_TAPROOM_KEY_PRICE,
   rollMerchantItems,
 } from "../dist/index.js";
 
@@ -77,6 +78,72 @@ describe("merchant shelf", () => {
     assert.notEqual(inv.inventoryItemId, "light_beer");
   });
 
+  it("rollMerchantItems adds taproom_key on last board level", () => {
+    const levelCount = 3;
+    const lastIdx = levelCount - 1;
+    const items = rollMerchantItems(() => 0.42, undefined, lastIdx, levelCount);
+    assert.equal(items.length, 5);
+    const taproom = items.find((i) => i.inventoryItemId === "taproom_key");
+    assert.ok(taproom);
+    assert.equal(taproom.price, MERCHANT_TAPROOM_KEY_PRICE);
+    assert.equal(taproom.id, "inv_taproom_key");
+  });
+
+  it("rollMerchantItems has no taproom_key before last board level", () => {
+    const levelCount = 3;
+    const items = rollMerchantItems(() => 0.42, undefined, 0, levelCount);
+    assert.equal(items.length, 4);
+    assert.equal(items.some((i) => i.inventoryItemId === "taproom_key"), false);
+  });
+
+  it("rollMerchantItems omits taproom_key when card disabled", () => {
+    const disabled = new Set(["item_taproom_key"]);
+    const items = rollMerchantItems(() => 0.42, disabled, 2, 3);
+    assert.equal(items.length, 4);
+    assert.equal(items.some((i) => i.inventoryItemId === "taproom_key"), false);
+  });
+
+  it("merchantBuy adds taproom_key from shelf", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 25 });
+    const state = {
+      phase: "playing",
+      seed: 1,
+      config: gameConfig(),
+      roomCode: "TK",
+      players: [p1],
+      turnOrder: ["p1"],
+      currentTurnIndex: 0,
+      levels: [{ tiles: [] }, { tiles: [] }, { tiles: [] }],
+      pending: {
+        type: "merchant",
+        playerId: "p1",
+        items: [
+          {
+            id: "inv_taproom_key",
+            slot: "inventory",
+            inventoryItemId: "taproom_key",
+            name: "Taproom-nyckel",
+            price: MERCHANT_TAPROOM_KEY_PRICE,
+          },
+        ],
+      },
+      log: [],
+      winnerId: null,
+      winnerName: null,
+      goldenBeerCarrierId: null,
+      finalBossMonsterId: null,
+      finalBossLivesRemaining: null,
+      bossFinaleExitStartedAt: null,
+      treasureTaken: {},
+    };
+    const r = applyAction(state, { type: "merchantBuy", playerId: "p1", itemId: "inv_taproom_key" });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(u.gold, 5);
+    assert.equal((u.inventory ?? []).some((x) => x.itemId === "taproom_key"), true);
+  });
+
   it("merchantBuy adds inventory combat item to player", () => {
     const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 20 });
     const state = {
@@ -132,7 +199,11 @@ describe("merchant shelf", () => {
       players: [p1],
       turnOrder: ["p1"],
       currentTurnIndex: 0,
-      levels: [{ tiles: [{ id: "e0", type: "empty" }] }],
+      levels: [
+        { tiles: [{ id: "e0", type: "empty" }] },
+        { tiles: [{ id: "e1", type: "empty" }] },
+        { tiles: [{ id: "e2", type: "empty" }] },
+      ],
       pending: { type: "merchant", playerId: "p1", items: beforeItems },
       log: [],
       winnerId: null,

@@ -1,5 +1,12 @@
-import { findBossTileIndexInLevel, getCard, type GameState, type ItemUseTarget, type Player } from "@bv/game-core";
-import { sv } from "../../lib/uiStrings";
+import type { GameLocale } from "@bv/game-core";
+import {
+  findBossTileIndexInLevel,
+  getCard,
+  type GameState,
+  type ItemUseTarget,
+  type Player,
+} from "@bv/game-core";
+import { getUiStrings } from "../../lib/uiStrings";
 
 const ITEM_TARGET: Record<string, ItemUseTarget> = {
   healing_potion: "self_or_other",
@@ -18,7 +25,7 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   pretzel_snack: "self_or_other",
   coin_purse: "self",
   charity: "self",
-  shortcut: "self",
+  shortcut: "other",
   taproom_key: "self",
   six_sense: "self",
   rigged_game: "other",
@@ -41,14 +48,18 @@ export function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): nu
   return Math.max(0, levelNumber * 10);
 }
 
-export function itemMeta(itemId: string): { title: string; text: string; target: ItemUseTarget } {
+export function itemMeta(
+  itemId: string,
+  locale: GameLocale = "sv",
+): { title: string; text: string; target: ItemUseTarget } {
+  const ui = getUiStrings(locale);
   const id = String(itemId);
   const target = ITEM_TARGET[id] ?? "self";
   try {
-    const card = getCard(`item_${id}`);
+    const card = getCard(`item_${id}`, locale);
     return { title: card.title, text: card.text, target };
   } catch {
-    const row = (sv.items as Record<string, { title: string; text: string } | undefined>)[id];
+    const row = (ui.items as Record<string, { title: string; text: string } | undefined>)[id];
     if (row) return { title: row.title, text: row.text, target };
     return { title: id, text: "", target };
   }
@@ -58,10 +69,11 @@ export function itemMetaForView(
   itemId: string,
   me: Player | null,
   state: GameState | null,
+  locale: GameLocale = "sv",
 ): { title: string; text: string; target: ItemUseTarget } {
-  const base = itemMeta(itemId);
-  const isLevelJumpItem = String(itemId) === "shortcut" || String(itemId) === "taproom_key";
-  if (!isLevelJumpItem || !me || !state) return base;
+  const ui = getUiStrings(locale);
+  const base = itemMeta(itemId, locale);
+  if (String(itemId) !== "taproom_key" || !me || !state) return base;
   const levelsLen = state.levels?.length ?? 0;
   const lastIdx = levelsLen > 0 ? levelsLen - 1 : 0;
   const targetLevelIndex = me.levelIndex + 1;
@@ -71,7 +83,7 @@ export function itemMetaForView(
     if (bossIdx < 0) {
       return {
         ...base,
-        text: `${base.text}\nIngen bossruta på sista våningen.`,
+        text: `${base.text}\n${ui.play.itemShortcutNoBossTile}`,
       };
     }
     const goldCost =
@@ -81,13 +93,13 @@ export function itemMetaForView(
     const onBoss = me.tileIndex === bossIdx;
     return {
       ...base,
-      text: `${base.text}\nNuvarande kostnad: ${goldCost} pant (${onBoss ? "lös slutbossrutan direkt — du står redan på rutan." : "gå direkt till slutbossens ruta."})`,
+      text: `${base.text}\n${ui.play.itemShortcutBossCost(goldCost, onBoss)}`,
     };
   }
   if (targetLevelIndex >= levelsLen) {
     return {
       ...base,
-      text: `${base.text}\nDu är redan på översta våningen.`,
+      text: `${base.text}\n${ui.play.itemShortcutTopFloor}`,
     };
   }
   const goldCost =
@@ -99,6 +111,6 @@ export function itemMetaForView(
       : shortcutItemGoldCostForTargetLevel(targetLevelIndex);
   return {
     ...base,
-    text: `${base.text}\nNuvarande kostnad: ${goldCost} pant (till nivå ${targetLevelIndex + 1}).`,
+    text: `${base.text}\n${ui.play.itemShortcutLevelCost(goldCost, targetLevelIndex + 1)}`,
   };
 }

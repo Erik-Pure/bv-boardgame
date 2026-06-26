@@ -1,3 +1,4 @@
+import type { GameLocale } from "./locale.js";
 import type { Pending, Player } from "./types.js";
 
 export type TableToastCategory = "sip" | "pvp" | "vaska" | "reward";
@@ -60,8 +61,13 @@ export function diffPlayerStatsToOutcomes(
   return outcomes;
 }
 
-function playerName(playersById: Map<string, Pick<Player, "name">>, playerId: string): string {
-  return playersById.get(playerId)?.name?.trim() || "Spelare";
+function playerName(
+  playersById: Map<string, Pick<Player, "name">>,
+  playerId: string,
+  locale: GameLocale,
+): string {
+  const fallback = locale === "en" ? "Player" : "Spelare";
+  return playersById.get(playerId)?.name?.trim() || fallback;
 }
 
 function iconsForOutcome(outcome: EventTableOutcome): TableToastIcon[] {
@@ -90,18 +96,45 @@ function categoryForOutcome(outcome: EventTableOutcome): TableToastCategory {
   return "pvp";
 }
 
+function localizeCustomOutcomeText(text: string, locale: GameLocale): string {
+  if (locale === "sv") return text;
+  const known: Record<string, string> = {
+    "Alla spelare får 1 straffklunk.": "All players get 1 penalty sip.",
+    "Happy hour: alla andra får +2 pant.": "Happy hour: all other players gain +2 cans.",
+    "Happy hour: alla får +5 pant.": "Happy hour: everyone gains +5 cans.",
+  };
+  if (known[text]) return known[text]!;
+  const inget = /^(.+?):\s*inget händer\.?$/i.exec(text.trim());
+  if (inget) return `${inget[1]}: nothing happens.`;
+  const ingenPant = /^(.+?):\s*ingen pant överfördes\.?$/i.exec(text.trim());
+  if (ingenPant) return `${ingenPant[1]}: no cans transferred.`;
+  const slogIngen = /^(.+?)\s+slog\s+(\d+):\s*ingen pant överfördes\.?$/i.exec(text.trim());
+  if (slogIngen) return `${slogIngen[1]} rolled ${slogIngen[2]}: no cans transferred.`;
+  const gavPant = /^(.+?)\s+gav\s+(\d+)\s+pant\s+till\s+(.+?)\.?$/i.exec(text.trim());
+  if (gavPant) return `${gavPant[1]} gave ${gavPant[2]} cans to ${gavPant[3]}.`;
+  return text;
+}
+
 export function formatEventTableOutcomeToToast(
   outcome: EventTableOutcome,
   playersById: Map<string, Pick<Player, "name">>,
+  locale: GameLocale = "sv",
 ): EventTableToastSpec {
   const icons = iconsForOutcome(outcome);
   const category = categoryForOutcome(outcome);
   if (outcome.kind === "custom") {
-    return { text: outcome.text, category, icons };
+    return { text: localizeCustomOutcomeText(outcome.text, locale), category, icons };
   }
-  const name = playerName(playersById, outcome.playerId);
+  const name = playerName(playersById, outcome.playerId, locale);
   if (outcome.kind === "sipGain") {
     const amount = Math.max(1, Math.floor(outcome.amount));
+    if (locale === "en") {
+      return {
+        text: `${name} gets ${amount} penalty sip${amount === 1 ? "" : "s"}.`,
+        category,
+        icons,
+      };
+    }
     return {
       text: `${name} får ${amount} straffklunk${amount === 1 ? "" : "ar"}.`,
       category,
@@ -110,18 +143,35 @@ export function formatEventTableOutcomeToToast(
   }
   if (outcome.kind === "pantDelta") {
     const delta = outcome.delta;
+    if (locale === "en") {
+      if (delta > 0) return { text: `${name} gains ${delta} cans.`, category, icons };
+      return { text: `${name} loses ${Math.abs(delta)} cans.`, category, icons };
+    }
     if (delta > 0) return { text: `${name} får ${delta} pant.`, category, icons };
     return { text: `${name} förlorar ${Math.abs(delta)} pant.`, category, icons };
   }
   if (outcome.kind === "hpDelta") {
     const delta = outcome.delta;
+    if (locale === "en") {
+      if (delta < 0) return { text: `${name} takes ${Math.abs(delta)} damage.`, category, icons };
+      return { text: `${name} heals ${delta} HP.`, category, icons };
+    }
     if (delta < 0) return { text: `${name} tar ${Math.abs(delta)} skada.`, category, icons };
     return { text: `${name} läker ${delta} HP.`, category, icons };
   }
   if (outcome.kind === "skipTurn") {
-    return { text: `${name} står över nästa drag.`, category, icons };
+    return {
+      text:
+        locale === "en" ? `${name} skips their next turn.` : `${name} står över nästa drag.`,
+      category,
+      icons,
+    };
   }
-  return { text: `${name} får slumpad utrustning.`, category, icons };
+  return {
+    text: locale === "en" ? `${name} gets random equipment.` : `${name} får slumpad utrustning.`,
+    category,
+    icons,
+  };
 }
 
 /** Parsar standard rader från korttext (`Pant:`, `HP:`, `klunkar:`) när strukturerade utfall saknas. */
@@ -129,8 +179,9 @@ export function parseStatDeltaLinesToOutcomes(
   text: string,
   cardPlayerId: string,
   playersById: Map<string, Pick<Player, "name">>,
+  locale: GameLocale = "sv",
 ): EventTableOutcome[] {
-  const selfName = playerName(playersById, cardPlayerId);
+  const selfName = playerName(playersById, cardPlayerId, locale);
   const outcomes: EventTableOutcome[] = [];
   const pushSip = (name: string, amount: number) => {
     if (amount <= 0) return;
@@ -162,17 +213,17 @@ export function parseStatDeltaLinesToOutcomes(
 
   for (const raw of text.split("\n")) {
     const line = raw.trim();
-    const selfKlunk = /^Klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    const selfKlunk = /^(?:Klunkar|Sips):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
     if (selfKlunk) {
       pushSip(selfName, Number(selfKlunk[2]) - Number(selfKlunk[1]));
       continue;
     }
-    const selfPossessiveKlunk = /^Dina\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    const selfPossessiveKlunk = /^(?:Dina\s+klunkar|Your\s+sips):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
     if (selfPossessiveKlunk) {
       pushSip(selfName, Number(selfPossessiveKlunk[2]) - Number(selfPossessiveKlunk[1]));
       continue;
     }
-    const targetKlunk = /^(.+?)\s+klunkar:\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
+    const targetKlunk = /^(.+?)\s+(?:klunkar|sips):\s*(\d+)\s*→\s*(\d+)\.?$/i.exec(line);
     if (targetKlunk) {
       pushKlunk(targetKlunk[1], Number(targetKlunk[2]), Number(targetKlunk[3]), pushSip);
       continue;
@@ -192,12 +243,12 @@ export function parseStatDeltaLinesToOutcomes(
       pushHp(targetHp[1].trim(), Number(targetHp[3]) - Number(targetHp[2]));
       continue;
     }
-    const selfPant = /^Pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
+    const selfPant = /^(?:Pant|Cans):\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
     if (selfPant) {
       pushPant(selfName, Number(selfPant[2]) - Number(selfPant[1]));
       continue;
     }
-    const targetPant = /^(.+?)\s+pant:\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
+    const targetPant = /^(.+?)\s+(?:pant|cans):\s*(-?\d+)\s*→\s*(-?\d+)\.?$/i.exec(line);
     if (targetPant) {
       pushPant(targetPant[1].trim(), Number(targetPant[3]) - Number(targetPant[2]));
     }
@@ -217,6 +268,7 @@ function pushKlunk(
 export function resolveEventCardTableToasts(
   pending: Extract<Pending, { type: "card" }>,
   players: Player[],
+  locale: GameLocale = "sv",
 ): EventTableToastSpec[] {
   if (pending.kind !== "event") return [];
   const playersById = new Map(players.map((p) => [p.id, p]));
@@ -224,7 +276,7 @@ export function resolveEventCardTableToasts(
   const outcomes =
     structured.length > 0
       ? structured
-      : parseStatDeltaLinesToOutcomes(pending.text, pending.playerId, playersById);
+      : parseStatDeltaLinesToOutcomes(pending.text, pending.playerId, playersById, locale);
 
   if (outcomes.length === 0) {
     const transferLine = pending.text
@@ -233,35 +285,49 @@ export function resolveEventCardTableToasts(
       .find((l) => /fick\s+\d+\s+pant\./i.test(l));
     if (transferLine) {
       const m = /^(.+?)\s+var fattigast och fick\s+(\d+)\s+pant\./i.exec(transferLine);
-      const selfName = playerName(playersById, pending.playerId);
+      const selfName = playerName(playersById, pending.playerId, locale);
       if (m) {
         return [
           {
-            text: `${selfName} gav ${m[2]} pant till ${m[1]}.`,
+            text:
+              locale === "en"
+                ? `${selfName} gave ${m[2]} cans to ${m[1]}.`
+                : `${selfName} gav ${m[2]} pant till ${m[1]}.`,
             category: "pvp",
             icons: ["pant"],
           },
         ];
       }
     }
-    if (/Ingen pant överfördes\./i.test(pending.text)) {
-      const die = /Tärning:\s*(\d+)/i.exec(pending.text);
-      const selfName = playerName(playersById, pending.playerId);
+    if (/Ingen pant överfördes\.|No cans were transferred\./i.test(pending.text)) {
+      const die = /(?:Tärning|Die):\s*(\d+)/i.exec(pending.text);
+      const selfName = playerName(playersById, pending.playerId, locale);
       return [
         {
-          text: die
-            ? `${selfName} slog ${die[1]}: ingen pant överfördes.`
-            : `${selfName}: ingen pant överfördes.`,
+          text:
+            locale === "en"
+              ? die
+                ? `${selfName} rolled ${die[1]}: no cans transferred.`
+                : `${selfName}: no cans transferred.`
+              : die
+                ? `${selfName} slog ${die[1]}: ingen pant överfördes.`
+                : `${selfName}: ingen pant överfördes.`,
           category: "pvp",
           icons: ["pant"],
         },
       ];
     }
-    if (/inget händer/i.test(pending.text)) {
-      const selfName = playerName(playersById, pending.playerId);
-      return [{ text: `${selfName}: inget händer.`, category: "pvp", icons: ["pant"] }];
+    if (/inget händer|nothing happens/i.test(pending.text)) {
+      const selfName = playerName(playersById, pending.playerId, locale);
+      return [
+        {
+          text: locale === "en" ? `${selfName}: nothing happens.` : `${selfName}: inget händer.`,
+          category: "pvp",
+          icons: ["pant"],
+        },
+      ];
     }
   }
 
-  return outcomes.map((o) => formatEventTableOutcomeToToast(o, playersById));
+  return outcomes.map((o) => formatEventTableOutcomeToToast(o, playersById, locale));
 }

@@ -3,7 +3,7 @@ import { ArcadeButton } from "../ArcadeButton";
 import { CardFlipModalShell } from "../CardFlipModalShell";
 import cardFlipShellStyles from "../CardFlipModalShell.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 function deathContinueCost(me: Player): number {
   return Math.max(0, (me.equipment.accessory as { deathContinueCost?: number } | undefined)?.deathContinueCost ?? 0);
@@ -16,6 +16,7 @@ export function PlayBrewerDownModal(props: {
   cardCoverId: string | undefined;
   send: (action: ClientAction) => void;
 }) {
+  const ui = useUiStrings();
   const { pending, me, state, cardCoverId, send } = props;
   const insuredCost = deathContinueCost(me);
 
@@ -58,7 +59,7 @@ export function PlayBrewerDownModal(props: {
                 textTransform: "uppercase",
               }}
             >
-              {sv.play.brewerDownTitle}
+              {ui.play.brewerDownTitle}
             </div>
             <img
               src="/icons/gameover.svg"
@@ -71,10 +72,10 @@ export function PlayBrewerDownModal(props: {
               }}
             />
             <div style={{ fontFamily: "var(--sans)", fontSize: 18, fontWeight: 700 }}>{me.name}</div>
-            <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{sv.play.brewerDownLead}</p>
+            <p style={{ margin: 0, opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>{ui.play.brewerDownLead}</p>
             {insuredCost > 0 ? (
               <p style={{ margin: 0, opacity: 0.85, fontSize: 13, lineHeight: 1.4 }}>
-                {sv.play.brewerDownInsuredContinue(insuredCost)}
+                {ui.play.brewerDownInsuredContinue(insuredCost)}
               </p>
             ) : null}
             <div className={u.stack10Mt4}>
@@ -87,7 +88,7 @@ export function PlayBrewerDownModal(props: {
                     send({ type: "brewerDownChoice", playerId: me.id, choice: "insuredContinue" } as ClientAction)
                   }
                 >
-                  {sv.play.brewerDownInsuredContinue(insuredCost)}
+                  {ui.play.brewerDownInsuredContinue(insuredCost)}
                 </ArcadeButton>
               ) : null}
               {!state.config.hardcore ? (
@@ -96,7 +97,7 @@ export function PlayBrewerDownModal(props: {
                   fullWidth
                   onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "retry" })}
                 >
-                  {sv.play.brewerDownRetry}
+                  {ui.play.brewerDownRetry}
                 </ArcadeButton>
               ) : null}
               <ArcadeButton
@@ -104,13 +105,13 @@ export function PlayBrewerDownModal(props: {
                 fullWidth
                 onClick={() => send({ type: "brewerDownChoice", playerId: me.id, choice: "giveUp" })}
               >
-                {sv.play.brewerDownGiveUp}
+                {ui.play.brewerDownGiveUp}
               </ArcadeButton>
             </div>
           </>
         ) : (
           <div style={{ fontFamily: "var(--sans)", fontSize: 16, fontWeight: 700, lineHeight: 1.4 }}>
-            {sv.play.brewerDownWaitOther(state.players.find((pl) => pl.id === pending.playerId)?.name ?? "")}
+            {ui.play.brewerDownWaitOther(state.players.find((pl) => pl.id === pending.playerId)?.name ?? "")}
           </div>
         )}
       </div>

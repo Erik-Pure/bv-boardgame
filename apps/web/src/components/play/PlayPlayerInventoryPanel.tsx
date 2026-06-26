@@ -25,7 +25,7 @@ import {
 } from "./playInventoryUi";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export type PlayPlayerInventoryPanelProps = {
   me: Player;
@@ -49,6 +49,7 @@ export type PlayPlayerInventoryPanelProps = {
 };
 
 export function PlayPlayerInventoryPanel(props: PlayPlayerInventoryPanelProps) {
+  const ui = useUiStrings();
   const {
     me,
     pending,
@@ -150,10 +151,10 @@ export function PlayPlayerInventoryPanel(props: PlayPlayerInventoryPanelProps) {
                   </div>
 
                   <div className={u.stack8FullMin1}>
-                    <div className={u.itemsHeadingRow}>{sv.play.itemsHeading}</div>
+                    <div className={u.itemsHeadingRow}>{ui.play.itemsHeading}</div>
                     <div className={styles.equipmentGridWrap}>
                       {inventoryEntries.length === 0 ? (
-                        <div className={styles.inventoryEmpty}>{sv.play.itemsEmpty}</div>
+                        <div className={styles.inventoryEmpty}>{ui.play.itemsEmpty}</div>
                       ) : (
                         <div className={styles.equipmentGrid}>
                           {inventoryEntries.map((info) => {

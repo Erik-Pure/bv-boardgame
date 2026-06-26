@@ -916,14 +916,14 @@
 
 .turnPlayerEmoteFloatOnBoard {
   position: absolute;
-  width: 76px;
-  height: 76px;
+  width: 140px;
+  height: 140px;
   object-fit: contain;
   pointer-events: none;
   --emote-rot: 0deg;
   opacity: 0;
   will-change: transform, opacity;
-  transform: translate(-50%, calc(-100% + 6px)) rotate(var(--emote-rot)) scale(0.84);
+  transform: translate(-50%, calc(-100% + 8px)) rotate(var(--emote-rot)) scale(0.88);
   animation:
     turnPlayerEmoteDrift 3.4s ease-in-out forwards,
     turnPlayerEmoteFade 3.4s ease-in-out forwards;
@@ -932,10 +932,10 @@
 /* En sammanhängande bana: sakta upp, lätt rotation, gradvis växande skala. */
 @keyframes turnPlayerEmoteDrift {
   from {
-    transform: translate(-50%, calc(-100% + 6px)) rotate(var(--emote-rot)) scale(0.84);
+    transform: translate(-50%, calc(-100% + 8px)) rotate(var(--emote-rot)) scale(0.88);
   }
   to {
-    transform: translate(-50%, calc(-100% - 46px)) rotate(calc(var(--emote-rot) + 3deg)) scale(1.14);
+    transform: translate(-50%, calc(-100% - 88px)) rotate(calc(var(--emote-rot) + 3deg)) scale(1.22);
   }
 }
 
@@ -964,10 +964,10 @@
 
   @keyframes turnPlayerEmoteDriftReduced {
     from {
-      transform: translate(-50%, calc(-100% + 4px)) rotate(var(--emote-rot)) scale(0.92);
+      transform: translate(-50%, calc(-100% + 6px)) rotate(var(--emote-rot)) scale(0.94);
     }
     to {
-      transform: translate(-50%, calc(-100% - 24px)) rotate(var(--emote-rot)) scale(1.04);
+      transform: translate(-50%, calc(-100% - 48px)) rotate(var(--emote-rot)) scale(1.08);
     }
   }
 }

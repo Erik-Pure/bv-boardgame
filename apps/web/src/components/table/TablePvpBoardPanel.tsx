@@ -2,7 +2,7 @@ import { memo, useEffect, useLayoutEffect, useState, type CSSProperties } from "
 import type { GameState } from "@bv/game-core";
 import { DiceCube3D } from "../DiceCube3D";
 import { PlayerAvatarStack } from "../PlayerAvatarStack";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { PVP_TABLE_REVEAL_DELAY_MS } from "./tableConstants";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 import styles from "./TablePvpBoardPanel.module.css";
@@ -24,6 +24,7 @@ function pvpTablePreviewAttackParts(state: GameState, playerId: string): { equip
 }
 
 function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabled?: boolean }) {
+  const ui = useUiStrings();
   const { state, boardAnimationsEnabled = true } = props;
   const overlayScale = useTableOverlayContentScale();
   const pending = state.pending?.type === "pvp" ? state.pending : null;
@@ -165,32 +166,32 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
         {showPvpMatchMeta ? (
           <div
             className={styles.duelTitleRow}
-            aria-label={sv.table.pvpScoreLine(wins.attacker, wins.defender)}
+            aria-label={ui.table.pvpScoreLine(wins.attacker, wins.defender)}
           >
             <div className={`${styles.scoreNumber} ${styles.scoreNumberAttacker}`}>{wins.attacker}</div>
-            <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+            <div className={styles.duelTitle}>{ui.table.pvpDuel}</div>
             <div className={`${styles.scoreNumber} ${styles.scoreNumberDefender}`}>{wins.defender}</div>
           </div>
         ) : (
           <div className={styles.duelTitleRowSingle}>
-            <div className={styles.duelTitle}>{sv.table.pvpDuel}</div>
+            <div className={styles.duelTitle}>{ui.table.pvpDuel}</div>
           </div>
         )}
         {awaiting && showPvpMatchMeta ? (
-          <div className={styles.phaseLineMuted}>{sv.table.pvpRoundBestOf(pvpRoundN, bestOf)}</div>
+          <div className={styles.phaseLineMuted}>{ui.table.pvpRoundBestOf(pvpRoundN, bestOf)}</div>
         ) : roundReveal ? (
-          <div className={styles.phaseLineGold}>{sv.table.pvpRoundResultPhase}</div>
+          <div className={styles.phaseLineGold}>{ui.table.pvpRoundResultPhase}</div>
         ) : preRound ? (
-          <div className={styles.phaseLineMuted}>{sv.table.pvpPrepPhase}</div>
+          <div className={styles.phaseLineMuted}>{ui.table.pvpPrepPhase}</div>
         ) : chooseLoot ? (
-          <div className={styles.phaseLineGold}>{sv.table.winnerChoosesLoot}</div>
+          <div className={styles.phaseLineGold}>{ui.table.winnerChoosesLoot}</div>
         ) : (
           <div className={styles.spacer8} />
         )}
         {awaiting ? (
           <div className={styles.spacerMb8} />
         ) : roundReveal ? (
-          <div className={styles.hint16}>{tieRound ? sv.table.pvpTieRerollHint : sv.table.pvpRoundResultHint}</div>
+          <div className={styles.hint16}>{tieRound ? ui.table.pvpTieRerollHint : ui.table.pvpRoundResultHint}</div>
         ) : preRound ? (
           <div className={styles.spacerMb8} />
         ) : chooseLoot ? (
@@ -200,7 +201,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
         )}
         <div className={styles.fightersRow}>
           <PvpFighterColumn
-            role={sv.table.roleAttacker}
+            role={ui.table.roleAttacker}
             player={attacker}
             roll={ra}
             showRolling={attackerShowRolling}
@@ -211,7 +212,7 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           />
           <div className={styles.vsBadge}>VS</div>
           <PvpFighterColumn
-            role={sv.table.roleDefender}
+            role={ui.table.roleDefender}
             player={defender}
             roll={rd}
             showRolling={defenderShowRolling}
@@ -225,11 +226,11 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
           <div className={styles.resultsBlock}>
             {pending.winnerId ? (
               <div className={styles.winnerLine}>
-                {sv.table.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
+                {ui.table.winner}: {state.players.find((p) => p.id === pending.winnerId)?.name ?? "—"}
               </div>
             ) : null}
             {pending.phase === "chooseLoot" ? (
-              <div className={styles.smallHint}>{sv.table.winnerChoosesLoot}</div>
+              <div className={styles.smallHint}>{ui.table.winnerChoosesLoot}</div>
             ) : null}
           </div>
         ) : null}

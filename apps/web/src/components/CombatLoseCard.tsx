@@ -2,7 +2,13 @@ import type { CombatLoseSummary } from "@bv/game-core";
 import { ArcadeButton } from "./ArcadeButton";
 import { CombatOutcomeThumb } from "./CombatOutcomeThumb";
 import { CombatSheetFrame } from "./CombatResultSheet";
-import { sv } from "../lib/uiStrings";
+import {
+  localizeCombatAssistRollNote,
+  localizeCombatLostEquipmentName,
+  localizeCombatOutcomeEnemy,
+  localizeCombatRedirectNote,
+} from "../lib/combatUi";
+import { useLocale, useUiStrings } from "../lib/locale/LocaleContext";
 
 const HEART_ICON = "/icons/heart-icon.svg";
 const KLUNK_ICON = "/icons/klunk-icon.svg";
@@ -77,10 +83,19 @@ function PenaltyLine({
 }
 
 export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSubtitle?: string } }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
   const { data } = props;
-  const enemyLabel = data.enemyName.trim() || sv.play.combatWinEnemyFallback;
+  const enemyLabel = localizeCombatOutcomeEnemy(
+    data.enemyName,
+    locale,
+    ui.play.combatWinEnemyFallback,
+  );
   const subtitle =
-    data.uiSubtitle?.trim() || sv.play.combatLoseSubtitle(data.playerName, enemyLabel);
+    data.uiSubtitle?.trim() || ui.play.combatLoseSubtitle(data.playerName, enemyLabel);
+  const assistRollNote = localizeCombatAssistRollNote(data.assistRollNote, locale);
+  const redirectNote = localizeCombatRedirectNote(data.redirectNote, locale);
+  const lostEquipmentName = localizeCombatLostEquipmentName(data.lostEquipmentName, locale);
   const blockedDamage = Math.max(0, Math.floor(data.blockedDamage ?? 0));
   const rawDamage = Math.max(0, Math.floor(data.rawDamage ?? data.damage + blockedDamage));
   const netDamage = Math.max(0, Math.floor(data.damage));
@@ -109,14 +124,14 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSub
           letterSpacing: "0.04em",
         }}
       >
-        {sv.play.combatLoseTitle}
+        {ui.play.combatLoseTitle}
       </h1>
       <CombatOutcomeThumb outcome="loss" />
       <p style={{ fontFamily: "var(--sans)", fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>
         {subtitle}
       </p>
       <p style={{ fontFamily: "var(--sans)", fontSize: 16, margin: 0, opacity: 0.92 }}>
-        {sv.play.combatWinRoll(data.rollTotal, data.need)}
+        {ui.play.combatWinRoll(data.rollTotal, data.need)}
       </p>
 
       <div style={{ width: "100%", maxWidth: 340, marginTop: 10, textAlign: "center" }}>
@@ -130,7 +145,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSub
             textAlign: "center",
           }}
         >
-          {sv.play.combatLosePenalties}
+          {ui.play.combatLosePenalties}
         </div>
         <div
           style={{
@@ -173,14 +188,14 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSub
           </div>
         ) : (
           <p style={{ fontFamily: "var(--sans)", fontSize: 15, margin: 0, opacity: 0.88 }}>
-            {sv.play.combatLoseNoDirectPenalty(data.playerName)}
+            {ui.play.combatLoseNoDirectPenalty(data.playerName)}
           </p>
         )}
       </div>
 
-      {(data.assistRollNote ||
-        data.redirectNote ||
-        data.lostEquipmentName ||
+      {(assistRollNote ||
+        redirectNote ||
+        lostEquipmentName ||
         data.imperialSameLevelSplash) && (
         <div
           style={{
@@ -194,15 +209,15 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSub
             marginTop: 4,
           }}
         >
-          {data.assistRollNote ? <p style={{ margin: "0 0 8px" }}>{data.assistRollNote}</p> : null}
-          {data.redirectNote ? <p style={{ margin: "0 0 8px" }}>{data.redirectNote}</p> : null}
-          {data.lostEquipmentName ? (
+          {assistRollNote ? <p style={{ margin: "0 0 8px" }}>{assistRollNote}</p> : null}
+          {redirectNote ? <p style={{ margin: "0 0 8px" }}>{redirectNote}</p> : null}
+          {lostEquipmentName ? (
             <p style={{ margin: "0 0 8px" }}>
-              {sv.play.combatLoseLostEquipment(data.playerName, data.lostEquipmentName)}
+              {ui.play.combatLoseLostEquipment(data.playerName, lostEquipmentName)}
             </p>
           ) : null}
           {data.imperialSameLevelSplash ? (
-            <p style={{ margin: 0 }}>{sv.play.combatLoseImperialSplash}</p>
+            <p style={{ margin: 0 }}>{ui.play.combatLoseImperialSplash}</p>
           ) : null}
         </div>
       )}
@@ -211,6 +226,7 @@ export function CombatLoseCardContent(props: { data: CombatLoseSummary & { uiSub
 }
 
 export function CombatLoseCard(props: { data: CombatLoseSummary; onContinue: () => void }) {
+  const ui = useUiStrings();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22, minWidth: 0, width: "100%" }}>
       <CombatSheetFrame showSheetTitle={false}>
@@ -226,7 +242,7 @@ export function CombatLoseCard(props: { data: CombatLoseSummary; onContinue: () 
             fontSize: 15,
           }}
         >
-          {sv.play.combatLoseContinue}
+          {ui.play.combatLoseContinue}
         </span>
       </ArcadeButton>
     </div>

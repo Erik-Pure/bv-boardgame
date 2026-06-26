@@ -1,5 +1,5 @@
 import styles from "../../routes/PlayView.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 function MyTurnOverlayHeading({ text }: { text: string }) {
   const chars = Array.from(text);
@@ -23,13 +23,14 @@ export function PlayTurnOverlays(props: {
   showMyTurnOverlay: boolean;
   showLevelUpOverlay: number | null;
 }) {
+  const ui = useUiStrings();
   const { showMyTurnOverlay, showLevelUpOverlay } = props;
 
   return (
     <>
       {showMyTurnOverlay ? (
-        <div className={styles.myTurnOverlay} aria-live="polite" aria-label={sv.play.footerTurnYou}>
-          <MyTurnOverlayHeading text={sv.play.footerTurnYou} />
+        <div className={styles.myTurnOverlay} aria-live="polite" aria-label={ui.play.footerTurnYou}>
+          <MyTurnOverlayHeading text={ui.play.footerTurnYou} />
         </div>
       ) : null}
       {showLevelUpOverlay != null ? (

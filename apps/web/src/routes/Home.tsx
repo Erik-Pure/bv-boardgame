@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { BrandLogoImg } from "../components/BrandLogoImg";
 import { CardFlipModalShell } from "../components/CardFlipModalShell";
 import { PictureImg } from "../components/PictureImg";
 import { appVersionLabel } from "../lib/buildInfo";
 import { publicRasterSources } from "../lib/publicRasterSources";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings, useLocale, useSetLocale } from "../lib/locale/LocaleContext";
 import styles from "./Home.module.css";
 
 const HOME_AGE_GATE_KEY = "bv:homeAgeGateAck";
@@ -47,6 +48,9 @@ function writeHomeAgeGateAck(): void {
 }
 
 export function Home() {
+  const ui = useUiStrings();
+  const locale = useLocale();
+  const setLocale = useSetLocale();
   const nav = useNavigate();
   const [ageGateOpen, setAgeGateOpen] = useState(() => !readHomeAgeGateAck());
   const [ageGatePhase, setAgeGatePhase] = useState<"ask" | "declined">("ask");
@@ -58,16 +62,38 @@ export function Home() {
 
   return (
     <>
+    <div className={styles.languageToggle} role="group" aria-label={ui.home.languageLabel}>
+      <button
+        type="button"
+        className={locale === "sv" ? styles.languageBtnActive : styles.languageBtn}
+        onClick={() => setLocale("sv")}
+        aria-pressed={locale === "sv"}
+      >
+        {ui.home.languageSv}
+      </button>
+      <span className={styles.languageSep} aria-hidden>
+        |
+      </span>
+      <button
+        type="button"
+        className={locale === "en" ? styles.languageBtnActive : styles.languageBtn}
+        onClick={() => setLocale("en")}
+        aria-pressed={locale === "en"}
+      >
+        {ui.home.languageEn}
+      </button>
+    </div>
+
     <div className={styles.homeShell}>
       <div className={styles.logoHero}>
         <div className={styles.logoGlowSpin} aria-hidden>
           <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
         </div>
-        <img className={styles.logoImage} src="/icons/bmm-logo.png" alt="Bryggmästarnas Mästare" />
+        <BrandLogoImg variant="stacked" className={styles.logoImage} alt={ui.home.title} />
       </div>
 
       <div className={styles.heroCtaBlock}>
-        <p className={styles.playtestBadge}>{sv.home.playtestBadge}</p>
+        <p className={styles.playtestBadge}>{ui.home.playtestBadge}</p>
         <div className={styles.heroCtaRow}>
         <ArcadeButton
           className={`${styles.heroCtaBtn} ${styles.heroJoinBtn}`}
@@ -78,7 +104,7 @@ export function Home() {
           <span data-arcade-label-icon="" className={styles.homeCtaIcon} aria-hidden>
             <MobileDeviceIcon />
           </span>
-          {sv.home.primaryJoin}
+          {ui.home.primaryJoin}
         </ArcadeButton>
         <ArcadeButton
           className={styles.heroCtaBtn}
@@ -89,7 +115,7 @@ export function Home() {
           <span data-arcade-label-icon="" className={styles.homeCtaIcon} aria-hidden>
             <LargeScreenIcon />
           </span>
-          {sv.home.createLobby}
+          {ui.home.createLobby}
         </ArcadeButton>
         </div>
       </div>
@@ -98,30 +124,30 @@ export function Home() {
     <section className={styles.homeWideOuter} aria-labelledby="home-how-to-heading">
       <div className={styles.homeWideInner}>
         <h4 id="home-how-to-heading" className={styles.howToTitle}>
-          {sv.home.howToPlayTitle}
+          {ui.home.howToPlayTitle}
         </h4>
         <div className={styles.howToGrid}>
           <figure className={styles.explainerFigure}>
             <PictureImg
               className={styles.explainerImg}
               sources={publicRasterSources("/icons/bmm-explainer.png")}
-              alt={sv.home.explainerAlt}
+              alt={ui.home.explainerAlt}
               loading="lazy"
               decoding="async"
             />
           </figure>
           <div className={styles.howToTextCol}>
-            <p className={styles.howToBody}><strong>{sv.home.howToPlayLead}</strong></p>
-            <p className={styles.howToBody}>{sv.home.howToPlayBody}</p>
-            <p className={styles.howToBody}>{sv.home.howToPlayDeviceBody}</p>
-            <p className={styles.howToBody}>{sv.home.howToPlayCheersBody}</p>
+            <p className={styles.howToBody}><strong>{ui.home.howToPlayLead}</strong></p>
+            <p className={styles.howToBody}>{ui.home.howToPlayBody}</p>
+            <p className={styles.howToBody}>{ui.home.howToPlayDeviceBody}</p>
+            <p className={styles.howToBody}>{ui.home.howToPlayCheersBody}</p>
             <ArcadeButton
               className={styles.howToRulesBtn}
               variant="gray"
               size="sm"
               onClick={() => nav("/rules")}
             >
-              {sv.home.footerRules}
+              {ui.home.footerRules}
             </ArcadeButton>
           </div>
         </div>
@@ -131,10 +157,10 @@ export function Home() {
     <section className={styles.homeWideOuter} aria-labelledby="home-promo-heading">
       <div className={styles.homeWideInner}>
         <h4 id="home-promo-heading" className={styles.promoSectionTitle}>
-          {sv.home.promoSectionTitle}
+          {ui.home.promoSectionTitle}
         </h4>
         <div className={styles.promoGrid}>
-          {sv.home.promoCards.map((card) => (
+          {ui.home.promoCards.map((card) => (
             <a
               key={card.href}
               className={styles.promoCard}
@@ -157,9 +183,9 @@ export function Home() {
           ))}
         </div>
         <div className={styles.promoSocial}>
-          <p className={styles.promoSocialLabel}>{sv.home.promoSocialLabel}</p>
+          <p className={styles.promoSocialLabel}>{ui.home.promoSocialLabel}</p>
           <div className={styles.promoSocialLinks}>
-            {sv.home.promoSocialLinks.map((link, index) => (
+            {ui.home.promoSocialLinks.map((link, index) => (
               <span key={link.href} className={styles.promoSocialItem}>
                 {index > 0 ? <span className={styles.promoSocialSep} aria-hidden>·</span> : null}
                 <a
@@ -180,12 +206,12 @@ export function Home() {
     <div className={styles.homeShell}>
       <nav className={styles.homeFooterNav}>
         <Link className={styles.homeFooterLink} to="/login">
-          Logga in
+          {ui.home.loginLink}
         </Link>
       </nav>
     </div>
 
-    <div className={styles.versionBadge} title="Deployad version">
+    <div className={styles.versionBadge} title={ui.home.deployedVersionTitle}>
       {appVersionLabel()}
     </div>
 
@@ -218,7 +244,7 @@ export function Home() {
                   textShadow: "0 2px 14px rgba(0,0,0,0.75), 0 0 20px rgba(250, 204, 21, 0.22)",
                 }}
               >
-                {sv.home.ageGateTitle}
+                {ui.home.ageGateTitle}
               </h2>
               <p
                 style={{
@@ -228,14 +254,14 @@ export function Home() {
                   color: "rgba(248, 250, 252, 0.95)",
                 }}
               >
-                {sv.home.ageGateBody}
+                {ui.home.ageGateBody}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <ArcadeButton variant="pink" fullWidth onClick={confirmAgeGate}>
-                  {sv.home.ageGateConfirm}
+                  {ui.home.ageGateConfirm}
                 </ArcadeButton>
                 <ArcadeButton variant="gray" fullWidth onClick={() => setAgeGatePhase("declined")}>
-                  {sv.home.ageGateDecline}
+                  {ui.home.ageGateDecline}
                 </ArcadeButton>
               </div>
             </>
@@ -249,10 +275,10 @@ export function Home() {
                   color: "rgba(248, 250, 252, 0.95)",
                 }}
               >
-                {sv.home.ageGateDeclineBody}
+                {ui.home.ageGateDeclineBody}
               </p>
               <ArcadeButton variant="gray" fullWidth onClick={() => setAgeGatePhase("ask")}>
-                {sv.home.ageGateBack}
+                {ui.home.ageGateBack}
               </ArcadeButton>
             </>
           )}

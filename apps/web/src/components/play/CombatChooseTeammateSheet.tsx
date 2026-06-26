@@ -1,6 +1,7 @@
 import { isPlayerActiveInMatch, type ClientAction, type GameState, type Player } from "@bv/game-core";
 import { ArcadeButton } from "../ArcadeButton";
-import { capitalizeWord, sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
+import { capitalizeWord } from "../../lib/uiStrings";
 
 type CombatChooseTeammatePending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
@@ -10,6 +11,7 @@ export function CombatChooseTeammateSheet(props: {
   pending: CombatChooseTeammatePending;
   send: (action: ClientAction) => void;
 }) {
+  const ui = useUiStrings();
   const { state, me, pending, send } = props;
   const isAttacker = pending.attackerId === me.id;
   const attacker = state.players.find((p) => p.id === pending.attackerId);
@@ -19,8 +21,8 @@ export function CombatChooseTeammateSheet(props: {
   if (isAttacker) {
     return (
       <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ textAlign: "center", opacity: 0.95 }}>{sv.play.chooseTeammate}</div>
-        <div style={{ textAlign: "center", opacity: 0.78, fontSize: 13 }}>{sv.play.teammateMustFight}</div>
+        <div style={{ textAlign: "center", opacity: 0.95 }}>{ui.play.chooseTeammate}</div>
+        <div style={{ textAlign: "center", opacity: 0.78, fontSize: 13 }}>{ui.play.teammateMustFight}</div>
         <div style={{ display: "grid", gap: 8 }}>
           {options.map((p) => (
             <ArcadeButton
@@ -38,7 +40,7 @@ export function CombatChooseTeammateSheet(props: {
   }
   return (
     <div style={{ textAlign: "center", opacity: 0.85 }}>
-      {sv.play.waitAttackerChooseTeammate(attacker?.name ?? capitalizeWord(sv.play.theAttacker))}
+      {ui.play.waitAttackerChooseTeammate(attacker?.name ?? capitalizeWord(ui.play.theAttacker))}
     </div>
   );
 }

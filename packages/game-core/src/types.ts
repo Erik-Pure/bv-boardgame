@@ -553,6 +553,9 @@ export type Pending =
 export interface LogEntry {
   at: number;
   message: string;
+  /** Structured i18n key; clients format with {@link formatLogEntry}. */
+  key?: string;
+  params?: Record<string, string | number>;
 }
 
 /** Kumulativ statistik under aktuellt parti (serialiseras med GameState). */

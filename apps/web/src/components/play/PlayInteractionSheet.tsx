@@ -1,5 +1,6 @@
 import type { Pending } from "@bv/game-core";
 import { resolveIdleEmoteContext } from "../../lib/idleEmoteContext";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { PlayInteractionPanel, type PlayInteractionPanelProps } from "./PlayInteractionPanel";
 import { withIdleEmotes } from "./withIdleEmotes";
 
@@ -9,6 +10,7 @@ export function PlayInteractionSheet(
     footerTurnCaption: string | null;
   },
 ) {
+  const ui = useUiStrings();
   const { pending, footerTurnCaption, ...panelProps } = props;
   const idleEmoteCtx = resolveIdleEmoteContext(
     panelProps.state,
@@ -16,6 +18,7 @@ export function PlayInteractionSheet(
     pending,
     panelProps.isMyTurn,
     footerTurnCaption,
+    ui,
   );
   return withIdleEmotes(<PlayInteractionPanel {...panelProps} />, idleEmoteCtx);
 }

@@ -9,7 +9,8 @@ import {
 import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
-import { sv } from "../../lib/uiStrings";
+import { localizedCombatMonster } from "../../lib/combatUi";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
 
 type CombatHitMitigationPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
 
@@ -22,6 +23,8 @@ export function CombatHitMitigationSheet(props: {
   sheetDiceCaptionClass: string;
   sheetDiceCaptionTextClass: string;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const { state, me, pending, send, sheetDiceBlockClass, sheetDiceCaptionClass, sheetDiceCaptionTextClass } = props;
   const isAttacker = pending.attackerId === me.id;
   const attacker = state.players.find((p) => p.id === pending.attackerId);
@@ -42,20 +45,20 @@ export function CombatHitMitigationSheet(props: {
   const canPayPantMitigation = pantMitigationCost === 0 || canAffordPant(me, pantMitigationCost);
   const detailText = isInterrobang
     ? canPayPantMitigation
-      ? "Betala 5 pant för att minska skadan med 3, eller ta full skada."
-      : sv.play.hitMitigationPantOnlyFullDamage(5)
+      ? ui.play.hitMitigationInterrobangDetail
+      : ui.play.hitMitigationPantOnlyFullDamage(5)
     : isTransporter
       ? canPayPantMitigation
-        ? "Betala 10 pant för att ta 0 skada, eller ta full skada."
-        : sv.play.hitMitigationPantOnlyFullDamage(10)
-      : sv.play.hitChoiceDetail(reduce, full);
+        ? ui.play.hitMitigationTransporterDetail
+        : ui.play.hitMitigationPantOnlyFullDamage(10)
+      : ui.play.hitChoiceDetail(reduce, full);
   const primaryLabel = isInterrobang
-    ? "Betala 5 pant (−3 skada)"
+    ? ui.play.hitMitigationInterrobangPrimary
     : isTransporter
-      ? "Betala 10 pant (0 skada)"
-      : sv.play.takeSipReduce(reduce);
+      ? ui.play.hitMitigationTransporterPrimary
+      : ui.play.takeSipReduce(reduce);
   const secondaryLabel =
-    isInterrobang || isTransporter ? sv.play.takeFullDamageHp(fullDamageHp) : sv.play.fullDamageNoSip(fullDamageHp);
+    isInterrobang || isTransporter ? ui.play.takeFullDamageHp(fullDamageHp) : ui.play.fullDamageNoSip(fullDamageHp);
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <div className={sheetDiceBlockClass}>
@@ -78,11 +81,11 @@ export function CombatHitMitigationSheet(props: {
           ) : null}
         </div>
         <div className={sheetDiceCaptionClass}>
-          <span className={sheetDiceCaptionTextClass}>{sv.play.youLostTotal(total, need)}</span>
+          <span className={sheetDiceCaptionTextClass}>{ui.play.youLostTotal(total, need)}</span>
         </div>
       </div>
       <div style={{ textAlign: "center", opacity: 0.9, fontSize: 14, lineHeight: 1.45 }}>
-        {sv.play.hitChoiceIntro(pending.enemyName)}
+        {ui.play.hitChoiceIntro(localizedCombatMonster(pending, locale).name)}
         <br />
         <span style={{ opacity: 0.88 }}>{detailText}</span>
       </div>
@@ -107,7 +110,7 @@ export function CombatHitMitigationSheet(props: {
         </div>
       ) : (
         <div style={{ textAlign: "center", opacity: 0.85 }}>
-          {sv.play.waitAttackerChoose(attacker?.name ?? sv.play.theAttacker)}
+          {ui.play.waitAttackerChoose(attacker?.name ?? ui.play.theAttacker)}
         </div>
       )}
     </div>

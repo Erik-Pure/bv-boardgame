@@ -2,7 +2,7 @@ import type { Pending } from "@bv/game-core";
 import { CardFlipModalShell } from "../CardFlipModalShell";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 function playLevelBackgroundSrc(levelIndex: number): string {
   const idx = Math.max(0, Math.floor(levelIndex));
@@ -35,6 +35,7 @@ export function PlayLevelUpOfferPrompt(props: {
   personalTurnPrompt: Extract<Pending, { type: "levelUpOffer" }>;
   cardCoverId: string | undefined;
 }) {
+  const ui = useUiStrings();
   const { personalTurnPrompt, cardCoverId } = props;
   return (
     <CardFlipModalShell
@@ -49,7 +50,7 @@ export function PlayLevelUpOfferPrompt(props: {
     >
       <div className={styles.promptOfferPanel} style={promptPanelStyle}>
         <div style={{ padding: 14 }}>
-          <div style={promptTitleStyle}>{sv.play.levelUpOfferTitle}</div>
+          <div style={promptTitleStyle}>{ui.play.levelUpOfferTitle}</div>
           <div
             aria-hidden
             className={styles.promptOfferArt}
@@ -58,7 +59,7 @@ export function PlayLevelUpOfferPrompt(props: {
             }}
           />
           <div className={`${styles.promptOfferBody} ${u.textCenter}`}>
-            {sv.play.levelUpOfferPrompt(personalTurnPrompt.targetLevelIndex + 1)}
+            {ui.play.levelUpOfferPrompt(personalTurnPrompt.targetLevelIndex + 1)}
           </div>
         </div>
       </div>
@@ -70,6 +71,7 @@ export function PlayBrewerPerkChoicePrompt(props: {
   levelsRemaining: number;
   cardCoverId: string | undefined;
 }) {
+  const ui = useUiStrings();
   const { levelsRemaining, cardCoverId } = props;
   return (
     <CardFlipModalShell
@@ -84,9 +86,9 @@ export function PlayBrewerPerkChoicePrompt(props: {
     >
       <div className={styles.promptOfferPanel} style={promptPanelStyle}>
         <div style={{ padding: 14 }}>
-          <div style={promptTitleStyle}>{sv.play.brewerPerkTitle}</div>
+          <div style={promptTitleStyle}>{ui.play.brewerPerkTitle}</div>
           <div className={`${styles.promptOfferBody} ${u.textCenter}`}>
-            {sv.play.brewerPerkPrompt(levelsRemaining)}
+            {ui.play.brewerPerkPrompt(levelsRemaining)}
           </div>
         </div>
       </div>

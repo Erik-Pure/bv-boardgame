@@ -2,20 +2,21 @@ import { ArcadeButton } from "../ArcadeButton";
 import { StatIcon } from "../StatIcon";
 import { PlayModal } from "./PlayModal";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function PlayResponsibleReminderModal(props: {
   open: boolean;
   cardCoverId: string | undefined;
   onDismiss: () => void;
 }) {
+  const ui = useUiStrings();
   const { open, cardCoverId, onDismiss } = props;
   if (!open) return null;
 
   return (
     <PlayModal
       cardCoverId={cardCoverId}
-      title={sv.play.responsibleReminderTitle}
+      title={ui.play.responsibleReminderTitle}
       onClose={onDismiss}
       instantFront
       hideClose
@@ -45,10 +46,10 @@ export function PlayResponsibleReminderModal(props: {
             maxWidth: "100%",
           }}
         >
-          {sv.play.responsibleReminderBody}
+          {ui.play.responsibleReminderBody}
         </p>
         <ArcadeButton variant="pink" fullWidth onClick={onDismiss}>
-          {sv.play.responsibleReminderOk}
+          {ui.play.responsibleReminderOk}
         </ArcadeButton>
       </div>
     </PlayModal>

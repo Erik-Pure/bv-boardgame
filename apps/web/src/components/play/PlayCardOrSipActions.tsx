@@ -1,11 +1,14 @@
 import type { MutableRefObject } from "react";
-import { PENALTY_XP_PER_KLUNK, type ClientAction, type GameState, type Player } from "@bv/game-core";
+import { useMemo } from "react";
+import { PENALTY_XP_PER_KLUNK, localizeRewardDisplayTitles, type ClientAction, type GameState, type Player } from "@bv/game-core";
 import { bossFinaleExitTotalMs } from "../../lib/useBossFinaleExit";
 import { PlayArcadeButton as ArcadeButton } from "./PlayArcadeButton";
 import { DiceCube3D } from "../DiceCube3D";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { localizedCombatMonster } from "../../lib/combatUi";
+import { localizePendingCard } from "../../lib/localizePendingCard";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
 
 type CardPending = Extract<NonNullable<GameState["pending"]>, { type: "card" }>;
 type EnemyIntroPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
@@ -63,6 +66,8 @@ export function playCardOrSipActionsVisible(
 }
 
 export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const {
     me,
     state,
@@ -87,6 +92,11 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
     bossFinaleFinishTimerRef,
   } = props;
 
+  const localizedCardPending = useMemo(
+    () => (myCardPending ? localizePendingCard(myCardPending, locale) : null),
+    [myCardPending, locale],
+  );
+
   if (!me) return null;
   if (needsBrewerPerkChoice) return null;
   if (state?.pending?.type === "brewerDown") return null;
@@ -102,15 +112,18 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
             disabled={!canAffordSkipMonsterEncounter}
             onClick={() => {
               send({ type: "skipMonsterEncounter", playerId: me.id });
-              const enemy = myEnemyIntroPending?.enemyName ?? "batchmötet";
-              showToast(sv.play.skipMonsterEncounterToast(me.name, enemy));
+              const enemy =
+                myEnemyIntroPending
+                  ? localizedCombatMonster(myEnemyIntroPending, locale).name
+                  : ui.play.combatWinEnemyFallback;
+              showToast(ui.play.skipMonsterEncounterToast(me.name, enemy));
             }}
           >
-            {sv.play.skipMonsterEncounter}
+            {ui.play.skipMonsterEncounter}
           </ArcadeButton>
         ) : null}
         <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatIntroAck", playerId: me.id })}>
-          {sv.play.continue}
+          {ui.play.continue}
         </ArcadeButton>
       </div>
     );
@@ -145,7 +158,7 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
             }
             if (loot.length > 0) {
               showToast(
-                sv.play.combatWinGrantedLootToast(loot),
+                ui.play.combatWinGrantedLootToast(localizeRewardDisplayTitles(loot, locale)),
                 Math.min(9000, 2800 + loot.length * 1200),
               );
             }
@@ -159,7 +172,7 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
           }
         }}
       >
-        {sv.cardModal.continue}
+        {ui.cardModal.continue}
       </ArcadeButton>
     );
   }
@@ -172,9 +185,9 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
     if (!Number.isFinite(n)) return null;
     return Math.max(1, Math.min(6, Math.round(n)));
   })();
-  if (myCardPending.choices && myCardPending.choices.length > 0) {
+  if (localizedCardPending?.choices && localizedCardPending.choices.length > 0) {
     const showEventRollDie =
-      myCardPending.kind === "event" && myCardPending.choices.some((c) => c.id === "roll");
+      localizedCardPending.kind === "event" && localizedCardPending.choices.some((c) => c.id === "roll");
     return (
       <div className={u.stack8}>
         {showEventRollDie ? (
@@ -183,7 +196,7 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
             <div className={styles.sheetDiceCaption} aria-hidden />
           </div>
         ) : null}
-        {myCardPending.choices.map((c) => (
+        {localizedCardPending.choices.map((c) => (
           <ArcadeButton
             key={c.id}
             variant="blue"
@@ -213,7 +226,10 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
             showXpGainPrompt(myCardPending.combatWin?.rewardXp ?? 0);
             const lootTitles = myCardPending.combatWin?.grantedRewardTitles;
             if (lootTitles && lootTitles.length > 0) {
-              showToast(sv.play.combatWinGrantedLootToast(lootTitles), Math.min(9000, 2800 + lootTitles.length * 1200));
+              showToast(
+                ui.play.combatWinGrantedLootToast(localizeRewardDisplayTitles(lootTitles, locale)),
+                Math.min(9000, 2800 + lootTitles.length * 1200),
+              );
             }
             send({ type: "confirmCard", playerId: me.id });
             return;
@@ -244,8 +260,8 @@ export function PlayCardOrSipActions(props: PlayCardOrSipActionsProps) {
         }}
       >
         {myCardPending.cardId === "boss_final_win" && bossFinaleExiting
-          ? sv.play.bossFinaleEnding
-          : sv.cardModal.continue}
+          ? ui.play.bossFinaleEnding
+          : ui.cardModal.continue}
       </ArcadeButton>
     </div>
   );

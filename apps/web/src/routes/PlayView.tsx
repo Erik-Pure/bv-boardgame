@@ -23,7 +23,7 @@ import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { ArcadeButton } from "../components/ArcadeButton";
 import { PlayerAvatarStack } from "../components/PlayerAvatarStack";
 import { PlayCardCombatModals } from "../components/play/PlayCardCombatModals";
-import { MOBILE_TUTORIAL_STEPS } from "../components/play/mobileTutorialSteps";
+import { getMobileTutorialSteps } from "../components/play/mobileTutorialSteps";
 import { PlayMobileTutorial } from "../components/play/PlayMobileTutorial";
 import { PlayResponsibleReminderModal } from "../components/play/PlayResponsibleReminderModal";
 import { PlayTurnOverlays } from "../components/play/PlayTurnOverlays";
@@ -54,7 +54,9 @@ import { isMyPending } from "../lib/playInteractionHelpers";
 import { myPersonalTurnPrompt } from "../components/play/playSessionHelpers";
 import styles from "./PlayView.module.css";
 import { combatAllyOutcomeKey, combatAllyOutcomeRole } from "../lib/combatUi";
-import { sv, wsStatusLabel } from "../lib/uiStrings";
+import { useUiStrings, useLocale } from "../lib/locale/LocaleContext";
+import { localizePendingCard } from "../lib/localizePendingCard";
+import { wsStatusLabel } from "../lib/uiStrings";
 
 const RAINBOW_EFFECTS_STORAGE_KEY = "bv.play.rainbowEffectsEnabled";
 
@@ -98,6 +100,8 @@ function applyPlayRootBackground(playerTint: string | undefined): void {
 }
 
 export function PlayView() {
+  const ui = useUiStrings();
+  const locale = useLocale();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
@@ -225,8 +229,8 @@ export function PlayView() {
     if (!state || state.phase !== "playing" || !activeId) return null;
     const p = state.players.find((x) => x.id === activeId);
     const name = p?.name?.trim() || "—";
-    if (me && activeId === me.id) return sv.play.footerTurnYou;
-    return sv.play.footerTurnOther(name);
+    if (me && activeId === me.id) return ui.play.footerTurnYou;
+    return ui.play.footerTurnOther(name);
   }, [state, activeId, me?.id]);
   const isMyTurn = me && activeId === me.id && state?.phase === "playing";
   /** Spelarfärg på #root/html; smal vy: gradient spelarfärg → svart längst ned. */
@@ -254,7 +258,7 @@ export function PlayView() {
     if (!me) return "";
     const parts: string[] = [];
     if ((me.skippedTurns ?? 0) > 0 && me.skipTurnReasons?.includes("normal")) parts.push("(Zzz)");
-    if (me.skipTurnReasons?.includes("oil")) parts.push(`(${sv.table.playerStatusOilInEye})`);
+    if (me.skipTurnReasons?.includes("oil")) parts.push(`(${ui.table.playerStatusOilInEye})`);
     return parts.length ? parts.join(" ") : "";
   }, [me]);
   const brewerProgressUi = useMemo(() => {
@@ -408,8 +412,8 @@ export function PlayView() {
   const bossFinalePending = useMemo(() => {
     if (!state || state.phase !== "playing") return null;
     if (state.pending?.type !== "card" || state.pending.cardId !== "boss_final_win") return null;
-    return state.pending;
-  }, [state?.pending, state?.phase]);
+    return localizePendingCard(state.pending, locale);
+  }, [state?.pending, state?.phase, locale]);
   const bossFinaleExiting =
     bossFinaleExitLocal || (state?.bossFinaleExitStartedAt ?? null) != null;
   useEffect(() => {
@@ -519,7 +523,8 @@ export function PlayView() {
   const floatingEmoteBottom =
     controlsAboveBottomSheetPx ?? "max(10px, env(safe-area-inset-bottom))";
 
-  const tutorialStep = MOBILE_TUTORIAL_STEPS[Math.max(0, Math.min(mobileTutorialStep, MOBILE_TUTORIAL_STEPS.length - 1))];
+  const mobileTutorialSteps = useMemo(() => getMobileTutorialSteps(ui), [ui]);
+  const tutorialStep = mobileTutorialSteps[Math.max(0, Math.min(mobileTutorialStep, mobileTutorialSteps.length - 1))];
 
   return (
     <PlayActionBusyProvider busy={actionBusy}>
@@ -596,7 +601,7 @@ export function PlayView() {
       {state ? <PlayEndedOverlay state={state} onLeaveHome={() => navigate("/", { replace: true })} /> : null}
 
       <div className={styles.content}>
-        {!state && <div>{sv.play.waitingState}</div>}
+        {!state && <div>{ui.play.waitingState}</div>}
 
         {state && state.phase !== "ended" && (
           <>
@@ -614,12 +619,12 @@ export function PlayView() {
                   <div className={styles.sessionRecovery}>
                     <p className={styles.sessionRecoveryText}>
                       {status === "connected" && state
-                        ? sv.play.sessionStale
-                        : sv.play.lookingForPlayer}
+                        ? ui.play.sessionStale
+                        : ui.play.lookingForPlayer}
                     </p>
                     {status === "connected" && state ? (
                       <ArcadeButton variant="pink" fullWidth onClick={() => leaveCurrentGame()}>
-                        {sv.play.sessionStaleLeave}
+                        {ui.play.sessionStaleLeave}
                       </ArcadeButton>
                     ) : null}
                   </div>
@@ -661,8 +666,8 @@ export function PlayView() {
                   textAlign: "center",
                 }}
               >
-                <h2 style={{ marginTop: 0 }}>{sv.play.lobbySectionTitle}</h2>
-                <div style={{ opacity: 0.8, marginBottom: 8 }}>{sv.play.lobbyReadyLine(readyCount, state.players.length)}</div>
+                <h2 style={{ marginTop: 0 }}>{ui.play.lobbySectionTitle}</h2>
+                <div style={{ opacity: 0.8, marginBottom: 8 }}>{ui.play.lobbyReadyLine(readyCount, state.players.length)}</div>
                 <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
                   <PlayerAvatarStack avatar={me.avatar} color={me.color} size="lobby" />
                 </div>
@@ -691,7 +696,7 @@ export function PlayView() {
                         />
                         <span>
                           {p.name}
-                          {p.isHost ? ` ${sv.play.hostTag}` : ""}
+                          {p.isHost ? ` ${ui.play.hostTag}` : ""}
                           {p.ready ? " ✓" : ""}
                         </span>
                       </li>
@@ -699,7 +704,7 @@ export function PlayView() {
                   </ul>
                 ) : null}
                 {!isMobilePlayLayout ? (
-                  <div style={{ opacity: 0.75, fontSize: 12 }}>{sv.play.lobbyBottomHint}</div>
+                  <div style={{ opacity: 0.75, fontSize: 12 }}>{ui.play.lobbyBottomHint}</div>
                 ) : null}
               </section>
             )}
@@ -739,11 +744,12 @@ export function PlayView() {
         open={showMobileTutorial}
         step={tutorialStep}
         stepIndex={mobileTutorialStep}
+        stepCount={mobileTutorialSteps.length}
         bodyNeedsScroll={tutorialBodyNeedsScroll}
         bodyScrollRef={tutorialBodyScrollRef}
         onDismiss={dismissMobileTutorial}
         onBack={() => setMobileTutorialStep((s) => Math.max(0, s - 1))}
-        onNext={() => setMobileTutorialStep((s) => Math.min(MOBILE_TUTORIAL_STEPS.length - 1, s + 1))}
+        onNext={() => setMobileTutorialStep((s) => Math.min(mobileTutorialSteps.length - 1, s + 1))}
       />
 
       <PlaySettingsModals
@@ -762,6 +768,7 @@ export function PlayView() {
         }}
         rainbowEffectsEnabled={rainbowEffectsEnabled}
         onRainbowEffectsChange={setRainbowEffectsEnabled}
+        boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
         mobileSfxEnabled={mobileSfxEnabled}
         onMobileSfxChange={setMobileSfxEnabled}
         onOpenTutorial={() => {
@@ -806,14 +813,14 @@ export function PlayView() {
       {showReconnectOverlay ? (
         <div className={styles.reconnectBar}>
           <div className={styles.reconnectBarText}>
-            {room} · {wsStatusLabel(status)}
+            {room} · {wsStatusLabel(status, locale)}
           </div>
           <WsReconnectFooterHint
             phase={overlayPhase}
             attempt={reconnectAttemptN}
-            connectingShort={sv.play.wsReconnectFooterConnecting}
-            waitingShort={sv.play.wsReconnectFooterWaiting}
-            retryLabel={sv.play.wsRetry}
+            connectingShort={ui.play.wsReconnectFooterConnecting}
+            waitingShort={ui.play.wsReconnectFooterWaiting}
+            retryLabel={ui.play.wsRetry}
             onRetry={requestReconnect}
           />
         </div>

@@ -53,7 +53,7 @@ export function tableItemPlayModifierBadge(
     case "charity":
       return { iconSrc: ICON.pant, value: "♥" };
     case "shortcut":
-      return { iconSrc: ICON.pant, value: "↑" };
+      return { iconSrc: ICON.pant, value: "10" };
     case "taproom_key":
       return { iconSrc: ICON.pant, value: "↑" };
     case "beard_back":

@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { allCards, CONFIG_NUMERIC, clampConfigNumber, type DifficultyPreset } from "@bv/game-core";
 import { useNavigate } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { BrandLogoImg } from "../components/BrandLogoImg";
 import {
   readBoardPerformancePrefs,
   subscribeBoardPerformancePrefs,
@@ -12,7 +13,7 @@ import {
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
 import { defaultLobbyConfigDraft, saveLobbyConfigDraft } from "../lib/lobbyConfigDraft";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 import styles from "./HostLobbySetup.module.css";
 
 function randomCode(): string {
@@ -41,15 +42,14 @@ function clampReactionSeconds(n: number): number {
   return clampConfigNumber("reactionSeconds", n);
 }
 
-const DIFFICULTY_OPTIONS: Array<{
+const DIFFICULTY_OPTION_DEFS: Array<{
   id: DifficultyPreset;
-  label: string;
   iconSrc: string;
 }> = [
-  { id: "lattol", label: sv.play.lobbyDifficultyLattol, iconSrc: "/icons/lvl1.svg" },
-  { id: "folkol", label: sv.play.lobbyDifficultyFolkol, iconSrc: "/icons/lvl2.svg" },
-  { id: "starkol", label: sv.play.lobbyDifficultyStarkol, iconSrc: "/icons/lvl3.svg" },
-  { id: "imperial", label: sv.play.lobbyDifficultyImperial, iconSrc: "/icons/lvl5.svg" },
+  { id: "lattol", iconSrc: "/icons/lvl1.svg" },
+  { id: "folkol", iconSrc: "/icons/lvl2.svg" },
+  { id: "starkol", iconSrc: "/icons/lvl3.svg" },
+  { id: "imperial", iconSrc: "/icons/lvl5.svg" },
 ];
 
 function AdvancedSection(props: { title: string; children: ReactNode }) {
@@ -73,6 +73,7 @@ function SubSection(props: { title: string; children: ReactNode }) {
 }
 
 export function HostLobbySetup() {
+  const ui = useUiStrings();
   const nav = useNavigate();
   const roomCode = useMemo(() => randomCode(), []);
   const [cfg, setCfg] = useState(defaultLobbyConfigDraft);
@@ -86,10 +87,21 @@ export function HostLobbySetup() {
     event: TOGGLE_CARDS.filter((c) => c.kind === "event"),
   };
   const cardBackOptions: Array<{ id: string; label: string; srcWebp: string; srcPng: string }> = [
-    { id: "card1", label: sv.play.lobbyCardCoverDefault, srcWebp: "/cardbg/card1.webp", srcPng: "/cardbg/card1.png" },
-    { id: "card2", label: sv.play.lobbyCardCoverAlt1, srcWebp: "/cardbg/card2.webp", srcPng: "/cardbg/card2.png" },
-    { id: "card3", label: sv.play.lobbyCardCoverAlt2, srcWebp: "/cardbg/card3.webp", srcPng: "/cardbg/card3.png" },
+    { id: "card1", label: ui.play.lobbyCardCoverDefault, srcWebp: "/cardbg/card1.webp", srcPng: "/cardbg/card1.png" },
+    { id: "card2", label: ui.play.lobbyCardCoverAlt1, srcWebp: "/cardbg/card2.webp", srcPng: "/cardbg/card2.png" },
+    { id: "card3", label: ui.play.lobbyCardCoverAlt2, srcWebp: "/cardbg/card3.webp", srcPng: "/cardbg/card3.png" },
   ];
+  const difficultyOptions = DIFFICULTY_OPTION_DEFS.map((opt) => ({
+    ...opt,
+    label:
+      opt.id === "lattol"
+        ? ui.play.lobbyDifficultyLattol
+        : opt.id === "folkol"
+          ? ui.play.lobbyDifficultyFolkol
+          : opt.id === "starkol"
+            ? ui.play.lobbyDifficultyStarkol
+            : ui.play.lobbyDifficultyImperial,
+  }));
   const checkboxStyle: CSSProperties = {
     width: 18,
     height: 18,
@@ -99,23 +111,21 @@ export function HostLobbySetup() {
 
   return (
     <div className={styles.root}>
-      <picture className={styles.logoHeader}>
-        <source srcSet="/icons/bmm-logo-horisontal.avif" type="image/avif" />
-        <source srcSet="/icons/bmm-logo-horisontal.webp" type="image/webp" />
-        <img
-          src="/icons/bmm-logo-horisontal.png"
-          alt="Bryggmästarnas Mästare"
+      <div className={styles.logoHeader}>
+        <BrandLogoImg
+          variant="horizontal"
+          alt={ui.home.title}
           draggable={false}
           className={styles.logoImg}
         />
-      </picture>
-      <h1 className={styles.title}>Lobbyinställningar</h1>
+      </div>
+      <h1 className={styles.title}>{ui.play.lobbySetupTitle}</h1>
 
       <div className={styles.stack}>
         <div className={styles.heroBlock}>
-          <div className={styles.fieldLabel}>{sv.play.lobbyDifficulty}</div>
-          <div className={styles.difficultyGroup} role="group" aria-label={sv.play.lobbyDifficulty}>
-            {DIFFICULTY_OPTIONS.map((opt) => {
+          <div className={styles.fieldLabel}>{ui.play.lobbyDifficulty}</div>
+          <div className={styles.difficultyGroup} role="group" aria-label={ui.play.lobbyDifficulty}>
+            {difficultyOptions.map((opt) => {
               const selected = cfg.difficulty === opt.id;
               return (
                 <button
@@ -146,27 +156,27 @@ export function HostLobbySetup() {
                 draggable={false}
                 className={styles.hardcoreIcon}
               />
-              <span>Hardcore mode (endast 1 liv)</span>
+              <span>{ui.play.lobbyHardcoreModeLabel}</span>
             </span>
           </label>
         </div>
-        <AdvancedSection title={sv.play.lobbyAdvancedSettings}>
-          <SubSection title="Bräde">
+        <AdvancedSection title={ui.play.lobbyAdvancedSettings}>
+          <SubSection title={ui.table.board}>
             <div className={`${styles.stack} ${styles.boardGrid}`}>
               <label className={styles.field}>
-                <span>{sv.play.lobbyBoardSize}</span>
+                <span>{ui.play.lobbyBoardSize}</span>
                 <select
                   value={cfg.boardSize}
                   onChange={(e) => setCfg((v) => ({ ...v, boardSize: e.target.value as typeof v.boardSize }))}
                   style={lobbyFieldControlStyle}
                 >
-                  <option value="default">{sv.play.lobbyBoardSizeDefault}</option>
-                  <option value="large">{sv.play.lobbyBoardSizeLarge}</option>
-                  <option value="xlarge">{sv.play.lobbyBoardSizeXLarge}</option>
+                  <option value="default">{ui.play.lobbyBoardSizeDefault}</option>
+                  <option value="large">{ui.play.lobbyBoardSizeLarge}</option>
+                  <option value="xlarge">{ui.play.lobbyBoardSizeXLarge}</option>
                 </select>
               </label>
               <label className={styles.field}>
-                <span>{sv.play.lobbyLevelCount}</span>
+                <span>{ui.play.lobbyLevelCount}</span>
                 <select
                   value={cfg.levelCount}
                   onChange={(e) => setCfg((v) => ({ ...v, levelCount: Number(e.target.value) as 2 | 3 | 4 | 5 }))}
@@ -180,7 +190,7 @@ export function HostLobbySetup() {
               </label>
             </div>
           </SubSection>
-          <SubSection title={sv.play.lobbyAppearance}>
+          <SubSection title={ui.play.lobbyAppearance}>
             <div className={`${styles.stack} ${styles.appearanceGrid}`}>
               {cardBackOptions.map((opt) => {
                 const selected = cfg.cardCover === opt.id;
@@ -203,7 +213,7 @@ export function HostLobbySetup() {
               })}
             </div>
           </SubSection>
-          <SubSection title={sv.play.lobbyAccessibility}>
+          <SubSection title={ui.play.lobbyAccessibility}>
               <div className={styles.stack}>
                 <label className={styles.inlineCheck}>
                   <input
@@ -215,7 +225,7 @@ export function HostLobbySetup() {
                     }}
                     style={checkboxStyle}
                   />
-                  <span>{sv.table.settingsBoardPan}</span>
+                  <span>{ui.table.settingsBoardPan}</span>
                 </label>
                 <label className={styles.inlineCheck}>
                   <input
@@ -227,7 +237,7 @@ export function HostLobbySetup() {
                     }}
                     style={checkboxStyle}
                   />
-                  <span>{sv.table.settingsBoardAnimations}</span>
+                  <span>{ui.table.settingsBoardAnimations}</span>
                 </label>
                 <label className={styles.inlineCheck}>
                   <input
@@ -239,15 +249,15 @@ export function HostLobbySetup() {
                     }}
                     style={checkboxStyle}
                   />
-                  <span>{sv.table.settingsTokenMoveAnimations}</span>
+                  <span>{ui.table.settingsTokenMoveAnimations}</span>
                 </label>
               </div>
             </SubSection>
-            <SubSection title={sv.play.lobbyGameValues}>
+            <SubSection title={ui.play.lobbyGameValues}>
               <div className={styles.stack}>
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>
-                    {sv.play.lobbyMaxHp}{" "}
+                    {ui.play.lobbyMaxHp}{" "}
                     <span className={styles.fieldHint}>
                       ({CONFIG_NUMERIC.maxHp.min}–{CONFIG_NUMERIC.maxHp.max})
                     </span>
@@ -264,7 +274,7 @@ export function HostLobbySetup() {
                 </label>
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>
-                    {sv.play.lobbyStartPant}{" "}
+                    {ui.play.lobbyStartPant}{" "}
                     <span className={styles.fieldHint}>
                       ({CONFIG_NUMERIC.startPant.min}–{CONFIG_NUMERIC.startPant.max})
                     </span>
@@ -281,7 +291,7 @@ export function HostLobbySetup() {
                 </label>
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>
-                    {sv.play.lobbyReactionSeconds}{" "}
+                    {ui.play.lobbyReactionSeconds}{" "}
                     <span className={styles.fieldHint}>
                       ({CONFIG_NUMERIC.reactionSeconds.min}–{CONFIG_NUMERIC.reactionSeconds.max} sek)
                     </span>
@@ -300,8 +310,8 @@ export function HostLobbySetup() {
                 </label>
               </div>
             </SubSection>
-            <SubSection title={sv.play.lobbyAllowedCards}>
-              <p className={styles.cardToggleHint}>{sv.play.lobbyCardToggleHint}</p>
+            <SubSection title={ui.play.lobbyAllowedCards}>
+              <p className={styles.cardToggleHint}>{ui.play.lobbyCardToggleHint}</p>
               <div className={styles.cardsInner}>
                 {(["item", "event"] as const).map((kind) => (
                   <div key={kind} className={styles.cardsKind}>
@@ -341,7 +351,7 @@ export function HostLobbySetup() {
             onChange={(e) => setCfg((v) => ({ ...v, wakeLockBeforeStart: e.target.checked }))}
             style={checkboxStyle}
           />
-          <span>Inaktivera sömnläge för skärm</span>
+          <span>{ui.play.lobbyWakeLockDisableScreen}</span>
         </label>
         <ArcadeButton
           variant="pink"

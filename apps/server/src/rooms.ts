@@ -4,7 +4,9 @@ import {
   clampConfigNumber,
   createEmptyLobby,
   lobbyAddPlayer,
+  LOG_MESSAGE_KEYS,
   normalizeLoadedGameState,
+  pushLogEntry,
   startGame,
   type ClientAction,
   type GameState,
@@ -261,7 +263,11 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   const existing = rooms.get(roomCode);
   if (existing) return { room: existing, created: false };
   const state = createEmptyLobby(roomCode);
-  state.log.push({ at: Date.now(), message: `Ny lobby skapad (${roomCode}).` });
+  pushLogEntry(state, {
+    message: `Ny lobby skapad (${roomCode}).`,
+    key: LOG_MESSAGE_KEYS.lobbyCreated,
+    params: { roomCode },
+  });
   const room: Room = {
     code: roomCode,
     state,
@@ -308,7 +314,11 @@ export function listRoomSummaries(): AdminRoomSummary[] {
 export function closeRoomByCode(code: string, reason = "stängd av admin"): boolean {
   const room = rooms.get(code.trim().toUpperCase());
   if (!room) return false;
-  room.state.log.push({ at: Date.now(), message: `Lobby stängdes (${reason}).` });
+  pushLogEntry(room.state, {
+    message: `Lobby stängdes (${reason}).`,
+    key: LOG_MESSAGE_KEYS.lobbyClosed,
+    params: { reason },
+  });
   for (const conn of room.conns) {
     try {
       conn.ws.close();
@@ -585,9 +595,9 @@ export function joinRoom(params: {
     if (params.config.cardCover) {
       room.state.config.cardCover = params.config.cardCover;
     }
-    room.state.log.push({
-      at: Date.now(),
+    pushLogEntry(room.state, {
       message: `Värden sparade lobbyinställningar.`,
+      key: LOG_MESSAGE_KEYS.lobbySettingsSaved,
     });
   }
 
@@ -747,7 +757,11 @@ export function forceRemovePlayer(room: Room, playerId: string, reason: string):
   if (!leaving) return false;
   room.stateSeq += 1;
   room.lastActivityAt = Date.now();
-  room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet (${reason}).` });
+  pushLogEntry(room.state, {
+    message: `${leaving.name} lämnade spelet (${reason}).`,
+    key: LOG_MESSAGE_KEYS.lobbyPlayerLeftReason,
+    params: { name: leaving.name, reason },
+  });
   for (const c of [...room.conns]) {
     if (c.role === "controller" && c.playerId === playerId) {
       try {
@@ -792,7 +806,11 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
     if (action?.type === "leaveGame") {
       const leaving = removePlayerFromRoomState(room.state, conn.playerId);
       if (!leaving) return null;
-      room.state.log.push({ at: Date.now(), message: `${leaving.name} lämnade spelet.` });
+      pushLogEntry(room.state, {
+        message: `${leaving.name} lämnade spelet.`,
+        key: LOG_MESSAGE_KEYS.lobbyPlayerLeft,
+        params: { name: leaving.name },
+      });
       scheduleBroadcastState(room);
       return null;
     }
@@ -803,7 +821,11 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       if (typeof targetId !== "string" || targetId.length === 0) return "Ogiltig spelare";
       const leaving = removePlayerFromRoomState(room.state, targetId, { purgeSlot: true });
       if (!leaving) return "Spelaren finns inte";
-      room.state.log.push({ at: Date.now(), message: `${leaving.name} togs bort från spelet (bordet).` });
+      pushLogEntry(room.state, {
+        message: `${leaving.name} togs bort från spelet (bordet).`,
+        key: LOG_MESSAGE_KEYS.lobbyPlayerKicked,
+        params: { name: leaving.name },
+      });
       for (const c of [...room.conns]) {
         if (c.role === "controller" && c.playerId === targetId) {
           try {

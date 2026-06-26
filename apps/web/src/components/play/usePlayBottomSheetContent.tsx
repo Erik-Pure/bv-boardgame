@@ -28,7 +28,7 @@ import { usePlayStatFlash } from "./usePlayStatFlash";
 import { myPersonalTurnPrompt } from "./playSessionHelpers";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings, useLocale } from "../../lib/locale/LocaleContext";
 import { usePlayBottomSheetAnimation, type BottomSheetPrimaryKind } from "./usePlayBottomSheetAnimation";
 
 export function usePlayBottomSheetContent(options: {
@@ -81,6 +81,8 @@ export function usePlayBottomSheetContent(options: {
   allyCombatOutcomeAckRef: MutableRefObject<Set<string>>;
   setAllyCombatOutcomeDismissedKey: Dispatch<SetStateAction<string | null>>;
 }) {
+  const ui = useUiStrings();
+  const locale = useLocale();
   const {
     state,
     me,
@@ -139,8 +141,8 @@ export function usePlayBottomSheetContent(options: {
   );
 
   const itemMetaForView = useCallback(
-    (itemId: string) => resolveItemMetaForView(itemId, me, state),
-    [me, state],
+    (itemId: string) => resolveItemMetaForView(itemId, me, state, locale),
+    [me, state, locale],
   );
 
   const interaction =
@@ -262,7 +264,7 @@ export function usePlayBottomSheetContent(options: {
   const equipDetailSheet =
     equipDetail && me ? (
       <ArcadeButton variant="gray" fullWidth onClick={() => setEquipDetail(null)}>
-        {sv.play.modalClose}
+        {ui.play.modalClose}
       </ArcadeButton>
     ) : null;
 
@@ -271,10 +273,10 @@ export function usePlayBottomSheetContent(options: {
       <div className={u.stack10}>
         <ArcadeButton variant="pink" fullWidth onClick={acknowledgeBlockingSipNotice}>
           {mySipNotice.noticeKind === "duel_loss"
-            ? sv.sipNotice.duelAck
+            ? ui.sipNotice.duelAck
             : mySipNotice.title?.trim() || mySipNotice.body?.trim()
-              ? sv.sipNotice.ack
-              : sv.sipNotice.cheers}
+              ? ui.sipNotice.ack
+              : ui.sipNotice.cheers}
         </ArcadeButton>
       </div>
     ) : null;

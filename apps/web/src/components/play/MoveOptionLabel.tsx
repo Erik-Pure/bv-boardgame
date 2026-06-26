@@ -1,12 +1,9 @@
 import { levelUpCostsForTargetLevel, type GameState, type TileType } from "@bv/game-core";
 import { moveChoiceTileVisual } from "../../lib/moveChoiceTileVisual";
-import { sv, tileTypeSv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import { tileTypeLabel } from "../../lib/uiStrings";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-
-function titleCaseTileType(t: string): string {
-  return (tileTypeSv as Record<string, string>)[t] ?? String(t);
-}
 
 /** Pant som krävs för nivå upp via dörren — samma som vid `door`-pending (rabatt på tillbehör). */
 function doorTileAscendGoldCost(
@@ -31,6 +28,8 @@ export function MoveOptionLabel(props: {
   tileIndex: number;
   tileType: TileType;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const hasOtherPlayer = props.state.players.some(
     (p) =>
       p.id !== props.meId &&
@@ -38,8 +37,8 @@ export function MoveOptionLabel(props: {
       p.tileIndex === props.tileIndex,
   );
   const tileVisual = moveChoiceTileVisual(props.tileType);
-  const tileLabel = titleCaseTileType(props.tileType);
-  const primary = hasOtherPlayer ? `${sv.play.moveChoiceBvbLabel} / ${tileLabel}` : tileLabel;
+  const tileLabel = tileTypeLabel(props.tileType, locale);
+  const primary = hasOtherPlayer ? `${ui.play.moveChoiceBvbLabel} / ${tileLabel}` : tileLabel;
   const showDoorPant = props.tileType === "door" && !hasOtherPlayer;
   const doorGoldCost = showDoorPant
     ? doorTileAscendGoldCost(props.state, props.meId, props.levelIndex, props.tileIndex)

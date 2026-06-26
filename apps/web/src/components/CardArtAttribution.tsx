@@ -1,8 +1,9 @@
 import { artAttributionLabel } from "../lib/cardArt";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 
 /** Mindre etikettreferens under kortbild när `artKey` har mappad källa. */
 export function CardArtAttribution(props: { artKey?: string; dense?: boolean }) {
+  const ui = useUiStrings();
   const detail = artAttributionLabel(props.artKey);
   if (!detail) return null;
   return (
@@ -18,7 +19,7 @@ export function CardArtAttribution(props: { artKey?: string; dense?: boolean }) 
         fontWeight: 500,
       }}
     >
-      <span style={{ opacity: 0.88 }}>{sv.cardModal.etikettRef}</span> {detail}
+      <span style={{ opacity: 0.88 }}>{ui.cardModal.etikettRef}</span> {detail}
     </div>
   );
 }

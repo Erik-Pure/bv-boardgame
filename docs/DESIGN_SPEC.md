@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.71 |
-| Senast uppdaterad | 2026-06-10 |
+| Version | 0.74 |
+| Senast uppdaterad | 2026-06-26 |
 
 ---
 
@@ -15,7 +15,16 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Varumärke och ton:** spelet är tänkt att vara **kopplat till Bryggverket**, ölbryggeri i **Umeå** (copy, visuell identitet och referenser till verkliga sorter). **Avtal och tydlighet kring varumärkesanvändning** behövs innan publik lansering.
 
-**Språk (målbild):** **Svenska** som primärspråk i UI, korttexter och spellogg. *(Implementation kan fortfarande innehålla engelska strängar i kod/data tills översättningen är genomförd.)*
+**Språk:** **Svenska** är källspråk i speldata, spellogg och servergenererad copy. **Engelska** (`locale: en`) stöds i webbklienten för UI, kortöversättningar och visning av dynamisk text — se **§1.1**. Spelarnamn och fri text från lobby ändras inte. *(I spelkärnan kan fält fortfarande heta `gold` tills refaktor — se [TECH_SPEC.md](./TECH_SPEC.md).)*
+
+### 1.1 Lokalisering (implementation)
+
+- **Val i klienten:** `sv` (default) eller `en` via språkväxlare; copy i `apps/web` (`uiStrings` / `uiStringsEn`).
+- **Källdata på svenska:** monster- och utrustningsnamn i `GameState`, många `pushPlayerNotice`-texter och rå spellogg från motorn förblir svenska; klienten **översätter vid visning** där det behövs.
+- **`game-core`:** `cardText.en.json` (korttitlar/text), `equipmentLocale.ts`, `monsterLocale.ts`, `localizeSipNotice.ts` (mobilnotiser), `localizeTableToastLog.ts` + `LOG_MESSAGE_KEYS` / `formatLogEntry` (bordstoasts), `localizeEventCardText.ts` (dynamiska korttexter t.ex. `boss_round_win`), `localizeFinalBossDisplayName` / `localizeFinalBossRoundLabel` (slutboss-seger).
+- **Webb (`apps/web`):** `localizePendingCard` (väntande kort inkl. `boss_final_win`), `formatLocalizedShopItemEffectSummary` (affär + katalog), `merchantShopItemDisplayName`, `localizedCombatMonster` / strids-UI-copy, `brandLogo` (EN-logotyper på startsida m.m.).
+- **Princip:** statisk UI → `uiStrings`; kort → `cardText.en.json`; utrustning → `rulesText` i `equipmentLocale`; monster/boss → `monsterLocale`; serverlogg med nyckel → `logMessages`; hårdkodad svensk notis/brödtext → regex/mönster i `localizeSipNotice` / `localizeTableToastLog`.
+- **Känd begränsning:** text **inbäddad i bilder** (t.ex. svenska tryck på boss- eller kortgrafik) översätts inte via kod; kräver separata assets om EN ska vara helt rent visuellt.
 
 **Valuta (målbild):** **Pant** — tematiskt kopplat till flask- och burkretur, inte “guld”. Spelet ska upplevas som att man handlar och betalar med **pant** snarare än generiska mynt. *(I spelkärnan kan fältet fortfarande heta `gold` tills refaktor — se [TECH_SPEC.md](./TECH_SPEC.md).)*
 
@@ -38,6 +47,8 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Toasts vid monsterutfall (mobil, `/play`):** efter **monsterseger**, när angriparen trycker **Fortsätt** på vinstmodalen, kan en toast lista **vilka skatter** (kortnamn/utrustning) som just tilldelats angriparen. **Ölkompis** och **stridshjälpare** som fick skatter kan få motsvarande toast **vid Fortsätt på sin egen modal** (skattnamn) eller **när angriparen stänger vinstkortet** om de inte redan bekräftat sin vy. Efter **monsterförlust** gäller samma för allierad: toast med **HP-förlust** och **straffklunk** **endast om** de inte redan stängt sin förlustmodal (undviker dubbel information).
 
+**Anpassade sip-notiser (mobil):** `pushPlayerNotice` med egen rubrik/brödtext (t.ex. **Riggat spel**, duell-förlust, **Sömnmedel**, stöld efter BvB) visas i **`SipNoticeCardModal`**; titel och brödtext ska **lokaliseras** via `localizeSipNoticeTitle` / `localizeSipNoticeBody` när `locale: en`. Kortlivade **`toast`**-notiser (t.ex. **Peka argt**) ska också gå via samma lokalisering innan de visas.
+
 **Aktiv tur (mobil):** när det är **din tur** (eller motsvarande uppmärksamhetsläge i lobby) kan UI visa regnbågssignal i interaktionspanelen längst ned. Effekten är **av/på i inställningar** i mobilvyn.
 
 **Interaktionspanel (mobil, små skärmar):** panelen kan växla till **kompaktläge** via en liten toggle-knapp precis ovanför panelen. I kompaktläge döljs informationscopy i panelen, medan **interaktionsknapparna fortfarande visas och är klickbara**.
@@ -50,7 +61,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 
 **Vald rad på mörk knapp (mobil):** när spelaren väljer bland alternativ som visas som **mörka pill-knappar** (t.ex. **Välj mål** / spelarnamn innan **Använd**, eller val av tärningsyta för **Ett sjätte ölsinne**) ska alla alternativ i listan ha **samma mörka grundstil**; den **aktiva** raden ska ha **tydlig guldtonad ram** och **guldtonad text** så valet inte förväxlas med ljusa sekundärknappar (**Stäng** m.m.).
 
-**Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation.
+**Modaler i mobilens toppmeny:** när **Spelare**- eller **Inställningar**-modal öppnas i `/play` ska de visas direkt utan kort-flip/fly-in-animation. Bekräftelse vid **Lämna spelet** (från inställningar) ska följa valt språk (`settingsLeaveGameConfirm` / `settingsLeaveGameCancel` i `uiStrings`).
 
 **Snabbguide (mobil, `/play`):** efter **ansvarsfullhets-rutan** (en gång per rum och flik, `sessionStorage`) visas en **kort steg-för-steg-guide** innan spelet tar fart. Guiden har **fem steg** med **Tillbaka / Nästa / Hoppa över / Kör igång** och sidräknare. **Steg 1** visar **logotypen** (`bmm-logo.png`, utan ram, större marginal) och en **kort målsammanfattning** (något större text än övriga steg): välkomst, **Rädda de dåliga batcherna** (fetstil + monster-ikon) för XP och nivå, samt sabotera/samarbeta mot slutbossen. Övriga steg följer befintliga tutorial-bilder (rörelse, rutor, strid, nivåer/boss). Snabbguiden kan **öppnas igen** från **Inställningar** i spelvyn. Utförligare regler finns på **`/rules`** (startsida/länk), separat från snabbguiden.
 
@@ -76,10 +87,10 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Lobby och spelet slut på bordet:** pan/zoom på brädesviewport är **avstängda** i faserna `lobby` och `ended`, så att **`setPointerCapture`** på viewport inte stjäl pekaren — knappen **Avsluta spelet** i resultatmodalen ska få **klick** och navigera till startsidan.
 - **Videobakgrunder (bord, `public/video/`):** loopande **WebM + 1280p MP4** per bakgrund — **`beer_bg_*`** (lobby, slutresultat) och **`flames_bg_*`** (slutboss-strid, stupad bryggare på bord). Fullupplösta käll-`.mp4` ingår **inte** i repo (`.gitignore`). Över videon: **mörk scrim** (~45 % på öl, ~26 % under boss-flammor) så text/kort läses.
 - **Lobby på bordet:** fullskärms-**ölvideo** bakom lobbykortet; kortet är **halvtransparent med blur** (glas) så QR och kod syns mot videon.
-- **Slutboss (bord + mobil):** **flammor + röd pulserande gradient** ligger i en **persistent backdrop** (`FinalBossCombatBackdrop`) under **hela slutboss-striden** — intro, reaktioner, tärning, resultat på kort, samt kortet **`boss_round_win`** mellan rundor (samma videoinstans; `key` = strids-session eller `final-boss-<monsterId>`). Stridspanelen/kortmodalen ovanpå har **transparent** overlay utan ny fade per fas. Vid **`boss_round_win` på bordet** ska **inte** en andra eld-backdrop fadear in i kortmodalen när den persistenta redan är aktiv (undviker blink). Boss-intro på mobil kan fortfarande använda **röd puls** i intro-modal om persistent backdrop inte är aktiv ännu; under striden gäller samma eldvideo som på bordet.
+- **Slutboss (bord + mobil):** **flammor + röd pulserande gradient** ligger i en **persistent backdrop** (`FinalBossCombatBackdrop`) under **hela slutboss-striden** — intro, reaktioner, tärning, resultat på kort, samt kortet **`boss_round_win`** mellan rundor (samma videoinstans; `key` = strids-session eller `final-boss-<monsterId>`). Stridspanelen/kortmodalen ovanpå har **transparent** overlay utan ny fade per fas. Vid **`boss_round_win` på bordet** ska **inte** en andra eld-backdrop fadear in i kortmodalen när den persistenta redan är aktiv (undviker blink). Boss-intro på mobil kan fortfarande använda **röd puls** i intro-modal om persistent backdrop inte är aktiv ännu; under striden gäller samma eldvideo som på bordet. **`boss_round_win`**-copy (liv kvar, bekräfta nästa runda) och **`boss_final_win`**-overlay (vinnare + bossnamn + rundetikett) ska **lokaliseras** i klienten — servern lagrar svenska bossnamn (`Den store narcissus` m.m.).
 - **Stupad bryggare på bordet:** samma **eldvideo utan röd puls** i modal-backdrop (`flamesBackdrop`); ikon **`gameover.svg`** (större på bord än tidigare dödskalle). Mobil behåller vanlig mörk backdrop.
 - **Slutresultat på bordet:** **ölvideo** bakom modal; panel och höjdpunktskort använder **`var(--modal-panel-bg)`** (samma som övriga modaler). Resultatmodal **bredare** på bord (~**860px** max). **Poängtabellen** har variant **`table`** med **större** typsnitt och ikoner; rubrikerna *Spelet är slut* / *Vinnare:* är **måttligt** större (inte fullskärms-TV-storlek).
-- **Toasts på bordet (`/table`):** kortlivade meddelanden (t.ex. från spellogg, straffklunk, belöningar) visas i en **toast-rad** under turbannern. Vid **bryggnivå-upp** genereras toast med texten *«&lt;namn&gt; når bryggnivå N!»* där **N** är **samma visade bryggnivå** som i mobil-header och sidopanel (**intern `brewerLevel` + 1**, minst 1) — inte den råa XP-indexnivån.
+- **Toasts på bordet (`/table`):** kortlivade meddelanden (t.ex. från spellogg, straffklunk, belöningar, **Vaska** / **Riggat spel** / föremålsspelande) visas i en **toast-rad** under turbannern. Loggposter med **`LOG_MESSAGE_KEYS`** och mönster i **`localizeTableToastLog`** översätts vid `locale: en`. Vid **bryggnivå-upp** genereras toast med texten *«&lt;namn&gt; når bryggnivå N!»* där **N** är **samma visade bryggnivå** som i mobil-header och sidopanel (**intern `brewerLevel` + 1**, minst 1) — inte den råa XP-indexnivån.
 - **Ljudeffekter (`/table` + mobil, v1):** korta one-shots från `public/sfx/` (optimerade MP3; käll-WAV/OGG i `apps/web/sfx-source/`, genereras med `npm run optimize:sfx`). **Bräd-SFX köas** och spelas ett i taget (t.ex. gå → landningsljud → kort) så de inte överlappar. Ingen musik. **Brädet** (`/table`, avstängningsbart i bordsinställningar): **rörelsetärning / gå** (`roll1–7` vid `rollMove` och `chooseMove`), **stridstärning** (`dieroll1–3` vid monster-slag och när händelsekort med tärningsslag får `Tärning:` i korttexten), **händelse- och skattruta** (`event1–4` / `event.mp3` efter **cardflip**; avbryts av senare spelljud som tärning/föremål/strid), **lose** vid tom gömma), **cardflip** vid modal-fade för vila/händelse/skatt och före **badbatch** vid monster-intro), **föremål** (`item1–3` vid solfjäder / stridsreaktion och positiva kort mot andra; **dieroll1–3** vid sabotage/debuff mot annan spelare), **panta burkar** (`cans1–4` när affären öppnas), **dålig batch** (`badbatch1–4` vid monster-intro), **vinst mot monster** (`levelup.mp3` vid `combat_win`, `boss_round_win` och `boss_final_win`; uteblir vid parallell bryggnivå-upp från strids-XP på `combat_win`), **förlust mot monster** (`lose.m4a` vid `combat_lose`-kort), **skattkort** (`cardflip.mp3`), **händelsekort i modal** (`event.mp3` om landningsljud inte redan spelats), **bryggnivå upp** (`levelup.mp3` när visad bryggnivå ökar i övriga fall). **Straffklunk-ljud** (`klunk1–2`) endast på **mobilen** vid **Skål**; klunk-emoji på brädet vid `sipNoticeAck`. Strids-PvP, BvB och emotes utan dedikerade filer i v1.
 - **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
 - **BvB-tärningar på bordet:** visa **fast tärning direkt per spelare** så fort den spelarens kast finns. Endast sidan som ännu inte kastat ska fortsätta med idle-spin under `awaitingRolls`/reveal-delay. Undvik blink/flicker när en sida redan har resultat.
@@ -193,7 +204,7 @@ Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. av
 - **Nivå 2–3:** svårare fiender, bättre rewards, mer sabotage-potential; team-monster blir vanligare.
 - **Sista våningen:** väg till **slutboss**; boss **slumpas en gång per parti** ur **3 fördefinierade** bossar — **Den store narcissus**, **Öldomaren**, **Onda bryggverket** (individuell strid, ingen team battle). Bossrutan placeras endast på **sista våningen**. Stridskravet är bossens **basstyrka** plus **+2 per brädesnivå** (`levelIndex`, samma skala som vanliga monster — se §7.3). Varje boss har eget partistraf vid förlust (t.ex. alla tappar pant, alla tar klunk, eller slumpat globalt item/utrustningsförstörelse). På monsterkortet: **förenklad regeltext** (unika förlusteffekter), **hjärtikonliv**, streck för pant/skatt vid seger (spelet vinns), samt tydlig **boss-overlay** på bord/mobil.
 - **Team-monster-frekvens (nuvarande balans):** team battles förekommer mer sällan i början och oftare senare (ca **4%** på nivå 1, **9%** på nivå 2, **14%** på nivå 3 och högre bräden).
-- **Slumpade föremål på sista planet:** **Genväg** och **Taproom-nyckel** ingår inte i slump-poolen när mottagaren står på **sista brädnivån** (ingen nästa våning att stiga till); se §10.1.
+- **Slumpade föremål på sista planet:** **Taproom-nyckel** ingår inte i slump-poolen när mottagaren står på **sista brädnivån** (ingen nästa våning att stiga till); **Genväg** kan fortfarande slumpas (teleport till annan spelare). Se §10.1.
 
 ### 7.3 Uppstigning mellan våningsplan
 
@@ -264,6 +275,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. **Bordet** visar inte **vilka** som kan ingripa (hemligt); mobil visar bara generisk väntan för icke-ingripare. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
 - **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
 - **Lagstrid på mobil:** bredvid tärningen visas **endast din egen** attackmodifier (utrustning, kortbuffar, `nextCombatModifier` m.m.) — inte summan av båda stridande. **Storskärmsbrädet** kan fortfarande visa lagets **samlade** modifier enligt befintlig presentation.
+- **Stridstärning — resultatrad (mobil):** under tärningen efter slag visas attacktotal mot fiendens styrka (t.ex. *Attack totalt **6** mot **3*** med stridsikon) — copy ska följa `locale` (`uiStrings` / `uiStringsEn`).
 
 ### 9.1.1 Team battle-monster
 
@@ -274,7 +286,8 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - Vid **vinst** får båda pant och rewards enligt monsterets **fasta vinstvärden**.
 - Reward i team battle följer samma mix som övrig PvE-loot: **itemkort och/eller utrustning**.
 - Vid **förlust** tar båda **samma inkommande skada** (med sina egna rustnings-/reduceringsregler tillämpade individuellt) och båda får klunk-straff enligt monsterregeln.
-- Spellogg/toast ska vara **på svenska** och redovisa skadan för **båda** spelarna vid team-förlust (angripare och medkämpe), inklusive särskild Get Lucky-copy när dubbel HP-skada gäller.
+- **Väntan på slag (mobil):** medan båda ska slå i lagstrid ska status visa vem som **redan slagit** respektive **inte slagit** (lokaliserad copy per spelarnamn).
+- Spellogg/toast ska redovisa skadan för **båda** spelarna vid team-förlust (angripare och medkämpe), inklusive särskild Get Lucky-copy när dubbel HP-skada gäller — **på valt språk** i klienten (rå logg på svenska; bord/mobil via lokalisering).
 
 ### 9.2 Bryggare mot bryggare (BvB)
 
@@ -319,12 +332,15 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
 - **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln), **två slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**), och **ett slumpat stridsföremål** (+/− attack i strid — samma typer som **startföremål** vid spelstart, **7 pant** i handeln). Efter blandning visas **exakt fyra** erbjudanden. Föremål vars kort är inaktiverat i lobby (`disabledCardIds`) utesluts ur stridsföremål-poolen; om poolen då är tom ersätts fjärde platsen med en tredje utrustning.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, **föremålsbonus**, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
+- **Detaljvy (mobil):** tryck på en hyllrad öppnar **art + namn + effektbeskrivning + Köp/Tillbaka**. Namn lokaliseras (`merchantShopItemDisplayName`). **Effektbeskrivning** ska följa valt språk (`formatLocalizedShopItemEffectSummary`): på **svenska** kort mekanisk rad (samma som listan); på **engelska** i första hand **`rulesText`** för utrustning och **korttext** (`cardText.en.json`) för stridsföremål, annars översatt mekanisk rad via `uiStringsEn` (t.ex. *Power −2 · Items: free to play* för Plastmugg).
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen och **`itemCardBonus`** på rustning/hjälm/tillbehör om det finns i butiksraden.
 - **Slumpa om sortiment:** i handeln finns knappen **Slumpa om (5 pant)** bredvid **Lämna**. Kostar **5 pant**, ersätter **alla fyra** hyllplatser med nytt slump (`rollMerchantItems`); affären stängs inte. Action: **`merchantReroll`**.
 
 ### 10.1 Nya item-effekter (aktuellt läge)
 
-**Genväg / Taproom-nyckel (spelbarhet):** dessa föremål ska kunna användas även när spelaren har ett aktivt **rörelseval**, är i **handel**, eller är **den som flyttat in** och ska lösa **mötesval** (BvB vs lösa ruta) — så man kan t.ex. fly till boss utan att först tvingas genom BvB-flödet.
+**Genväg** (`shortcut`): på **egen tur**, betala **10 pant** och **teleportera till valfri annan aktiv spelare** (målval i föremålsmodal). Målvalslistan visar **spelarnamn + våning** (`ui.table.floorN`). Landning följer vanliga regler (`resolveLanding`: mötesval om spelare på rutan, annars rutaeffekt). Stiger spelaren till högre våning loggas monster-+ som vid annat våningsbyte.
+
+**Genväg / Taproom-nyckel (spelbarhet):** dessa föremål ska kunna användas även när spelaren har ett aktivt **rörelseval**, är i **handel**, eller är **den som flyttat in** och ska lösa **mötesval** (BvB vs lösa ruta) — t.ex. teleportera med Genväg eller fly till boss med Taproom-nyckel utan att först tvingas genom BvB-flödet.
 
 - **Druckit för mycket** (tidigare “Svag öl”): stridsreaktion, **−2 spelarattack**.
 - **Lättöl**: stridsreaktion, **+1 spelarattack**.
@@ -338,9 +354,9 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Canman** (item): ligger kvar i förrådet och ger **+1 pant per rörelsetärning** tills **10** sådana slag har passerat (räknare på instansen; ingen spelarstatus, ingen använd-knapp); bild som **`public/items/canman.png`** med `artKey` `item/canman` i kortdata.
 - **Get Lucky** (`get_lucky`): stridsreaktion som kan spelas på **den som slåss** (angripare eller medkämpe), även av en annan spelare som ingriper. Målet får **+4 attack** i striden; om målet sedan förlorar tar just den spelaren **dubbel HP-skada**.
 - **Manopositiv** (`manopositiv`): stridsreaktion med **+4 attack** på valt mål i striden (stödjer PvE/BvB-fönster och ingripande); kostar **4 pant** direkt när kortet spelas (kan inte spelas om spelaren har <4 pant).
-- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** (`decks.item` i `cards.json` — alla listade `item_*`-kort ska finnas där för att kunna slumpas) eller (slump, om ledig utrustningsslot) **utrustning** från **`EQUIPMENT_CATALOG`** — samma idé som blandad monsterloot och stridsbelöning. När spelaren är på **sista brädnivån** dras varken **Genväg** eller **Taproom-nyckel** ur slump-poolen (de är meningslösa utan nästa våning). **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
+- **Händelse/skatt med `randomItem`**: kan ge **föremål från item-leken** (`decks.item` i `cards.json` — alla listade `item_*`-kort ska finnas där för att kunna slumpas) eller (slump, om ledig utrustningsslot) **utrustning** från **`EQUIPMENT_CATALOG`** — samma idé som blandad monsterloot och stridsbelöning. När spelaren är på **sista brädnivån** dras **Taproom-nyckel** ur slump-poolen (meningslös utan nästa våning); **Genväg** kan fortfarande slumpas. **Fast** korteffekt som anger ett visst föremål och **handeln** (`Panta burkar`) påverkas inte.
 - **Vaska** (`early_night` m.m.): bild **`public/items/spill_intentional.png`** när tillgänglig.
-- **Riggat spel** (`rigged_game`): spelas **utanför strid** mot **annan spelares** utrustning; kostar **5 pant**. Stjäl pjäsen i vald slot. Har tjuven redan utrustning där → **bytesval** (§11); vid avböj **förstörs** den stulna pjäsen. Offret tappar slotten när stölden triggas; pjäsen hålls i **escrow** tills tjuven bestämt sig.
+- **Riggat spel** (`rigged_game`): spelas **utanför strid** mot **annan spelares** utrustning; kostar **5 pant**. Stjäl pjäsen i vald slot. Har tjuven redan utrustning där → **bytesval** (§11); vid avböj **förstörs** den stulna pjäsen. Offret tappar slotten när stölden triggas; pjäsen hålls i **escrow** tills tjuven bestämt sig. **Offret** får **sip-notis** på mobil (rubrik = korttitel, brödtext t.ex. *«X tog Y från dig med Riggat spel»*); ska lokaliseras via `localizeSipNotice` vid `locale: en`.
 - **En enkel stöld** (`not_my_round`): **stridsreaktion** med samma stöld- och byteslogik som **Riggat spel** (mål: motståndare i striden).
 
 ---
@@ -434,7 +450,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Slutmodal spotlight:** under rubrik/vinnare visas en **höjdpunktskarusell** som växlar mellan partidata (t.ex. flest ettor sammanlagt, mest spenderad pant, flest BvB-segrar och flest spelade BvB-matcher, sammanlagda förluster, mest sabotage, mest hjälpsegrar, samt utökande kategorier som största tärningsslag och flest stup). Karusellkorten använder **`--modal-panel-bg`** (inte blågrå slate-panel). Vid **`prefers-reduced-motion: reduce`** visas **alla** höjdpunktskort i en lista utan automatrotation (med manuell scroll).
 - **Spenderad pant (`goldSpent` i state):** räknar pant som lämnar spelaren till **spelets sinkholes** (handel, avgifter för föremål/strider/korteffekter, livförsäkring, undvikande av möten där pant tas utan motpartssaldo m.m.). Pant som bara **överförs till annan spelares saldo** (BvB-byte, hjälpkontraktsbetalning, spelare-mot-spelare-stöldkort m.m.) räknas **inte** som spenderad i denna statistik.
 - **Koppling till uppstigning:** level-up offer (§7.3) använder samma bryggnivåskala som UI.
-- **Bryggnivåbonus:** vid varje ny **XP-baserad bryggnivå** (tröskel i §13.1) väljer spelaren **en** permanent bonus: **+1 styrka** (monsterstrid), **+1 sköld** (skademinskning), **+2 HP** (max + nuvarande), **+1 BvB** (tärningsbonus i duell) eller **+1 föremålskort** (platta föremålseffekter enligt §11). **Varje kategori max 3 gånger** totalt; mobilknappar visar **(n/3)** och **inaktiveras vid 3/3**. Befintliga höga bonusar i sparade partier **skalas inte ned** — nya val blockeras bara när kategorin redan nått taket. Om alla kategorier är maxade men oupplösta bryggnivåer finns kvar **konsumeras nivåerna utan bonus** (logg: inget val kvar). Valet sker i mobil (`brewerPerkChoice`) när inget annat pending blockerar; fem alternativ som **ArcadeButton**-rader med ikon + text.
+- **Bryggnivåbonus:** vid varje ny **XP-baserad bryggnivå** (tröskel i §13.1) väljer spelaren **en** permanent bonus: **+1 styrka** (monsterstrid), **+1 sköld** (skademinskning), **+2 HP** (max + nuvarande), **+1 BvB** (tärningsbonus i duell) eller **+1 föremålskort** (platta föremålseffekter enligt §11). **Varje kategori max 3 gånger** totalt; mobilknappar visar **(n/3)** och **inaktiveras vid 3/3**. Befintliga höga bonusar i sparade partier **skalas inte ned** — nya val blockeras bara när kategorin redan nått taket. Om alla kategorier är maxade men oupplösta bryggnivåer finns kvar **konsumeras nivåerna utan bonus** (logg: inget val kvar). Valet sker i mobil (`brewerPerkChoice`) när inget annat pending blockerar; fem alternativ som **ArcadeButton**-rader med ikon + **lokaliserad etikett** (`uiStrings`).
 - **Straffklunk och XP:** varje straffklunk ger XP (nuvarande balans: 10 XP per klunk), och modalcopy kan visa motsvarande `+XP`.
 - **Monsterloot:** högre `rewardGold` / fler `rewardItems` på dåliga batcher samt något högre chans till utrustning i stridsbelöning (implementation i `monsters.ts` / `grantRandomCombatReward`).
 
@@ -491,7 +507,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 ### 16.2 Kortkatalog (referens)
 
 - **`/cards`** i webbappen listar **kort** från **`cards.json`** grupperade efter **typ** (`event`, `item`, `combat`, `treasure`, `rest`, …), med **resolverad bild** (`artImageSrc`) och kortmetadata. Vissa poster **döljs i katalogen** men finns kvar i data för spelet: **`combat_monster`** / **`boss_round_win`** (system/boss-mellanrunda — spelet använder andra lägen), samt **alla kort med typ `treasure`** (skatt visas vid skattrutor i spel, inte som separat katalogsektion).
-- **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett. Effektrad och **cards-ikon**-badge (föremålsbonus) följer samma principer som affär och mobilöversikt.
+- **Utrustning** från **`equipmentDefs.ts`** (`EQUIPMENT_CATALOG`) visas **per slot** (vapen, rustning, hjälm, accessoar) med unik art om den finns, annars slot-siluett. Effektrad och **cards-ikon**-badge (föremålsbonus) följer samma principer som affär och mobilöversikt; **effekttext** ska använda samma lokalisering som affärsdetalj (§10.2) när `locale: en`.
 - **Monster** från **`monsters.ts`** delas i tre sektioner: **vanliga (solo)**, **team battle** (badge) och **slutbossar** (badge + kort tagline-text). Avsett för design, QA och snabb överblick. Länk från **startsidan**.
 - **Typografi i katalogen** ska spegla spelkort: brödtext **15px** / radavstånd **1.45**; rubrik på händelse/skatt/vila i **Permanent Marker 22px**; händelsebild **4:3**, övriga kort **16:10**. Korttext **vänsterjusterad** (motverkar global centrerad layout).
 
@@ -514,13 +530,14 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Strid:** PvE med **Sip Snatcher-** och **Brewizard/Sourceress-val** (§9.1); **BvB** (§9.2) med mötesval, val av motståndare vid flera på rutan, omslag vid lika, och vinnarval **föremål / pant / klunk / skada**; **ekonomi och affärer** (§10).
 - **Strid:** inkluderar **team battle-monster** med val av medkämpe, delad belöning/förlust och item-drop på svårare monster (§9.1.1).
 - Utrustningsplatser, liten händelse-/kortlek, klunk-räknare kopplad till några kort.
+- **Språk:** svenska (default) och **engelska** i webbklienten (§1.1).
 - Tre slutbossar (individuell strid); standard-vinst **döda boss först**; variant **gyllene öl + flykt till start/slutpunkt**.
 - Respawn/omstart enligt §12 (full reset till startläge).
 
 **Senare**
 
 - **Bryggverket-boost** (foto-flöde + buffar enligt §14).
-- Full **svensk** copy överallt; fältnamn `gold` → `pant` i kod om det passar refaktorplanen.
+- Utökad **engelsk** copy där servern fortfarande skickar hårdkodad svenska (nya mönster i `localizeSipNotice` / `localizeTableToastLog` vid behov); fältnamn `gold` → `pant` i kod om det passar refaktorplanen.
 - Utökad **Bryggverket-anknytning** på kort (sortnamn, smaklager) enligt §1.
 - Stash, sparade partier, AI-spelare, ljud, avancerade animationer, balansläge, achievements.
 - Eventuellt **PixiJS** eller annan motor om SVG/DOM-prestanda blir flaskhals på stora bräden.
@@ -632,4 +649,7 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.69 | 2026-06-07 | §11 **Plastmugg** balans **−2 attack** + bild `plasticcup`; **Tom flaska** en attack-badge; §13.1 bordsslutresultat med **avatar vänster om namn** (ej mobil) |
 | 0.70 | 2026-06-07 | §2 **dålig batch**-SFX: ny `badbatch3` + **`badbatch4`** (käll-WAV → MP3); shuffle i `tableSfx` för monster-intro och Apocalypse-liknande händelsekort |
 | 0.71 | 2026-06-10 | §7.3/§19 monster **+2 per brädnivå** (`MONSTER_NEED_BONUS_PER_LEVEL`); §9.1 våning **(N)** på monsterkort (röd Saira, mobil + bord); §10.2 **Slumpa om** (5 pant, `merchantReroll`); §11 mobil förråd visar brädskalade stridsföremål |
+| 0.72 | 2026-06-26 | §1 **§1.1 lokalisering** (sv käll-data, `locale: en` i webben); §2.1 slutboss **`boss_round_win` / `boss_final_win`** + bordstoasts (loggnycklar); §9.1 stridstärningsresultat; §9.1.1 lagstrid slagstatus; §10.1 **Riggat spel**-notis; §10.2 affärsdetalj (`formatLocalizedShopItemEffectSummary`); §13.1 bryggbonus-knappar; §16.2 katalog EN-effekt |
+| 0.73 | 2026-06-26 | §7.2/§10.1 **Genväg** omdesignad: **10 pant** → teleportera till valfri annan spelare (normal landning); **Taproom-nyckel** oförändrad (våningshopp/boss); slump-pool på sista våningen gäller endast Taproom |
+| 0.74 | 2026-06-26 | §1.1/§2 EN-logotyper (`brandLogo`); §2 bekräftelse **Lämna spelet** lokaliseras; §10.1 Genväg målval visar våning; `itemShortcutTeleport` loggnyckel |
 

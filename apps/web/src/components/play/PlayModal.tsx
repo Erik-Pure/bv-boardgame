@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ArcadeButton } from "../ArcadeButton";
 import { CardFlipModalShell } from "../CardFlipModalShell";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function PlayModal(props: {
   title: string;
@@ -25,6 +25,7 @@ export function PlayModal(props: {
   /** Låt innehållet fylla panelens höjd (för layouts med footer i botten). */
   contentFill?: boolean;
 }) {
+  const ui = useUiStrings();
   const showClose = props.hideClose !== true;
   const z = props.zIndex ?? 120;
   const centered = props.centered === true;
@@ -84,7 +85,7 @@ export function PlayModal(props: {
           {showClose ? (
             <div style={{ marginLeft: props.headerRight ? 0 : "auto", flexShrink: 0 }}>
               <ArcadeButton variant="gray" size="sm" onClick={props.onClose}>
-                {sv.play.modalClose}
+                {ui.play.modalClose}
               </ArcadeButton>
             </div>
           ) : null}

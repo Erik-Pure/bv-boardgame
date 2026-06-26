@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArcadeButton } from "../components/ArcadeButton";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 import styles from "./Login.module.css";
 
 const OTP_DEFAULT_CODE = "123456";
@@ -15,6 +16,8 @@ type AuthMe =
     };
 
 export function Login() {
+  const ui = useUiStrings();
+  const a = ui.app;
   const [authLoading, setAuthLoading] = useState(true);
   const [authState, setAuthState] = useState<AuthMe | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -31,13 +34,13 @@ export function Login() {
       const json = (await res.json()) as AuthMe;
       if (!res.ok || !json?.ok) {
         setAuthState(null);
-        setAuthError("Kunde inte läsa inloggningsstatus.");
+        setAuthError(a.loginErrorReadStatus);
       } else {
         setAuthState(json);
       }
     } catch {
       setAuthState(null);
-      setAuthError("Kunde inte nå auth-servern.");
+      setAuthError(a.loginErrorReachServer);
     } finally {
       setAuthLoading(false);
     }
@@ -50,7 +53,7 @@ export function Login() {
   const requestOtp = async () => {
     const email = otpEmail.trim().toLowerCase();
     if (!email || !email.includes("@")) {
-      setAuthError("Ange en giltig e-postadress.");
+      setAuthError(a.loginErrorInvalidEmail);
       return;
     }
     setOtpBusy(true);
@@ -63,12 +66,12 @@ export function Login() {
         body: JSON.stringify({ email }),
       });
       if (!res.ok) {
-        setAuthError("Kunde inte skicka engångskod.");
+        setAuthError(a.loginErrorSendCode);
         return;
       }
       setOtpRequested(true);
     } catch {
-      setAuthError("Kunde inte skicka engångskod.");
+      setAuthError(a.loginErrorSendCode);
     } finally {
       setOtpBusy(false);
     }
@@ -78,7 +81,7 @@ export function Login() {
     const email = otpEmail.trim().toLowerCase();
     const code = otpCode.trim();
     if (!email || !code) {
-      setAuthError("Ange både e-post och kod.");
+      setAuthError(a.loginErrorMissingFields);
       return;
     }
     setOtpBusy(true);
@@ -91,13 +94,13 @@ export function Login() {
         body: JSON.stringify({ email, code }),
       });
       if (!res.ok) {
-        setAuthError("Fel eller utgången kod.");
+        setAuthError(a.loginErrorBadCode);
         return;
       }
       setOtpRequested(false);
       await refreshAuth();
     } catch {
-      setAuthError("Kunde inte verifiera kod.");
+      setAuthError(a.loginErrorVerify);
     } finally {
       setOtpBusy(false);
     }
@@ -110,7 +113,7 @@ export function Login() {
       await fetch("/auth/logout", { method: "POST", credentials: "include" });
       await refreshAuth();
     } catch {
-      setAuthError("Kunde inte logga ut.");
+      setAuthError(a.loginErrorLogout);
     } finally {
       setOtpBusy(false);
     }
@@ -119,29 +122,29 @@ export function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Logga in</h1>
+        <h1 className={styles.title}>{a.loginTitle}</h1>
         {authLoading ? (
-          <p className={styles.subtle}>Läser inloggningsstatus…</p>
+          <p className={styles.subtle}>{a.loginReadingStatus}</p>
         ) : authState?.authenticated ? (
           <>
             <p className={styles.subtle}>
-              Inloggad som <b>{authState.user.displayName}</b> ({authState.user.email}) · Tier:{" "}
-              {authState.entitlement?.tier ?? "free"}
+              {a.loginLoggedInPrefix} <b>{authState.user.displayName}</b> ({authState.user.email}) ·{" "}
+              {a.loginLoggedInTier(authState.entitlement?.tier ?? "free")}
             </p>
             <div className={styles.actions}>
               <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={logout} disabled={otpBusy}>
-                Logga ut
+                {a.loginLogout}
               </ArcadeButton>
             </div>
           </>
         ) : (
           <>
-            <p className={styles.subtle}>Logga in som host med OTP eller Google.</p>
+            <p className={styles.subtle}>{a.loginLead}</p>
             <div className={styles.fields}>
               <input
                 className={styles.input}
                 type="email"
-                placeholder="E-post"
+                placeholder={a.loginEmailPlaceholder}
                 value={otpEmail}
                 onChange={(e) => setOtpEmail(e.target.value)}
               />
@@ -149,29 +152,29 @@ export function Login() {
                 className={styles.input}
                 type="text"
                 inputMode="numeric"
-                placeholder="Kod (dev: 123456)"
+                placeholder={a.loginCodePlaceholder}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
               />
             </div>
             <div className={styles.actions}>
               <ArcadeButton variant="gray" size="sm" fullWidth={false} onClick={requestOtp} disabled={otpBusy}>
-                Skicka kod
+                {a.loginSendCode}
               </ArcadeButton>
               <ArcadeButton variant="pink" size="sm" fullWidth={false} onClick={verifyOtp} disabled={otpBusy}>
-                Verifiera kod
+                {a.loginVerifyCode}
               </ArcadeButton>
               <a className={styles.googleLink} href="/auth/google/start">
-                Fortsätt med Google
+                {a.loginGoogle}
               </a>
             </div>
-            {otpRequested ? <p className={styles.subtle}>Kod skickad. Kontrollera e-post/logg och verifiera.</p> : null}
+            {otpRequested ? <p className={styles.subtle}>{a.loginCodeSent}</p> : null}
           </>
         )}
         {authError ? <p className={styles.error}>{authError}</p> : null}
         <p className={styles.backRow}>
           <Link to="/" className={styles.backLink}>
-            Till startsidan
+            {a.loginHomeLink}
           </Link>
         </p>
       </div>

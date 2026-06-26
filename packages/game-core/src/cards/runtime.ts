@@ -24,6 +24,7 @@ import { beginCombatReactionsPhase } from "../combatReactionAutopass.js";
 import { combatReactorsFor } from "../combatReactors.js";
 import { isPlayerActiveInMatch } from "../playerParticipation.js";
 import { rollDie } from "../rng.js";
+import { onPlayerEquipmentSlotCleared } from "../plastbackSynergy.js";
 import {
   finalBossCardTagline,
   isStandardMonsterId,
@@ -717,6 +718,7 @@ export function handleCardOption(params: {
         const slot = occupied[Math.floor(rng() * occupied.length)] as EquipmentSlot;
         const piece = p.equipment[slot];
         p.equipment[slot] = undefined as any;
+        if (slot === "accessory") onPlayerEquipmentSlotCleared(p, slot);
         droppedText = `\nDu tappade ${piece?.name ?? "en utrustning"} (${slot}).`;
       } else {
         droppedText = "\nDu hade ingen utrustning att tappa.";

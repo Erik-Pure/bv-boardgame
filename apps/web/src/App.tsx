@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, useLocation } from "react-router-dom";
 import "./App.css";
 import { PageTransitionLayout } from "./components/PageTransitionLayout";
+import { useUiStrings } from "./lib/locale/LocaleContext";
 import { CardsCatalog } from "./routes/CardsCatalog";
 import { GameRules } from "./routes/GameRules";
 import { Home } from "./routes/Home";
@@ -21,6 +22,7 @@ function ScrollToTopOnRouteChange() {
 }
 
 function RouteLoadingFallback() {
+  const ui = useUiStrings();
   return (
     <div
       style={{
@@ -31,7 +33,7 @@ function RouteLoadingFallback() {
         opacity: 0.85,
       }}
     >
-      Laddar…
+      {ui.app.loading}
     </div>
   );
 }

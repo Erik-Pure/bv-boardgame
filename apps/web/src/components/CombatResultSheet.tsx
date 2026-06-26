@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 
 export function CombatSheetFrame(props: {
   children: ReactNode;
@@ -8,6 +8,7 @@ export function CombatSheetFrame(props: {
   /** false: ingen rubrikrad (t.ex. vinst/förlust där huvudrubriken är i innehållet). */
   showSheetTitle?: boolean;
 }) {
+  const ui = useUiStrings();
   const showTitle = props.showSheetTitle !== false;
   return (
     <>
@@ -24,7 +25,7 @@ export function CombatSheetFrame(props: {
             ...props.titleStyle,
           }}
         >
-          {props.sheetTitle ?? sv.play.combatCardSheetTitle}
+          {props.sheetTitle ?? ui.play.combatCardSheetTitle}
         </div>
       ) : null}
       {props.children}

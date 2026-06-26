@@ -20,7 +20,7 @@ import {
   type ItemInventoryBadgeOpts,
 } from "../../lib/inventoryEffectBadges";
 import styles from "../../routes/PlayView.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { EquipIcon } from "./EquipIcon";
 
 export type StatFlash = "up" | "down" | null;
@@ -84,14 +84,15 @@ export function EquipButton(props: {
   lootFlashKey: number;
   onClick: () => void;
 }) {
+  const ui = useUiStrings();
   const label =
     props.slot === "weapon"
-      ? sv.play.equipWeapon
+      ? ui.play.equipWeapon
       : props.slot === "armor"
-        ? sv.play.equipArmor
+        ? ui.play.equipArmor
         : props.slot === "helmet"
-          ? sv.play.equipHelmet
-          : sv.play.equipAccessory;
+          ? ui.play.equipHelmet
+          : ui.play.equipAccessory;
   const disabled = !props.equipped;
   const lf = props.lootFlash;
   const legendaryBurkhjälmLocked =
@@ -107,7 +108,7 @@ export function EquipButton(props: {
         props.onClick();
       }}
       disabled={disabled}
-      aria-label={disabled ? sv.equipAria.empty(label) : sv.equipAria.view(label)}
+      aria-label={disabled ? ui.equipAria.empty(label) : ui.equipAria.view(label)}
       style={{
         width: "100%",
         aspectRatio: "1 / 1",

@@ -1,7 +1,8 @@
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import styles from "./CombatCritFailDiceCaption.module.css";
 
 export function CombatCritFailDiceCaption(props: { variant?: "play" | "table" }) {
+  const ui = useUiStrings();
   const variant = props.variant ?? "play";
   return (
     <p
@@ -9,7 +10,7 @@ export function CombatCritFailDiceCaption(props: { variant?: "play" | "table" })
       role="status"
       aria-live="polite"
     >
-      {sv.play.combatCritFailOnOneNearDice}
+      {ui.play.combatCritFailOnOneNearDice}
     </p>
   );
 }

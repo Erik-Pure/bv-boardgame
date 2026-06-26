@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { brewerDisplayLevel, type GameState, type Player } from "@bv/game-core";
 import { vibrateMyTurn } from "../../lib/turnVibration";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { isMobilePlayLayout, PLAY_ROOT_MOBILE_GRADIENT_MQ } from "./playLayoutConstants";
 
 type AllyCombatOutcome = {
@@ -19,6 +19,7 @@ export function usePlayTurnOverlays(options: {
   allyCombatOutcomeDismissedKey: string | null;
   hasBlockingSipNotice: boolean;
 }) {
+  const ui = useUiStrings();
   const {
     isMyTurn,
     state,
@@ -110,7 +111,7 @@ export function usePlayTurnOverlays(options: {
         setQueuedLevelUpOverlay(own.curr);
         return;
       }
-      showToast(sv.play.levelUpBrewerToast(own.curr));
+      showToast(ui.play.levelUpBrewerToast(own.curr));
       if (isMobilePlayLayout() && !showResponsibleReminder && !showMobileTutorial) {
         if (levelUpOverlayTimerRef.current != null) {
           window.clearTimeout(levelUpOverlayTimerRef.current);
@@ -144,7 +145,7 @@ export function usePlayTurnOverlays(options: {
       (state.pending.cardId === "combat_win" || state.pending.cardId === "combat_lose");
     if (ownCombatResultCardOpen || pvpRoundRevealOpen || allyOutcomeBlocksCelebration) return;
     if (hasBlockingSipNotice) return;
-    showToast(sv.play.levelUpBrewerToast(queuedLevelUpOverlay));
+    showToast(ui.play.levelUpBrewerToast(queuedLevelUpOverlay));
     if (isMobilePlayLayout() && !showResponsibleReminder && !showMobileTutorial) {
       if (levelUpOverlayTimerRef.current != null) {
         window.clearTimeout(levelUpOverlayTimerRef.current);

@@ -27,6 +27,23 @@ export const MERCHANT_SELLABLE_COMBAT_ITEM_IDS: readonly ItemId[] = [
 
 export const MERCHANT_INVENTORY_ITEM_PRICE = 5;
 
+/** Fast pris för Taproom-nyckel på sista brädnivån i Panta burkar. */
+export const MERCHANT_TAPROOM_KEY_PRICE = 20;
+
+export function isLastBoardLevel(levelIndex: number, levelsLength: number | undefined): boolean {
+  return levelsLength != null && levelsLength > 0 && levelIndex === levelsLength - 1;
+}
+
+export function taproomKeyAllowedInMerchant(disabledCardIds?: ReadonlySet<string>): boolean {
+  return !disabledCardIds?.has("item_taproom_key");
+}
+
+export function taproomKeyMerchantShopItem(uniqueIdSuffix?: number): ShopItem {
+  const base = combatItemToMerchantShopItem("taproom_key", MERCHANT_TAPROOM_KEY_PRICE);
+  if (uniqueIdSuffix == null) return base;
+  return { ...base, id: `c-taproom_key-${uniqueIdSuffix}` };
+}
+
 export function combatItemToMerchantShopItem(
   itemId: ItemId,
   price = MERCHANT_INVENTORY_ITEM_PRICE,

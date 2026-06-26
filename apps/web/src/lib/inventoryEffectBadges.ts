@@ -15,6 +15,7 @@ import {
   isBeerCanShieldName,
   isLegendariskBurkhjälmName,
   shortcutDisplayPantGold,
+  SHORTCUT_TELEPORT_GOLD_COST,
   type EquipmentSlot,
   type ItemId,
   type ItemInstance,
@@ -286,8 +287,16 @@ export function itemInventoryEffectBadge(
     const left = instance?.canmanDrawsRemaining ?? CANMAN_DRAWS_INITIAL;
     return { icon: "pant", label: String(left) };
   }
+  if (itemId === "shortcut") {
+    return {
+      icon: "pant",
+      label: `-${SHORTCUT_TELEPORT_GOLD_COST}`,
+      labelTone: "danger",
+      iconAfter: true,
+    };
+  }
   if (
-    (itemId === "shortcut" || itemId === "taproom_key") &&
+    itemId === "taproom_key" &&
     opts &&
     Number.isFinite(opts.levelCount) &&
     opts.levelCount > 0 &&
@@ -301,7 +310,7 @@ export function itemInventoryEffectBadge(
     pretzel_snack: { icon: "heart", label: "+2" },
     coin_purse: { icon: "pant", label: "+4" },
     charity: { icon: "pant", label: "HP" },
-    shortcut: { icon: "pant", label: "↑" },
+    shortcut: { icon: "pant", label: "10" },
     taproom_key: { icon: "pant", label: "↑" },
     weak_beer: { icon: "attack", label: "−2", labelTone: "danger" },
     light_beer: { icon: "attack", label: "+1" },

@@ -9,6 +9,9 @@ import {
   playerPant,
   combatReactionsAllAnswered,
   effectiveMerchantBuyPrice,
+  formatCanAmount,
+  getEquipmentDisplay,
+  getEquipmentDisplayByEquippedName,
   MERCHANT_REROLL_GOLD_COST,
   effectiveWeaponPiecePower,
   isBrewerPerkChoiceAvailable,
@@ -32,7 +35,7 @@ import {
   type Player,
   type ShopItem,
 } from "@bv/game-core";
-import { formatShopItemEffectSummary } from "../../lib/equipmentEffectSummary";
+import { formatLocalizedShopItemEffectSummary } from "../../lib/equipmentEffectSummary";
 import { combatTeamRollShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import { readBoardPerformancePrefs } from "../../lib/boardPerformancePrefs";
 import { playOptimisticMoveRollSfx, playTableSfx } from "../../lib/tableSfx";
@@ -58,6 +61,7 @@ import { MerchantShopItemArt, MerchantShopTypeIcon, MERCHANT_TYPE_ICON_PX } from
 import { TutorialInlineIcon } from "./TutorialInlineIcon";
 import {
   BREWER_PERK_BUTTONS,
+  brewerPerkChoiceLabel,
   COMBAT_INTERVENE_PLAYABLE_ITEM_IDS,
   CONTRACT_ICON_PANT_COLOR,
   CONTRACT_ICON_REWARD_COLOR,
@@ -68,9 +72,12 @@ import {
   myOffTurnCombatEquipReplace,
 } from "../../lib/playInteractionHelpers";
 import { renderEquipmentReplaceEffects } from "../../lib/playInteractionEquipmentEffects";
+import { merchantShopItemDisplayName } from "../../lib/merchantLocale";
+import { localizedCombatMonster } from "../../lib/combatUi";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { capitalizeWord, equipmentSlotSv, sv, tileTypeSv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+import { capitalizeWord, equipmentSlotLabel, tileTypeLabel } from "../../lib/uiStrings";
 
 export type MobileEquipmentCombatTotals = {
   maxHp: number;
@@ -108,6 +115,8 @@ export type PlayInteractionPanelProps = {
 };
 
 export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const {
     state,
     me,
@@ -166,7 +175,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     return (
       <div className={u.stack10}>
         <div className={`${u.textCenter} ${u.o9}`}>
-          {sv.play.lobbySheet(readyCount, totalPlayers)}
+          {ui.play.lobbySheet(readyCount, totalPlayers)}
         </div>
         {me.isHost ? (
           <ArcadeButton
@@ -178,7 +187,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               send({ type: "setAvatar", playerId: me.id, avatar });
             }}
           >
-            {sv.play.shuffleAvatar}
+            {ui.play.shuffleAvatar}
           </ArcadeButton>
         ) : null}
         <div className={`${u.stack10} ${u.gridCols2} ${u.justifyItemsCenter}`}>
@@ -192,7 +201,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 send({ type: "setAvatar", playerId: me.id, avatar });
               }}
             >
-              {sv.play.shuffleAvatar}
+              {ui.play.shuffleAvatar}
             </ArcadeButton>
           ) : null}
           <ArcadeButton
@@ -201,7 +210,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             disabled={status !== "connected"}
             onClick={() => send({ type: "setReady", playerId: me.id, ready: !me.ready })}
           >
-            {me.ready ? sv.play.unready : sv.play.ready}
+            {me.ready ? ui.play.unready : ui.play.ready}
           </ArcadeButton>
           {me.isHost ? (
             <ArcadeButton
@@ -210,13 +219,13 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               disabled={status !== "connected" || !canStart}
               onClick={() => send({ type: "startGame", playerId: me.id })}
             >
-              {sv.play.startGame}
+              {ui.play.startGame}
             </ArcadeButton>
           ) : null}
         </div>
         {!canStart && (
           <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>
-            {me.isHost ? sv.play.hostNeedPlayers : sv.play.waitHostStart}
+            {me.isHost ? ui.play.hostNeedPlayers : ui.play.waitHostStart}
           </div>
         )}
       </div>
@@ -230,8 +239,9 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         {mobileEquipmentCombatTotals ? (
           <EquipmentCombatTotalsRow totals={mobileEquipmentCombatTotals} />
         ) : null}
-        {BREWER_PERK_BUTTONS.map(({ choice, label, icon, variant }) => {
+        {BREWER_PERK_BUTTONS.map(({ choice, icon, variant }) => {
           const available = isBrewerPerkChoiceAvailable(me, choice);
+          const label = brewerPerkChoiceLabel(ui.play, choice);
           return (
             <ArcadeButton
               key={choice}
@@ -243,7 +253,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               <span className={styles.turnChoicePantaLabel}>
                 <TutorialInlineIcon src={icon} color="#f8fafc" gap="0" />
                 <span>
-                  {sv.play.brewerPerkChoiceWithCap(
+                  {ui.play.brewerPerkChoiceWithCap(
                     label,
                     brewerPerkPickCount(me, choice),
                     BREWER_PERK_MAX_PER_CATEGORY,
@@ -268,10 +278,18 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   const equipOffer = catalogEquipOffer ?? stealEquipOffer;
   if (equipOffer) {
     const slot = equipOffer.slot;
+    const equippedDisplayName =
+      (getEquipmentDisplayByEquippedName(merchantEquippedName(me, slot), locale)?.name ??
+        merchantEquippedName(me, slot)) ||
+      "—";
+    const newDisplayName =
+      "catalogId" in equipOffer && equipOffer.catalogId
+        ? getEquipmentDisplay(equipOffer.catalogId, locale).name
+        : getEquipmentDisplayByEquippedName(equipOffer.newName, locale)?.name ?? equipOffer.newName;
     return (
       <div className={u.stack12}>
         <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
-          {sv.play.lootEquipmentReplaceTitle}
+          {ui.play.lootEquipmentReplaceTitle}
         </div>
         <div className={u.flexCenterFullWidth}>
           <div className={u.box96}>
@@ -283,17 +301,19 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           </div>
         </div>
         <div className={`${u.textCenter} ${u.fs14} ${u.lineHeight145} ${u.colorE8}`}>
-          {sv.play.merchantReplaceBody(
-            capitalizeWord(equipmentSlotSv(slot)),
-            merchantEquippedName(me, slot),
-            equipOffer.newName,
+          {ui.play.merchantReplaceBody(
+            capitalizeWord(equipmentSlotLabel(slot, locale)),
+            equippedDisplayName,
+            newDisplayName,
           )}
         </div>
         {renderEquipmentReplaceEffects(
           slot,
           me,
           equipOffer.newName,
+          ui,
           "catalogId" in equipOffer ? equipOffer.catalogId : undefined,
+          locale,
         )}
         <div className={u.stack8}>
           <ArcadeButton
@@ -301,14 +321,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: true })}
           >
-            {sv.play.merchantReplaceConfirm}
+            {ui.play.merchantReplaceConfirm}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "equipmentReplaceDecision", playerId: me.id, accept: false })}
           >
-            {sv.play.lootEquipmentReplaceDecline}
+            {ui.play.lootEquipmentReplaceDecline}
           </ArcadeButton>
         </div>
       </div>
@@ -323,7 +343,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     if (pending.phase === "choosePvpOpponent") {
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpChooseOpponent}</div>
+          <div className={`${u.textCenter} ${u.o9}`}>{ui.play.pvpChooseOpponent}</div>
           <div className={u.stack10}>
             {activeEncounterOpponents.map((oid) => {
               const pl = state.players.find((p) => p.id === oid);
@@ -350,10 +370,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           !!pl && isPlayerActiveInMatch(pl) && pl.equipment.armor?.pvpCannotBeChallenged !== true,
       )
       .map((pl) => pl.name);
-    const encounterPvpButtonLabel = sv.play.pvpBothRollVersus(encounterPvpEligibleNames.join(", "));
+    const encounterPvpButtonLabel = ui.play.pvpBothRollVersus(encounterPvpEligibleNames.join(", "));
     return (
       <div className={u.stack10}>
-        <div className={`${u.textCenter} ${u.o9}`}>{sv.play.encounterChoose}</div>
+        <div className={`${u.textCenter} ${u.o9}`}>{ui.play.encounterChoose}</div>
         <div className={u.stack10}>
           {encounterPvpEligibleNames.length > 0 ? (
           <ArcadeButton
@@ -369,7 +389,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={() => send({ type: "chooseEncounter", playerId: me.id, choice: "tile" })}
           >
-            {sv.play.resolveTileNoPvp(tileTypeSv[pending.tileType ?? "empty"])}
+            {ui.play.resolveTileNoPvp(tileTypeLabel(pending.tileType ?? "empty", locale))}
           </ArcadeButton>
         </div>
       </div>
@@ -389,7 +409,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       const attacker = state.players.find((p) => p.id === pending.attackerId);
       return (
         <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.waitAttackerContinue(attacker?.name ?? sv.play.theAttacker)}
+          {ui.play.waitAttackerContinue(attacker?.name ?? ui.play.theAttacker)}
         </div>
       );
     }
@@ -411,7 +431,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       const attacker = state.players.find((p) => p.id === pending.attackerId);
       return (
         <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.waitAttackerChoose(attacker?.name ?? sv.play.theAttacker)}
+          {ui.play.waitAttackerChoose(attacker?.name ?? ui.play.theAttacker)}
         </div>
       );
     }
@@ -437,9 +457,9 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     if (isAttacker) {
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o92}`}>{sv.play.combatHelpChooseHelper}</div>
+          <div className={`${u.textCenter} ${u.o92}`}>{ui.play.combatHelpChooseHelper}</div>
           {helperPlayers.length === 0 ? (
-            <div className={`${u.textCenter} ${u.o82}`}>{sv.play.combatHelpNoCandidates}</div>
+            <div className={`${u.textCenter} ${u.o82}`}>{ui.play.combatHelpNoCandidates}</div>
           ) : (
             helperPlayers.map((pl) => (
               <ArcadeButton
@@ -457,15 +477,15 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={cancelCombatHelpRequest}
           >
-            {sv.play.combatHelpCancel}
+            {ui.play.combatHelpCancel}
           </ArcadeButton>
         </div>
       );
     }
-    const attackerName = state.players.find((p) => p.id === pending.attackerId)?.name ?? sv.play.theAttacker;
+    const attackerName = state.players.find((p) => p.id === pending.attackerId)?.name ?? ui.play.theAttacker;
     return (
       <div className={`${u.textCenter} ${u.o82}`}>
-        {sv.play.combatHelpWaitAttackerChoose(attackerName)}
+        {ui.play.combatHelpWaitAttackerChoose(attackerName)}
       </div>
     );
   }
@@ -505,24 +525,24 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         {")"}
       </span>
     );
-    if (!helperId) return <div className={`${u.textCenter} ${u.o82}`}>{sv.play.waitingState}</div>;
+    if (!helperId) return <div className={`${u.textCenter} ${u.o82}`}>{ui.play.waitingState}</div>;
     if (isHelper) {
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o92}`}>{sv.play.combatHelpDecisionPrompt}</div>
+          <div className={`${u.textCenter} ${u.o92}`}>{ui.play.combatHelpDecisionPrompt}</div>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "decline" })}
           >
-            {sv.play.combatHelpDecisionDecline}
+            {ui.play.combatHelpDecisionDecline}
           </ArcadeButton>
           <ArcadeButton
             variant="pink"
             fullWidth
             onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "free" })}
           >
-            {sv.play.combatHelpDecisionFree}
+            {ui.play.combatHelpDecisionFree}
           </ArcadeButton>
           <ArcadeButton
             variant="pink"
@@ -530,7 +550,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "pant" })}
           >
             <>
-              {sv.play.combatHelpDecisionPant}
+              {ui.play.combatHelpDecisionPant}
               {pantOutcomeInline}
             </>
           </ArcadeButton>
@@ -540,7 +560,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "treasure" })}
           >
             <>
-              {sv.play.combatHelpDecisionTreasure}
+              {ui.play.combatHelpDecisionTreasure}
               {treasureOutcomeInline}
             </>
           </ArcadeButton>
@@ -550,7 +570,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "split" })}
           >
             <>
-              {sv.play.combatHelpDecisionSplit}
+              {ui.play.combatHelpDecisionSplit}
               {splitOutcomeInline}
             </>
           </ArcadeButton>
@@ -560,7 +580,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     return (
       <div className={u.stack10}>
         <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.combatHelpWaitDecision(helperName)}
+          {ui.play.combatHelpWaitDecision(helperName)}
         </div>
         {pending.attackerId === me.id ? (
           <ArcadeButton
@@ -568,7 +588,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={cancelCombatHelpRequest}
           >
-            {sv.play.combatHelpCancel}
+            {ui.play.combatHelpCancel}
           </ArcadeButton>
         ) : null}
       </div>
@@ -578,17 +598,17 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   if (pending?.type === "combat" && pending.phase === "helpAwaitRequesterDecision") {
     const helperId = pending.helpSelectedHelperId;
     const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
-    const requesterName = state.players.find((p) => p.id === pending.attackerId)?.name ?? sv.play.theAttacker;
+    const requesterName = state.players.find((p) => p.id === pending.attackerId)?.name ?? ui.play.theAttacker;
     const isRequester = pending.attackerId === me.id;
     const requested = pending.helpProposedContract;
     const pantGoldReward = Math.max(0, Math.floor(pending.rewardGold ?? 4));
     const treasureItemsReward = Math.max(0, Math.floor(pending.rewardItems ?? 1));
-    if (!helperId || !requested) return <div className={`${u.textCenter} ${u.o82}`}>{sv.play.waitingState}</div>;
+    if (!helperId || !requested) return <div className={`${u.textCenter} ${u.o82}`}>{ui.play.waitingState}</div>;
     const requestedLabel =
       requested === "pant"
         ? (
             <>
-              {sv.play.combatHelpDecisionPant}{" "}
+              {ui.play.combatHelpDecisionPant}{" "}
               <span className={styles.contractOutcomeSuffix}>
                 ({pantGoldReward}{" "}
                 <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />)
@@ -598,7 +618,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         : requested === "treasure"
           ? (
               <>
-                {sv.play.combatHelpDecisionTreasure}{" "}
+                {ui.play.combatHelpDecisionTreasure}{" "}
                 <span className={styles.contractOutcomeSuffix}>
                   ({treasureItemsReward}{" "}
                   <TutorialInlineIcon
@@ -611,7 +631,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             )
           : (
               <>
-                {sv.play.combatHelpDecisionSplit}{" "}
+                {ui.play.combatHelpDecisionSplit}{" "}
                 <span className={styles.contractOutcomeSuffix}>
                   ({Math.floor(pantGoldReward / 2)}{" "}
                   <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />
@@ -629,7 +649,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o92}`}>
-            {sv.play.combatHelpRequesterPrompt(helperName)}
+            {ui.play.combatHelpRequesterPrompt(helperName)}
           </div>
           <div className={`${u.textCenter} ${u.o85}`}>{requestedLabel}</div>
           <ArcadeButton
@@ -637,21 +657,21 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={() => send({ type: "combatHelpRequesterDecision", playerId: me.id, accept: true })}
           >
-            {sv.play.combatHelpRequesterAccept}
+            {ui.play.combatHelpRequesterAccept}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "combatHelpRequesterDecision", playerId: me.id, accept: false })}
           >
-            {sv.play.combatHelpRequesterDecline}
+            {ui.play.combatHelpRequesterDecline}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={cancelCombatHelpRequest}
           >
-            {sv.play.combatHelpCancel}
+            {ui.play.combatHelpCancel}
           </ArcadeButton>
         </div>
       );
@@ -659,8 +679,8 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     return (
       <div className={`${u.textCenter} ${u.o82}`}>
         {me.id === helperId
-          ? sv.play.combatHelpRequesterWait(requesterName)
-          : sv.play.combatHelpWaitDecision(requesterName)}
+          ? ui.play.combatHelpRequesterWait(requesterName)
+          : ui.play.combatHelpWaitDecision(requesterName)}
       </div>
     );
   }
@@ -679,10 +699,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.o92}`}>
-            {sv.play.combatHelpPlayPositiveCard}
+            {ui.play.combatHelpPlayPositiveCard}
           </div>
           {helperItems.length === 0 ? (
-            <div className={`${u.textCenter} ${u.o82}`}>{sv.play.combatHelpNoPlayablePositiveCards}</div>
+            <div className={`${u.textCenter} ${u.o82}`}>{ui.play.combatHelpNoPlayablePositiveCards}</div>
           ) : (
             helperItems.map((it) => (
               <ArcadeButton
@@ -708,7 +728,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     return (
       <div className={u.stack10}>
         <div className={`${u.textCenter} ${u.o82}`}>
-          {sv.play.combatHelpWaitHelperCard(helperName)}
+          {ui.play.combatHelpWaitHelperCard(helperName)}
         </div>
         {pending.attackerId === me.id ? (
           <ArcadeButton
@@ -716,7 +736,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             fullWidth
             onClick={cancelCombatHelpRequest}
           >
-            {sv.play.combatHelpCancel}
+            {ui.play.combatHelpCancel}
           </ArcadeButton>
         ) : null}
       </div>
@@ -801,13 +821,13 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     const otherFighterName =
       me.id === pending.attackerId
         ? (teammate?.name ?? "")
-        : (attacker?.name ?? sv.play.theAttacker);
+        : (attacker?.name ?? ui.play.theAttacker);
 
     if (isTeamFighter) {
       return (
         <div className={u.stack10}>
           <div className={u.reactionTitleRow}>
-            <span>{pending.enemyName}</span>
+            <span>{localizedCombatMonster(pending, locale).name}</span>
             <span className={u.inlineFlexGap5}>
               <img
                 src="/icons/combat-icon.svg"
@@ -820,9 +840,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           </div>
           {teammate ? (
             <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>
-              {pending.teamBattleRequired ? `${sv.play.teamBattleLabel}:` : "Ölkompis:"}{" "}
-              {attacker?.name ?? "—"} {attackerRoll ? "har slagit" : "har inte slagit"} · {teammate.name}{" "}
-              {teammateRoll ? "har slagit" : "har inte slagit"}
+              {pending.teamBattleRequired ? `${ui.play.teamBattleLabel}:` : `${ui.play.combatBeerBroLabel} `}
+              {attacker?.name ?? "—"}{" "}
+              {attackerRoll ? ui.play.combatPlayerHasRolled : ui.play.combatPlayerHasNotRolled} · {teammate.name}{" "}
+              {teammateRoll ? ui.play.combatPlayerHasRolled : ui.play.combatPlayerHasNotRolled}
             </div>
           ) : null}
           <div className={sheetDiceBlockClass}>
@@ -876,14 +897,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           </div>
           {(pending.reactors?.length ?? 0) > 0 && !everyoneDone && reactionOpen ? (
             <div className={`${u.textCenter} ${u.o85}`}>
-              {sv.play.waitIntervene}
+              {ui.play.waitIntervene}
               {deadlineAt > 0 ? ` (${secondsLeft}s)` : ""}
             </div>
           ) : pending.assistId && !bothTeamRolled && myTeamRoll ? (
             <div className={`${u.textCenter} ${u.o82}`}>
               {otherFighterName
-                ? sv.play.waitTeammateCombatRoll(otherFighterName)
-                : sv.play.waitTeamSecondRoll}
+                ? ui.play.waitTeammateCombatRoll(otherFighterName)
+                : ui.play.waitTeamSecondRoll}
             </div>
           ) : (() => {
             const sipBonus = myWeaponSipBonus;
@@ -906,13 +927,15 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                       fullWidth
                       onClick={() => send({ type: "combatRequestHelp", playerId: me.id })}
                     >
-                      {sv.play.combatHelpRequest}
+                      {ui.play.combatHelpRequest}
                     </ArcadeButton>
                   ) : null}
                   {!sipChoiceMade ? (
                     <div className={`${u.textCenter} ${u.o92} ${u.fs14} ${u.lineHeight145}`}>
-                      {sv.play.combatSipWeaponPrompt(
-                        me.equipment.weapon?.name ?? "Vapnet",
+                      {ui.play.combatSipWeaponPrompt(
+                        getEquipmentDisplayByEquippedName(me.equipment.weapon?.name, locale)?.name ??
+                          me.equipment.weapon?.name ??
+                          ui.play.equipWeapon,
                         sipBonus,
                         sipPay.gold,
                         sipPay.klunks,
@@ -934,7 +957,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                         }
                         disabled={!!myTeamRoll || cantAffordGold}
                       >
-                        {sv.play.combatSipWeaponRollWith(
+                        {ui.play.combatSipWeaponRollWith(
                           sipBonus,
                           sipPay.gold,
                           sipPay.klunks,
@@ -953,7 +976,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                         }
                         disabled={!!myTeamRoll}
                       >
-                        {sv.play.combatSipWeaponRollWithout}
+                        {ui.play.combatSipWeaponRollWithout}
                       </ArcadeButton>
                     </>
                   ) : (
@@ -966,7 +989,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                       }}
                       disabled={!!myTeamRoll}
                     >
-                      {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
+                      {myTeamRoll ? ui.play.youRolled : ui.play.rollCombat}
                     </ArcadeButton>
                   )}
                 </div>
@@ -984,7 +1007,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                     fullWidth
                     onClick={() => send({ type: "combatRequestHelp", playerId: me.id })}
                   >
-                    {sv.play.combatHelpRequest}
+                    {ui.play.combatHelpRequest}
                   </ArcadeButton>
                 ) : null}
                 <ArcadeButton
@@ -996,7 +1019,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                   }}
                   disabled={!!myTeamRoll}
                 >
-                  {myTeamRoll ? "Du har slagit" : sv.play.rollCombat}
+                  {myTeamRoll ? ui.play.youRolled : ui.play.rollCombat}
                 </ArcadeButton>
               </div>
             );
@@ -1011,16 +1034,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       }
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.inCombat(attacker.name)}</div>
+          <div className={`${u.textCenter} ${u.o9}`}>{ui.play.inCombat(attacker.name)}</div>
           <div className={`${u.textCenter} ${u.o85} ${u.fs14} ${u.lineHeight145}`}>
-            {sv.play.noInterveneCards}
+            {ui.play.noInterveneCards}
           </div>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "combatReact", playerId: me.id, choice: "pass" })}
           >
-            {sv.play.doNothing}
+            {ui.play.doNothing}
           </ArcadeButton>
         </div>
       );
@@ -1032,7 +1055,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         if (interveneItems.length === 0) {
           return (
             <div className={u.stack10}>
-              <div className={`${u.textCenter} ${u.o9}`}>{sv.play.interveneNoCardsPlayable}</div>
+              <div className={`${u.textCenter} ${u.o9}`}>{ui.play.interveneNoCardsPlayable}</div>
               <ArcadeButton
                 variant="gray"
                 fullWidth
@@ -1041,7 +1064,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                   setWantsIntervene(false);
                 }}
               >
-                {sv.play.doNothing}
+                {ui.play.doNothing}
               </ArcadeButton>
             </div>
           );
@@ -1054,16 +1077,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           if (!broInst) {
             return (
               <div className={u.stack10}>
-                <div className={`${u.textCenter} ${u.o85}`}>{sv.play.itemNotFound}</div>
+                <div className={`${u.textCenter} ${u.o85}`}>{ui.play.itemNotFound}</div>
                 <ArcadeButton variant="gray" fullWidth onClick={() => setBeerBroPickInstance(null)}>
-                  {sv.play.back}
+                  {ui.play.back}
                 </ArcadeButton>
               </div>
             );
           }
           return (
             <div className={u.stack10}>
-              <div className={`${u.textCenter} ${u.o9}`}>{sv.play.chooseBeerBroPartner}</div>
+              <div className={`${u.textCenter} ${u.o9}`}>{ui.play.chooseBeerBroPartner}</div>
               <div className={u.stack8}>
                 {broCandidates.map((p) => (
                   <ArcadeButton
@@ -1086,7 +1109,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 ))}
               </div>
               <ArcadeButton variant="gray" fullWidth onClick={() => setBeerBroPickInstance(null)}>
-                {sv.play.back}
+                {ui.play.back}
               </ArcadeButton>
             </div>
           );
@@ -1099,16 +1122,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           if (!otInst) {
             return (
               <div className={u.stack10}>
-                <div className={`${u.textCenter} ${u.o85}`}>{sv.play.itemNotFound}</div>
+                <div className={`${u.textCenter} ${u.o85}`}>{ui.play.itemNotFound}</div>
                 <ArcadeButton variant="gray" fullWidth onClick={() => setInterveneOtherTargetPickInstance(null)}>
-                  {sv.play.back}
+                  {ui.play.back}
                 </ArcadeButton>
               </div>
             );
           }
           return (
             <div className={u.stack10}>
-              <div className={`${u.textCenter} ${u.o9}`}>{sv.play.chooseTarget}</div>
+              <div className={`${u.textCenter} ${u.o9}`}>{ui.play.chooseTarget}</div>
               <div className={u.stack8}>
                 {otherTargetCandidates.map((p) => (
                   <ArcadeButton
@@ -1131,14 +1154,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 ))}
               </div>
               <ArcadeButton variant="gray" fullWidth onClick={() => setInterveneOtherTargetPickInstance(null)}>
-                {sv.play.back}
+                {ui.play.back}
               </ArcadeButton>
             </div>
           );
         }
         return (
           <div className={u.stack10}>
-            <div className={`${u.textCenter} ${u.o9}`}>{sv.play.intervenePickCard}</div>
+            <div className={`${u.textCenter} ${u.o9}`}>{ui.play.intervenePickCard}</div>
             <div className={u.stack8}>
               {interveneItems.map((it) => (
                   <ArcadeButton
@@ -1149,11 +1172,11 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                       const id = String(it.itemId);
                       if (id === "beer_bro") {
                         if (pending.teamBattleRequired) {
-                          showToast(sv.play.beerBroUnavailableTeamBattle);
+                          showToast(ui.play.beerBroUnavailableTeamBattle);
                           return;
                         }
                         if (pending.assistId) {
-                          showToast(sv.play.beerBroAlreadyHelping);
+                          showToast(ui.play.beerBroAlreadyHelping);
                           return;
                         }
                         setBeerBroPickInstance(it.instanceId);
@@ -1183,19 +1206,19 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                     }}
                   >
                     {itemMetaForView(it.itemId).title}
-                    {String(it.itemId) === "weak_beer" ? sv.play.itemSuffixWeakBeer : ""}
-                    {String(it.itemId) === "light_beer" ? sv.play.itemSuffixLightBeer : ""}
-                    {String(it.itemId) === "folk_beer" ? sv.play.itemSuffixFolkBeer : ""}
-                    {String(it.itemId) === "tripwire" ? sv.play.itemSuffixTripwire : ""}
-                    {String(it.itemId) === "double_hops" ? sv.play.itemSuffixDoubleHops : ""}
-                    {String(it.itemId) === "beer_bomb" ? sv.play.itemSuffixBeerBomb : ""}
-                    {String(it.itemId) === "manopositiv" ? sv.play.itemSuffixManopositiv : ""}
+                    {String(it.itemId) === "weak_beer" ? ui.play.itemSuffixWeakBeer : ""}
+                    {String(it.itemId) === "light_beer" ? ui.play.itemSuffixLightBeer : ""}
+                    {String(it.itemId) === "folk_beer" ? ui.play.itemSuffixFolkBeer : ""}
+                    {String(it.itemId) === "tripwire" ? ui.play.itemSuffixTripwire : ""}
+                    {String(it.itemId) === "double_hops" ? ui.play.itemSuffixDoubleHops : ""}
+                    {String(it.itemId) === "beer_bomb" ? ui.play.itemSuffixBeerBomb : ""}
+                    {String(it.itemId) === "manopositiv" ? ui.play.itemSuffixManopositiv : ""}
                     {String(it.itemId) === "get_lucky" ? " (+4, risk)" : ""}
-                    {String(it.itemId) === "hangover" ? sv.play.itemSuffixHangover : ""}
-                    {String(it.itemId) === "monster_hype" ? sv.play.itemSuffixMonsterHype : ""}
-                    {String(it.itemId) === "yeast_sabotage" ? sv.play.itemSuffixYeast : ""}
-                    {String(it.itemId) === "beer_bro" ? sv.play.itemSuffixBeerBro : ""}
-                    {String(it.itemId) === "lengraddad" ? sv.play.itemSuffixLengraddad : ""}
+                    {String(it.itemId) === "hangover" ? ui.play.itemSuffixHangover : ""}
+                    {String(it.itemId) === "monster_hype" ? ui.play.itemSuffixMonsterHype : ""}
+                    {String(it.itemId) === "yeast_sabotage" ? ui.play.itemSuffixYeast : ""}
+                    {String(it.itemId) === "beer_bro" ? ui.play.itemSuffixBeerBro : ""}
+                    {String(it.itemId) === "lengraddad" ? ui.play.itemSuffixLengraddad : ""}
                   </ArcadeButton>
                 ))}
             </div>
@@ -1207,7 +1230,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 setWantsIntervene(false);
               }}
             >
-              {sv.play.interveneCancelPass}
+              {ui.play.interveneCancelPass}
             </ArcadeButton>
           </div>
         );
@@ -1217,7 +1240,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       }
       return (
         <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o9}`}>{sv.play.inCombat(attacker.name)}</div>
+          <div className={`${u.textCenter} ${u.o9}`}>{ui.play.inCombat(attacker.name)}</div>
           <div className={u.grid2Equal10}>
             <ArcadeButton
               variant="pink"
@@ -1227,14 +1250,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 setWantsIntervene(true);
               }}
             >
-              {sv.play.intervene}
+              {ui.play.intervene}
             </ArcadeButton>
             <ArcadeButton
               variant="gray"
               fullWidth
               onClick={() => send({ type: "combatReact", playerId: me.id, choice: "pass" })}
             >
-              {sv.play.doNothing}
+              {ui.play.doNothing}
             </ArcadeButton>
           </div>
         </div>
@@ -1359,31 +1382,31 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         {showPvpMatchMeta ? (
           <>
             <div className={`${u.textCenter} ${u.o92}`}>
-              {sv.play.pvpRoundBestOf(pvpRound, bestOf)}
+              {ui.play.pvpRoundBestOf(pvpRound, bestOf)}
             </div>
             <div className={`${u.textCenter} ${u.fs13} ${u.o82}`}>
-              {`${sv.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`}
+              {`${ui.play.pvpScoreLabel}: ${pending.attackerId === me.id ? pvpWins.attacker : pvpWins.defender}–${pending.attackerId === me.id ? pvpWins.defender : pvpWins.attacker}`}
             </div>
           </>
         ) : null}
-        <div className={`${u.textCenter} ${u.fs13} ${u.o88}`}>{sv.play.pvpPreRoundItemsHint}</div>
+        <div className={`${u.textCenter} ${u.fs13} ${u.o88}`}>{ui.play.pvpPreRoundItemsHint}</div>
         {meHasPvpItems ? (
           <ArcadeButton
             variant={myReadyExplicit ? "gray" : "pink"}
             fullWidth
             onClick={() => send({ type: "pvpRoundReady", playerId: me.id, ready: !myReadyExplicit })}
           >
-            {myReadyExplicit ? sv.play.pvpReadyUndo : sv.play.pvpReady}
+            {myReadyExplicit ? ui.play.pvpReadyUndo : ui.play.pvpReady}
           </ArcadeButton>
         ) : (
-          <div className={`${u.textCenter} ${u.fs13} ${u.o85}`}>{sv.play.pvpNoItemsAutoReady}</div>
+          <div className={`${u.textCenter} ${u.fs13} ${u.o85}`}>{ui.play.pvpNoItemsAutoReady}</div>
         )}
         <div className={`${u.textCenter} ${u.fs12} ${u.o75}`}>
           {myEffectiveReady
             ? opponentEffectiveReady
-              ? sv.play.pvpBothReady
-              : sv.play.pvpWaitingOpponentItemsOrReady(opponent?.name ?? "motståndaren")
-            : sv.play.pvpPressReadyWhenDone}
+              ? ui.play.pvpBothReady
+              : ui.play.pvpWaitingOpponentItemsOrReady(opponent?.name ?? "motståndaren")
+            : ui.play.pvpPressReadyWhenDone}
         </div>
       </div>
     );
@@ -1396,7 +1419,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     const myRoll = pending.rolls?.[me.id];
     return (
       <div className={u.stack10}>
-        <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpRollDie}</div>
+        <div className={`${u.textCenter} ${u.o9}`}>{ui.play.pvpRollDie}</div>
         <div className={sheetDiceBlockClass}>
           {myRoll ? (
             <DiceCube3D value={myRoll.die} size={76} />
@@ -1406,7 +1429,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           <div className={styles.sheetDiceCaption}>
             {myRoll ? (
               <span className={styles.sheetDiceCaptionText}>
-                {sv.play.yourD6TotalWeapon(myRoll.die, myRoll.total)}
+                {ui.play.yourD6TotalWeapon(myRoll.die, myRoll.total)}
               </span>
             ) : null}
           </div>
@@ -1420,7 +1443,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           }}
           disabled={!!myRoll}
         >
-          {myRoll ? sv.play.youRolled : sv.play.rollPvpDie}
+          {myRoll ? ui.play.youRolled : ui.play.rollPvpDie}
         </ArcadeButton>
       </div>
     );
@@ -1449,14 +1472,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     const tieRound = myTotal !== null && oppTotal !== null && myTotal === oppTotal;
     return (
       <div className={u.stack10}>
-        <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>{sv.play.pvpRound(pvpRound)}</div>
+        <div className={`${u.textCenter} ${u.o92} ${u.fs15} ${u.lineHeight135}`}>{ui.play.pvpRound(pvpRound)}</div>
         {myTotal !== null && oppTotal !== null && myTotal !== oppTotal ? (
           <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>
-            {myTotal > oppTotal ? sv.play.pvpRoundYouWon : sv.play.pvpRoundYouLost}
+            {myTotal > oppTotal ? ui.play.pvpRoundYouWon : ui.play.pvpRoundYouLost}
           </div>
         ) : null}
         {tieRound ? (
-          <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>{sv.play.pvpTieRerollHint}</div>
+          <div className={`${u.textCenter} ${u.fs15} ${u.fw700} ${u.o95}`}>{ui.play.pvpTieRerollHint}</div>
         ) : null}
         <div className={sheetDiceBlockClass}>
           {myRoll ? (
@@ -1467,7 +1490,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           <div className={styles.sheetDiceCaption}>
             {myRoll ? (
               <span className={styles.sheetDiceCaptionText}>
-                {sv.play.yourD6TotalWeapon(myRoll.die, myRoll.total)}
+                {ui.play.yourD6TotalWeapon(myRoll.die, myRoll.total)}
               </span>
             ) : null}
           </div>
@@ -1478,14 +1501,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           disabled={myAck}
           onClick={() => send({ type: "pvpRoundRevealAck", playerId: me.id })}
         >
-          {myAck ? sv.play.pvpRoundRevealDone : sv.play.pvpRoundRevealContinue}
+          {myAck ? ui.play.pvpRoundRevealDone : ui.play.pvpRoundRevealContinue}
         </ArcadeButton>
         <div className={`${u.textCenter} ${u.fs12} ${u.o75}`}>
           {myAck
             ? oppAck
-              ? sv.play.pvpRoundRevealBothAcked
-              : sv.play.pvpRoundRevealWaitOther(opponent?.name ?? "motståndaren")
-            : sv.play.pvpRoundRevealTapToContinue}
+              ? ui.play.pvpRoundRevealBothAcked
+              : ui.play.pvpRoundRevealWaitOther(opponent?.name ?? "motståndaren")
+            : ui.play.pvpRoundRevealTapToContinue}
         </div>
       </div>
     );
@@ -1493,12 +1516,12 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   }
 
   if (pending?.type === "door" && myPending) {
-    const monsterScaleNote = sv.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
+    const monsterScaleNote = ui.play.levelUpMonsterScaleOnDestination(pending.targetLevelIndex);
     const doorPantCost = Number.isFinite(pending.costs?.gold) ? Math.max(0, Math.round(pending.costs.gold)) : 0;
     return (
       <div className={u.stack10}>
-        <div className={`${u.textCenter} ${u.o9}`}>{sv.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
-        <div className={`${u.textCenter} ${u.fs14} ${u.o92} ${u.lineHeight145}`}>{sv.play.payPant(doorPantCost)}</div>
+        <div className={`${u.textCenter} ${u.o9}`}>{ui.play.levelUpPrompt(pending.targetLevelIndex + 1)}</div>
+        <div className={`${u.textCenter} ${u.fs14} ${u.o92} ${u.lineHeight145}`}>{ui.play.payPant(doorPantCost)}</div>
         {monsterScaleNote ? (
           <div className={`${u.textCenter} ${u.o88} ${u.fs13} ${u.lineHeight145}`}>{monsterScaleNote}</div>
         ) : null}
@@ -1509,14 +1532,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             onClick={() => send({ type: "useDoor", playerId: me.id, method: "gold" })}
             disabled={!canAffordPant(me, doorPantCost)}
           >
-            {sv.play.payPant(doorPantCost)}
+            {ui.play.payPant(doorPantCost)}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
             fullWidth
             onClick={() => send({ type: "useDoor", playerId: me.id, method: "stay" })}
           >
-            {sv.play.stay}
+            {ui.play.stay}
           </ArcadeButton>
         </div>
       </div>
@@ -1532,14 +1555,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           fullWidth
           onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "now" })}
         >
-          {sv.play.levelUpNow}
+          {ui.play.levelUpNow}
         </ArcadeButton>
         <ArcadeButton
           variant="gray"
           fullWidth
           onClick={() => send({ type: "levelUpDecision", playerId: me.id, choice: "stay" })}
         >
-          {sv.play.levelUpStayForTile}
+          {ui.play.levelUpStayForTile}
         </ArcadeButton>
       </div>
     );
@@ -1554,7 +1577,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     const requestMerchantBuy = (it: ShopItem) => {
       const price = effectiveMerchantBuyPrice(me, it.price);
       if (!canAffordPant(me, price)) {
-        showToast(sv.play.merchantCantAfford);
+        showToast(ui.play.merchantCantAfford);
         return;
       }
       if (isShopItemEquipment(it) && merchantSlotOccupied(me, it.slot)) {
@@ -1568,24 +1591,26 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       const detail = merchantDetailItem;
       const price = effectiveMerchantBuyPrice(me, detail.price);
       const kindLabel = isShopItemEquipment(detail)
-        ? sv.play.merchantItemKindEquipment
+        ? ui.play.merchantItemKindEquipment
         : detail.slot === "gold"
-          ? sv.play.merchantItemKindGold
-          : sv.play.merchantItemKindConsumable;
-      const effectSummary = formatShopItemEffectSummary(detail);
+          ? ui.play.merchantItemKindGold
+          : ui.play.merchantItemKindConsumable;
+      const effectSummary = formatLocalizedShopItemEffectSummary(detail, locale, ui);
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.fs15} ${u.o92}`}>{kindLabel}</div>
           <div className={styles.merchantDetailArtWrap}>
             <MerchantShopItemArt item={detail} variant="detail" />
           </div>
-          <div className={`${u.textCenter} ${u.fs18} ${u.fw700}`}>{detail.name}</div>
+          <div className={`${u.textCenter} ${u.fs18} ${u.fw700}`}>
+            {merchantShopItemDisplayName(detail, locale)}
+          </div>
           {effectSummary !== "—" ? (
             <div className={`${u.textCenter} ${u.o85}`}>{effectSummary}</div>
           ) : null}
           <div className={u.grid2Equal10}>
             <ArcadeButton variant="gray" fullWidth onClick={() => setMerchantDetailItem(null)}>
-              {sv.play.merchantDetailBack}
+              {ui.play.merchantDetailBack}
             </ArcadeButton>
             <ArcadeButton
               variant="pink"
@@ -1596,7 +1621,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 requestMerchantBuy(detail);
               }}
             >
-              {sv.play.merchantDetailBuy} ({price} pant)
+              {ui.play.merchantDetailBuy} ({formatCanAmount(price)})
             </ArcadeButton>
           </div>
         </div>
@@ -1623,17 +1648,24 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             }}
           >
             <div className={`${u.fs15} ${u.lineHeight145} ${u.textCenter} ${u.colorWhite}`}>
-              {sv.play.merchantReplaceBody(
-                capitalizeWord(equipmentSlotSv(merchantReplaceItem.slot)),
-                merchantEquippedName(me, merchantReplaceItem.slot),
-                merchantReplaceItem.name,
+              {ui.play.merchantReplaceBody(
+                capitalizeWord(equipmentSlotLabel(merchantReplaceItem.slot, locale)),
+                (getEquipmentDisplayByEquippedName(
+                  merchantEquippedName(me, merchantReplaceItem.slot),
+                  locale,
+                )?.name ??
+                  merchantEquippedName(me, merchantReplaceItem.slot)) ||
+                  "—",
+                merchantShopItemDisplayName(merchantReplaceItem, locale),
               )}
             </div>
             {renderEquipmentReplaceEffects(
               merchantReplaceItem.slot,
               me,
               merchantReplaceItem.name,
+              ui,
               merchantReplaceItem.id,
+              locale,
             )}
             <div className={u.stack8}>
               <ArcadeButton
@@ -1642,7 +1674,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 onClick={() => {
                   const pr = effectiveMerchantBuyPrice(me, merchantReplaceItem.price);
                   if (!canAffordPant(me, pr)) {
-                    showToast(sv.play.merchantCantAfford);
+                    showToast(ui.play.merchantCantAfford);
                     return;
                   }
                   playMerchantBuySfx();
@@ -1650,10 +1682,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                   setMerchantReplaceItem(null);
                 }}
               >
-                {sv.play.merchantReplaceConfirm}
+                {ui.play.merchantReplaceConfirm}
               </ArcadeButton>
               <ArcadeButton variant="gray" fullWidth onClick={() => setMerchantReplaceItem(null)}>
-                {sv.play.merchantReplaceCancel}
+                {ui.play.merchantReplaceCancel}
               </ArcadeButton>
             </div>
           </div>
@@ -1671,7 +1703,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               textShadow: "0 1px 2px rgba(0,0,0,0.45)",
             }}
           >
-            {tileTypeSv.merchant}
+            {tileTypeLabel("merchant", locale)}
           </div>
           <div
             style={{
@@ -1681,18 +1713,18 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               gap: 6,
               flexShrink: 0,
             }}
-            aria-label={`${playerPant(me)} pant`}
+            aria-label={formatCanAmount(playerPant(me))}
           >
             <span style={{ fontWeight: 900, fontSize: 18, lineHeight: 1, opacity: 0.98 }}>{playerPant(me)}</span>
             <StatIcon kind="pant" size={22} />
           </div>
         </div>
         {interactionPanelCollapsed ? (
-          <p className={styles.merchantShopCollapsedHint}>{sv.play.merchantShopCollapsedHint}</p>
+          <p className={styles.merchantShopCollapsedHint}>{ui.play.merchantShopCollapsedHint}</p>
         ) : (
           <div className={u.stack10}>
-            {pending.items.slice(0, 4).map((it) => {
-              const effectSummary = formatShopItemEffectSummary(it);
+            {pending.items.map((it) => {
+              const effectSummary = formatLocalizedShopItemEffectSummary(it, locale, ui);
               const effectBadges = shopItemEffectBadges(it);
               const effectSupplement = shopItemEffectSupplementText(it);
               const price = effectiveMerchantBuyPrice(me, it.price);
@@ -1720,7 +1752,9 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                             <MerchantShopTypeIcon item={it} />
                           )}
                         </span>
-                        <span>{it.name}</span>
+                        <span>
+                          {merchantShopItemDisplayName(it, locale)}
+                        </span>
                       </div>
                       {effectBadges.length > 0 ? (
                         <span
@@ -1762,17 +1796,17 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             className={styles.merchantShopFooterBtn}
             onClick={() => send({ type: "merchantBuy", playerId: me.id, itemId: null })}
           >
-            {sv.play.leave}
+            {ui.play.leave}
           </ArcadeButton>
           <ArcadeButton
             variant="pink"
             fullWidth
             className={styles.merchantShopFooterBtn}
-            aria-label={`${sv.play.merchantReroll} (${MERCHANT_REROLL_GOLD_COST} pant)`}
+            aria-label={`${ui.play.merchantReroll} (${formatCanAmount(MERCHANT_REROLL_GOLD_COST)})`}
             disabled={!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)}
             onClick={() => {
               if (!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)) {
-                showToast(sv.play.merchantCantAfford);
+                showToast(ui.play.merchantCantAfford);
                 return;
               }
               playMerchantBuySfx();
@@ -1780,7 +1814,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             }}
           >
             <span className={styles.merchantRerollLabel} aria-hidden>
-              {sv.play.merchantReroll}
+              {ui.play.merchantReroll}
               <span className={styles.merchantRerollCost}>
                 ({MERCHANT_REROLL_GOLD_COST}
                 <StatIcon kind="pant" size={18} />)
@@ -1804,8 +1838,8 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       ? previewHpAfterFlatDamage({ player: loser, amount: 2, isBossHit: false, bypassShield: true })
       : { hpAfter: 0, blockedByNegateAllOnce: false };
     const damageButtonLabel = loser
-      ? sv.play.pvpLootDealDamageLine(loser.hp, dmgPreview.hpAfter, dmgPreview.blockedByNegateAllOnce)
-      : sv.play.pvpDeal2Damage;
+      ? ui.play.pvpLootDealDamageLine(loser.hp, dmgPreview.hpAfter, dmgPreview.blockedByNegateAllOnce)
+      : ui.play.pvpDeal2Damage;
     const truncatePvpLootEquipName = (name: string, maxLen = 36): string => {
       const t = name.trim();
       if (t.length <= maxLen) return t;
@@ -1814,21 +1848,21 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
     };
     return (
       <div className={u.stack10}>
-        <div className={`${u.textCenter} ${u.o9}`}>{sv.play.pvpChooseLoot}</div>
+        <div className={`${u.textCenter} ${u.o9}`}>{ui.play.pvpChooseLoot}</div>
         <div className={u.stack10}>
           <ArcadeButton
             variant="blue"
             fullWidth
             onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "gold" })}
           >
-            {sv.play.pvpLootTakePant(pantSteal)}
+            {ui.play.pvpLootTakePant(pantSteal)}
           </ArcadeButton>
           <ArcadeButton
             variant="pink"
             fullWidth
             onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: "sip" })}
           >
-            {sv.play.pvpLootPenaltyKlunk(Math.max(0, penaltyKlunkTotal))}
+            {ui.play.pvpLootPenaltyKlunk(Math.max(0, penaltyKlunkTotal))}
           </ArcadeButton>
           <ArcadeButton
             variant="gray"
@@ -1839,7 +1873,9 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           </ArcadeButton>
           {showEquipmentLoot ? (
             availableSlots.map((slot) => {
-              const rawName = (items[slot]?.name ?? slot).trim();
+              const rawName =
+                getEquipmentDisplayByEquippedName(items[slot]?.name, locale)?.name ??
+                (items[slot]?.name ?? slot).trim();
               const shownName = truncatePvpLootEquipName(rawName);
               return (
                 <ArcadeButton
@@ -1849,14 +1885,17 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                   title={rawName.length > shownName.length ? rawName : undefined}
                   onClick={() => send({ type: "pvpLootChoice", playerId: me.id, choice: slot })}
                 >
-                  {sv.play.pvpLootTakeEquipment(capitalizeWord(equipmentSlotSv(slot)), shownName)}
+                  {ui.play.pvpLootTakeEquipment(
+                    capitalizeWord(equipmentSlotLabel(slot, locale)),
+                    shownName,
+                  )}
                 </ArcadeButton>
               );
             })
           ) : theftProtected ? (
-            <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{sv.play.pvpLootTheftProtectedHint}</div>
+            <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{ui.play.pvpLootTheftProtectedHint}</div>
           ) : (
-            <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{sv.play.noItemsToSteal}</div>
+            <div className={`${u.textCenter} ${u.o75} ${u.fs12}`}>{ui.play.noItemsToSteal}</div>
           )}
         </div>
       </div>
@@ -1880,7 +1919,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             send({ type: "rollMove", playerId: me.id });
           }}
         >
-          {sv.play.rollDie}
+          {ui.play.rollDie}
         </ArcadeButton>
         {canChooseMerchant ? (
           <ArcadeButton
@@ -1895,7 +1934,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 gap="0"
                 className={styles.turnChoicePantaIcon}
               />
-              <span>{sv.play.moveChoiceMerchant}</span>
+              <span>{ui.play.moveChoiceMerchant}</span>
             </span>
           </ArcadeButton>
         ) : null}

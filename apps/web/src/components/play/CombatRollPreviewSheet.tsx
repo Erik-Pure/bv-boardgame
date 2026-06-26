@@ -3,7 +3,7 @@ import { DiceCube3D } from "../DiceCube3D";
 import { ArcadeButton } from "../ArcadeButton";
 import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
 import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import playStyles from "../../routes/PlayView.module.css";
 
 type CombatRollPreviewPending = Extract<NonNullable<GameState["pending"]>, { type: "combat" }>;
@@ -17,6 +17,7 @@ export function CombatRollPreviewSheet(props: {
   sheetDiceCaptionClass: string;
   sheetDiceCaptionTextClass: string;
 }) {
+  const ui = useUiStrings();
   const { state, me, pending, send, sheetDiceBlockClass, sheetDiceCaptionClass, sheetDiceCaptionTextClass } = props;
   const isAttacker = pending.attackerId === me.id;
   const attacker = state.players.find((p) => p.id === pending.attackerId);
@@ -63,7 +64,7 @@ export function CombatRollPreviewSheet(props: {
                 flexWrap: "wrap",
               }}
             >
-              <span>Attack totalt </span>
+              <span>{ui.play.combatRollAttackTotalLabel} </span>
               <span
                 style={{
                   fontWeight: 900,
@@ -75,7 +76,7 @@ export function CombatRollPreviewSheet(props: {
               >
                 {total}
               </span>
-              <span>mot</span>
+              <span>{ui.play.combatRollVsLabel}</span>
               <img
                 src="/icons/combat-icon.svg"
                 alt=""
@@ -88,17 +89,17 @@ export function CombatRollPreviewSheet(props: {
         </div>
         {pending.previewAttackDiceDoubled || pending.previewBroAttackDiceDoubled ? (
           <div style={{ textAlign: "center", fontSize: 12, opacity: 0.85, marginTop: 4 }}>
-            {sv.play.combatAttackDoubledHint}
+            {ui.play.combatAttackDoubledHint}
           </div>
         ) : null}
       </div>
       {isAttacker ? (
         <ArcadeButton variant="pink" fullWidth onClick={() => send({ type: "combatRollAck", playerId: me.id })}>
-          {sv.play.continue}
+          {ui.play.continue}
         </ArcadeButton>
       ) : (
         <div style={{ textAlign: "center", opacity: 0.85 }}>
-          {sv.play.waitAttackerContinue(attacker?.name ?? sv.play.theAttacker)}
+          {ui.play.waitAttackerContinue(attacker?.name ?? ui.play.theAttacker)}
         </div>
       )}
     </div>

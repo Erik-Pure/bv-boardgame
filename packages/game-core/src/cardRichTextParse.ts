@@ -16,12 +16,17 @@ type KeywordRule = {
 
 const KEYWORD_RULES: KeywordRule[] = [
   { pattern: /stridsreaktion/gi },
+  { pattern: /\bcombat reaction\b/gi },
   { pattern: /\battack\b/gi, icon: { kind: "combat", placement: "after" } },
   { pattern: /straffklunk(?:ar)?/gi, icon: { kind: "klunk", placement: "after" } },
+  { pattern: /\bpenalty sips?\b/gi, icon: { kind: "klunk", placement: "after" } },
   { pattern: /\bklunk(?:ar)?\b/gi, icon: { kind: "klunk", placement: "after" } },
+  { pattern: /\bsips?\b/gi, icon: { kind: "klunk", placement: "after" } },
+  { pattern: /(\+?\-?\d+)\s+cans?\b/gi, icon: { kind: "pant", placement: "after" } },
   { pattern: /\bpant\b/gi, icon: { kind: "pant", placement: "after" } },
   { pattern: /\bHP\b/g, icon: { kind: "hp", placement: "after" } },
   { pattern: /\bskada\b/gi, icon: { kind: "hp", placement: "after" } },
+  { pattern: /\bdamage\b/gi, icon: { kind: "hp", placement: "after" } },
 ];
 
 type MatchSpan = {
@@ -71,7 +76,12 @@ function findKeywordMatches(line: string): MatchSpan[] {
 }
 
 function lineNeedsLeadingDiceIcon(line: string): boolean {
-  return /^\s*Slå tärning/i.test(line) || /^\s*Tärning:/i.test(line);
+  return (
+    /^\s*Slå tärning/i.test(line) ||
+    /^\s*Tärning:/i.test(line) ||
+    /^\s*Roll the die/i.test(line) ||
+    /^\s*Die:/i.test(line)
+  );
 }
 
 function markDiceLineTextBold(segments: CardRichLine): CardRichLine {
@@ -127,5 +137,5 @@ export function shouldShowCardRollOutcomeTable(
   displayText: string,
 ): boolean {
   if (!rollOutcomes?.length) return false;
-  return !/\nTärning:/i.test(displayText);
+  return !/\nTärning:/i.test(displayText) && !/\nDie:/i.test(displayText);
 }

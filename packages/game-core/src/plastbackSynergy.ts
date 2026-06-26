@@ -1,5 +1,5 @@
 import { EQUIPMENT_CATALOG } from "./equipmentDefs.js";
-import type { Accessory, Player } from "./types.js";
+import type { Accessory, EquipmentSlot, Player, Weapon } from "./types.js";
 
 export const PLASTBACK_ACCESSORY_NAME = "Plastback";
 export const PLASTBACK_CATALOG_ID = "ex_plastback";
@@ -91,10 +91,23 @@ export function equipTomFlaskaFromPlastback(p: Player): void {
 /** Tom flaska + Plastback: 6 vinster innan vapnet går sönder; utan Plastback rensas räknaren. */
 export function syncPlastbackEmptyBottleSynergy(p: Player): void {
   const w = p.equipment.weapon;
+  if (w) ensureTomFlaskaWeaponFlags(w);
   const a = p.equipment.accessory;
   if (w?.name === TOM_FLASKA_WEAPON_NAME && w.breakOnWin === true && a?.name === PLASTBACK_ACCESSORY_NAME) {
     if (w.breakWinsRemaining == null) w.breakWinsRemaining = PLASTBACK_FULL_FLASK_COUNT;
   } else if (w?.name === TOM_FLASKA_WEAPON_NAME && w.breakOnWin === true) {
     if (w.breakWinsRemaining != null) delete w.breakWinsRemaining;
   }
+}
+
+/** Äldre sparade vapen kan sakna breakOnWin trots Tom flaska-namn. */
+export function ensureTomFlaskaWeaponFlags(weapon: Weapon): void {
+  if (weapon.name === TOM_FLASKA_WEAPON_NAME && weapon.breakOnWin !== true) {
+    weapon.breakOnWin = true;
+  }
+}
+
+/** När tillbehör tas bort kan Tom flaskas vinsteräknare behöva synkas om. */
+export function onPlayerEquipmentSlotCleared(player: Player, slot: EquipmentSlot): void {
+  if (slot === "accessory") syncPlastbackEmptyBottleSynergy(player);
 }

@@ -5,16 +5,17 @@ import { EndedScoreboardTable } from "../EndedScoreboardTable";
 import { EndedSpotlightCarousel } from "../EndedSpotlightCarousel";
 import u from "../../styles/uiPrimitives.module.css";
 import { buildFeedbackFormUrl, isFeedbackFormConfigured } from "../../lib/feedbackFormUrl";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => void }) {
+  const ui = useUiStrings();
   const { state, onLeaveHome } = props;
   if (state.phase !== "ended") return null;
   const feedbackUrl = isFeedbackFormConfigured() ? buildFeedbackFormUrl(state) : null;
   return (
     <div
       role="dialog"
-      aria-label={sv.play.gameOver}
+      aria-label={ui.play.gameOver}
       style={{
         position: "fixed",
         inset: 0,
@@ -45,9 +46,9 @@ export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => v
           boxShadow: "0 24px 56px rgba(0, 0, 0, 0.45)",
         }}
       >
-        <h2 className={u.gameOverTitle}>{sv.play.gameOver}</h2>
+        <h2 className={u.gameOverTitle}>{ui.play.gameOver}</h2>
         <p className={u.gameOverWinnerLine}>
-          {sv.play.winner}: <b>{state.winnerName ?? "—"}</b>
+          {ui.play.winner}: <b>{state.winnerName ?? "—"}</b>
         </p>
         <EndedScoreboardTable players={state.players} winnerId={state.winnerId} />
         <EndedSpotlightCarousel players={state.players} />
@@ -58,11 +59,11 @@ export function PlayEndedOverlay(props: { state: GameState; onLeaveHome: () => v
               fullWidth
               onClick={() => window.open(feedbackUrl, "_blank", "noopener,noreferrer")}
             >
-              {sv.play.gameOverFeedback}
+              {ui.play.gameOverFeedback}
             </ArcadeButton>
           ) : null}
           <ArcadeButton variant="pink" fullWidth onClick={onLeaveHome}>
-            {sv.play.gameOverLeaveToHome}
+            {ui.play.gameOverLeaveToHome}
           </ArcadeButton>
         </div>
       </div>

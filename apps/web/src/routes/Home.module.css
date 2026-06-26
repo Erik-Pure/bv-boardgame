@@ -136,6 +136,39 @@
   margin-top: 4px;
 }
 
+.languageToggle {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.languageBtn,
+.languageBtnActive {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.languageBtnActive {
+  color: #fef9c3;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+.languageSep {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .playtestBadge {
   margin: 0;
   font-family: "Permanent Marker", var(--heading), sans-serif;

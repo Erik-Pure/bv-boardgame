@@ -11,7 +11,8 @@ import {
   PVP_PRE_ROUND_ITEM_IDS,
   PVP_ROLL_PHASE_ITEM_IDS,
 } from "./itemRules.js";
-import { shortcutDisplayPantGold } from "./shortcutDisplayCost.js";
+import { shortcutDisplayPantGold, SHORTCUT_TELEPORT_GOLD_COST } from "./shortcutDisplayCost.js";
+import { isPlayerActiveInMatch } from "./playerParticipation.js";
 import type { GameState, ItemId, Pending, Player } from "./types.js";
 
 export type ItemUseTarget = "self" | "other" | "self_or_other" | "combat" | "combat_bro" | "passive";
@@ -90,7 +91,18 @@ export function canUseItem(
     return true;
   }
 
-  if (itemId === "shortcut" || itemId === "taproom_key") {
+  if (itemId === "shortcut") {
+    if (inCombatReactions || inPvpPreRoundItems) return false;
+    if (!isMyTurn) return false;
+    const hasOtherActive = state.players.some(
+      (p) => p.id !== playerId && isPlayerActiveInMatch(p),
+    );
+    if (!hasOtherActive) return false;
+    if (me.gold < SHORTCUT_TELEPORT_GOLD_COST) return false;
+    return pendingAllowsShortcutTaproom(pending, playerId);
+  }
+
+  if (itemId === "taproom_key") {
     if (inCombatReactions || inPvpPreRoundItems) return false;
     if (!isMyTurn) return false;
     const levelsLen = state.levels?.length ?? 0;

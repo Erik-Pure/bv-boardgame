@@ -1,4 +1,4 @@
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import styles from "../../routes/PlayView.module.css";
 
 export type EquipmentCombatTotals = {
@@ -13,16 +13,17 @@ export function EquipmentCombatTotalsRow(props: {
   totals: EquipmentCombatTotals;
   className?: string;
 }) {
+  const ui = useUiStrings();
   const { totals, className } = props;
   return (
     <div
       className={[styles.equipmentCombatTotalsRow, className ?? ""].filter(Boolean).join(" ")}
       role="group"
-      aria-label={`${sv.play.equipmentMaxHpAria(totals.maxHp)} · ${sv.play.equipmentAttackFromGearAria(totals.attack)} · ${sv.play.equipmentDefenseFromGearAria(totals.shield)} · ${sv.play.equipmentBvbFromGearAria(totals.bvb)} · ${sv.play.brewerItemCardBonusAria(totals.itemCards)}`}
+      aria-label={`${ui.play.equipmentMaxHpAria(totals.maxHp)} · ${ui.play.equipmentAttackFromGearAria(totals.attack)} · ${ui.play.equipmentDefenseFromGearAria(totals.shield)} · ${ui.play.equipmentBvbFromGearAria(totals.bvb)} · ${ui.play.brewerItemCardBonusAria(totals.itemCards)}`}
     >
       <div
         className={styles.equipmentCombatTotalPill}
-        aria-label={sv.play.equipmentMaxHpAria(totals.maxHp)}
+        aria-label={ui.play.equipmentMaxHpAria(totals.maxHp)}
       >
         <img
           className={styles.equipmentCombatTotalIcon}
@@ -36,7 +37,7 @@ export function EquipmentCombatTotalsRow(props: {
       </div>
       <div
         className={`${styles.equipmentCombatTotalPill}${totals.attack === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-        aria-label={sv.play.equipmentAttackFromGearAria(totals.attack)}
+        aria-label={ui.play.equipmentAttackFromGearAria(totals.attack)}
       >
         <img
           className={styles.equipmentCombatTotalIcon}
@@ -50,7 +51,7 @@ export function EquipmentCombatTotalsRow(props: {
       </div>
       <div
         className={`${styles.equipmentCombatTotalPill}${totals.shield === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : totals.shield < 0 ? ` ${styles.equipmentCombatTotalPillNegative}` : ""}`}
-        aria-label={sv.play.equipmentDefenseFromGearAria(totals.shield)}
+        aria-label={ui.play.equipmentDefenseFromGearAria(totals.shield)}
       >
         <img
           className={styles.equipmentCombatTotalIcon}
@@ -64,7 +65,7 @@ export function EquipmentCombatTotalsRow(props: {
       </div>
       <div
         className={`${styles.equipmentCombatTotalPill}${totals.bvb === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-        aria-label={sv.play.equipmentBvbFromGearAria(totals.bvb)}
+        aria-label={ui.play.equipmentBvbFromGearAria(totals.bvb)}
       >
         <img
           className={styles.equipmentCombatTotalIcon}
@@ -78,7 +79,7 @@ export function EquipmentCombatTotalsRow(props: {
       </div>
       <div
         className={`${styles.equipmentCombatTotalPill}${totals.itemCards === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-        aria-label={sv.play.brewerItemCardBonusAria(totals.itemCards)}
+        aria-label={ui.play.brewerItemCardBonusAria(totals.itemCards)}
       >
         <img
           className={styles.equipmentCombatTotalIcon}

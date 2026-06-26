@@ -39,9 +39,13 @@ function usePrefersReducedMotion(): boolean {
 
 function useFlatDice(): boolean {
   const [flat, setFlat] = useState(() => !readBoardPerformancePrefs().boardAnimationsEnabled);
-  useEffect(() => subscribeBoardPerformancePrefs(() => {
-    setFlat(!readBoardPerformancePrefs().boardAnimationsEnabled);
-  }), []);
+  useEffect(
+    () =>
+      subscribeBoardPerformancePrefs(() => {
+        setFlat(!readBoardPerformancePrefs().boardAnimationsEnabled);
+      }),
+    [],
+  );
   return flat;
 }
 

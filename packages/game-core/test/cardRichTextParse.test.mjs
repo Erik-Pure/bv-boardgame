@@ -85,6 +85,17 @@ describe("cardRichTextParse", () => {
     assert.ok(result.some((s) => s.type === "text" && s.bold));
   });
 
+  it("English: cans, penalty sip, damage, and Roll the die", () => {
+    const cans = parseCardRichTextLine("You gain +3 cans and 1 penalty sip.");
+    assert.deepEqual(iconKinds(cans), ["pant", "klunk"]);
+    const dmg = parseCardRichTextLine("Take 2 damage and recover 2 HP.");
+    assert.deepEqual(iconKinds(dmg), ["hp", "hp"]);
+    const roll = parseCardRichTextLine("Roll the die.");
+    assert.ok(iconKinds(roll).includes("dice"));
+    const combat = parseCardRichTextLine("Combat reaction: −2 attack.");
+    assert.deepEqual(iconKinds(combat), ["combatNeg"]);
+  });
+
   it("shouldShowCardRollOutcomeTable hides after roll", () => {
     const def = getCardDefById("event_snurraflaskan");
     assert.ok(def?.rollOutcomes?.length);

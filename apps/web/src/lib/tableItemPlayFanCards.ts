@@ -1,5 +1,9 @@
-import type { CombatReactionItemPlay, GameState, TableItemPlayReveal } from "@bv/game-core";
-import { itemDisplayTitle, playerTotalItemCardBonus } from "@bv/game-core";
+import type { CombatReactionItemPlay, GameLocale, GameState, TableItemPlayReveal } from "@bv/game-core";
+import {
+  getEquipmentDisplayByEquippedName,
+  itemDisplayTitle,
+  playerTotalItemCardBonus,
+} from "@bv/game-core";
 import { equipmentCatalogImageSrc } from "./equipmentImageSrc";
 import { itemImageSrc } from "./itemImageSrc";
 import type { ItemPlayModifierBadge } from "./tableItemPlayModifier";
@@ -26,7 +30,7 @@ type PlayLike = Pick<
   | "sideEquipmentName"
 > & { playSeq: number };
 
-function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel[] {
+function fanCardsForOnePlay(state: GameState, play: PlayLike, locale: GameLocale): TableFanCardModel[] {
   const actor = state.players.find((p) => p.id === play.actorId);
   const actorName = actor?.name?.trim() || "—";
   const actorColor = actor?.color;
@@ -44,7 +48,7 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
 
   const main: TableFanCardModel = {
     key: `${play.playSeq}-main-${play.itemId}`,
-    title: itemDisplayTitle(play.itemId),
+    title: itemDisplayTitle(play.itemId, locale),
     imageSrc: itemImageSrc(play.itemId),
     actorName,
     actorColor,
@@ -57,7 +61,7 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
   if (play.sideInventoryItemId) {
     side.push({
       key: `${play.playSeq}-side-inv-${play.sideInventoryItemId}`,
-      title: itemDisplayTitle(play.sideInventoryItemId),
+      title: itemDisplayTitle(play.sideInventoryItemId, locale),
       imageSrc: itemImageSrc(play.sideInventoryItemId),
       actorName: victimName,
       actorColor: victimColor,
@@ -67,7 +71,9 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
   } else if (play.sideEquipmentSlot && play.sideEquipmentName) {
     side.push({
       key: `${play.playSeq}-side-eq-${play.sideEquipmentSlot}`,
-      title: play.sideEquipmentName,
+      title:
+        getEquipmentDisplayByEquippedName(play.sideEquipmentName, locale)?.name ??
+        play.sideEquipmentName,
       imageSrc: equipmentCatalogImageSrc(play.sideEquipmentName, play.sideEquipmentSlot),
       actorName: victimName,
       actorColor: victimColor,
@@ -82,10 +88,11 @@ function fanCardsForOnePlay(state: GameState, play: PlayLike): TableFanCardModel
 export function expandReactionPlaysToFanCards(
   state: GameState,
   plays: CombatReactionItemPlay[],
+  locale: GameLocale = "sv",
 ): TableFanCardModel[] {
   const out: TableFanCardModel[] = [];
   for (const play of plays) {
-    out.push(...fanCardsForOnePlay(state, play));
+    out.push(...fanCardsForOnePlay(state, play, locale));
   }
   return out;
 }
@@ -93,6 +100,7 @@ export function expandReactionPlaysToFanCards(
 export function expandTableRevealsToFanCards(
   state: GameState,
   reveals: readonly TableItemPlayReveal[],
+  locale: GameLocale = "sv",
 ): TableFanCardModel[] {
   const out: TableFanCardModel[] = [];
   for (const reveal of reveals) {
@@ -105,7 +113,7 @@ export function expandTableRevealsToFanCards(
         sideInventoryItemId: reveal.sideInventoryItemId,
         sideEquipmentSlot: reveal.sideEquipmentSlot,
         sideEquipmentName: reveal.sideEquipmentName,
-      }),
+      }, locale),
     );
   }
   return out;

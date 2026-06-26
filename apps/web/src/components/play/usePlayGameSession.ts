@@ -11,7 +11,7 @@ import { isGameState } from "../../lib/gameTypes";
 import { createLogger } from "../../lib/logger";
 import { clearRememberedPlayerId, type ServerMessage } from "../../lib/ws";
 import { useWsGameClient } from "../../lib/useWsGameClient";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { findMe } from "./playSessionHelpers";
 
 export function usePlayGameSession(options: {
@@ -20,6 +20,7 @@ export function usePlayGameSession(options: {
   showToast: (message: string, durationMs?: number) => void;
   navigate: NavigateFunction;
 }) {
+  const ui = useUiStrings();
   const { room, name, showToast, navigate } = options;
   const log = useMemo(() => createLogger("play"), []);
 
@@ -118,7 +119,7 @@ export function usePlayGameSession(options: {
   const send = useCallback(
     (action: ClientAction) => {
       if (status !== "connected") {
-        showToast(sv.play.notConnected);
+        showToast(ui.play.notConnected);
         log.debug("blocked send; ws status:", status, (action as { type?: string }).type ?? action);
         return;
       }

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PanelToggleIcon } from "./playHeaderUi";
 import styles from "../../routes/PlayView.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export function PlayBottomSheet(props: {
   visible: boolean;
@@ -18,6 +18,7 @@ export function PlayBottomSheet(props: {
   raiseAboveCard: boolean;
   children: ReactNode;
 }) {
+  const ui = useUiStrings();
   const {
     visible,
     collapsed,
@@ -40,8 +41,8 @@ export function PlayBottomSheet(props: {
     <>
       <button
         type="button"
-        aria-label={collapsed ? sv.play.panelMaximize : sv.play.panelMinimize}
-        title={collapsed ? sv.play.panelMaximize : sv.play.panelMinimize}
+        aria-label={collapsed ? ui.play.panelMaximize : ui.play.panelMinimize}
+        title={collapsed ? ui.play.panelMaximize : ui.play.panelMinimize}
         onClick={onToggleCollapsed}
         style={{
           position: "fixed",

@@ -62,8 +62,11 @@ import { effectiveMerchantBuyPrice } from "./merchantBuyPrice.js";
 import {
   combatItemToMerchantShopItem,
   filterMerchantSellableCombatItems,
+  isLastBoardLevel,
   START_COMBAT_BUFF_ITEM_IDS,
   START_COMBAT_DEBUFF_ITEM_IDS,
+  taproomKeyAllowedInMerchant,
+  taproomKeyMerchantShopItem,
 } from "./merchantCombatItems.js";
 import {
   PLASTBACK_ACCESSORY_NAME,
@@ -74,6 +77,7 @@ import {
   plastbackAccessorySellPant,
   plastbackPackRemainingCount,
   syncPlastbackEmptyBottleSynergy,
+  onPlayerEquipmentSlotCleared,
   takePlastbackPackBottle,
 } from "./plastbackSynergy.js";
 import {
@@ -86,6 +90,10 @@ import {
   weaponBoostPenaltySipNoticeBody,
 } from "./sipNotice.js";
 import { formatSelfStatDeltas } from "./statDeltaText.js";
+import {
+  LOG_MESSAGE_KEYS,
+  pushLogEntry,
+} from "./logMessages.js";
 import { combatReactionsAllAnswered } from "./combatReactionPhase.js";
 import { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 import {
@@ -94,6 +102,7 @@ import {
 } from "./combatItemRestrictions.js";
 import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
 import { pendingAllowsShortcutTaproom } from "./canUseItem.js";
+import { SHORTCUT_TELEPORT_GOLD_COST } from "./shortcutDisplayCost.js";
 import {
   isPositiveHelpItemId,
   playerHasPvpPreRoundItem,
@@ -287,11 +296,12 @@ export function createEmptyLobby(roomCode: string): GameState {
   };
 }
 
-function log(state: GameState, message: string): void {
-  if (state.logSeq == null) state.logSeq = state.log.length;
-  state.logSeq += 1;
-  state.log.push({ at: Date.now(), message });
-  if (state.log.length > 200) state.log.shift();
+function log(
+  state: GameState,
+  message: string,
+  meta?: { key?: string; params?: Record<string, string | number> },
+): void {
+  pushLogEntry(state, { message, key: meta?.key, params: meta?.params });
 }
 
 /** Nästa t6 för spelaren: ev. fast sida från «Ett sjätte ölsinne», annars slump. */
@@ -379,7 +389,9 @@ function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending
     pending.phase = "awaitingRolls";
     pending.rolls = {};
     /** Låt `tableItemPlayReveals` vara kvar under `awaitingRolls` så bordets solfjäder visar alla spelade BvB-föremål tills båda slagit. Rensning sker i `pvpRoll` när båda tärningar finns. */
-    log(state, "Båda duellanterna är redo — slagrundan startar.");
+    log(state, "Båda duellanterna är redo — slagrundan startar.", {
+      key: LOG_MESSAGE_KEYS.pvpDuelReady,
+    });
   }
 }
 
@@ -482,7 +494,10 @@ function applyCanmanOnMovementRoll(state: GameState, player: Player): void {
   player.inventory = inv;
   if (goldAdd > 0) {
     player.gold += goldAdd;
-    log(state, `${player.name} får +${goldAdd} pant från Canman.`);
+    log(state, `${player.name} får +${goldAdd} pant från Canman.`, {
+      key: LOG_MESSAGE_KEYS.playerCanmanGold,
+      params: { name: player.name, amount: goldAdd },
+    });
   }
 }
 
@@ -778,7 +793,9 @@ function applyWeaponWinGoldBonus(winner: Player): number {
 
 function breakWeaponAfterWin(winner: Player): string | null {
   const w = winner.equipment.weapon;
-  if (!w?.breakOnWin) return null;
+  if (!w) return null;
+  syncPlastbackEmptyBottleSynergy(winner);
+  if (!w.breakOnWin) return null;
   const name = w.name;
   if (w.breakWinsRemaining != null) {
     w.breakWinsRemaining -= 1;
@@ -788,6 +805,22 @@ function breakWeaponAfterWin(winner: Player): string | null {
   }
   winner.equipment.weapon = undefined;
   return name;
+}
+
+function breakCombatWinParticipantWeapons(
+  state: GameState,
+  attackerId: string,
+  assistId?: string,
+): void {
+  for (const id of [attackerId, assistId]) {
+    if (!id) continue;
+    const participant = state.players.find((x) => x.id === id);
+    if (!participant) continue;
+    const brokenWeaponName = breakWeaponAfterWin(participant);
+    if (brokenWeaponName) {
+      log(state, `${participant.name}s ${brokenWeaponName} går sönder efter vinsten.`);
+    }
+  }
 }
 
 function applyPerCombatAccessoryRewards(state: GameState, participantId: string) {
@@ -1236,6 +1269,7 @@ function destroyOneRandomItemOrEquipmentGlobally(
       o.player.maxHp = maxHpFor(state, o.player);
       if (o.player.hp > o.player.maxHp) o.player.hp = o.player.maxHp;
     }
+    onPlayerEquipmentSlotCleared(o.player, slot);
     logFn(state, `${o.player.name} tappar utrustning: ${piece.name ?? slot} (Onda bryggverket).`);
   }
 }
@@ -1431,10 +1465,15 @@ function applyCombatLoss(
   const primaryWeaponReduction = Math.max(0, Math.floor(p.equipment.weapon?.monsterLossSipReduction ?? 0));
   const totalLossSips = Math.max(0, totalLossSipsBeforeReduction - primaryWeaponReduction);
   if (primaryWeaponReduction > 0 && totalLossSipsBeforeReduction > totalLossSips) {
-    log(
-      next,
-      `${p.name}s ${p.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${primaryWeaponReduction}).`,
-    );
+    pushLogEntry(next, {
+      message: `${p.name}s ${p.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${primaryWeaponReduction}).`,
+      key: LOG_MESSAGE_KEYS.combatWeaponSipReduction,
+      params: {
+        name: p.name,
+        weaponName: p.equipment.weapon?.name ?? "vapen",
+        reduction: primaryWeaponReduction,
+      },
+    });
   }
   const mitigationKlunk = monsterId === "sura_bar" && ctx.sipMitigation ? 1 : 0;
   const primaryLossApplied = penaltySipTotalForPlayer(p, totalLossSips);
@@ -1449,10 +1488,15 @@ function applyCombatLoss(
       const broWeaponReduction = Math.max(0, Math.floor(bro.equipment.weapon?.monsterLossSipReduction ?? 0));
       const broTotalLossSips = Math.max(0, totalLossSipsBeforeReduction - broWeaponReduction);
       if (broWeaponReduction > 0 && totalLossSipsBeforeReduction > broTotalLossSips) {
-        log(
-          next,
-          `${bro.name}s ${bro.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${broWeaponReduction}).`,
-        );
+        pushLogEntry(next, {
+          message: `${bro.name}s ${bro.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${broWeaponReduction}).`,
+          key: LOG_MESSAGE_KEYS.combatWeaponSipReduction,
+          params: {
+            name: bro.name,
+            weaponName: bro.equipment.weapon?.name ?? "vapen",
+            reduction: broWeaponReduction,
+          },
+        });
       }
       const broLossApplied = penaltySipTotalForPlayer(bro, broTotalLossSips);
       grantKlunkWithXp(next, bro, broLossApplied, { penaltyStraff: true });
@@ -1467,10 +1511,15 @@ function applyCombatLoss(
       const hmWeaponReduction = Math.max(0, Math.floor(hm.equipment.weapon?.monsterLossSipReduction ?? 0));
       const hmTotalLossSips = Math.max(0, totalLossSipsBeforeReduction - hmWeaponReduction);
       if (hmWeaponReduction > 0 && totalLossSipsBeforeReduction > hmTotalLossSips) {
-        log(
-          next,
-          `${hm.name}s ${hm.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${hmWeaponReduction}).`,
-        );
+        pushLogEntry(next, {
+          message: `${hm.name}s ${hm.equipment.weapon?.name ?? "vapen"} mildrar straffklunken vid förlust (−${hmWeaponReduction}).`,
+          key: LOG_MESSAGE_KEYS.combatWeaponSipReduction,
+          params: {
+            name: hm.name,
+            weaponName: hm.equipment.weapon?.name ?? "vapen",
+            reduction: hmWeaponReduction,
+          },
+        });
       }
       const hmLossApplied = penaltySipTotalForPlayer(hm, hmTotalLossSips);
       grantKlunkWithXp(next, hm, hmLossApplied, { penaltyStraff: true });
@@ -1653,10 +1702,7 @@ function finalizeCombatAfterRollPreview(
       const newLives = prevLives - 1;
       next.finalBossLivesRemaining = newLives;
       if (newLives > 0) {
-        const brokenWeaponName = breakWeaponAfterWin(p);
-        if (brokenWeaponName) {
-          log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
-        }
+        breakCombatWinParticipantWeapons(next, p.id, assistId);
         next.pending = null;
         const bd = MONSTERS.find((m) => m.id === next.finalBossMonsterId);
         log(
@@ -1713,6 +1759,14 @@ function finalizeCombatAfterRollPreview(
       log(
         next,
         `${p.name} får +${attackerWeaponBonusGold} pant från ${p.equipment.weapon?.name ?? "vapnet"} efter vinsten.`,
+        {
+          key: LOG_MESSAGE_KEYS.playerWeaponWinGold,
+          params: {
+            name: p.name,
+            amount: attackerWeaponBonusGold,
+            weaponName: p.equipment.weapon?.name ?? "vapnet",
+          },
+        },
       );
     }
     if (attackerWeaponRandomDamage) {
@@ -1721,10 +1775,7 @@ function finalizeCombatAfterRollPreview(
         `${p.name}s ${p.equipment.weapon?.name ?? "vapen"} träffar slumpmässigt: ${attackerWeaponRandomDamage.targetName} tar ${attackerWeaponRandomDamage.damage} skada.`,
       );
     }
-    const brokenWeaponName = breakWeaponAfterWin(p);
-    if (brokenWeaponName) {
-      log(next, `${p.name}s ${brokenWeaponName} går sönder efter vinsten.`);
-    }
+    breakCombatWinParticipantWeapons(next, p.id, assistId);
     const fallbackRewardXp =
       pending.monsterId && pending.monsterId !== "boss"
         ? (MONSTERS.find((m) => m.id === (pending.monsterId as MonsterId))?.rewardXp ?? 0)
@@ -1812,6 +1863,14 @@ function finalizeCombatAfterRollPreview(
           log(
             next,
             `${randomOtherSipRecipientName} får straffklunk (${p.name} vann mot ${pending.enemyName}).`,
+            {
+              key: LOG_MESSAGE_KEYS.combatWinRandomSip,
+              params: {
+                recipient: randomOtherSipRecipientName,
+                winner: p.name,
+                enemyName: pending.enemyName,
+              },
+            },
           );
         }
       }
@@ -2112,7 +2171,10 @@ export function lobbyAddPlayer(
     stats: { ...DEFAULT_PLAYER_SESSION_STATS },
   };
   next.players.push(p);
-  log(next, `${p.name} gick med i lobbyn.`);
+  log(next, `${p.name} gick med i lobbyn.`, {
+    key: LOG_MESSAGE_KEYS.lobbyPlayerJoined,
+    params: { name: p.name },
+  });
   return { state: next, events: ["lobbyUpdate"] };
 }
 
@@ -2193,19 +2255,32 @@ export function startGame(
   next.playerKlunkBursts = [];
   next.combatEquipReplaceQueue = undefined;
   clearTableItemPlay(next);
-  log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`);
+  log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`, {
+    key: LOG_MESSAGE_KEYS.gameStarted,
+    params: { seed },
+  });
   if (bossMonster) {
     const lives = next.finalBossLivesRemaining ?? 3;
+    const roundsWord = lives === 1 ? "runda" : "rundor";
     log(
       next,
       DEV_QUICK_BOSS_TEST.enabled
         ? `[DEV] Snabb boss-test: ${DEV_QUICK_BOSS_TEST.bossTilesOnLevel0} boss på våning 1, ${lives} liv, styrka ${DEV_QUICK_BOSS_TEST.bossCombatValue}. Slutboss ${bossMonster.name}.`
-        : `Slutboss ${bossMonster.name} — ${lives} liv, vinn ${lives} ${lives === 1 ? "runda" : "rundor"}.`,
+        : `Slutboss ${bossMonster.name} — ${lives} liv, vinn ${lives} ${roundsWord}.`,
+      DEV_QUICK_BOSS_TEST.enabled
+        ? undefined
+        : {
+            key: LOG_MESSAGE_KEYS.gameFinalBossIntro,
+            params: { bossName: bossMonster.name, lives },
+          },
     );
   }
   const cur = currentPlayer(next);
   if (cur) {
-    log(next, `${cur.name}s tur. Slå tärningen.`);
+    log(next, `${cur.name}s tur. Slå tärningen.`, {
+      key: LOG_MESSAGE_KEYS.turnRollDice,
+      params: { name: cur.name },
+    });
     applyArmorHealHpPerTurnAtTurnStart(next, cur);
   }
   return { state: next, events: ["gameStarted"] };
@@ -2307,6 +2382,7 @@ export function rollMerchantItems(
   rng: () => number,
   disabledCardIds?: ReadonlySet<string>,
   playerLevelIndex = 0,
+  levelsLength?: number,
 ): ShopItem[] {
   const items: ShopItem[] = [
     {
@@ -2331,7 +2407,14 @@ export function rollMerchantItems(
     items.push({ ...shopItem, price: merchantAdjustedPrice(shopItem, playerLevelIndex) });
   }
   shuffleArrayInPlace(items, rng);
-  return items.slice(0, MERCHANT_SHELF_SLOTS);
+  const shelf = items.slice(0, MERCHANT_SHELF_SLOTS);
+  if (
+    isLastBoardLevel(playerLevelIndex, levelsLength) &&
+    taproomKeyAllowedInMerchant(disabledCardIds)
+  ) {
+    shelf.push(taproomKeyMerchantShopItem());
+  }
+  return shelf;
 }
 
 function findOpponentsOnTile(state: GameState, mover: Player): Player[] {
@@ -2365,7 +2448,10 @@ function resolvePvp(state: GameState, a: Player, b: Player, rng: () => number): 
   const attackerWins = ar >= br;
   const winner = attackerWins ? a : b;
   const loser = attackerWins ? b : a;
-  log(state, `BvB: ${a.name} (${ar}) vs ${b.name} (${br}) — ${winner.name} vinner!`);
+  log(state, `BvB: ${a.name} (${ar}) vs ${b.name} (${br}) — ${winner.name} vinner!`, {
+    key: LOG_MESSAGE_KEYS.pvpMatchResult,
+    params: { a: a.name, ar, b: b.name, br, winner: winner.name },
+  });
   return {
     type: "pvp",
     attackerId: a.id,
@@ -2435,6 +2521,7 @@ function rollSingleMerchantShelfItem(
   disabledCardIds: ReadonlySet<string> | undefined,
   levelIndex: number,
   existingIds: ReadonlySet<string>,
+  levelsLength?: number,
 ): ShopItem | null {
   const roll = rng();
   if (roll < 0.25) {
@@ -2449,6 +2536,15 @@ function rollSingleMerchantShelfItem(
     const shopItem = catalogEquipmentToMerchantShopItem(it, it.id);
     const priced = { ...shopItem, price: merchantAdjustedPrice(shopItem, levelIndex) };
     return priced;
+  }
+  if (
+    isLastBoardLevel(levelIndex, levelsLength) &&
+    taproomKeyAllowedInMerchant(disabledCardIds)
+  ) {
+    const suffix = Math.floor(rng() * 1e6);
+    const id = `c-taproom_key-${suffix}`;
+    if (existingIds.has(id)) return null;
+    return taproomKeyMerchantShopItem(suffix);
   }
   const combatPool = filterMerchantSellableCombatItems(disabledCardIds);
   if (combatPool.length > 0) {
@@ -2471,7 +2567,10 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
 
   switch (tile.type) {
     case "empty":
-      log(state, `${p.name} hamnar på en lugn ruta.`);
+      log(state, `${p.name} hamnar på en lugn ruta.`, {
+        key: LOG_MESSAGE_KEYS.tileEmpty,
+        params: { name: p.name },
+      });
       showCard(state, {
         playerId: p.id,
         kind: "empty",
@@ -2490,7 +2589,10 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const out: EffectApplyOut = {};
       applyEffects({ state, player: p, effects: card.effects ?? [], rng, out });
       const grantedText = appendTextForGrantedItem(out);
-      log(state, `${p.name} vilar på bryggeriet (+${out.heal ?? 0} HP, max ${p.maxHp}).`);
+      log(state, `${p.name} vilar på bryggeriet (+${out.heal ?? 0} HP, max ${p.maxHp}).`, {
+        key: LOG_MESSAGE_KEYS.tileRestHeal,
+        params: { name: p.name, heal: out.heal ?? 0, maxHp: p.maxHp },
+      });
       showCard(state, {
         playerId: p.id,
         kind: "rest",
@@ -2509,7 +2611,9 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
     case "treasure": {
       // Skattrutor kan besökas flera gånger; ibland är gömman redan tom.
       if (rng() < 0.1) {
-        log(state, "Gömman är redan plundrad.");
+        log(state, "Gömman är redan plundrad.", {
+          key: LOG_MESSAGE_KEYS.tileTreasureAlreadyTaken,
+        });
         showCard(state, {
           playerId: p.id,
           kind: "treasure",
@@ -2532,7 +2636,10 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       });
       const grantedText = appendTextForGrantedItem(effectOut);
       const shouldReplaceBodyWithGrantedText = card.id === "treasure_item_random" && grantedText.length > 0;
-      log(state, `${p.name} hittar skatt: +${out.gold ?? 0} pant.`);
+      log(state, `${p.name} hittar skatt: +${out.gold ?? 0} pant.`, {
+        key: LOG_MESSAGE_KEYS.tileTreasureFound,
+        params: { name: p.name, gold: out.gold ?? 0 },
+      });
       showCard(state, {
         playerId: p.id,
         kind: "treasure",
@@ -2584,7 +2691,10 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
 
       const pendingBoss = createFinalBossCombatPending(state, p);
       if (!pendingBoss) {
-        log(state, `${p.name} kan inte möta slutbossen (konfigurationsfel).`);
+        log(state, `${p.name} kan inte möta slutbossen (konfigurationsfel).`, {
+          key: LOG_MESSAGE_KEYS.tileBossConfigError,
+          params: { name: p.name },
+        });
         break;
       }
       state.pending = pendingBoss;
@@ -2599,14 +2709,20 @@ function resolveTileLanding(state: GameState, p: Player, rng: () => number): voi
       const disabledCardIds = new Set(state.config.disabledCardIds ?? []);
       state.pending = {
         type: "merchant",
-        items: rollMerchantItems(rng, disabledCardIds, p.levelIndex),
+        items: rollMerchantItems(rng, disabledCardIds, p.levelIndex, state.levels.length),
         playerId: p.id,
       };
-      log(state, `${p.name} kommer till Panta burkar.`);
+      log(state, `${p.name} kommer till Panta burkar.`, {
+        key: LOG_MESSAGE_KEYS.tileMerchant,
+        params: { name: p.name },
+      });
       return;
     }
     case "door":
-      log(state, `${p.name} hittar en gammal nivå-ruta men den är avstängd i detta läge.`);
+      log(state, `${p.name} hittar en gammal nivå-ruta men den är avstängd i detta läge.`, {
+        key: LOG_MESSAGE_KEYS.tileOldLevelDisabled,
+        params: { name: p.name },
+      });
       break;
     default:
       break;
@@ -2634,6 +2750,15 @@ function resolveLanding(state: GameState, p: Player, rng: () => number): void {
         opps.length === 1
           ? `${p.name} springer in i ${names}. Välj BvB eller rutan.`
           : `${p.name} möter ${names} på rutan. Välj BvB eller rutan.`,
+        opps.length === 1
+          ? {
+              key: LOG_MESSAGE_KEYS.encounterOneOpponent,
+              params: { name: p.name, opponents: names },
+            }
+          : {
+              key: LOG_MESSAGE_KEYS.encounterMultiOpponent,
+              params: { name: p.name, opponents: names },
+            },
       );
       return;
     }
@@ -2662,7 +2787,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       p.avatar = normalizePlayerAvatar(action.avatar);
       if (p.ready) {
         p.ready = false;
-        log(next, `${p.name} ändrade avatar och är inte redo.`);
+        log(next, `${p.name} ändrade avatar och är inte redo.`, {
+          key: LOG_MESSAGE_KEYS.lobbyAvatarChanged,
+          params: { name: p.name },
+        });
       }
       return { state: next, events: ["lobbyUpdate"] };
     }
@@ -2670,7 +2798,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const p = next.players.find((x) => x.id === action.playerId);
       if (!p) return { state, events: [], error: "Okänd spelare" };
       p.ready = action.ready;
-      log(next, `${p.name} är ${p.ready ? "redo" : "inte redo"}.`);
+      log(next, `${p.name} är ${p.ready ? "redo" : "inte redo"}.`, {
+        key: p.ready ? LOG_MESSAGE_KEYS.lobbyReady : LOG_MESSAGE_KEYS.lobbyNotReady,
+        params: { name: p.name },
+      });
       return { state: next, events: ["lobbyUpdate"] };
     }
     if (action.type === "setConfig") {
@@ -2792,7 +2923,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       recordPantSpent(next, victim.id, victimGoldBeforeIns - victim.gold);
       victim.eliminated = false;
       victim.hp = victim.maxHp;
-      log(next, `${victim.name} använder Livförsäkring och betalar ${insuranceCost} pant för att fortsätta med fullt liv.`);
+      log(next, `${victim.name} använder Livförsäkring och betalar ${insuranceCost} pant för att fortsätta med fullt liv.`, {
+        key: LOG_MESSAGE_KEYS.playerInsurance,
+        params: { name: victim.name, cost: insuranceCost },
+      });
       next.pending = null;
       queueFirstBrewerDownIfNeeded(next);
       if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, victim.id);
@@ -2842,13 +2976,19 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     victim.eliminated = true;
     victim.hp = 0;
     removePlayerFromTurnOrderAfterElimination(next, victim.id);
-    log(next, `${victim.name} ger upp och lämnar bryggeriet.`);
+    log(next, `${victim.name} ger upp och lämnar bryggeriet.`, {
+      key: LOG_MESSAGE_KEYS.playerGaveUp,
+      params: { name: victim.name },
+    });
     next.pending = null;
     queueFirstBrewerDownIfNeeded(next);
     if (!next.pending && next.phase === "playing") {
       const nx = currentPlayer(next);
       if (nx) {
-        log(next, `— ${nx.name}s tur —`);
+        log(next, `— ${nx.name}s tur —`, {
+          key: LOG_MESSAGE_KEYS.turnChanged,
+          params: { name: nx.name },
+        });
       }
     }
     return { state: next, events: ["state"] };
@@ -2879,7 +3019,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     p.gold -= SKIP_MONSTER_ENCOUNTER_GOLD_COST;
     recordPantSpent(next, p.id, SKIP_MONSTER_ENCOUNTER_GOLD_COST);
-    log(next, `${p.name} undviker batchmötet (${pending.enemyName}) — ingen XP, ingen loot (−${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant).`);
+    log(next, `${p.name} undviker batchmötet (${pending.enemyName}) — ingen XP, ingen loot (−${SKIP_MONSTER_ENCOUNTER_GOLD_COST} pant).`, {
+      key: LOG_MESSAGE_KEYS.combatSkipEncounter,
+      params: { name: p.name, enemyName: pending.enemyName, cost: SKIP_MONSTER_ENCOUNTER_GOLD_COST },
+    });
     next.pending = null;
     endTurnOrOfferLevelUp(next, p.id);
     return { state: next, events: ["state"] };
@@ -2892,7 +3035,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     beginCombatReactionsPhase(next, pending);
     const reactors = pending.reactors ?? [];
     if (reactors.length > 0) {
-      log(next, `Strid: andra kan spela föremål innan slaget.`);
+      log(next, `Strid: andra kan spela föremål innan slaget.`, {
+        key: LOG_MESSAGE_KEYS.combatReactionsOpen,
+      });
     }
     return { state: next, events: ["state"] };
   }
@@ -2912,7 +3057,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.reacted = {};
     pending.phase = "enemyIntro";
     const attacker = next.players.find((x) => x.id === pending.attackerId);
-    log(next, `${attacker?.name ?? "Angriparen"} väljer ${teammate.name} som medkämpe i lagstrid.`);
+    log(next, `${attacker?.name ?? "Angriparen"} väljer ${teammate.name} som medkämpe i lagstrid.`, {
+      key: LOG_MESSAGE_KEYS.combatChooseTeammate,
+      params: { attacker: attacker?.name ?? "Angriparen", teammate: teammate.name },
+    });
     return { state: next, events: ["state"] };
   }
 
@@ -2933,12 +3081,22 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       pending.reacted[action.playerId] = "pass";
       const p = next.players.find((x) => x.id === action.playerId);
-      if (p) log(next, `${p.name} gör inget.`);
+      if (p) {
+        log(next, `${p.name} gör inget.`, {
+          key: LOG_MESSAGE_KEYS.combatNoAction,
+          params: { name: p.name },
+        });
+      }
       return { state: next, events: ["state"] };
     }
     // "intervene": player may play one or many cards before choosing "gör inget".
     const p = next.players.find((x) => x.id === action.playerId);
-    if (p) log(next, `${p.name} ingriper.`);
+    if (p) {
+      log(next, `${p.name} ingriper.`, {
+        key: LOG_MESSAGE_KEYS.combatIntervene,
+        params: { name: p.name },
+      });
+    }
     return { state: next, events: ["state"] };
   }
 
@@ -2967,7 +3125,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.helpUsedPositiveItem = undefined;
     pending.helpContract = undefined;
     pending.phase = "helpChooseHelper";
-    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} ber om hjälp.`);
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} ber om hjälp.`, {
+      key: LOG_MESSAGE_KEYS.combatHelpRequest,
+      params: { name: next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen" },
+    });
     return { state: next, events: ["state"] };
   }
 
@@ -3003,7 +3164,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.helpContract = undefined;
     pending.helpProposedContract = undefined;
     pending.phase = "reactions";
-    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} avbröt hjälpbegäran.`);
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} avbröt hjälpbegäran.`, {
+      key: LOG_MESSAGE_KEYS.combatHelpCancelled,
+      params: { name: next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen" },
+    });
     return { state: next, events: ["state"] };
   }
 
@@ -3028,7 +3192,13 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     pending.helpProposedContract = undefined;
     pending.phase = "helpAwaitDecision";
     const helperName = next.players.find((p) => p.id === action.helperId)?.name ?? "okänd";
-    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} frågar ${helperName} om hjälp.`);
+    log(next, `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} frågar ${helperName} om hjälp.`, {
+      key: LOG_MESSAGE_KEYS.combatHelpAsk,
+      params: {
+        attacker: next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen",
+        helper: helperName,
+      },
+    });
     return { state: next, events: ["state"] };
   }
 
@@ -3044,7 +3214,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const helper = next.players.find((p) => p.id === action.playerId);
     if (!helper) return { state, events: [], error: "Spelaren hittades inte" };
     if (action.decision === "decline") {
-      log(next, `${helper.name} avböjer att hjälpa till.`);
+      log(next, `${helper.name} avböjer att hjälpa till.`, {
+        key: LOG_MESSAGE_KEYS.combatHelpDeclined,
+        params: { name: helper.name },
+      });
       pending.helpSelectedHelperId = undefined;
       pending.helpAccepted = false;
       pending.helpUsedPositiveItem = undefined;
@@ -3253,7 +3426,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         penaltyStraff: true,
       });
       pushSipNotice(next, target.id, user.name);
-      log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`);
+      log(next, `${user.name} ger ${target.name} en straffklunk (+1 klunk).`, {
+        key: LOG_MESSAGE_KEYS.itemGrantPenaltySip,
+        params: { giver: user.name, target: target.name },
+      });
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
@@ -3761,70 +3937,50 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           error: "Genvägen kan inte användas nu — avsluta pågående val först.",
         };
       }
-      const targetLevelIndex = user.levelIndex + 1;
-      if (targetLevelIndex >= next.levels.length) {
-        const bossIdx = findBossTileIndexInLevel(next.levels[user.levelIndex]);
-        if (bossIdx < 0) {
-          return { state, events: [], error: "Ingen bossruta på sista våningen." };
-        }
-        if (!next.finalBossMonsterId || !MONSTERS.some((m) => m.id === next.finalBossMonsterId)) {
-          return { state, events: [], error: "Slutbossen är inte konfigurerad." };
-        }
-        const goldCost = shortcutTaproomGoldCostForFloor(user.levelIndex, "shortcut");
-        if (user.gold < goldCost) {
-          return {
-            state,
-            events: [],
-            error: `Du behöver ${goldCost} pant för att ta genväg till slutbossen.`,
-          };
-        }
-        user.gold -= goldCost;
-        recordPantSpent(next, user.id, goldCost);
-        const alreadyOnBoss = user.tileIndex === bossIdx;
-        if (!alreadyOnBoss) {
-          user.tileIndex = bossIdx;
-        }
-        clearPendingSupersededByFloorTravel(next, user.id);
-        log(
-          next,
-          alreadyOnBoss
-            ? `${user.name} använder Genväg och betalar ${goldCost} pant för att lösa slutbossrutan direkt.`
-            : `${user.name} använder Genväg och betalar ${goldCost} pant för att gå direkt till slutbossens ruta.`,
-        );
-        inv.splice(idx, 1);
-        user.inventory = inv;
-        recordItemConsumed(next, user.id, inst.itemId);
-        notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, false);
-        if (!alreadyOnBoss) {
-          next.landingBypassEncounter = true;
-        }
-        resolveLanding(next, user, rng);
-        return { state: next, events: ["state"] };
+      if (!action.targetPlayerId || action.targetPlayerId === user.id) {
+        return { state, events: [], error: "Välj en annan spelare att teleportera till." };
       }
-      const goldCost = shortcutItemGoldCostForTargetLevel(targetLevelIndex);
+      const teleportTarget = next.players.find((p) => p.id === action.targetPlayerId);
+      const inactiveTeleportErr = errorIfInactiveOtherPlayerTarget(teleportTarget, user.id);
+      if (inactiveTeleportErr) return { state, events: [], error: inactiveTeleportErr };
+      if (!teleportTarget) return { state, events: [], error: "Okänd spelare" };
+
+      const goldCost = SHORTCUT_TELEPORT_GOLD_COST;
       if (user.gold < goldCost) {
         return {
           state,
           events: [],
-          error: `Du behöver ${goldCost} pant för nästa våning (genvägen betalar bara med pant).`,
+          error: `Du behöver ${goldCost} pant för att använda Genväg.`,
         };
       }
-      logMonsterScalePreviewForAscend(next, user, targetLevelIndex, "door");
+
+      const ascending = teleportTarget.levelIndex > user.levelIndex;
+      if (ascending) {
+        logMonsterScalePreviewForAscend(next, user, teleportTarget.levelIndex, "door");
+      }
+
       user.gold -= goldCost;
       recordPantSpent(next, user.id, goldCost);
-      user.levelIndex = targetLevelIndex;
-      user.tileIndex = 0;
+      user.levelIndex = teleportTarget.levelIndex;
+      user.tileIndex = teleportTarget.tileIndex;
       clearPendingSupersededByFloorTravel(next, user.id);
       log(
         next,
-        `${user.name} använder Genväg och betalar ${goldCost} pant för att stiga till nivå ${user.levelIndex + 1}.`,
+        `${user.name} använder Genväg och betalar ${goldCost} pant för att teleportera till ${teleportTarget.name}.`,
+        {
+          key: LOG_MESSAGE_KEYS.itemShortcutTeleport,
+          params: { user: user.name, target: teleportTarget.name, cost: goldCost },
+        },
       );
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
-      logMonsterScaleAfterAscend(next, user);
-      notifyItemPlayForTableAfterUse(next, "shortcut", user.id, undefined, inCombatTableFan);
-      endTurnOrOfferLevelUp(next, user.id);
+      if (ascending) {
+        logMonsterScaleAfterAscend(next, user);
+      }
+      notifyItemPlayForTableAfterUse(next, "shortcut", user.id, teleportTarget.id, inCombatTableFan);
+      resolveLanding(next, user, rng);
+      if (!next.pending && next.phase === "playing") endTurnOrOfferLevelUp(next, user.id);
       return { state: next, events: ["state"] };
     }
 
@@ -4027,7 +4183,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const steal = Math.floor((target.gold ?? 0) / 2);
       target.gold -= steal;
       user.gold += steal;
-      log(next, `${user.name} spelar Split the G och tar ${steal} pant från ${target.name}.`);
+      log(next, `${user.name} spelar Split the G och tar ${steal} pant från ${target.name}.`, {
+        key: LOG_MESSAGE_KEYS.itemSplitTheG,
+        params: { user: user.name, amount: steal, target: target.name },
+      });
       if (shouldSendDirectTargetNotices) {
         pushPlayerNotice(
           next,
@@ -4100,6 +4259,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         target.maxHp = maxHpFor(next, target);
         if (target.hp > target.maxHp) target.hp = target.maxHp;
       }
+      onPlayerEquipmentSlotCleared(target, slot);
       const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
       const thiefOccupied =
         (slot === "weapon" && !!user.equipment.weapon) ||
@@ -4119,6 +4279,16 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         log(
           next,
           `${user.name} spelar Riggat spel och rycker ${piece.name ?? slot} (${slot}) från ${target.name} — välj om du tar emot den (du har redan något där, −${playCost} pant).`,
+          {
+            key: LOG_MESSAGE_KEYS.itemRiggedGameStealReplace,
+            params: {
+              user: user.name,
+              pieceName: piece.name ?? String(slot),
+              slot,
+              target: target.name,
+              cost: playCost,
+            },
+          },
         );
         if (shouldSendDirectTargetNotices) {
           pushPlayerNotice(
@@ -4134,6 +4304,16 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         log(
           next,
           `${user.name} spelar Riggat spel och tar ${piece.name ?? slot} (${slot}) från ${target.name} (−${playCost} pant).`,
+          {
+            key: LOG_MESSAGE_KEYS.itemRiggedGameSteal,
+            params: {
+              user: user.name,
+              pieceName: piece.name ?? String(slot),
+              slot,
+              target: target.name,
+              cost: playCost,
+            },
+          },
         );
         if (shouldSendDirectTargetNotices) {
           pushPlayerNotice(
@@ -4243,6 +4423,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
         }
+        onPlayerEquipmentSlotCleared(target, slot);
         const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
         const thiefOccupied =
           (slot === "weapon" && !!user.equipment.weapon) ||
@@ -4348,6 +4529,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           target.maxHp = maxHpFor(next, target);
           if (target.hp > target.maxHp) target.hp = target.maxHp;
         }
+        onPlayerEquipmentSlotCleared(target, slot);
         log(next, `${user.name} spiller med flit och förstör ${piece.name ?? slot} hos ${target.name}.`);
         if (shouldSendDirectTargetNotices) {
           pushPlayerNotice(
@@ -4390,14 +4572,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           error: "Välj hur du hanterar den stulna utrustningen först.",
         };
       }
-      log(next, `${user.name} spelar Vaska och skippar den dåliga batchen.`);
+      log(next, `${user.name} spelar Vaska och skippar den dåliga batchen.`, {
+        key: LOG_MESSAGE_KEYS.itemVaskaSkip,
+        params: { name: user.name },
+      });
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
-      appendTableItemPlayReveal(next, "early_night", user.id, undefined);
       discardStolenEquipmentEscrow(next, user.name);
       next.pending = null;
       endTurnOrOfferLevelUp(next, user.id);
+      appendTableItemPlayReveal(next, "early_night", user.id, undefined);
       return { state: next, events: ["state"] };
     }
 
@@ -4416,14 +4601,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       user.gold -= playCost;
       recordPantSpent(next, user.id, playCost);
-      log(next, `${user.name} mutar sig ur batchmötet (${pending.enemyName}) och betalar ${playCost} pant.`);
+      log(next, `${user.name} mutar sig ur batchmötet (${pending.enemyName}) och betalar ${playCost} pant.`, {
+        key: LOG_MESSAGE_KEYS.itemBribeSkip,
+        params: { name: user.name, enemyName: pending.enemyName, cost: playCost },
+      });
       inv.splice(idx, 1);
       user.inventory = inv;
       recordItemConsumed(next, user.id, inst.itemId);
-      appendTableItemPlayReveal(next, "bribes", user.id, undefined);
       discardStolenEquipmentEscrow(next, user.name);
       next.pending = null;
       endTurnOrOfferLevelUp(next, user.id);
+      appendTableItemPlayReveal(next, "bribes", user.id, undefined);
       return { state: next, events: ["state"] };
     }
 
@@ -5055,7 +5243,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           return { state, events: [], error: "Inga flaskor kvar i Plastback." };
         }
         equipTomFlaskaFromPlastback(p);
-        log(next, `${p.name} byter ut vapen mot Tom flaska från Plastback.`);
+        log(next, `${p.name} byter ut vapen mot Tom flaska från Plastback.`, {
+          key: LOG_MESSAGE_KEYS.playerSwapWeaponTomFlaskaFromPlastback,
+          params: { name: p.name },
+        });
       } else if (erPending.catalogId) {
         const eq = EQUIPMENT_CATALOG.find((e) => e.id === erPending.catalogId);
         if (!eq || eq.slot !== erPending.slot) {
@@ -5325,6 +5516,14 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         log(
           next,
           `${winner.name} får +${pvpWeaponBonusGold} pant från ${winner.equipment.weapon?.name ?? "vapnet"} efter vinsten.`,
+          {
+            key: LOG_MESSAGE_KEYS.playerWeaponWinGold,
+            params: {
+              name: winner.name,
+              amount: pvpWeaponBonusGold,
+              weaponName: winner.equipment.weapon?.name ?? "vapnet",
+            },
+          },
         );
       }
       if (pvpWeaponRandomDamage) {
@@ -5380,7 +5579,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         return { state, events: [], error: "Inga flaskor kvar i Plastback." };
       }
       equipTomFlaskaFromPlastback(cp);
-      log(next, `${cp.name} tar en flaska ur Plastback.`);
+      log(next, `${cp.name} tar en flaska ur Plastback.`, {
+        key: LOG_MESSAGE_KEYS.playerTakePlastbackBottle,
+        params: { name: cp.name },
+      });
       return { state: next, events: ["state"] };
     }
     next.pending = {
@@ -5409,6 +5611,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       rng,
       new Set(next.config.disabledCardIds ?? []),
       p.levelIndex,
+      next.levels.length,
     );
     log(
       next,
@@ -5456,6 +5659,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       new Set(next.config.disabledCardIds ?? []),
       p.levelIndex,
       existingIds,
+      next.levels.length,
     );
     if (restock) next.pending.items.push(restock);
     // Keep merchant open so player can buy multiple things before leaving explicitly.
@@ -5594,7 +5798,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const steal = pvpLootPantStealAmount(loser.gold);
       loser.gold -= steal;
       winner.gold += steal;
-      log(next, `${winner.name} tar ${steal} pant från ${loser.name}.`);
+      log(next, `${winner.name} tar ${steal} pant från ${loser.name}.`, {
+        key: LOG_MESSAGE_KEYS.pvpLootGold,
+        params: { winner: winner.name, amount: steal, loser: loser.name },
+      });
       pushPlayerNotice(
         next,
         loser.id,
@@ -5607,11 +5814,22 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const gain = penaltySipTotalForPlayer(loser, 1);
       grantKlunkWithXp(next, loser, gain, { penaltyStraff: true });
       pushSipNotice(next, loser.id, winner.name, gain);
-      log(next, `${winner.name} ger ${loser.name} en straffklunk (+1 klunk).`);
+      log(next, `${winner.name} ger ${loser.name} en straffklunk (+1 klunk).`, {
+        key: LOG_MESSAGE_KEYS.pvpLootSip,
+        params: { winner: winner.name, loser: loser.name },
+      });
     } else if (action.choice === "damage") {
       const beforeHp = loser.hp;
       applyDamage({ state: next, player: loser, amount: 2, source: "pvp", bypassShield: true, log });
-      log(next, `${winner.name} ger ${loser.name} 2 skada i PvP (HP ${beforeHp} → ${loser.hp}).`);
+      log(next, `${winner.name} ger ${loser.name} 2 skada i PvP (HP ${beforeHp} → ${loser.hp}).`, {
+        key: LOG_MESSAGE_KEYS.pvpLootDamage,
+        params: {
+          winner: winner.name,
+          loser: loser.name,
+          beforeHp,
+          afterHp: loser.hp,
+        },
+      });
       pushPlayerNotice(
         next,
         loser.id,
@@ -5636,6 +5854,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
           loser.maxHp = maxHpFor(next, loser);
           if (loser.hp > loser.maxHp) loser.hp = loser.maxHp;
         }
+        onPlayerEquipmentSlotCleared(loser, slot);
         const incomingClone = cloneEquipmentIncomingPiece(piece as Weapon | ArmorPiece | Helmet | Accessory);
         const winnerOccupied =
           (slot === "weapon" && !!winner.equipment.weapon) ||
@@ -5725,7 +5944,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     const disabledCardIds = new Set(next.config.disabledCardIds ?? []);
     next.pending = {
       type: "merchant",
-      items: rollMerchantItems(rng, disabledCardIds, cp.levelIndex),
+      items: rollMerchantItems(rng, disabledCardIds, cp.levelIndex, next.levels.length),
       playerId: cp.id,
     };
     return { state: next, events: ["state"] };

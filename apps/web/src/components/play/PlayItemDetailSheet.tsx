@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { isPlayerActiveInMatch, type ClientAction, type GameState, type ItemUseTarget, type Player } from "@bv/game-core";
 import { ArcadeButton } from "../ArcadeButton";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useUiStrings } from "../../lib/locale/LocaleContext";
 
 export type ItemDetailSelection = {
   instanceId: string;
@@ -21,6 +21,7 @@ export type PlayItemDetailSheetProps = {
 };
 
 export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
+  const ui = useUiStrings();
   const { itemDetail, onClose, state, me, send, itemMetaForView, isItemPlayableNow } = props;
   const [itemTargetId, setItemTargetId] = useState<string | null>(null);
   const [itemUseTargetPhase, setItemUseTargetPhase] = useState(false);
@@ -37,7 +38,7 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
   if (!inst) {
     return (
       <ArcadeButton variant="gray" fullWidth onClick={() => onClose()}>
-        {sv.play.modalClose}
+        {ui.play.modalClose}
       </ArcadeButton>
     );
   }
@@ -67,7 +68,7 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
             ? state.players.filter((p) => p.id === me.id || isPlayerActiveInMatch(p))
             : [];
   const chosen = needsTarget ? (itemTargetId ?? (healingTargetItem ? me.id : null)) : null;
-  const targetPrompt = broPick ? sv.play.chooseBeerBroPartner : sv.play.chooseTarget;
+  const targetPrompt = broPick ? ui.play.chooseBeerBroPartner : ui.play.chooseTarget;
   const showTargetPicker = needsTarget && itemUseTargetPhase;
   const needsSixSenseFace = inst.itemId === "six_sense" && canUse;
   const usePrimaryDisabled =
@@ -79,9 +80,9 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
   return (
     <div className={u.stack10}>
       {passive ? (
-        <div className={u.itemsHint13}>{sv.play.itemsPassiveHint}</div>
+        <div className={u.itemsHint13}>{ui.play.itemsPassiveHint}</div>
       ) : !canUse ? (
-        <div className={u.itemsHint13}>{sv.play.itemsUseHint}</div>
+        <div className={u.itemsHint13}>{ui.play.itemsUseHint}</div>
       ) : null}
       {showTargetPicker ? (
         <div className={u.stack8}>
@@ -99,8 +100,10 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
                   ? `${p.name} (+${Math.floor((p.gold ?? 0) / 2)} pant)`
                   : inst.itemId === "shuffle"
                     ? `${p.name} (${(p.inventory ?? []).length} föremål)`
+                    : inst.itemId === "shortcut"
+                      ? `${p.name} (${ui.table.floorN(p.levelIndex + 1)})`
                   : healingTargetItem && p.id === me.id
-                    ? "Använd själv"
+                    ? ui.play.itemsUseOnSelf
                     : p.name}
               </ArcadeButton>
             ))}
@@ -109,7 +112,7 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
       ) : null}
       {needsSixSenseFace ? (
         <div className={u.stack8}>
-          <div className={u.itemsTarget12}>{sv.play.itemsChooseDiceFace}</div>
+          <div className={u.itemsTarget12}>{ui.play.itemsChooseDiceFace}</div>
           <div
             style={{
               display: "grid",
@@ -133,12 +136,12 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
       ) : null}
       {passive ? (
         <ArcadeButton variant="gray" fullWidth onClick={() => onClose()}>
-          {sv.play.modalClose}
+          {ui.play.modalClose}
         </ArcadeButton>
       ) : (
         <div className={u.grid2Equal10}>
           <ArcadeButton variant="gray" fullWidth onClick={() => onClose()}>
-            {sv.play.modalClose}
+            {ui.play.modalClose}
           </ArcadeButton>
           <ArcadeButton
             variant="blue"
@@ -163,7 +166,7 @@ export function PlayItemDetailSheet(props: PlayItemDetailSheetProps) {
               onClose();
             }}
           >
-            {sv.play.use}
+            {ui.play.use}
           </ArcadeButton>
         </div>
       )}

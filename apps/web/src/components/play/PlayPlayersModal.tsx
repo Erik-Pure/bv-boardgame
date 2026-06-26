@@ -1,9 +1,14 @@
-import { playerPant, type GameState } from "@bv/game-core";
+import { getEquipmentDisplayByEquippedName, playerPant, type GameState } from "@bv/game-core";
 import { StatIcon } from "../StatIcon";
 import { PlayModal } from "./PlayModal";
 import styles from "../../routes/PlayView.module.css";
 import u from "../../styles/uiPrimitives.module.css";
-import { sv } from "../../lib/uiStrings";
+import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
+
+function equipDisplayName(name: string | undefined, locale: ReturnType<typeof useLocale>): string {
+  if (!name) return "—";
+  return getEquipmentDisplayByEquippedName(name, locale)?.name ?? name;
+}
 
 export function PlayPlayersModal(props: {
   open: boolean;
@@ -11,18 +16,20 @@ export function PlayPlayersModal(props: {
   cardCoverId: string | undefined;
   onClose: () => void;
 }) {
+  const locale = useLocale();
+  const ui = useUiStrings();
   const { open, state, cardCoverId, onClose } = props;
   if (!open) return null;
 
   return (
-    <PlayModal cardCoverId={cardCoverId} title={sv.play.modalPlayers} onClose={onClose} instantFront>
+    <PlayModal cardCoverId={cardCoverId} title={ui.play.modalPlayers} onClose={onClose} instantFront>
       <div className={u.stack10}>
         {state.players.map((p) => (
           <div key={p.id} className={styles.playersCard}>
             <div className={styles.playersHeaderRow}>
               <span className={styles.playersColorDot} style={{ background: p.color }} />
               <div className={styles.playersName}>
-                {p.name} {p.isHost ? sv.play.hostTag : ""} {p.ready ? "✅" : ""}
+                {p.name} {p.isHost ? ui.play.hostTag : ""} {p.ready ? "✅" : ""}
               </div>
               <div className={styles.playersStats}>
                 <span className={styles.playersStatItem}>
@@ -43,16 +50,16 @@ export function PlayPlayersModal(props: {
             </div>
             <div className={u.grid2Eq8Fs12}>
               <div>
-                <b>{sv.play.equipWeapon}:</b> {p.equipment.weapon?.name ?? "—"}
+                <b>{ui.play.equipWeapon}:</b> {equipDisplayName(p.equipment.weapon?.name, locale)}
               </div>
               <div>
-                <b>{sv.play.equipArmor}:</b> {p.equipment.armor?.name ?? "—"}
+                <b>{ui.play.equipArmor}:</b> {equipDisplayName(p.equipment.armor?.name, locale)}
               </div>
               <div>
-                <b>{sv.play.equipHelmet}:</b> {p.equipment.helmet?.name ?? "—"}
+                <b>{ui.play.equipHelmet}:</b> {equipDisplayName(p.equipment.helmet?.name, locale)}
               </div>
               <div>
-                <b>{sv.play.equipAccessory}:</b> {p.equipment.accessory?.name ?? "—"}
+                <b>{ui.play.equipAccessory}:</b> {equipDisplayName(p.equipment.accessory?.name, locale)}
               </div>
             </div>
           </div>

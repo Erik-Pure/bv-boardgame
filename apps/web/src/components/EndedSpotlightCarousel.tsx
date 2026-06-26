@@ -5,7 +5,7 @@ import {
   type Player,
 } from "@bv/game-core";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { sv } from "../lib/uiStrings";
+import { useUiStrings } from "../lib/locale/LocaleContext";
 import styles from "./EndedSpotlightCarousel.module.css";
 
 /** Tid per höjdpuntskort innan ut-animation/triggning av nästa */
@@ -31,35 +31,40 @@ function shuffleStable<T>(items: T[], seed: string): T[] {
   return arr;
 }
 
-function spotlightTitle(kind: EndedSpotlightKind): string {
+function spotlightTitle(kind: EndedSpotlightKind, ui: ReturnType<typeof useUiStrings>): string {
   switch (kind) {
     case "mostOnesCombined":
-      return sv.play.spotlightMostOnesTitle;
+      return ui.play.spotlightMostOnesTitle;
     case "mostPantSpent":
-      return sv.play.spotlightMostPantSpentTitle;
+      return ui.play.spotlightMostPantSpentTitle;
     case "mostPvpWins":
-      return sv.play.spotlightMostPvpWinsTitle;
+      return ui.play.spotlightMostPvpWinsTitle;
     case "mostPvpMatches":
-      return sv.play.spotlightMostPvpMatchesTitle;
+      return ui.play.spotlightMostPvpMatchesTitle;
     case "mostCombinedLosses":
-      return sv.play.spotlightMostLossesTitle;
+      return ui.play.spotlightMostLossesTitle;
     case "mostSabotageItems":
-      return sv.play.spotlightMostSabotageTitle;
+      return ui.play.spotlightMostSabotageTitle;
     case "mostHelpedWins":
-      return sv.play.spotlightMostHelpedTitle;
+      return ui.play.spotlightMostHelpedTitle;
     case "maxDiceRollTotal":
-      return sv.play.spotlightMaxRollTitle;
+      return ui.play.spotlightMaxRollTitle;
     case "mostKnockdowns":
-      return sv.play.spotlightMostKnockdownsTitle;
+      return ui.play.spotlightMostKnockdownsTitle;
     case "mostMonsterWins":
-      return sv.play.spotlightMostMonsterWinsTitle;
+      return ui.play.spotlightMostMonsterWinsTitle;
     case "mostHpLost":
-      return sv.play.spotlightMostHpLostTitle;
+      return ui.play.spotlightMostHpLostTitle;
   }
 }
 
-function spotlightAriaLabel(kind: EndedSpotlightKind, names: string, value: number): string {
-  return `${spotlightTitle(kind)}. ${names}. ${value}.`;
+function spotlightAriaLabel(
+  kind: EndedSpotlightKind,
+  names: string,
+  value: number,
+  ui: ReturnType<typeof useUiStrings>,
+): string {
+  return `${spotlightTitle(kind, ui)}. ${names}. ${value}.`;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -82,7 +87,8 @@ function SpotlightCard(props: {
   /** Carousel: fade + lätt rörelse (in från höger, ut åt vänster); reduced eller ett kort: ingen animation */
   slideMotion?: "enter" | "exit" | "static";
 }) {
-  const title = spotlightTitle(props.spotlight.kind);
+  const ui = useUiStrings();
+  const title = spotlightTitle(props.spotlight.kind, ui);
   const motion =
     props.slideMotion === "exit" ? styles.cardFadeOut : props.slideMotion === "static" ? "" : styles.cardFadeIn;
   return (
@@ -115,6 +121,7 @@ function SpotlightCard(props: {
 }
 
 export function EndedSpotlightCarousel(props: { players: Player[] }) {
+  const ui = useUiStrings();
   const reducedMotion = usePrefersReducedMotion();
   const seed = useMemo(
     () =>
@@ -169,8 +176,8 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
 
   if (reducedMotion) {
     return (
-      <section className={styles.wrap} aria-label={sv.play.spotlightRegionAria}>
-        <p className={styles.regionLabel}>{sv.play.spotlightRegionAria}</p>
+      <section className={styles.wrap} aria-label={ui.play.spotlightRegionAria}>
+        <p className={styles.regionLabel}>{ui.play.spotlightRegionAria}</p>
         <div className={styles.reducedGrid}>
           {spotlights.map((s) => (
             <SpotlightCard key={s.kind} spotlight={s} nameById={nameById} colorById={colorById} slideMotion="static" />
@@ -183,8 +190,8 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
   const current = spotlights[safeIdx]!;
 
   return (
-    <section className={styles.wrap} aria-label={sv.play.spotlightRegionAria}>
-      <p className={styles.regionLabel}>{sv.play.spotlightRegionAria}</p>
+    <section className={styles.wrap} aria-label={ui.play.spotlightRegionAria}>
+      <p className={styles.regionLabel}>{ui.play.spotlightRegionAria}</p>
       <div className={styles.viewport}>
         <SpotlightCard
           key={`${current.kind}-${safeIdx}`}
@@ -205,6 +212,7 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
                 s.kind,
                 s.playerIds.map((id) => nameById.get(id) ?? id).join(", "),
                 s.value,
+                ui,
               )}
               aria-current={i === safeIdx ? "step" : undefined}
               onClick={() => requestGoTo(i)}
