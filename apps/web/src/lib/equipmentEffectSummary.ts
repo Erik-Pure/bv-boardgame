@@ -1,5 +1,5 @@
 import type { GameLocale, ShopItem } from "@bv/game-core";
-import { formatCanAmount, getCard, getEquipmentDisplay } from "@bv/game-core";
+import { getCard, getEquipmentDisplay } from "@bv/game-core";
 import { formatInventoryItemShopEffectSummary } from "./inventoryEffectBadges";
 import type { UiStrings } from "./uiStrings";
 
