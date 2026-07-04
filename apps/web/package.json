@@ -10,7 +10,7 @@
     "postbuild": "node scripts/patch-dist-html-seo.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "npm run -w @bv/game-core build && node --import tsx --test test/*.test.ts"
+    "test": "npm run -w @bv/game-core build && node --import tsx --test test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
     "@bv/game-core": "^0.9.0",
