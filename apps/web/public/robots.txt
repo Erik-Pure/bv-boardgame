@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /play
+Disallow: /table
+Disallow: /join
+Disallow: /host-lobby
+Disallow: /login
+Allow: /

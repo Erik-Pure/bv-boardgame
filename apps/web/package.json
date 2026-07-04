@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
+    "prebuild": "node scripts/generate-seo-files.mjs",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/patch-dist-html-seo.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "npm run -w @bv/game-core build && node --import tsx --test test/*.test.ts"

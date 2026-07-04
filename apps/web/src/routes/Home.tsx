@@ -86,6 +86,7 @@ export function Home() {
 
     <div className={styles.homeShell}>
       <div className={styles.logoHero}>
+        <h1 className={styles.visuallyHidden}>{ui.home.title}</h1>
         <div className={styles.logoGlowSpin} aria-hidden>
           <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
         </div>
@@ -204,7 +205,13 @@ export function Home() {
     </section>
 
     <div className={styles.homeShell}>
-      <nav className={styles.homeFooterNav}>
+      <nav className={styles.homeFooterNav} aria-label={ui.home.footerNavLabel}>
+        <Link className={styles.homeFooterLink} to="/rules">
+          {ui.home.footerRules}
+        </Link>
+        <Link className={styles.homeFooterLink} to="/cards">
+          {ui.home.footerCards}
+        </Link>
         <Link className={styles.homeFooterLink} to="/login">
           {ui.home.loginLink}
         </Link>
