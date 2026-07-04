@@ -3,6 +3,7 @@ import { Navigate, Route, useLocation } from "react-router-dom";
 import "./App.css";
 import { PageTransitionLayout } from "./components/PageTransitionLayout";
 import { useUiStrings } from "./lib/locale/LocaleContext";
+import { usePageSeo } from "./lib/usePageSeo";
 import { CardsCatalog } from "./routes/CardsCatalog";
 import { GameRules } from "./routes/GameRules";
 import { Home } from "./routes/Home";
@@ -39,6 +40,8 @@ function RouteLoadingFallback() {
 }
 
 function App() {
+  usePageSeo();
+
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
       <ScrollToTopOnRouteChange />

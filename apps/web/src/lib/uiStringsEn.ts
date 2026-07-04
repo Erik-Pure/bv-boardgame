@@ -66,6 +66,7 @@ export const en = {
       },
     ] as const,
     loginLink: "Log in",
+    footerNavLabel: "Footer",
     deployedVersionTitle: "Deployed version",
     languageLabel: "Language",
     languageSv: "SV",
@@ -1027,6 +1028,19 @@ export const en = {
     cardText: "Card text",
     rules: "Rules",
     depositPrice: (slot: string, price: number) => `${slot} · ${formatCanAmount(price)}`,
+  },
+  seo: {
+    homeTitle: "Brewmasters' Master — board game from Bryggverket",
+    homeDescription:
+      "Play Brewmasters' Master online: big screen as the board, phone as your controller. Beer-themed battles, cans, and sips — from Bryggverket in Umeå.",
+    rulesTitle: "Game rules — Brewmasters' Master",
+    rulesDescription:
+      "Read the rules for Brewmasters' Master: turns, movement, combat, cans, equipment, and how to play with a big screen and phones.",
+    cardsTitle: "Card catalog — Brewmasters' Master",
+    cardsDescription:
+      "Browse the Brewmasters' Master card catalog: event cards, monsters, equipment, and beer references from Bryggverket.",
+    privateTitle: "Brewmasters' Master",
+    privateDescription: "Web-based board game from Bryggverket.",
   },
   app: {
     loading: "Loading…",

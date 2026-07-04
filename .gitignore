@@ -26,6 +26,9 @@ pnpm-debug.log*
 # Vite / tooling
 *.local
 
+# Build-generated SEO (requires VITE_SITE_URL or VERCEL_URL)
+apps/web/public/sitemap.xml
+
 # Video masters (app serves *_1280.mp4 + *.webm only)
 apps/web/public/video/beer_bg.mp4
 apps/web/public/video/flames_bg.mp4
