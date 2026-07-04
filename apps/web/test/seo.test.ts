@@ -57,10 +57,10 @@ describe("seo", () => {
     assert.equal(buildStructuredData("/play", getUiStrings("sv"), "sv", PRODUCT_SITE_URL), null);
   });
 
-  it("uses dedicated OG share image dimensions", () => {
-    assert.equal(OG_IMAGE.width, 1200);
-    assert.equal(OG_IMAGE.height, 630);
-    assert.match(getPageSeo("/", getUiStrings("sv")).image, /\/og\/og-share\.png$/);
+  it("uses Bryggverket game logo for social previews", () => {
+    assert.equal(OG_IMAGE.width, 779);
+    assert.equal(OG_IMAGE.height, 582);
+    assert.match(getPageSeo("/", getUiStrings("sv")).image, /\/icons\/bmm-logo\.png$/);
   });
 
   it("builds breadcrumb JSON-LD for rules and cards", () => {

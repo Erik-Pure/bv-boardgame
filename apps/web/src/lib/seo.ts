@@ -12,14 +12,14 @@ export type PageSeo = {
   image: string;
 };
 
-const DEFAULT_OG_IMAGE = "/og/og-share.png";
+const DEFAULT_OG_IMAGE = "/icons/bmm-logo.png";
 
 export const PRODUCT_SITE_URL = "https://spela.bryggverket.se";
 
 export const OG_IMAGE = {
   path: DEFAULT_OG_IMAGE,
-  width: 1200,
-  height: 630,
+  width: 779,
+  height: 582,
 } as const;
 
 export function seoPageKeyForPath(pathname: string): SeoPageKey {
