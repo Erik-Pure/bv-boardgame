@@ -1157,6 +1157,9 @@ export const sv = {
       "Bläddra i kortkatalogen för Bryggmästarnas Mästare: händelsekort, monster, utrustning och ölreferenser från Bryggverket.",
     privateTitle: "Bryggmästarnas Mästare",
     privateDescription: "Webbaserat brädspel från Bryggverket.",
+    ogImageAlt:
+      "Bryggmästarnas Mästare — webbaserat ölbrädspel från Bryggverket. Storskärm som bord, mobil som handkontroll.",
+    breadcrumbHome: "Start",
   },
   app: {
     loading: "Laddar…",

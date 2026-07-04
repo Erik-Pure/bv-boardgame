@@ -1041,6 +1041,9 @@ export const en = {
       "Browse the Brewmasters' Master card catalog: event cards, monsters, equipment, and beer references from Bryggverket.",
     privateTitle: "Brewmasters' Master",
     privateDescription: "Web-based board game from Bryggverket.",
+    ogImageAlt:
+      "Brewmasters' Master — web-based beer board game from Bryggverket. Big screen as the board, phone as your controller.",
+    breadcrumbHome: "Home",
   },
   app: {
     loading: "Loading…",

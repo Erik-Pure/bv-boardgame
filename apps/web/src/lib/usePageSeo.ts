@@ -54,7 +54,6 @@ export function usePageSeo(): void {
     const seo = getPageSeo(path, ui);
     const canonical = absoluteUrl(path);
     const image = absoluteUrl(seo.image);
-    const imageAlt = path === "/" ? ui.home.explainerAlt : seo.title;
 
     document.title = seo.title;
     upsertMeta("name", "description", seo.description);
@@ -67,12 +66,12 @@ export function usePageSeo(): void {
     upsertMeta("property", "og:image", image);
     upsertMeta("property", "og:image:width", String(OG_IMAGE.width));
     upsertMeta("property", "og:image:height", String(OG_IMAGE.height));
-    upsertMeta("property", "og:image:alt", imageAlt);
+    upsertMeta("property", "og:image:alt", seo.robots === "index, follow" ? ui.seo.ogImageAlt : seo.title);
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", seo.title);
     upsertMeta("name", "twitter:description", seo.description);
     upsertMeta("name", "twitter:image", image);
-    upsertMeta("name", "twitter:image:alt", imageAlt);
+    upsertMeta("name", "twitter:image:alt", seo.robots === "index, follow" ? ui.seo.ogImageAlt : seo.title);
     upsertLink("canonical", canonical);
     upsertJsonLd(buildStructuredData(path, ui, locale));
   }, [pathname, locale, ui]);

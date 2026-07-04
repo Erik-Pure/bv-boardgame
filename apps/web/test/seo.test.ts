@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildBreadcrumbStructuredData,
   buildStructuredData,
   getPageSeo,
   isIndexablePath,
   normalizePath,
+  OG_IMAGE,
   PRODUCT_SITE_URL,
   seoPageKeyForPath,
 } from "../src/lib/seo.ts";
@@ -53,5 +55,22 @@ describe("seo", () => {
 
   it("omits structured data for private routes", () => {
     assert.equal(buildStructuredData("/play", getUiStrings("sv"), "sv", PRODUCT_SITE_URL), null);
+  });
+
+  it("uses dedicated OG share image dimensions", () => {
+    assert.equal(OG_IMAGE.width, 1200);
+    assert.equal(OG_IMAGE.height, 630);
+    assert.match(getPageSeo("/", getUiStrings("sv")).image, /\/og\/og-share\.png$/);
+  });
+
+  it("builds breadcrumb JSON-LD for rules and cards", () => {
+    const rulesCrumb = buildBreadcrumbStructuredData("/rules", getUiStrings("sv"), PRODUCT_SITE_URL);
+    assert.ok(rulesCrumb);
+    const items = rulesCrumb.itemListElement as Array<{ position: number; name: string }>;
+    assert.equal(items.length, 2);
+    assert.equal(items[0]?.name, "Start");
+    assert.equal(items[1]?.name, "Spelregler");
+
+    assert.equal(buildBreadcrumbStructuredData("/", getUiStrings("sv"), PRODUCT_SITE_URL), null);
   });
 });

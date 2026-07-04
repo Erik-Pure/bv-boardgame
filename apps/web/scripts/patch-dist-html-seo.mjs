@@ -17,7 +17,7 @@ html = html.replace(
     "  </head>",
   ].join("\n"),
 );
-html = html.replaceAll('content="/icons/bmm-explainer.png"', `content="${siteUrl}/icons/bmm-explainer.png"`);
+html = html.replaceAll('content="/og/og-share.png"', `content="${siteUrl}/og/og-share.png"`);
 
 writeFileSync(indexPath, html, "utf8");
 console.log(`Patched dist/index.html SEO URLs for ${siteUrl}`);

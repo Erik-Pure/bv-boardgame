@@ -12,14 +12,14 @@ export type PageSeo = {
   image: string;
 };
 
-const DEFAULT_OG_IMAGE = "/icons/bmm-explainer.png";
+const DEFAULT_OG_IMAGE = "/og/og-share.png";
 
 export const PRODUCT_SITE_URL = "https://spela.bryggverket.se";
 
 export const OG_IMAGE = {
   path: DEFAULT_OG_IMAGE,
-  width: 1620,
-  height: 924,
+  width: 1200,
+  height: 630,
 } as const;
 
 export function seoPageKeyForPath(pathname: string): SeoPageKey {
@@ -152,7 +152,51 @@ export function buildStructuredData(
       inLanguage,
       isPartOf: { "@id": `${siteUrl}/#website` },
     });
+
+    const breadcrumb = buildBreadcrumbStructuredData(path, ui, siteUrl);
+    if (breadcrumb) graphs.push(breadcrumb);
   }
 
   return graphs;
+}
+
+function breadcrumbLabels(path: string, ui: UiStrings): { name: string; url: string }[] | null {
+  const key = seoPageKeyForPath(path);
+  if (key === "home") return null;
+
+  const items: { name: string; url: string }[] = [
+    { name: ui.seo.breadcrumbHome, url: "/" },
+  ];
+
+  if (key === "rules") {
+    items.push({ name: ui.rules.title, url: "/rules" });
+  } else if (key === "cards") {
+    items.push({ name: ui.catalog.title, url: "/cards" });
+  }
+
+  return items;
+}
+
+export function buildBreadcrumbStructuredData(
+  pathname: string,
+  ui: UiStrings,
+  origin = resolveSiteOrigin(),
+): Record<string, unknown> | null {
+  const path = normalizePath(pathname);
+  const items = breadcrumbLabels(path, ui);
+  if (!items) return null;
+
+  const siteUrl = origin || PRODUCT_SITE_URL;
+  const pageUrl = absoluteUrl(path, siteUrl);
+
+  return {
+    "@type": "BreadcrumbList",
+    "@id": `${pageUrl}#breadcrumb`,
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: absoluteUrl(item.url, siteUrl),
+    })),
+  };
 }
