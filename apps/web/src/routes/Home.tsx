@@ -124,9 +124,9 @@ export function Home() {
 
     <section className={styles.homeWideOuter} aria-labelledby="home-how-to-heading">
       <div className={styles.homeWideInner}>
-        <h4 id="home-how-to-heading" className={styles.howToTitle}>
+        <h2 id="home-how-to-heading" className={styles.howToTitle}>
           {ui.home.howToPlayTitle}
-        </h4>
+        </h2>
         <div className={styles.howToGrid}>
           <figure className={styles.explainerFigure}>
             <PictureImg
@@ -157,9 +157,9 @@ export function Home() {
 
     <section className={styles.homeWideOuter} aria-labelledby="home-promo-heading">
       <div className={styles.homeWideInner}>
-        <h4 id="home-promo-heading" className={styles.promoSectionTitle}>
+        <h2 id="home-promo-heading" className={styles.promoSectionTitle}>
           {ui.home.promoSectionTitle}
-        </h4>
+        </h2>
         <div className={styles.promoGrid}>
           {ui.home.promoCards.map((card) => (
             <a

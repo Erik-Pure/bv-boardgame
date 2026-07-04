@@ -6,17 +6,16 @@ import { resolveSiteUrl } from "./seo-site-url.mjs";
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const siteUrl = resolveSiteUrl();
-if (!siteUrl) {
-  console.log("Skipped dist/index.html SEO patch (set VITE_SITE_URL or deploy on Vercel).");
-  process.exit(0);
-}
-
 const indexPath = join(webRoot, "dist", "index.html");
 let html = readFileSync(indexPath, "utf8");
 
 html = html.replace(
   "</head>",
-  `    <link rel="canonical" href="${siteUrl}/" />\n  </head>`,
+  [
+    `    <link rel="canonical" href="${siteUrl}/" />`,
+    `    <meta property="og:url" content="${siteUrl}/" />`,
+    "  </head>",
+  ].join("\n"),
 );
 html = html.replaceAll('content="/icons/bmm-explainer.png"', `content="${siteUrl}/icons/bmm-explainer.png"`);
 

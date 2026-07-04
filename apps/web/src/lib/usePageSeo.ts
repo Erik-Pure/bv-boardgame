@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { absoluteUrl, getPageSeo, normalizePath, ogLocaleForGameLocale } from "./seo";
+import {
+  absoluteUrl,
+  buildStructuredData,
+  getPageSeo,
+  normalizePath,
+  OG_IMAGE,
+  ogLocaleForGameLocale,
+} from "./seo";
 import { useLocale, useUiStrings } from "./locale/LocaleContext";
 
 function upsertMeta(attr: "name" | "property", key: string, content: string): void {
@@ -23,6 +30,20 @@ function upsertLink(rel: string, href: string): void {
   el.setAttribute("href", href);
 }
 
+function upsertJsonLd(graphs: Record<string, unknown>[] | null): void {
+  document.querySelectorAll('script[data-seo-jsonld="page"]').forEach((node) => node.remove());
+  if (!graphs?.length) return;
+
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.dataset.seoJsonld = "page";
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": graphs,
+  });
+  document.head.appendChild(script);
+}
+
 export function usePageSeo(): void {
   const { pathname } = useLocation();
   const locale = useLocale();
@@ -33,6 +54,7 @@ export function usePageSeo(): void {
     const seo = getPageSeo(path, ui);
     const canonical = absoluteUrl(path);
     const image = absoluteUrl(seo.image);
+    const imageAlt = path === "/" ? ui.home.explainerAlt : seo.title;
 
     document.title = seo.title;
     upsertMeta("name", "description", seo.description);
@@ -43,10 +65,15 @@ export function usePageSeo(): void {
     upsertMeta("property", "og:url", canonical);
     upsertMeta("property", "og:locale", ogLocaleForGameLocale(locale));
     upsertMeta("property", "og:image", image);
+    upsertMeta("property", "og:image:width", String(OG_IMAGE.width));
+    upsertMeta("property", "og:image:height", String(OG_IMAGE.height));
+    upsertMeta("property", "og:image:alt", imageAlt);
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", seo.title);
     upsertMeta("name", "twitter:description", seo.description);
     upsertMeta("name", "twitter:image", image);
+    upsertMeta("name", "twitter:image:alt", imageAlt);
     upsertLink("canonical", canonical);
+    upsertJsonLd(buildStructuredData(path, ui, locale));
   }, [pathname, locale, ui]);
 }

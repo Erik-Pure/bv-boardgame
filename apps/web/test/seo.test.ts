@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getPageSeo, isIndexablePath, normalizePath, seoPageKeyForPath } from "../src/lib/seo.ts";
+import {
+  buildStructuredData,
+  getPageSeo,
+  isIndexablePath,
+  normalizePath,
+  PRODUCT_SITE_URL,
+  seoPageKeyForPath,
+} from "../src/lib/seo.ts";
 import { getUiStrings } from "../src/lib/uiStrings.ts";
 
 describe("seo", () => {
@@ -35,5 +42,16 @@ describe("seo", () => {
   it("noindexes private routes", () => {
     const seo = getPageSeo("/play", getUiStrings("sv"));
     assert.equal(seo.robots, "noindex, nofollow");
+  });
+
+  it("builds structured data for indexable routes", () => {
+    const graphs = buildStructuredData("/", getUiStrings("sv"), "sv", PRODUCT_SITE_URL);
+    assert.ok(graphs);
+    assert.ok(graphs.some((node) => node["@type"] === "WebApplication"));
+    assert.ok(graphs.some((node) => node["@type"] === "Organization"));
+  });
+
+  it("omits structured data for private routes", () => {
+    assert.equal(buildStructuredData("/play", getUiStrings("sv"), "sv", PRODUCT_SITE_URL), null);
   });
 });

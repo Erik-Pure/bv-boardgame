@@ -14,6 +14,14 @@ export type PageSeo = {
 
 const DEFAULT_OG_IMAGE = "/icons/bmm-explainer.png";
 
+export const PRODUCT_SITE_URL = "https://spela.bryggverket.se";
+
+export const OG_IMAGE = {
+  path: DEFAULT_OG_IMAGE,
+  width: 1620,
+  height: 924,
+} as const;
+
 export function seoPageKeyForPath(pathname: string): SeoPageKey {
   const path = normalizePath(pathname);
   if (path === "/") return "home";
@@ -35,7 +43,7 @@ export function resolveSiteOrigin(): string {
   const fromEnv = import.meta.env.VITE_SITE_URL as string | undefined;
   if (fromEnv?.trim()) return fromEnv.trim().replace(/\/$/, "");
   if (typeof window !== "undefined") return window.location.origin;
-  return "";
+  return PRODUCT_SITE_URL;
 }
 
 export function absoluteUrl(pathname: string, origin = resolveSiteOrigin()): string {
@@ -83,4 +91,68 @@ export function getPageSeo(pathname: string, ui: UiStrings): PageSeo {
 
 export function ogLocaleForGameLocale(locale: GameLocale): string {
   return locale === "en" ? "en_US" : "sv_SE";
+}
+
+export function buildStructuredData(
+  pathname: string,
+  ui: UiStrings,
+  locale: GameLocale,
+  origin = resolveSiteOrigin(),
+): Record<string, unknown>[] | null {
+  if (!isIndexablePath(pathname)) return null;
+
+  const path = normalizePath(pathname);
+  const seo = getPageSeo(path, ui);
+  const siteUrl = origin || PRODUCT_SITE_URL;
+  const pageUrl = absoluteUrl(path, siteUrl);
+  const image = absoluteUrl(seo.image, siteUrl);
+  const inLanguage = locale === "en" ? "en-US" : "sv-SE";
+
+  const organization = {
+    "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
+    name: "Bryggverket",
+    url: "https://www.bryggverket.se/",
+  };
+
+  const webSite = {
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    url: `${siteUrl}/`,
+    name: ui.home.title,
+    description: ui.seo.homeDescription,
+    inLanguage,
+    publisher: { "@id": `${siteUrl}/#organization` },
+  };
+
+  const graphs: Record<string, unknown>[] = [organization, webSite];
+
+  if (seoPageKeyForPath(path) === "home") {
+    graphs.push({
+      "@type": "WebApplication",
+      "@id": `${siteUrl}/#webapp`,
+      name: ui.home.title,
+      url: `${siteUrl}/`,
+      description: seo.description,
+      applicationCategory: "GameApplication",
+      operatingSystem: "Web",
+      image,
+      inLanguage,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "SEK" },
+      author: { "@id": `${siteUrl}/#organization` },
+      isPartOf: { "@id": `${siteUrl}/#website` },
+    });
+  } else {
+    graphs.push({
+      "@type": "WebPage",
+      "@id": `${pageUrl}#webpage`,
+      url: pageUrl,
+      name: seo.title,
+      description: seo.description,
+      inLanguage,
+      isPartOf: { "@id": `${siteUrl}/#website` },
+    });
+  }
+
+  return graphs;
 }

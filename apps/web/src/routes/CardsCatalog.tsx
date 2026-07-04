@@ -227,6 +227,9 @@ export function CardsCatalog() {
           <Link to="/" className={catalogStyles.catalogHomeLink}>
             {c.homeLink}
           </Link>
+          <Link to="/rules" className={catalogStyles.catalogHomeLink}>
+            {c.rules}
+          </Link>
         </div>
       </div>
       <p className={catalogStyles.catalogIntro}>
