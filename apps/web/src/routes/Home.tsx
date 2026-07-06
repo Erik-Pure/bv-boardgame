@@ -86,6 +86,7 @@ export function Home() {
 
     <div className={styles.homeShell}>
       <div className={styles.logoHero}>
+        <h1 className={styles.visuallyHidden}>{ui.home.title}</h1>
         <div className={styles.logoGlowSpin} aria-hidden>
           <img className={styles.logoGlow} src="/icons/circular-shine.svg" alt="" />
         </div>
@@ -123,9 +124,9 @@ export function Home() {
 
     <section className={styles.homeWideOuter} aria-labelledby="home-how-to-heading">
       <div className={styles.homeWideInner}>
-        <h4 id="home-how-to-heading" className={styles.howToTitle}>
+        <h2 id="home-how-to-heading" className={styles.howToTitle}>
           {ui.home.howToPlayTitle}
-        </h4>
+        </h2>
         <div className={styles.howToGrid}>
           <figure className={styles.explainerFigure}>
             <PictureImg
@@ -156,9 +157,9 @@ export function Home() {
 
     <section className={styles.homeWideOuter} aria-labelledby="home-promo-heading">
       <div className={styles.homeWideInner}>
-        <h4 id="home-promo-heading" className={styles.promoSectionTitle}>
+        <h2 id="home-promo-heading" className={styles.promoSectionTitle}>
           {ui.home.promoSectionTitle}
-        </h4>
+        </h2>
         <div className={styles.promoGrid}>
           {ui.home.promoCards.map((card) => (
             <a
@@ -204,7 +205,13 @@ export function Home() {
     </section>
 
     <div className={styles.homeShell}>
-      <nav className={styles.homeFooterNav}>
+      <nav className={styles.homeFooterNav} aria-label={ui.home.footerNavLabel}>
+        <Link className={styles.homeFooterLink} to="/rules">
+          {ui.home.footerRules}
+        </Link>
+        <Link className={styles.homeFooterLink} to="/cards">
+          {ui.home.footerCards}
+        </Link>
         <Link className={styles.homeFooterLink} to="/login">
           {ui.home.loginLink}
         </Link>

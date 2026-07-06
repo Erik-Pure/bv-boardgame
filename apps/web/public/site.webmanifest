@@ -1,0 +1,23 @@
+{
+  "name": "Bryggmästarnas Mästare",
+  "short_name": "BMM",
+  "description": "Webbaserat brädspel från Bryggverket — storskärm som bord, mobil som handkontroll.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#000000",
+  "theme_color": "#0f172a",
+  "lang": "sv",
+  "icons": [
+    {
+      "src": "/icons/bmm-logo.png",
+      "sizes": "779x582",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

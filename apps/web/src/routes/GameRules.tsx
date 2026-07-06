@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useUiStrings } from "../lib/locale/LocaleContext";
 import { BrandLogoImg } from "../components/BrandLogoImg";
 
@@ -70,6 +71,7 @@ function inlineIcon(src: string, color: string) {
 export function GameRules() {
   const ui = useUiStrings();
   const r = ui.rules;
+  const home = ui.home;
 
   return (
     <div
@@ -179,6 +181,26 @@ export function GameRules() {
           <strong>{r.winLastLabel}</strong> {r.winLastText}
         </li>
       </ul>
+
+      <nav
+        aria-label={home.footerNavLabel}
+        style={{
+          marginTop: 48,
+          paddingTop: 24,
+          borderTop: "1px solid rgba(148,163,184,0.35)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 14,
+        }}
+      >
+        <Link to="/" style={{ color: "#94a3b8", fontWeight: 600, textDecoration: "none" }}>
+          {ui.catalog.homeLink}
+        </Link>
+        <Link to="/cards" style={{ color: "#94a3b8", fontWeight: 600, textDecoration: "none" }}>
+          {home.footerCards}
+        </Link>
+      </nav>
     </div>
   );
 }

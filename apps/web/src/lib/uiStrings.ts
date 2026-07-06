@@ -181,6 +181,7 @@ export const sv = {
       },
     ] as const,
     loginLink: "Logga in",
+    footerNavLabel: "Sidfot",
     deployedVersionTitle: "Deployad version",
     languageLabel: "Språk",
     languageSv: "SV",
@@ -1143,6 +1144,22 @@ export const sv = {
     cardText: "Korttext",
     rules: "Regler",
     depositPrice: (slot: string, price: number) => `${slot} · ${price} pant`,
+  },
+  seo: {
+    homeTitle: "Bryggmästarnas Mästare — brädspel från Bryggverket",
+    homeDescription:
+      "Spela Bryggmästarnas Mästare online: storskärm som bord, mobil som handkontroll. Öl-tema, strider, pant och klunkar — från Bryggverket i Umeå.",
+    rulesTitle: "Spelregler — Bryggmästarnas Mästare",
+    rulesDescription:
+      "Läs reglerna för Bryggmästarnas Mästare: turordning, rörelse, strider, pant, utrustning och hur ni spelar med storskärm och mobil.",
+    cardsTitle: "Kortkatalog — Bryggmästarnas Mästare",
+    cardsDescription:
+      "Bläddra i kortkatalogen för Bryggmästarnas Mästare: händelsekort, monster, utrustning och ölreferenser från Bryggverket.",
+    privateTitle: "Bryggmästarnas Mästare",
+    privateDescription: "Webbaserat brädspel från Bryggverket.",
+    ogImageAlt:
+      "Bryggmästarnas Mästare — webbaserat ölbrädspel från Bryggverket. Storskärm som bord, mobil som handkontroll.",
+    breadcrumbHome: "Start",
   },
   app: {
     loading: "Laddar…",

@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /play
+Disallow: /table
+Disallow: /join
+Disallow: /host-lobby
+Disallow: /login
+Allow: /
+
+Sitemap: https://spela.bryggverket.se/sitemap.xml
