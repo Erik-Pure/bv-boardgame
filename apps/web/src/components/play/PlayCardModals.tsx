@@ -3,6 +3,7 @@ import {
   FINAL_BOSS_LIFE_TOTAL,
   MONSTERS,
   getCardDefById,
+  localizeFinalBossRoundLabel,
   localizeSipNoticeBody,
   localizeSipNoticeFromPlayerName,
   localizeSipNoticeTitle,
@@ -101,12 +102,13 @@ export function EnemyIntroModal(props: {
   boardLevel?: number;
 }) {
   const ui = useUiStrings();
+  const locale = useLocale();
   const bossRoundLabel = (() => {
     const raw = props.bossLivesRemaining;
     if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
     const lives = Math.max(1, Math.min(FINAL_BOSS_LIFE_TOTAL, Math.floor(raw)));
     const round = FINAL_BOSS_LIFE_TOTAL - lives + 1;
-    return `RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`;
+    return localizeFinalBossRoundLabel(`RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`, locale);
   })();
   const aboveScene =
     bossRoundLabel || props.teammateName || props.showCard ? (

@@ -4,6 +4,7 @@ import { TableFitScale } from "./TableFitScale";
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
+  localizeFinalBossRoundLabel,
   monsterCombatEquipmentAttackBonus,
   type GameState,
   type MonsterId,
@@ -302,7 +303,7 @@ function TableCombatBoardPanelInner(props: {
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
     const lives = Math.max(1, Math.min(FINAL_BOSS_LIFE_TOTAL, Math.floor(raw)));
     const round = FINAL_BOSS_LIFE_TOTAL - lives + 1;
-    return `RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`;
+    return localizeFinalBossRoundLabel(`RUNDA ${round} AV ${FINAL_BOSS_LIFE_TOTAL}`, locale);
   })();
   const monsterDiceHeroLayout = showMonsterCard && diceBesideCardPhases;
   /** Monster: samma rad + inbäddad CardFlipScene så kortet inte unmountas intro → tärning. */
