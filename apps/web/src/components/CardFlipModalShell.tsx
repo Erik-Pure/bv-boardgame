@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type 
 import { BossCombatBackdropLayers } from "./BossCombatBackdropLayers";
 import styles from "./CardFlipModalShell.module.css";
 import { cardCoverToBackUrls } from "../lib/cardBackArt";
+import { useFitScaleTransition } from "../hooks/useFitScaleTransition";
 import { useFitToViewportScale } from "../hooks/useFitToViewportScale";
 
 /** Bord/TV: skal-till-passa-spec för modalinnehållet (mät + krymp/väx så det ryms). */
@@ -22,6 +23,8 @@ function FitViewportScaledBlock(props: {
   fit: CardFlipFitToViewport;
   desiredScale: number;
   stackAbove: boolean;
+  /** Kortets kända designbredd — mät-elementet är fullbredd och kan inte mätas för bredd. */
+  contentWidthPx: number;
 }) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const scale = useFitToViewportScale(measureRef, {
@@ -29,11 +32,14 @@ function FitViewportScaledBlock(props: {
     reservedBottom: (props.fit.reservedBottom ?? 0) + 16,
     sidePadPx: props.fit.sidePadPx ?? 32,
     desiredScale: props.desiredScale,
+    contentWidthPx: props.contentWidthPx,
   });
+  const scaleTransition = useFitScaleTransition();
   return (
     <div
       style={{
         transform: scale !== 1 ? `scale(${scale})` : undefined,
+        transition: scaleTransition,
         /** Toppförankrat: origin top så nedskalning inte klipps mot viewport-toppen. */
         transformOrigin: (props.fit.anchor ?? "top") === "top" ? "top center" : "center center",
         width: "100%",
@@ -259,6 +265,11 @@ export function CardFlipModalShell(props: {
   const fit = props.fitToViewport;
   const useScaleWrapper = fit == null && cs != null && cs !== 1;
   const hasFlamesBackdrop = props.bossFlamesBackdrop || props.flamesBackdrop;
+  /** Kortets faktiska bredd (scene är capped mot designbredden); aboveScene är max 480. */
+  const fitContentWidthPx = Math.max(
+    Math.min(props.maxWidth ?? CARD_REF_W, CARD_REF_W),
+    stackAbove ? 480 : 0,
+  );
 
   const flexStackStyle: CSSProperties = {
     display: "flex",
@@ -357,7 +368,12 @@ export function CardFlipModalShell(props: {
         }}
       >
         {fit != null ? (
-          <FitViewportScaledBlock fit={fit} desiredScale={cs ?? 1} stackAbove={stackAbove}>
+          <FitViewportScaledBlock
+            fit={fit}
+            desiredScale={cs ?? 1}
+            stackAbove={stackAbove}
+            contentWidthPx={fitContentWidthPx}
+          >
             {inner}
           </FitViewportScaledBlock>
         ) : useScaleWrapper ? (

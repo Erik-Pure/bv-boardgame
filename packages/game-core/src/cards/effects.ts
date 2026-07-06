@@ -64,6 +64,7 @@ export function tryGrantRandomEquipmentOrOffer(
       pvpDieBonus: eq.pvpDieBonus,
       gainGoldOnDamageTaken: eq.gainGoldOnDamageTaken,
       healHpPerTurn: eq.healHpPerTurn,
+      itemCardBonus: eq.itemCardBonus,
     };
     player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
     player.hp = Math.min(player.hp, player.maxHp);
@@ -81,6 +82,7 @@ export function tryGrantRandomEquipmentOrOffer(
       klunkAttackBonus20: eq.klunkAttackBonus20,
       klunkAttackBonusMax: eq.klunkAttackBonusMax,
       pvpDieBonus: eq.pvpDieBonus,
+      itemCardBonus: eq.itemCardBonus,
     };
     player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
     const helmHp = eq.bonusHp ?? 0;
@@ -104,6 +106,7 @@ export function tryGrantRandomEquipmentOrOffer(
       ignoreCombatCritFailOnOne: eq.ignoreCombatCritFailOnOne,
       deathContinueCost: eq.deathContinueCost,
       merchantDiscountGold: eq.merchantDiscountGold,
+      itemCardBonus: eq.itemCardBonus,
     };
     if (eq.name === "Plastback") initPlastbackPack(player.equipment.accessory);
     syncPlastbackEmptyBottleSynergy(player);

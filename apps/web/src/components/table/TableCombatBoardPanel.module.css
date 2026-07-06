@@ -283,6 +283,39 @@
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
 }
 
+.diceTotalStack {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.diceTotalBig {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(26px, 5.5vw, 36px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fde68a;
+  text-align: center;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(217, 119, 6, 0.4);
+}
+
+.diceTotalCaption {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 400;
+  font-size: clamp(15px, 3vw, 20px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(217, 119, 6, 0.4);
+}
+
 .hitMitigationHint {
   font-size: var(--type-sm);
   text-align: center;

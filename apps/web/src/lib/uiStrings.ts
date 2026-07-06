@@ -545,6 +545,7 @@ export const sv = {
     lobbyHardcoreModeLabel: "Hardcore mode (endast 1 liv)",
     lobbyWakeLockDisableScreen: "Inaktivera sömnläge för skärm",
     lobbyWakeLockBeforeStart: "Håll skärmen vaken redan i lobby",
+    lobbyStartLobby: "Starta lobby",
     /** Lobby: sektion för kosmetik (kortbaksida, framtida pjäsar, ramar …). */
     lobbyAppearance: "Utseende",
     lobbyCardCoverDefault: "Standard",
@@ -766,6 +767,8 @@ export const sv = {
     diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} mot pantkostnad (valfritt)`,
     /** Bräd-tv: efter slag om valfri pip-vapenbonus faktiskt togs — bara siffra + etikett vid tärningen. */
     diceModifierSipTakenSub: "mot pantkostnad",
+    /** Bräde: summeringsrad under stridstärningen ("totalt 9"). */
+    diceTotalCaption: "totalt",
     pvpDuel: "BvB",
     pvpRound: (n: number) => `Rond ${n}`,
     pvpRoundBestOf: (round: number, bestOf: number) => `Rond ${round} av ${bestOf}`,
@@ -784,6 +787,11 @@ export const sv = {
     /** Brädvy: aktuell turs färgfält, höger — nästa i turnOrder */
     turnBannerNext: (name: string) => `Nästa: ${name}`,
     combatMeetBanner: (name: string) => `${name.toLocaleUpperCase("sv-SE")} MÖTER`,
+    /** Lagstrid med vald medkämpe: båda namnen i rubriken (ersätter "Lagstrid: X"-raden). */
+    combatMeetBannerTeam: (a: string, b: string) =>
+      `${a.toLocaleUpperCase("sv-SE")} OCH ${b.toLocaleUpperCase("sv-SE")} MÖTER`,
+    /** Namnsammanfogning i strids-/lagstridsrader ("Erik och Vera"). */
+    namesAndJoin: (a: string, b: string) => `${a} och ${b}`,
     /** Sömnmedel: kommande hoppade turer innan spelaren får agera normalt */
     playerStatusSleepSkip: (skippedTurns: number) =>
       skippedTurns === 1
@@ -846,6 +854,7 @@ export const sv = {
     settingsBoardPan: "Panorering på brädet (auto-fokus och drag) — av: hel våning",
     settingsBoardAnimations: "Tärningsanimationer och stridspaneler",
     settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
+    settingsScaleAnimations: "Mjuk omskalning av kort (t.ex. när föremål spelas)",
     settingsClose: "Stäng",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */
     merchantShopping: (playerName: string) => `${playerName} handlar`,

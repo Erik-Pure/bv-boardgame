@@ -7,10 +7,12 @@ import {
   CONFIG_NUMERIC,
   createItemInstance,
   DEFAULT_PLAYER_SESSION_STATS,
+  EQUIPMENT_CATALOG,
   equipmentItemCardBonus,
   flatItemUseAmount,
   playerTotalItemCardBonus,
 } from "../dist/index.js";
+import { tryGrantRandomEquipmentOrOffer } from "../dist/cards/effects.js";
 
 function gameConfig() {
   return {
@@ -83,7 +85,7 @@ describe("itemCardBonus", () => {
       id: "p1",
       name: "A",
       equipment: {
-        armor: { name: "Hawaiiskojorta", bonusHp: 0, itemCardBonus: 2 },
+        armor: { name: "Hawaiiskjorta", bonusHp: 0, itemCardBonus: 2 },
         helmet: { name: "Pannband", itemCardBonus: 1 },
         accessory: { name: "Anteckningsblock", itemCardBonus: 1 },
       },
@@ -91,6 +93,26 @@ describe("itemCardBonus", () => {
     assert.equal(equipmentItemCardBonus(p), 4);
     assert.equal(playerTotalItemCardBonus({ ...p, brewerItemCardBonus: 1 }), 5);
     assert.equal(flatItemUseAmount("healing_potion", playerTotalItemCardBonus(p)), 7);
+  });
+
+  it("slumpad utrustning (händelsekort) behåller itemCardBonus på rustning/hjälm/tillbehör", () => {
+    const cases = [
+      { slotIdx: 1, slot: "armor", catalogId: "ea_hawaiishirt", expectedBonus: 2 },
+      { slotIdx: 2, slot: "helmet", catalogId: "eh_headband", expectedBonus: 1 },
+      { slotIdx: 3, slot: "accessory", catalogId: "ex_notebook", expectedBonus: 1 },
+    ];
+    for (const c of cases) {
+      const pool = EQUIPMENT_CATALOG.filter((e) => e.slot === c.slot);
+      const idx = pool.findIndex((e) => e.id === c.catalogId);
+      assert.ok(idx >= 0, `${c.catalogId} finns i katalogen`);
+      const rngValues = [(c.slotIdx + 0.5) / 4, (idx + 0.5) / pool.length];
+      const rng = () => rngValues.shift() ?? 0;
+      const p = mkPlayer({ id: "p1", name: "A" });
+      const res = tryGrantRandomEquipmentOrOffer(p, rng, 10);
+      assert.equal(res?.kind, "equipped");
+      assert.equal(p.equipment[c.slot]?.itemCardBonus, c.expectedBonus, c.catalogId);
+      assert.equal(equipmentItemCardBonus(p), c.expectedBonus, c.catalogId);
+    }
   });
 
   it("brewerPerkDecision items increases bonus and healing potion heal", () => {

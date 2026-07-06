@@ -57,6 +57,17 @@ export function consumeExhaustedBrewerPerkLevels(
   return consumed;
 }
 
+/** Stupad bryggare som startar om från början: alla permanenta bryggnivå-buffar nollställs. */
+export function resetBrewerPerkProgress(p: Player): void {
+  p.brewerAttackBonus = 0;
+  p.brewerShieldBonus = 0;
+  p.brewerPvpBonus = 0;
+  p.brewerHpBonus = 0;
+  p.brewerItemCardBonus = 0;
+  p.brewerPerkLevelsClaimed = 0;
+  p.pendingBrewerPerkLevels = 0;
+}
+
 /** Säkerställ att äldre sparade partier inte får retroaktiva val. */
 export function normalizeBrewerPerkProgress(p: Player): void {
   const lvl = brewerLevelFromXp(p.xp ?? 0);

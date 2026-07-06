@@ -43,6 +43,7 @@ import {
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
   writeBoardPreventSleepEnabled,
+  writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
 
@@ -85,6 +86,7 @@ import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { useScreenWakeLock } from "../hooks/useScreenWakeLock";
 import { useVisualViewportHeight } from "../hooks/useVisualViewportHeight";
+import { useFitScaleTransition } from "../hooks/useFitScaleTransition";
 import { softReservedBottom, useFitToViewportScale } from "../hooks/useFitToViewportScale";
 import { useTableBoardViewModel } from "../hooks/useTableBoardViewModel";
 import { CARD_FLIP_FRONT_ANIM_READY_MS, CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
@@ -543,6 +545,8 @@ function useTableToasts(state: GameState | null, playersById: Map<string, Player
       if (prevSipNoticeKeysRef.current.has(key)) continue;
       /** Mobil-modalbesked (t.ex. duell-förlust): ingen klunkCount — ska inte bli "straffklunk" på brädet (loggen har redan / är korrekt). */
       if (n.title || n.body || n.noticeKind != null) continue;
+      /** Händelsekortets klunk toastades redan via tableOutcomes — hoppa över dubbletten. */
+      if (n.suppressTableToast) continue;
       const recipientName = playersById.get(n.recipientId)?.name ?? ui.table.toastFallbackPlayer;
       const count = Math.max(1, Math.floor(n.klunkCount ?? 1));
       incoming.push({
@@ -2169,6 +2173,17 @@ function TableViewBody() {
             <label className={tableStyles.tableSettingsRow}>
               <input
                 type="checkbox"
+                checked={boardPerf.scaleAnimationsEnabled}
+                onChange={(e) => {
+                  writeScaleAnimationsEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{ui.table.settingsScaleAnimations}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
                 checked={boardPerf.preventSleepEnabled}
                 onChange={(e) => {
                   writeBoardPreventSleepEnabled(e.target.checked);
@@ -2346,6 +2361,7 @@ function TableEventRollHeroOverlay(props: {
     sidePadPx: 24,
     desiredScale: Math.max(1, props.contentScale),
   });
+  const scaleTransition = useFitScaleTransition();
   const rolledDie = parseRolledDieFromCardText(props.card.text);
   const hasRolledResult = rolledDie != null && (props.card.choices?.length ?? 0) === 0;
   const [animState, setAnimState] = useState<"intro" | "shiftRight" | "diceIn">("intro");
@@ -2375,7 +2391,10 @@ function TableEventRollHeroOverlay(props: {
         animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION,
       }}
     >
-      <div className={tableStyles.overlayScaleWrap} style={{ transform: `scale(${effectiveScale})` }}>
+      <div
+        className={tableStyles.overlayScaleWrap}
+        style={{ transform: `scale(${effectiveScale})`, transition: scaleTransition }}
+      >
         {/* Otransformerat mät-element för skal-till-passa. */}
         <div ref={measureRef} className={tableStyles.eventRollRow} style={{ gap: animState === "diceIn" ? 20 : 0 }}>
           <div

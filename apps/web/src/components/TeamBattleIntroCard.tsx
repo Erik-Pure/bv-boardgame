@@ -1,6 +1,7 @@
 import { useRef, type CSSProperties } from "react";
 import { CardFlipModalShell } from "./CardFlipModalShell";
 import cardFlipShellStyles from "./CardFlipModalShell.module.css";
+import { useFitScaleTransition } from "../hooks/useFitScaleTransition";
 import { useFitToViewportScale } from "../hooks/useFitToViewportScale";
 import { useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { useUiStrings } from "../lib/locale/LocaleContext";
@@ -93,6 +94,7 @@ export function TeamBattleIntroCard(props: {
     desiredScale: overlayScale,
   });
   const tableScale = props.variant === "table" ? tableFitScale : 1;
+  const scaleTransition = useFitScaleTransition();
   const isPlayVariant = props.variant === "play";
   const hasMonster = !!props.monster;
   const teamBattleTitle = <h2 style={TITLE_STYLE}>{ui.table.teamBattleIntroTitle}</h2>;
@@ -178,6 +180,7 @@ export function TeamBattleIntroCard(props: {
           <div
             style={{
               transform: tableScale !== 1 ? `scale(${tableScale})` : undefined,
+              transition: scaleTransition,
               transformOrigin: "center center",
             }}
           >
@@ -217,6 +220,7 @@ export function TeamBattleIntroCard(props: {
         <div
           style={{
             transform: tableScale !== 1 ? `scale(${tableScale})` : undefined,
+            transition: scaleTransition,
             transformOrigin: "center center",
           }}
         >

@@ -84,9 +84,10 @@ function helpContractLabel(contract: "free" | "pant" | "treasure" | "split" | un
 }
 
 /**
- * Modifier som visas vid tärningen: kort/föremål (attackMods + ev. nextCombatModifier under reaktioner)
- * plus samma utrustningsattack som motorn (`weaponPower`).
- * Vid lagstrid: båda spelarnas bidrag; `nextCombatModifier` räknas bara i `reactions` (nollas när någon slagit).
+ * Modifier som visas vid tärningen under reaktionsfönstret: kort/föremål (attackMods +
+ * nextCombatModifier) plus samma utrustningsattack som motorn (`weaponPower`).
+ * Vid lagstrid: båda spelarnas bidrag. Efter slaget (rollPreview) härleds modifiern
+ * istället exakt ur `previewTotal` — se `diceBaseModifier` nedan.
  */
 function boardMonsterDiceStackModifier(pending: TableCombatPending, state: GameState): number {
   const ids = pending.assistId ? [pending.attackerId, pending.assistId] : [pending.attackerId];
@@ -339,24 +340,33 @@ function TableCombatBoardPanelInner(props: {
             ? ui.table.combatPhase3Choice
             : ui.table.combatPhase3Result;
 
+  const teammateName = pending.assistId
+    ? state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"
+    : null;
+  /** Lagstrid med vald medkämpe: båda namnen i rubriken i stället för "Lagstrid: X"-rad. */
+  const teamBattleWithTeammate = !!(pending.teamBattleRequired && teammateName);
+
   /** Boss / icke-kort: behåll äldre batch- + fasrubriker. */
   const combatBoardBossHeaderLines = (
     <>
       <div className={combatStyles.caption12Muted}>{ui.table.combatOverlayTitle}</div>
       <div className={combatStyles.phaseLine12}>{phaseLine}</div>
       <div className={combatStyles.fightLine14}>
-        <b>{attacker?.name ?? "?"}</b> {ui.table.isFighting}
+        <b>
+          {teamBattleWithTeammate
+            ? ui.table.namesAndJoin(attacker?.name ?? "?", teammateName ?? "?")
+            : attacker?.name ?? "?"}
+        </b>{" "}
+        {ui.table.isFighting}
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamWaitMuted}>
           {ui.table.teamBattleLabel}: <b>{ui.table.teamBattleWaitTeammate}</b>
         </div>
-      ) : pending.assistId ? (
+      ) : pending.assistId && !teamBattleWithTeammate ? (
         <div className={combatStyles.teammateChosenBannerLeft}>
-          {pending.teamBattleRequired ? `${ui.table.teamBattleLabel}:` : `${ui.play.combatBeerBroLabel} `}
-          <span className={combatStyles.fw900}>
-            {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
-          </span>
+          {`${ui.play.combatBeerBroLabel} `}
+          <span className={combatStyles.fw900}>{teammateName}</span>
         </div>
       ) : null}
     </>
@@ -366,18 +376,18 @@ function TableCombatBoardPanelInner(props: {
     <>
       {finalBossRoundLabel ? <div className={combatStyles.finalBossRoundTitle}>{finalBossRoundLabel}</div> : null}
       <div className={combatStyles.monsterMeetTitle}>
-        {ui.table.combatMeetBanner(attacker?.name ?? "?")}
+        {teamBattleWithTeammate
+          ? ui.table.combatMeetBannerTeam(attacker?.name ?? "?", teammateName ?? "?")
+          : ui.table.combatMeetBanner(attacker?.name ?? "?")}
       </div>
       {pending.teamBattleRequired && !pending.assistId ? (
         <div className={combatStyles.teamBattlePickTeammate}>
           {ui.table.teamBattleLabel}: <b>{ui.table.teamBattleWaitTeammate}</b>
         </div>
-      ) : pending.assistId ? (
+      ) : pending.assistId && !teamBattleWithTeammate ? (
         <div className={combatStyles.teammateChosenBanner}>
-          {pending.teamBattleRequired ? `${ui.table.teamBattleLabel}:` : `${ui.play.combatBeerBroLabel} `}
-          <span className={combatStyles.fw900}>
-            {state.players.find((p) => p.id === pending.assistId)?.name ?? "okänd"}
-          </span>
+          {`${ui.play.combatBeerBroLabel} `}
+          <span className={combatStyles.fw900}>{teammateName}</span>
         </div>
       ) : null}
     </>
@@ -475,12 +485,31 @@ function TableCombatBoardPanelInner(props: {
 
   const diceHeroMotionEase = "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const showMonsterDiceColumn = monsterTableAnim === "diceIn" && diceBesideCardPhases;
-  const diceBaseModifier = boardMonsterDiceStackModifier(pending, modifierState);
+  const combatPreviewLocked =
+    pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation";
+  const sipWeaponTakenBonusFromPreview =
+    combatPreviewLocked &&
+    pending.previewUsedSipWeaponBonus === true &&
+    typeof pending.previewSipWeaponBonusValue === "number"
+      ? pending.previewSipWeaponBonusValue
+      : null;
+  /**
+   * Slaget låst: härled modifiern exakt ur `previewTotal` (total − tärningsbidrag − ev. sip-bonus)
+   * så tärningar + modifier + klunk-chip alltid summerar till totalen — även för förbrukad
+   * `nextCombatModifier` (t.ex. Lengräddad) som inte längre syns på spelaren.
+   * Under reactions: uppskattning från attackMods + utrustning + nextCombatModifier.
+   */
+  const previewDiceContribution =
+    (pending.previewDie ?? 0) * (pending.previewAttackDiceDoubled ? 2 : 1) +
+    (pending.previewBroDie != null
+      ? pending.previewBroDie * (pending.previewBroAttackDiceDoubled ? 2 : 1)
+      : 0);
+  const diceBaseModifier =
+    combatPreviewLocked && typeof pending.previewTotal === "number"
+      ? pending.previewTotal - previewDiceContribution - (sipWeaponTakenBonusFromPreview ?? 0)
+      : boardMonsterDiceStackModifier(pending, modifierState);
   const boardDiceModifierBaseStr = formatSignedDiceModifier(diceBaseModifier);
-  const showDiceModifierStack =
-    pending.phase === "reactions" ||
-    pending.phase === "rollPreview" ||
-    pending.phase === "chooseHitMitigation";
+  const showDiceModifierStack = pending.phase === "reactions" || combatPreviewLocked;
   const attackDiceDoubledCount =
     pending.phase === "reactions"
       ? [pending.attackerId, pending.assistId]
@@ -498,12 +527,6 @@ function TableCombatBoardPanelInner(props: {
       : attackDiceDoubledCount === 1
         ? "2 x tärningsslag"
         : `2 x tärningsslag (x${attackDiceDoubledCount})`;
-  const sipWeaponTakenBonusFromPreview =
-    (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
-    pending.previewUsedSipWeaponBonus === true &&
-    typeof pending.previewSipWeaponBonusValue === "number"
-      ? pending.previewSipWeaponBonusValue
-      : null;
   const sipWeaponTakenBonusFromReactions =
     pending.phase === "reactions"
       ? (() => {
@@ -519,6 +542,16 @@ function TableCombatBoardPanelInner(props: {
         })()
       : null;
   const sipWeaponTakenBonus = sipWeaponTakenBonusFromPreview ?? sipWeaponTakenBonusFromReactions;
+  /** Slaget klart: summera tärning(ar) + modifierare åt spelarna. Döskalle (etta = förlust) visar ingen total. */
+  const diceTotalEl =
+    (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
+    typeof pending.previewTotal === "number" &&
+    pending.previewCritFailOnOne !== true ? (
+      <div className={combatStyles.diceTotalStack}>
+        <span className={combatStyles.diceTotalBig}>{pending.previewTotal}</span>
+        <span className={combatStyles.diceTotalCaption}>{ui.table.diceTotalCaption}</span>
+      </div>
+    ) : null;
   const monsterCardWrapTransform = hold
     ? "translateX(0) rotate(0deg)"
     : monsterTableAnim === "intro"
@@ -607,6 +640,7 @@ function TableCombatBoardPanelInner(props: {
                   )}
                 </div>
               </div>
+              {!combatBoardDiceSpinning ? diceTotalEl : null}
               {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
               {pending.phase === "chooseHitMitigation" ? (
                 <div className={combatStyles.hitMitigationHint}>
@@ -702,6 +736,7 @@ function TableCombatBoardPanelInner(props: {
           {pending.previewBroDie != null ? (
             <DiceCube3D value={pending.previewBroDie} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />
           ) : null}
+          {diceTotalEl}
           {showCritFailDiceCaption ? <CombatCritFailDiceCaption variant="table" /> : null}
           {pending.phase === "chooseHitMitigation" ? (
             <div className={combatStyles.hitChoiceLine}>

@@ -52,6 +52,7 @@ import {
   consumeExhaustedBrewerPerkLevels,
   isBrewerPerkChoiceAvailable,
   normalizeBrewerPerkProgress,
+  resetBrewerPerkProgress,
   finishBrewerPerkChoicePrompt,
   pendingBelongsToPlayer,
   recordBrewerLevelUpsAfterXp,
@@ -2944,6 +2945,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       victim.klunkar = 0;
       victim.equipment = {};
       victim.inventory = [];
+      /** Omstart från början: permanenta bryggnivå-buffar (attack/sköld/BvB/HP/föremål) nollställs med XP:n. */
+      resetBrewerPerkProgress(victim);
+      finishBrewerPerkChoicePrompt(next, victim.id);
       {
         const pi = Math.max(0, next.players.findIndex((x) => x.id === victim.id));
         const kd = ensurePlayerStats(victim).knockdownCount;
@@ -2968,7 +2972,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       next.sipNotices = (next.sipNotices ?? []).filter((n) => n.recipientId !== victim.id);
       log(
         next,
-        `${victim.name} startar om på nytt: tillbaka till start, utan utrustning, nya startföremål som vid spelstart, ${victim.gold} pant och 0 klunkar.`,
+        `${victim.name} startar om på nytt: tillbaka till start, utan utrustning och bryggnivå-bonusar, nya startföremål som vid spelstart, ${victim.gold} pant och 0 klunkar.`,
       );
       next.pending = null;
       queueFirstBrewerDownIfNeeded(next);
@@ -4844,7 +4848,6 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
         }
       }
     }
-    const usedSipWeapon = sipBonus > 0 && useSipWeaponBonusResolved === true;
     const total = dieContribution + weaponPower(roller) + mod + sipBoost;
 
     pending.teamRolls ??= {};
@@ -4853,6 +4856,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       die: rawDie,
       total,
       attackDiceDoubled: attackDoubled || undefined,
+      sipBoost: sipBoost > 0 ? sipBoost : undefined,
     };
     if (rawRoll.forced) {
       log(next, `${roller.name}s stridstärning: ${rawDie} (fast siffra).`);
@@ -4868,6 +4872,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
 
     const attackerRoll = pending.teamRolls[pending.attackerId]!;
     const assistRollObj = assistId ? pending.teamRolls[assistId] : undefined;
+    /* Lagstrid: preview-fälten måste täcka BÅDA slagen, inte bara den som slog sist. */
+    const teamSipBoostTotal = (attackerRoll.sipBoost ?? 0) + (assistRollObj?.sipBoost ?? 0);
     const prBase = attackerRoll.total;
     const assistRoll = assistRollObj?.total ?? null;
     const previewBroDie = assistRollObj?.die ?? null;
@@ -4933,8 +4939,8 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       previewNeed: need,
       previewWon: !critFailOnOne && pr >= need,
       previewCritFailOnOne: critFailOnOne || undefined,
-      previewUsedSipWeaponBonus: usedSipWeapon,
-      previewSipWeaponBonusValue: sipBoost > 0 ? sipBonus : undefined,
+      previewUsedSipWeaponBonus: teamSipBoostTotal > 0,
+      previewSipWeaponBonusValue: teamSipBoostTotal > 0 ? teamSipBoostTotal : undefined,
       previewDeferredSipWeaponPenalties: pending.weaponSipDeferredPenalties
         ? [...pending.weaponSipDeferredPenalties]
         : undefined,

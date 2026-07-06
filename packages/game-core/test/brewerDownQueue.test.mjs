@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyAction,
   CONFIG_NUMERIC,
   DEFAULT_PLAYER_SESSION_STATS,
   normalizeLoadedGameState,
@@ -106,6 +107,42 @@ describe("brewerDown queue", () => {
     normalizeLoadedGameState(state);
     assert.equal(state.pending?.type, "brewerDown");
     assert.equal(state.pending.playerId, "p1");
+  });
+
+  it("retry (starta om) nollställer alla permanenta bryggnivå-buffar", () => {
+    const state = playingState(
+      [
+        mkPlayer({
+          id: "p1",
+          name: "A",
+          hp: 0,
+          xp: 250,
+          brewerAttackBonus: 2,
+          brewerShieldBonus: 1,
+          brewerPvpBonus: 1,
+          brewerHpBonus: 4,
+          brewerItemCardBonus: 2,
+          brewerPerkLevelsClaimed: 6,
+          pendingBrewerPerkLevels: 1,
+          maxHp: 14,
+        }),
+        mkPlayer({ id: "p2", name: "B", color: "#222", isHost: false }),
+      ],
+      { pending: { type: "brewerDown", playerId: "p1" } },
+    );
+    const r = applyAction(state, { type: "brewerDownChoice", playerId: "p1", choice: "retry" });
+    assert.equal(r.error, undefined);
+    const p1 = r.state.players.find((p) => p.id === "p1");
+    assert.equal(p1.brewerAttackBonus, 0);
+    assert.equal(p1.brewerShieldBonus, 0);
+    assert.equal(p1.brewerPvpBonus, 0);
+    assert.equal(p1.brewerHpBonus, 0);
+    assert.equal(p1.brewerItemCardBonus, 0);
+    assert.equal(p1.brewerPerkLevelsClaimed, 0);
+    assert.equal(p1.pendingBrewerPerkLevels, 0);
+    assert.equal(p1.xp, 0);
+    assert.equal(p1.maxHp, state.config.maxHp);
+    assert.equal(p1.hp, p1.maxHp);
   });
 
   it("clears victim offTurn perk prompt before brewerDown", () => {

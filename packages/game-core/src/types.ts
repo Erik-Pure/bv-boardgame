@@ -488,8 +488,10 @@ export type Pending =
       teamBattleBonusGold?: number;
       /** Optional assisting player (e.g. Ölkompis). */
       assistId?: string;
-      /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6. Med två slag: auto-förlust bara om båda är 1. */
-      teamRolls?: Partial<Record<string, { die: number; total: number; attackDiceDoubled?: boolean }>>;
+      /** Team battle: individuella slag innan preview. `attackDiceDoubled`: Skägget rakt bak — 2× t6 i total, `die` kvar fysiskt 1–6. Med två slag: auto-förlust bara om båda är 1. `sipBoost`: vapen-sipbonus som ingick i slagets total (aggregeras till preview-fälten). */
+      teamRolls?: Partial<
+        Record<string, { die: number; total: number; attackDiceDoubled?: boolean; sipBoost?: number }>
+      >;
       /**
        * Reactions: val om vapen-sipbonus (pant/klunk) ska användas på nästa t6 — måste sättas innan `combatRoll` om vapnet har `sipAttackBonus`.
        * Bakåtkompat: klient kan fortfarande skicka `useSipWeaponBonus` på `combatRoll` om fältet saknas.
@@ -692,6 +694,11 @@ export interface SipNoticeEntry {
   noticeKind?: SipNoticeKind;
   /** Utrustningsnamn för bild under rubriken (t.ex. vapen vid straffklunk efter klunk-bonus). */
   equipmentName?: string;
+  /**
+   * Ingen toast på bräd-tv: klunken har redan toastats via händelsekortets `tableOutcomes`
+   * (sätts vid flush av `queuedPenaltySipNotices`). Mobil-modal + klunk-ballong påverkas inte.
+   */
+  suppressTableToast?: boolean;
 }
 
 /** Sidokort i solfjäder: stulet/förstört inventory eller utrustning (bredvid spelat kort). */

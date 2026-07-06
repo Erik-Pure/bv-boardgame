@@ -9,6 +9,7 @@ import {
   subscribeBoardPerformancePrefs,
   writeBoardAnimationsEnabled,
   writeBoardPanEnabled,
+  writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
@@ -251,6 +252,18 @@ export function HostLobbySetup() {
                   />
                   <span>{ui.table.settingsTokenMoveAnimations}</span>
                 </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.scaleAnimationsEnabled}
+                    onChange={(e) => {
+                      writeScaleAnimationsEnabled(e.target.checked);
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{ui.table.settingsScaleAnimations}</span>
+                </label>
               </div>
             </SubSection>
             <SubSection title={ui.play.lobbyGameValues}>
@@ -368,7 +381,7 @@ export function HostLobbySetup() {
             nav(`/table?room=${roomCode}&name=Bord`);
           }}
         >
-          Starta lobby
+          {ui.play.lobbyStartLobby}
         </ArcadeButton>
       </div>
     </div>

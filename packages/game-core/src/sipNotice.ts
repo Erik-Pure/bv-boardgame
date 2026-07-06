@@ -47,7 +47,10 @@ export function flushPenaltySipQueue(state: GameState, entries: PenaltySipQueueE
         e.noticeEquipmentName,
       );
     } else {
-      pushSipNotice(state, e.recipientId, e.fromPlayerName, e.klunkCount);
+      /* Klunken toastades redan via kortets tableOutcomes — ingen dubbel toast på brädet. */
+      pushSipNotice(state, e.recipientId, e.fromPlayerName, e.klunkCount, {
+        suppressTableToast: true,
+      });
     }
   }
 }
@@ -80,10 +83,16 @@ export function pushSipNotice(
   recipientId: string,
   fromPlayerName: string,
   klunkCount = 1,
+  opts?: { suppressTableToast?: boolean },
 ): void {
   state.sipNotices ??= [];
   const n = Math.max(1, Math.floor(klunkCount));
-  state.sipNotices.push({ recipientId, fromPlayerName, klunkCount: n });
+  state.sipNotices.push({
+    recipientId,
+    fromPlayerName,
+    klunkCount: n,
+    ...(opts?.suppressTableToast ? { suppressTableToast: true } : {}),
+  });
 }
 
 export function pushPlayerNotice(

@@ -1,4 +1,5 @@
 import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useFitScaleTransition } from "../../hooks/useFitScaleTransition";
 import { useFitToViewportScale } from "../../hooks/useFitToViewportScale";
 import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
 
@@ -26,11 +27,13 @@ export function TableFitScale(props: {
     sidePadPx,
     desiredScale,
   });
+  const scaleTransition = useFitScaleTransition();
 
   return (
     <div
       style={{
         transform: scale !== 1 ? `scale(${scale})` : undefined,
+        transition: scaleTransition,
         transformOrigin: "top center",
         width: "100%",
         display: "grid",

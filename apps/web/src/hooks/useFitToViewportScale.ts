@@ -14,6 +14,12 @@ export type FitToViewportOptions = {
   sidePadPx?: number;
   /** Önskad uppskalning (från presentationsskalan); fit kan bara sänka den. */
   desiredScale?: number;
+  /**
+   * Känd innehållsbredd (px) som används i stället för det mätta elementets bredd.
+   * Krävs när mät-elementet är fullbredd (`width: 100%`) — annars blockerar bredd-passningen
+   * all uppskalning eftersom wrappern alltid är lika bred som viewporten.
+   */
+  contentWidthPx?: number;
   minScale?: number;
   maxScale?: number;
 };
@@ -96,6 +102,7 @@ export function useFitToViewportScale(
     reservedBottom = 0,
     sidePadPx = 0,
     desiredScale = 1,
+    contentWidthPx,
     minScale = FIT_MIN_SCALE,
     maxScale = FIT_MAX_SCALE,
   } = options;
@@ -121,7 +128,7 @@ export function useFitToViewportScale(
       const { w, h } = readVisualViewportSize();
       setScale(
         computeFitToViewportScale({
-          contentW: el.offsetWidth,
+          contentW: contentWidthPx ?? el.offsetWidth,
           contentH: el.offsetHeight,
           viewportW: w,
           viewportH: h,
@@ -148,7 +155,7 @@ export function useFitToViewportScale(
       vv?.removeEventListener("resize", tick);
       vv?.removeEventListener("scroll", tick);
     };
-  }, [contentRef, reservedTop, reservedBottom, sidePadPx, desiredScale, minScale, maxScale]);
+  }, [contentRef, reservedTop, reservedBottom, sidePadPx, desiredScale, contentWidthPx, minScale, maxScale]);
 
   return scale;
 }

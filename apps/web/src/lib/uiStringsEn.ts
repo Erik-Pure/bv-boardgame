@@ -430,6 +430,7 @@ export const en = {
     lobbyHardcoreModeLabel: "Hardcore mode (only 1 life)",
     lobbyWakeLockDisableScreen: "Disable sleep mode for screens",
     lobbyWakeLockBeforeStart: "Keep screen awake already in lobby",
+    lobbyStartLobby: "Start lobby",
     /** Lobby: section for cosmetics (card back, future tokens, frames …). */
     lobbyAppearance: "Appearance",
     lobbyCardCoverDefault: "Default",
@@ -651,6 +652,8 @@ export const en = {
     diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} for can cost (optional)`,
     /** Board TV: after roll if optional pip weapon bonus was taken — just number + label by die. */
     diceModifierSipTakenSub: "for can cost",
+    /** Board: summary line under the combat die ("total 9"). */
+    diceTotalCaption: "total",
     pvpDuel: "BvB",
     pvpRound: (n: number) => `Round ${n}`,
     pvpRoundBestOf: (round: number, bestOf: number) => `Round ${round} of ${bestOf}`,
@@ -669,6 +672,11 @@ export const en = {
     /** Board view: current turn color field, right — next in turnOrder */
     turnBannerNext: (name: string) => `Next: ${name}`,
     combatMeetBanner: (name: string) => `${name.toLocaleUpperCase("en-US")} MEETS`,
+    /** Team battle with chosen teammate: both names in the title (replaces the "Team battle: X" line). */
+    combatMeetBannerTeam: (a: string, b: string) =>
+      `${a.toLocaleUpperCase("en-US")} AND ${b.toLocaleUpperCase("en-US")} MEET`,
+    /** Name join in combat/team battle lines ("Erik and Vera"). */
+    namesAndJoin: (a: string, b: string) => `${a} and ${b}`,
     /** Sleeping pill: upcoming skipped turns before player acts normally */
     playerStatusSleepSkip: (skippedTurns: number) =>
       skippedTurns === 1
@@ -730,6 +738,7 @@ export const en = {
     settingsBoardPan: "Board panning (auto-focus and drag) — off: full floor",
     settingsBoardAnimations: "Die animations and combat panels",
     settingsTokenMoveAnimations: "Player token movement animation",
+    settingsScaleAnimations: "Smooth card rescaling (e.g. when items are played)",
     settingsClose: "Close",
     /** Board: player is in buy/shop mode (phone). */
     merchantShopping: (playerName: string) => `${playerName} shopping`,
