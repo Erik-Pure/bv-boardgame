@@ -9,6 +9,7 @@ import { Home } from "./routes/Home";
 import { JoinGame } from "./routes/JoinGame";
 import { HostLobbySetup } from "./routes/HostLobbySetup";
 import { Login } from "./routes/Login";
+import { FestDashboard } from "./routes/FestDashboard";
 
 const TableView = lazy(() => import("./routes/TableView").then((m) => ({ default: m.TableView })));
 const PlayView = lazy(() => import("./routes/PlayView").then((m) => ({ default: m.PlayView })));
@@ -49,6 +50,7 @@ function App() {
         <Route path="/cards" element={<CardsCatalog />} />
         <Route path="/host-lobby" element={<HostLobbySetup />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/fest" element={<FestDashboard />} />
         <Route path="/table" element={<TableView />} />
         <Route path="/play" element={<PlayView />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -9,7 +9,6 @@ import {
   playerPant,
   combatReactionsAllAnswered,
   effectiveMerchantBuyPrice,
-  formatCanAmount,
   getEquipmentDisplay,
   getEquipmentDisplayByEquippedName,
   MERCHANT_REROLL_GOLD_COST,
@@ -36,6 +35,7 @@ import {
   type ShopItem,
 } from "@bv/game-core";
 import { formatLocalizedShopItemEffectSummary } from "../../lib/equipmentEffectSummary";
+import { formatPantAmount } from "../../lib/formatPantAmount";
 import { combatTeamRollShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import { readBoardPerformancePrefs } from "../../lib/boardPerformancePrefs";
 import { playOptimisticMoveRollSfx, playTableSfx } from "../../lib/tableSfx";
@@ -1621,7 +1621,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 requestMerchantBuy(detail);
               }}
             >
-              {ui.play.merchantDetailBuy} ({formatCanAmount(price)})
+              {ui.play.merchantDetailBuy} ({formatPantAmount(price, locale)})
             </ArcadeButton>
           </div>
         </div>
@@ -1713,7 +1713,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               gap: 6,
               flexShrink: 0,
             }}
-            aria-label={formatCanAmount(playerPant(me))}
+            aria-label={formatPantAmount(playerPant(me), locale)}
           >
             <span style={{ fontWeight: 900, fontSize: 18, lineHeight: 1, opacity: 0.98 }}>{playerPant(me)}</span>
             <StatIcon kind="pant" size={22} />
@@ -1802,7 +1802,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             variant="pink"
             fullWidth
             className={styles.merchantShopFooterBtn}
-            aria-label={`${ui.play.merchantReroll} (${formatCanAmount(MERCHANT_REROLL_GOLD_COST)})`}
+            aria-label={`${ui.play.merchantReroll} (${formatPantAmount(MERCHANT_REROLL_GOLD_COST, locale)})`}
             disabled={!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)}
             onClick={() => {
               if (!canAffordPant(me, MERCHANT_REROLL_GOLD_COST)) {

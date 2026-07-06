@@ -174,6 +174,8 @@ const PLAYER_COLORS = [
   "#ca8a04",
   "#9333ea",
   "#db2777",
+  "#ea580c",
+  "#0891b2",
 ];
 const DRAWABLE_CARD_ID_SET = new Set(
   allCards()

@@ -13,6 +13,8 @@ export const AVATAR_PLAYER_COLORS = [
   "#ca8a04",
   "#9333ea",
   "#db2777",
+  "#ea580c",
+  "#0891b2",
 ] as const;
 
 export type { AvatarPartKind, PlayerAvatar };
