@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.74 |
-| Senast uppdaterad | 2026-06-26 |
+| Version | 0.75 |
+| Senast uppdaterad | 2026-07-06 |
 
 ---
 
@@ -22,7 +22,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Val i klienten:** `sv` (default) eller `en` via språkväxlare; copy i `apps/web` (`uiStrings` / `uiStringsEn`).
 - **Källdata på svenska:** monster- och utrustningsnamn i `GameState`, många `pushPlayerNotice`-texter och rå spellogg från motorn förblir svenska; klienten **översätter vid visning** där det behövs.
 - **`game-core`:** `cardText.en.json` (korttitlar/text), `equipmentLocale.ts`, `monsterLocale.ts`, `localizeSipNotice.ts` (mobilnotiser), `localizeTableToastLog.ts` + `LOG_MESSAGE_KEYS` / `formatLogEntry` (bordstoasts), `localizeEventCardText.ts` (dynamiska korttexter t.ex. `boss_round_win`), `localizeFinalBossDisplayName` / `localizeFinalBossRoundLabel` (slutboss-seger).
-- **Webb (`apps/web`):** `localizePendingCard` (väntande kort inkl. `boss_final_win`), `formatLocalizedShopItemEffectSummary` (affär + katalog), `merchantShopItemDisplayName`, `localizedCombatMonster` / strids-UI-copy, `brandLogo` (EN-logotyper på startsida m.m.).
+- **Webb (`apps/web`):** `localizePendingCard` (väntande kort inkl. `boss_final_win`), `formatLocalizedShopItemEffectSummary` (affär + katalog), `merchantShopItemDisplayName`, `localizedCombatMonster` / strids-UI-copy, `brandLogo` (EN-logotyper på startsida m.m.), **`formatPantAmount`** (affärens köp-/omrulla-knappar och pant-aria: sv **«N pant»**, en via `formatCanAmount` från `game-core`).
 - **Princip:** statisk UI → `uiStrings`; kort → `cardText.en.json`; utrustning → `rulesText` i `equipmentLocale`; monster/boss → `monsterLocale`; serverlogg med nyckel → `logMessages`; hårdkodad svensk notis/brödtext → regex/mönster i `localizeSipNotice` / `localizeTableToastLog`.
 - **Känd begränsning:** text **inbäddad i bilder** (t.ex. svenska tryck på boss- eller kortgrafik) översätts inte via kod; kräver separata assets om EN ska vara helt rent visuellt.
 
@@ -98,6 +98,16 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation** (stats + utrustningsrader). I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
+### 2.2 Festöversikt (`/fest`)
+
+- **Syfte:** hemlig sida för **releasefest / flera bord samtidigt** — en extra skärm (t.ex. projektor) som följer **alla pågående partier** utan att påverka spelet. Routen **`/fest`** finns **inte** länkad från startsidan (bokmärke/URL delas manuellt).
+- **Lobbyspårning:** användaren lägger till **lobbykoder** (sparas i `localStorage`, nyckel `bv:festDashboardRooms`). Varje kod ansluter via WebSocket som **`table`**-roll med visningsnamn **Festöversikt** — ren **åskådare** (samma state-synk som bordet, inga actions).
+- **Header:** rubrik **Festöversikt** och **lobbykod + knapp Spåra lobby** på **samma rad** (input och knapp **högerjusterade**, alltid på samma rad). Ingen introtext och ingen tillbaka-länk till startsidan.
+- **Festhöjdpunkter (hjälte):** direkt under headern, **full bredd**, fyller ungefär **första skärmen**; detaljer scrollas ned. **Tio kategorier** aggregerade **globalt över alla anslutna lobbyer** (vid oavgjort: alla vinnare med animerad avatar):
+  - Flest segrar (monster), mest pant, mest klunkar (sessions `totalKlunksGained`), flest förluster (monster + BvB), mest BvB (matcher spelade), mest sabotage, mest XP, minst HP (endast spelare med **HP > 0**), högsta slag (`maxDiceRollTotal`), flest ettor (`combatOnesRolled` + `pvpOnesRolled`).
+- **Höjdpunkts-UI:** flex-rutnät med **centrerade ofullständiga rader** (undviker tomma hål vid t.ex. 5 kort i 3-kolumnsläge); **5 → 3 → 2** kolumner beroende på bredd; värden som **siffra** i **Permanent Marker**; titel med ikon ovanför avatar och namn.
+- **Detaljer (under höjdpunkterna):** summeringsrad (live-bord, aktiva spelare, monstersegrar, BvB-segrar, klunkar totalt) samt **en panel per lobby** med anslutningsstatus, fas, spelartabell (avatar, HP, pant, klunk, bryggnivå, våning, monster V/F, BvB V/F, sabotage, bästa slag). Lokalisering via `festDashboard` i `uiStrings` / `uiStringsEn`.
+
 **Sessionsflöde**
 
 1. Värd öppnar sidan → väljer **Skapa lobby** → går till en **dedikerad pre-game-inställningsvy** (ingen kod/QR i detta steg).
@@ -134,6 +144,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 ## 4. Lobby och begränsningar
 
 - **Max antal spelare:** 8.
+- **Spelarfärger:** åtta distinkta färger tilldelas i turordning (`PLAYER_COLORS` i `game-core`, `AVATAR_PLAYER_COLORS` i webben) — inkl. **orange** (`#ea580c`) och **cyan** (`#0891b2`) för spelare 7–8.
 - **Min antal spelare:** definieras vid implementation (t.ex. 2 för test, 3 rekommenderat för spelkänsla).
 - Lobbykod ska vara kort och unik per aktiv lobby.
 - **Synk vid anslutning:** när en ny spelare ansluter i lobby ska **alla** redan anslutna klienter (bord + mobil) få uppdaterad spelarlista via state-broadcast, inte bara den som just joinade.
@@ -332,7 +343,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Köp per besök:** flera köp tillåtna; spelaren **lämnar** explicit när klar.
 - **Hyllan (4 platser):** innehåller alltid **Helande brygd** (**+3 HP**, **5 pant** i handeln), **två slumpade** utrustningar från hela **`EQUIPMENT_CATALOG`** (inkl. t.ex. **Mäskpaddel** och **Burkrustning**), och **ett slumpat stridsföremål** (+/− attack i strid — samma typer som **startföremål** vid spelstart, **7 pant** i handeln). Efter blandning visas **exakt fyra** erbjudanden. Föremål vars kort är inaktiverat i lobby (`disabledCardIds`) utesluts ur stridsföremål-poolen; om poolen då är tom ersätts fjärde platsen med en tredje utrustning.
 - **Mobil (pris och info):** under varje vara ska **effektrad** spegla **faktiska** vapen-/rustnings-/hjälm-/tillbehörsegenskaper (kraft, BvB-bonus, sip-attack, skadanollställning, rörelse, **föremålsbonus**, m.m.) i linje med **`EQUIPMENT_CATALOG`** och samma summeringsprincip som **kortkatalogen** (`/cards`). **Burksvärd:** attack-badge på utrustningsbrickan ska visa **nuvarande kraft efter pant** (samma trösklar 10 / 20 / 30 som i strid), inte bara vapnets grundvärde.
-- **Detaljvy (mobil):** tryck på en hyllrad öppnar **art + namn + effektbeskrivning + Köp/Tillbaka**. Namn lokaliseras (`merchantShopItemDisplayName`). **Effektbeskrivning** ska följa valt språk (`formatLocalizedShopItemEffectSummary`): på **svenska** kort mekanisk rad (samma som listan); på **engelska** i första hand **`rulesText`** för utrustning och **korttext** (`cardText.en.json`) för stridsföremål, annars översatt mekanisk rad via `uiStringsEn` (t.ex. *Power −2 · Items: free to play* för Plastmugg).
+- **Detaljvy (mobil):** tryck på en hyllrad öppnar **art + namn + effektbeskrivning + Köp/Tillbaka**. Namn lokaliseras (`merchantShopItemDisplayName`). **Köp-knapp** visar pris via **`formatPantAmount`** (sv: *Köp (8 pant)*, en: *Buy (8 cans)*). **Effektbeskrivning** ska följa valt språk (`formatLocalizedShopItemEffectSummary`): på **svenska** kort mekanisk rad (samma som listan); på **engelska** i första hand **`rulesText`** för utrustning och **korttext** (`cardText.en.json`) för stridsföremål, annars översatt mekanisk rad via `uiStringsEn` (t.ex. *Power −2 · Items: free to play* för Plastmugg).
 - **Teknik:** vid köp ska servern kopiera **alla** relevanta fält till spelarens utrustning, inkl. **`pvpDieBonus`** på vapen och **`itemCardBonus`** på rustning/hjälm/tillbehör om det finns i butiksraden.
 - **Slumpa om sortiment:** i handeln finns knappen **Slumpa om (5 pant)** bredvid **Lämna**. Kostar **5 pant**, ersätter **alla fyra** hyllplatser med nytt slump (`rollMerchantItems`); affären stängs inte. Action: **`merchantReroll`**.
 
@@ -500,7 +511,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Admin-endpoints (P1 baseline):** `GET /admin/rooms` (översikt), `POST /admin/rooms/:code/close` (driftstängning). Avsett för drift/ops, inte spelar-UI.
 - **Release-gate i CI (P1):** smoke + full E2E + snapshot-migration-check + load-check + metrics-threshold-check måste passera innan release-steg.
 - **SLO baseline (P1):** action roundtrip **p95 <= 300 ms** i CI-loadprofil, error-rate **<= 5%**, snapshot-save-failures **= 0**.
-- Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`).
+- Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`, **`/fest`** för festöversikt).
 
 **Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
 
@@ -652,4 +663,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.72 | 2026-06-26 | §1 **§1.1 lokalisering** (sv käll-data, `locale: en` i webben); §2.1 slutboss **`boss_round_win` / `boss_final_win`** + bordstoasts (loggnycklar); §9.1 stridstärningsresultat; §9.1.1 lagstrid slagstatus; §10.1 **Riggat spel**-notis; §10.2 affärsdetalj (`formatLocalizedShopItemEffectSummary`); §13.1 bryggbonus-knappar; §16.2 katalog EN-effekt |
 | 0.73 | 2026-06-26 | §7.2/§10.1 **Genväg** omdesignad: **10 pant** → teleportera till valfri annan spelare (normal landning); **Taproom-nyckel** oförändrad (våningshopp/boss); slump-pool på sista våningen gäller endast Taproom |
 | 0.74 | 2026-06-26 | §1.1/§2 EN-logotyper (`brandLogo`); §2 bekräftelse **Lämna spelet** lokaliseras; §10.1 Genväg målval visar våning; `itemShortcutTeleport` loggnyckel |
+| 0.75 | 2026-07-06 | §2.2 **Festöversikt** (`/fest`): multi-lobby-åskådare, globala höjdpunkter, responsivt rutnät; §4 **åtta spelarfärger** (orange/cyan); §1.1/§10.2 **`formatPantAmount`** i affären (sv pant, en cans) |
 
