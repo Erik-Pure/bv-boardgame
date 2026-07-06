@@ -1,7 +1,69 @@
-import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { BossCombatBackdropLayers } from "./BossCombatBackdropLayers";
 import styles from "./CardFlipModalShell.module.css";
 import { cardCoverToBackUrls } from "../lib/cardBackArt";
+import { useFitToViewportScale } from "../hooks/useFitToViewportScale";
+
+/** Bord/TV: skal-till-passa-spec för modalinnehållet (mät + krymp/väx så det ryms). */
+export type CardFlipFitToViewport = {
+  /** Reserverad yta ovanför innehållet (overlayens padding-top), px. */
+  reservedTop?: number;
+  /** Reserverad yta under innehållet (t.ex. solfjäder + turbanner), px. */
+  reservedBottom?: number;
+  /** Total horisontell marginal (vänster + höger), px. */
+  sidePadPx?: number;
+  /** "top" för toppförankrade overlays (default), "center" för centrerade. */
+  anchor?: "top" | "center";
+};
+
+/** Egen komponent så mät-hooken bara körs när fit är aktiverat (opt-in, rör inte mobilflöden). */
+function FitViewportScaledBlock(props: {
+  children: ReactNode;
+  fit: CardFlipFitToViewport;
+  desiredScale: number;
+  stackAbove: boolean;
+}) {
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const scale = useFitToViewportScale(measureRef, {
+    reservedTop: props.fit.reservedTop ?? 16,
+    reservedBottom: (props.fit.reservedBottom ?? 0) + 16,
+    sidePadPx: props.fit.sidePadPx ?? 32,
+    desiredScale: props.desiredScale,
+  });
+  return (
+    <div
+      style={{
+        transform: scale !== 1 ? `scale(${scale})` : undefined,
+        /** Toppförankrat: origin top så nedskalning inte klipps mot viewport-toppen. */
+        transformOrigin: (props.fit.anchor ?? "top") === "top" ? "top center" : "center center",
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-start",
+        minHeight: 0,
+      }}
+    >
+      {/* Otransformerat mät-element (offsetWidth/Height påverkas inte av förälderns scale). */}
+      <div
+        ref={measureRef}
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          rowGap: props.stackAbove ? 14 : 0,
+          minHeight: 0,
+        }}
+      >
+        {props.children}
+      </div>
+    </div>
+  );
+}
 
 /** Designyta 400×560 px (5∶7); höjd styrs av `aspect-ratio` i CSS. */
 const CARD_REF_W = 400;
@@ -176,6 +238,11 @@ export function CardFlipModalShell(props: {
   simpleEntrance?: boolean;
   /** Bord/TV: skala innehåll (inte hela dimningen) för läsbarhet på avstånd. */
   contentScale?: number;
+  /**
+   * Bord/TV: mät innehållet och skala så det alltid ryms i viewporten (kan gå under 1).
+   * `contentScale` blir "önskad uppskalning". Opt-in — mobilflöden påverkas inte.
+   */
+  fitToViewport?: CardFlipFitToViewport;
   /** Backdrop kan ligga på annan z-index än innehållet (t.ex. under bottom sheet). */
   backdropZIndex?: number;
   /** Innehållets z-index (default = `zIndex`). */
@@ -189,7 +256,8 @@ export function CardFlipModalShell(props: {
 }) {
   const stackAbove = props.aboveScene != null;
   const cs = props.contentScale;
-  const useScaleWrapper = cs != null && cs !== 1;
+  const fit = props.fitToViewport;
+  const useScaleWrapper = fit == null && cs != null && cs !== 1;
   const hasFlamesBackdrop = props.bossFlamesBackdrop || props.flamesBackdrop;
 
   const flexStackStyle: CSSProperties = {
@@ -285,10 +353,18 @@ export function CardFlipModalShell(props: {
         style={{
           zIndex: props.contentZIndex ?? props.zIndex,
           ...props.style,
-          ...(stackAbove && !useScaleWrapper ? flexStackStyle : {}),
+          ...(stackAbove && !useScaleWrapper && fit == null ? flexStackStyle : {}),
         }}
       >
-        {useScaleWrapper ? <div style={scaledBlockStyle}>{inner}</div> : inner}
+        {fit != null ? (
+          <FitViewportScaledBlock fit={fit} desiredScale={cs ?? 1} stackAbove={stackAbove}>
+            {inner}
+          </FitViewportScaledBlock>
+        ) : useScaleWrapper ? (
+          <div style={scaledBlockStyle}>{inner}</div>
+        ) : (
+          inner
+        )}
       </div>
     </>
   );

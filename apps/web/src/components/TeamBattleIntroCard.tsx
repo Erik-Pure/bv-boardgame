@@ -1,6 +1,7 @@
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { CardFlipModalShell } from "./CardFlipModalShell";
 import cardFlipShellStyles from "./CardFlipModalShell.module.css";
+import { useFitToViewportScale } from "../hooks/useFitToViewportScale";
 import { useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { useUiStrings } from "../lib/locale/LocaleContext";
 import type { MonsterEncounterCardProps } from "./MonsterEncounterCard";
@@ -83,7 +84,15 @@ export function TeamBattleIntroCard(props: {
 }) {
   const ui = useUiStrings();
   const overlayScale = useTableOverlayContentScale();
-  const tableScale = props.variant === "table" ? overlayScale : 1;
+  /** Bord: skal-till-passa (mätt) så kort + text alltid ryms; mobil: ingen skalning. */
+  const tableMeasureRef = useRef<HTMLDivElement | null>(null);
+  const tableFitScale = useFitToViewportScale(tableMeasureRef, {
+    reservedTop: 24,
+    reservedBottom: 28,
+    sidePadPx: 32,
+    desiredScale: overlayScale,
+  });
+  const tableScale = props.variant === "table" ? tableFitScale : 1;
   const isPlayVariant = props.variant === "play";
   const hasMonster = !!props.monster;
   const teamBattleTitle = <h2 style={TITLE_STYLE}>{ui.table.teamBattleIntroTitle}</h2>;
@@ -168,18 +177,24 @@ export function TeamBattleIntroCard(props: {
         >
           <div
             style={{
-              animation: props.tableCardEntranceAnimation,
+              transform: tableScale !== 1 ? `scale(${tableScale})` : undefined,
               transformOrigin: "center center",
-              display: "grid",
-              justifyItems: "center",
-              gap: 12,
-              ...(tableScale !== 1
-                ? { transform: `scale(${tableScale})`, transformOrigin: "center center" as const }
-                : {}),
             }}
           >
-            {teamBattleTitle}
-            {monsterCardOnly}
+            {/* Otransformerat mät-element (entré-animationens transform påverkar inte offset-mått). */}
+            <div
+              ref={tableMeasureRef}
+              style={{
+                animation: props.tableCardEntranceAnimation,
+                transformOrigin: "center center",
+                display: "grid",
+                justifyItems: "center",
+                gap: 12,
+              }}
+            >
+              {teamBattleTitle}
+              {monsterCardOnly}
+            </div>
           </div>
         </div>
       );
@@ -201,15 +216,20 @@ export function TeamBattleIntroCard(props: {
       >
         <div
           style={{
-            ...boxStyle,
-            animation: props.tableCardEntranceAnimation,
+            transform: tableScale !== 1 ? `scale(${tableScale})` : undefined,
             transformOrigin: "center center",
-            ...(tableScale !== 1
-              ? { transform: `scale(${tableScale})`, transformOrigin: "center center" as const }
-              : {}),
           }}
         >
-          <div style={innerStyle}>{body}</div>
+          <div
+            ref={tableMeasureRef}
+            style={{
+              ...boxStyle,
+              animation: props.tableCardEntranceAnimation,
+              transformOrigin: "center center",
+            }}
+          >
+            <div style={innerStyle}>{body}</div>
+          </div>
         </div>
       </div>
     );

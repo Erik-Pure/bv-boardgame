@@ -84,6 +84,8 @@ import { wsStatusLabel, tileTypeLabel } from "../lib/uiStrings";
 import { WsReconnectFooterHint } from "../components/WsReconnectOverlay";
 import { TablePresentationScaleProvider, useTableOverlayContentScale } from "../lib/tablePresentationScale";
 import { useScreenWakeLock } from "../hooks/useScreenWakeLock";
+import { useVisualViewportHeight } from "../hooks/useVisualViewportHeight";
+import { softReservedBottom, useFitToViewportScale } from "../hooks/useFitToViewportScale";
 import { useTableBoardViewModel } from "../hooks/useTableBoardViewModel";
 import { CARD_FLIP_FRONT_ANIM_READY_MS, CardFlipModalShell, CardFlipScene } from "../components/CardFlipModalShell";
 import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
@@ -1199,10 +1201,37 @@ function TableViewBody() {
   const bannerReserveStyle = {
     "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
   } as CSSProperties;
+  const vvHeight = useVisualViewportHeight();
+  /** Matchar toppförankrade overlays paddingTop (84 vid uppskalning, annars 70). */
+  const overlayTopReservePx = overlayContentScale > 1 ? 84 : 70;
+  /**
+   * Solfjäderns synliga höjd över viewport-botten: fanRoot är `min(64vh, 520px)` hög med
+   * botten 80px under viewport-botten, korten lyfts `TABLE_ITEM_PLAY_LIFT_PX`. Turbannern
+   * ligger bakom solfjäderns nedre del och räknas inte separat.
+   */
+  const fanReserveRawPx = Math.round(
+    Math.max(0, Math.min(0.64 * vvHeight, 520) - 80 + TABLE_ITEM_PLAY_LIFT_PX),
+  );
+  /**
+   * Mjuk reserv: på breda/låga skärmar (t.ex. ultrawide) får solfjädern inte krympa överlägget
+   * under en rimlig innehållszon (~min(560px, 62vh)) — då tillåts lite överlapp i stället.
+   */
+  const fanReservePx =
+    playingTurn && showItemPlayFan
+      ? softReservedBottom({
+          reservedBottom: fanReserveRawPx,
+          viewportH: vvHeight,
+          reservedTop: overlayTopReservePx,
+          minContentPx: Math.min(560, Math.round(vvHeight * 0.62)),
+        })
+      : 0;
   const tableToasts = useTableToasts(state, playersById, locale);
 
   return (
-    <div className={tableStyles.tableRoot}>
+    <div
+      className={tableStyles.tableRoot}
+      style={{ "--table-fan-reserve": `${fanReservePx}px` } as CSSProperties}
+    >
       <div className={tableStyles.headerBarWrap}>
         <header className={tableStyles.tableHeader}>
           <div className={tableStyles.headerLobbyRow}>
@@ -1797,7 +1826,11 @@ function TableViewBody() {
       </div>
 
       {state?.pending?.type === "pvp" && (
-        <TablePvpBoardPanel state={state} boardAnimationsEnabled={boardPerf.boardAnimationsEnabled} />
+        <TablePvpBoardPanel
+          state={state}
+          boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
+          fanReservePx={fanReservePx}
+        />
       )}
 
       <style>{TABLE_BOARD_MODAL_KEYFRAMES_CSS}</style>
@@ -1812,6 +1845,7 @@ function TableViewBody() {
           playersById={playersById}
           boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
           monsterResultHoldover={monsterResultHoldover}
+          fanReservePx={fanReservePx}
         />
       ) : null}
 
@@ -1823,6 +1857,7 @@ function TableViewBody() {
           cardCoverId={state.config.cardCover}
           blockPointerUntilFlipped={false}
           contentScale={overlayContentScale}
+          fitToViewport={{ reservedTop: overlayTopReservePx, reservedBottom: fanReservePx }}
           flamesBackdrop
           backdropStyle={{ animation: TABLE_BOARD_MODAL_OVERLAY_ANIMATION }}
           faceInnerClassName={cardFlipShellStyles.faceInnerNoVerticalOverflow}
@@ -1879,6 +1914,7 @@ function TableViewBody() {
           boardAnimationsEnabled={boardPerf.boardAnimationsEnabled}
           cardCoverId={state?.config.cardCover}
           locale={locale}
+          fanReservePx={fanReservePx}
         />
       ) : null}
 
@@ -1893,6 +1929,7 @@ function TableViewBody() {
           simpleEntrance={isBossFinalWinCard}
           cardCoverId={state.config.cardCover}
           contentScale={overlayContentScale}
+          fitToViewport={{ reservedTop: overlayTopReservePx, reservedBottom: fanReservePx }}
           bossFlamesBackdrop={
             state.pending.cardId === "boss_round_win" && !finalBossTableBackdropActive
           }
@@ -2299,8 +2336,16 @@ function TableEventRollHeroOverlay(props: {
   boardAnimationsEnabled: boolean;
   cardCoverId?: string | null;
   locale?: ReturnType<typeof useLocale>;
+  /** Reserverad yta i botten (solfjäder + turbanner). */
+  fanReservePx?: number;
 }) {
-  const effectiveScale = props.contentScale > 1 ? props.contentScale : 1;
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const effectiveScale = useFitToViewportScale(measureRef, {
+    reservedTop: props.contentScale > 1 ? 84 : 70,
+    reservedBottom: (props.fanReservePx ?? 0) + 16,
+    sidePadPx: 24,
+    desiredScale: Math.max(1, props.contentScale),
+  });
   const rolledDie = parseRolledDieFromCardText(props.card.text);
   const hasRolledResult = rolledDie != null && (props.card.choices?.length ?? 0) === 0;
   const [animState, setAnimState] = useState<"intro" | "shiftRight" | "diceIn">("intro");
@@ -2331,7 +2376,8 @@ function TableEventRollHeroOverlay(props: {
       }}
     >
       <div className={tableStyles.overlayScaleWrap} style={{ transform: `scale(${effectiveScale})` }}>
-        <div className={tableStyles.eventRollRow} style={{ gap: animState === "diceIn" ? 20 : 0 }}>
+        {/* Otransformerat mät-element för skal-till-passa. */}
+        <div ref={measureRef} className={tableStyles.eventRollRow} style={{ gap: animState === "diceIn" ? 20 : 0 }}>
           <div
             className={tableStyles.eventRollDicePanel}
             style={{

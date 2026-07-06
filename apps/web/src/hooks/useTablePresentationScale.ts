@@ -6,10 +6,6 @@ const S_MAX = 1.48;
 const SHORT_START = 720;
 /** Kort kant: full S_MAX (om inte höjd-tak sänker). */
 const SHORT_END = 1120;
-/** Ungefärlig korthöjd för höjd-tak (5∶7 från designbredd ~400). */
-const CARD_ROUGH_H = 560;
-/** Lämna marginal under kortet vid skalning. */
-const HEIGHT_FRAC = 0.92;
 
 function readVisualViewportSize(): { w: number; h: number } {
   if (typeof window === "undefined") return { w: 1280, h: 720 };
@@ -18,7 +14,11 @@ function readVisualViewportSize(): { w: number; h: number } {
   return { w: window.innerWidth, h: window.innerHeight };
 }
 
-/** Ren funktion för test / initial state. */
+/**
+ * Ren funktion för test / initial state.
+ * Obs: detta är bara "önskad uppskalning" (>= 1); den faktiska passningen mot viewporten
+ * mäts nedströms av `useFitToViewportScale`, som även kan skala ner under 1.
+ */
 export function computeTablePresentationScale(): number {
   const { w, h } = readVisualViewportSize();
   const short = Math.max(1, Math.min(w, h));
@@ -26,8 +26,6 @@ export function computeTablePresentationScale(): number {
   if (short <= SHORT_START) s = 1;
   else if (short >= SHORT_END) s = S_MAX;
   else s = 1 + (S_MAX - 1) * ((short - SHORT_START) / (SHORT_END - SHORT_START));
-  const maxByHeight = (HEIGHT_FRAC * Math.max(1, h)) / CARD_ROUGH_H;
-  s = Math.min(s, maxByHeight, S_MAX);
   return Math.max(1, Math.round(s * 1000) / 1000);
 }
 

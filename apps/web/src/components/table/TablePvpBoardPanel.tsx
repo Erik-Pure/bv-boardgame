@@ -4,7 +4,7 @@ import { DiceCube3D } from "../DiceCube3D";
 import { PlayerAvatarStack } from "../PlayerAvatarStack";
 import { useUiStrings } from "../../lib/locale/LocaleContext";
 import { PVP_TABLE_REVEAL_DELAY_MS } from "./tableConstants";
-import { useTableOverlayContentScale } from "../../lib/tablePresentationScale";
+import { TableFitScale } from "./TableFitScale";
 import styles from "./TablePvpBoardPanel.module.css";
 
 /** Föremål + utrustning som påverkar t6-totalen — uppdelat för tydlighet på brädet. */
@@ -23,10 +23,14 @@ function pvpTablePreviewAttackParts(state: GameState, playerId: string): { equip
   return { equipment, items };
 }
 
-function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabled?: boolean }) {
+function TablePvpBoardPanelInner(props: {
+  state: GameState;
+  boardAnimationsEnabled?: boolean;
+  /** Reserverad yta i botten (solfjäder + turbanner) så panelen skalas in ovanför den. */
+  fanReservePx?: number;
+}) {
   const ui = useUiStrings();
   const { state, boardAnimationsEnabled = true } = props;
-  const overlayScale = useTableOverlayContentScale();
   const pending = state.pending?.type === "pvp" ? state.pending : null;
   const attacker = pending ? state.players.find((p) => p.id === pending.attackerId) : undefined;
   const defender = pending ? state.players.find((p) => p.id === pending.defenderId) : undefined;
@@ -239,21 +243,10 @@ function TablePvpBoardPanelInner(props: { state: GameState; boardAnimationsEnabl
 
   return (
     <div className={styles.overlay}>
-      {overlayScale !== 1 ? (
-        <div
-          style={{
-            transform: `scale(${overlayScale})`,
-            transformOrigin: "top center",
-            width: "100%",
-            display: "grid",
-            justifyItems: "center",
-          }}
-        >
-          {panelInner}
-        </div>
-      ) : (
-        panelInner
-      )}
+      {/* Matchar `.overlay` padding-top (22px) + lite luft. */}
+      <TableFitScale reservedTop={22 + 8} reservedBottom={(props.fanReservePx ?? 0) + 12}>
+        {panelInner}
+      </TableFitScale>
     </div>
   );
 }

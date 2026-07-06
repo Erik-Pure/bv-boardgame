@@ -1,4 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useVisualViewportHeight } from "../../hooks/useVisualViewportHeight";
+import { TableFitScale } from "./TableFitScale";
 import {
   FINAL_BOSS_LIFE_TOTAL,
   isFinalBossMonsterId,
@@ -54,29 +56,6 @@ const PLAY_COMBAT_OUTCOME_SURFACE: CSSProperties = {
   borderRadius: 16,
   color: "#ffffff",
 };
-
-/** Ungefärlig höjd före transform-scale (rubriker + kort + hint) — begränsar uppskalning så tablet inte klipper. */
-const COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX = 780;
-
-function useVisualViewportHeight(): number {
-  const [h, setH] = useState(() =>
-    typeof window !== "undefined" ? window.visualViewport?.height ?? window.innerHeight : 900,
-  );
-  useEffect(() => {
-    const tick = () => setH(window.visualViewport?.height ?? window.innerHeight);
-    tick();
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", tick);
-    vv?.addEventListener("scroll", tick);
-    window.addEventListener("resize", tick);
-    return () => {
-      vv?.removeEventListener("resize", tick);
-      vv?.removeEventListener("scroll", tick);
-      window.removeEventListener("resize", tick);
-    };
-  }, []);
-  return h;
-}
 
 function formatSignedDiceModifier(sum: number): string | null {
   if (sum === 0) return null;
@@ -134,19 +113,17 @@ function TableCombatBoardPanelInner(props: {
    * fryst rollPreview i `preAck`, resultat på baksidan (ingen andra overlay).
    */
   monsterResultHoldover?: MonsterCombatResultHoldover | null;
+  /** Reserverad yta i botten (solfjäder + turbanner) så stridsinnehåll skalas in ovanför den. */
+  fanReservePx?: number;
 }) {
   const locale = useLocale();
   const ui = useUiStrings();
   const { state, playersById, boardAnimationsEnabled = true, monsterResultHoldover: hold } = props;
   const overlayScale = useTableOverlayContentScale();
   const vvHeight = useVisualViewportHeight();
-  /** På tablet kan presentationScale > 1 trycka ner/klippa monsterkortet — håll inom ~90% av viewport-höjd. */
-  const combatBlockScale = useMemo(() => {
-    if (overlayScale <= 1) return overlayScale;
-    const room = Math.max(340, vvHeight * 0.9);
-    const capByHeight = room / COMBAT_TABLE_UNSCALED_APPROX_HEIGHT_PX;
-    return Math.min(overlayScale, Math.max(1, capByHeight));
-  }, [overlayScale, vvHeight]);
+  const fanReservePx = props.fanReservePx ?? 0;
+  /** Matchar `.overlayHost` padding-top-brytpunkter (max-height 700/820). */
+  const overlayTopPad = vvHeight <= 700 ? 32 : vvHeight <= 820 ? 44 : 70;
 
   const pending: TableCombatPending | null = hold
     ? (hold.preAck.pending as TableCombatPending)
@@ -744,7 +721,8 @@ function TableCombatBoardPanelInner(props: {
         blockPointerUntilFlipped={false}
         cardCoverId={state.config.cardCover}
         aboveScene={combatBoardBossHeaderLines}
-        contentScale={combatBlockScale}
+        contentScale={overlayScale}
+        fitToViewport={{ reservedBottom: fanReservePx, anchor: "center" }}
       >
         <div className={combatStyles.innerBossIntro}>
           <div className={combatStyles.enemyTitle24}>{localizedMonster.name}</div>
@@ -770,25 +748,11 @@ function TableCombatBoardPanelInner(props: {
     </div>
   );
 
-  const overlayPanel = combatBlockScale !== 1 ? (
-    <div
-      style={{
-        transform: `scale(${combatBlockScale})`,
-        transformOrigin: "top center",
-        width: "100%",
-        display: "grid",
-        justifyItems: "center",
-      }}
-    >
-      {panelBody}
-    </div>
-  ) : (
-    panelBody
-  );
-
   return (
     <div className={combatStyles.overlayHost} style={overlayDynamics}>
-      {overlayPanel}
+      <TableFitScale reservedTop={overlayTopPad + 8} reservedBottom={fanReservePx + 12}>
+        {panelBody}
+      </TableFitScale>
     </div>
   );
 }
