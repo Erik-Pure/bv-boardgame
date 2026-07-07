@@ -714,6 +714,9 @@ export const en = {
     pending: "Pending",
     lobbyList: "Lobby",
     lobbyScanQrToJoin: "Scan qr code to join lobby",
+    lobbyJoinUrlShort: "spela.bryggverket.se/join",
+    lobbyCopyJoinUrl: "Copy join link",
+    lobbyJoinUrlCopied: "Copied!",
     /** Board TV: remove a player from the room (e.g. has to leave). */
     tableKickPlayer: "Remove from game",
     /** Button text (short) — full line in `tableKickPlayer` + `title`. */

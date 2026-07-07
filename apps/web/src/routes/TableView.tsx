@@ -716,6 +716,18 @@ function TableViewBody() {
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
   /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
   const [showSidebarLog, setShowSidebarLog] = useState(false);
+  const [joinUrlCopied, setJoinUrlCopied] = useState(false);
+
+  const copyLobbyJoinUrl = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(joinQrUrl);
+      setJoinUrlCopied(true);
+      window.setTimeout(() => setJoinUrlCopied(false), 1400);
+    } catch {
+      setJoinUrlCopied(false);
+    }
+  }, [joinQrUrl]);
 
   const {
     stackLevels,
@@ -1672,6 +1684,21 @@ function TableViewBody() {
                     />
                   </div>
                   <div className={u.caption12o86Center}>{ui.table.lobbyScanQrToJoin}</div>
+                  <div className={tableStyles.lobbyJoinUrlRow}>
+                    <span className={tableStyles.lobbyJoinUrlText}>{ui.table.lobbyJoinUrlShort}</span>
+                    <button
+                      type="button"
+                      onClick={() => void copyLobbyJoinUrl()}
+                      className={tableStyles.lobbyCopyJoinBtn}
+                      aria-label={ui.table.lobbyCopyJoinUrl}
+                      title={joinUrlCopied ? ui.table.lobbyJoinUrlCopied : ui.table.lobbyCopyJoinUrl}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className={tableStyles.lobbyCopyJoinIcon}>
+                        <rect x="9" y="9" width="10" height="10" rx="2" />
+                        <rect x="5" y="5" width="10" height="10" rx="2" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className={u.stack8}>
                   {state.players.map((p) => (

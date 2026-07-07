@@ -830,6 +830,9 @@ export const sv = {
     pending: "Väntande",
     lobbyList: "Lobby",
     lobbyScanQrToJoin: "Skanna för att gå med i lobbyn",
+    lobbyJoinUrlShort: "spela.bryggverket.se/join",
+    lobbyCopyJoinUrl: "Kopiera join-länk",
+    lobbyJoinUrlCopied: "Kopierad!",
     /** Bords-tv: ta bort en spelare ur rummet (t.ex. måste gå). */
     tableKickPlayer: "Ta bort från spelet",
     /** Knapptext (kort) — hel rad i `tableKickPlayer` + `title`. */
