@@ -312,7 +312,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
       return;
     }
     if (pending.playerId !== localPlayerId) return;
-    const key = `${pending.playerId}:${pending.requestedAtMs ?? 0}`;
+    const key = pending.playerId;
     if (prevBrewerDownSfxKeyRef.current === key) return;
     prevBrewerDownSfxKeyRef.current = key;
     playTableSfx("gameover", { enabled: sfxEnabled });
