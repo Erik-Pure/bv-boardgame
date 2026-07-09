@@ -18,6 +18,7 @@ export type TableSfxId =
   | "roll"
   | "badBatch"
   | "lose"
+  | "gameover"
   | "cans";
 
 /** Alla ids med färdiga filer under public/sfx/. */
@@ -32,6 +33,7 @@ export const TABLE_SFX_PLAYABLE_IDS = [
   "roll",
   "badBatch",
   "lose",
+  "gameover",
   "cans",
 ] as const satisfies readonly TableSfxId[];
 
@@ -47,8 +49,8 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   klunk: ["/sfx/klunk1.mp3", "/sfx/klunk2.mp3"],
   /** Vila / händelse / skatt / monster-intro: när kort-overlay fade:ar in (före eventTile, event, badBatch) */
   cardFlip: "/sfx/cardflip.mp3",
-  /** Bryggnivå upp, vinst mot dålig batch (`combat_win`) och BvB-rondvinst */
-  levelUp: "/sfx/levelup.mp3",
+  /** Bryggnivå upp, vinst mot dålig batch (`combat_win`) och BvB-rondvinst: slump levelup1-2 */
+  levelUp: ["/sfx/levelup.mp3", "/sfx/levelup2.mp3"],
   /** Händelsekort på brädet (modal) om landningsljud inte redan spelats */
   event: "/sfx/event.mp3",
   /** Landning på händelse- eller skattruta (efter cardflip): slump event1–4 */
@@ -72,8 +74,10 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
     "/sfx/badbatch3.mp3",
     "/sfx/badbatch4.mp3",
   ],
-  /** Förlust mot dålig batch / monster (`combat_lose`) och BvB-rondförlust */
-  lose: "/sfx/lose.m4a",
+  /** Förlust mot dålig batch / monster (`combat_lose`) och BvB-rondförlust: slump lose1-3 */
+  lose: ["/sfx/lose.m4a", "/sfx/lose2.mp3", "/sfx/lose3.mp3"],
+  /** Egen död (`brewerDown`) när game over-modalen öppnas. */
+  gameover: "/sfx/gameover.mp3",
   /** Panta burkar (`chooseMerchant` eller landning på affärsruta): slump cans1–4 */
   cans: ["/sfx/cans1.mp3", "/sfx/cans2.mp3", "/sfx/cans3.mp3", "/sfx/cans4.mp3"],
 };

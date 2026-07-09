@@ -268,7 +268,7 @@ export const en = {
     },
     levelUpNow: "Ascend to next level now",
     levelUpStayForTile: "Stay put (one more turn)",
-    brewerPerkTitle: "Brew level up!",
+    brewerPerkTitle: "Level up!",
     brewerPerkPrompt: (levelsRemaining: number) =>
       levelsRemaining > 1
         ? `Choose bonus (${levelsRemaining} left).`

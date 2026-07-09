@@ -1,5 +1,5 @@
 /**
- * Genererar webboptimerade MP3 från käll-ljud i apps/web/sfx-source/ (WAV, ev. OGG).
+ * Genererar webboptimerade MP3 från käll-ljud i apps/web/sfx-source/ (WAV, OGG, MP3).
  * Utdata: apps/web/public/sfx/*.mp3 (det spelet laddar).
  *
  * Kräver ffmpeg i PATH (t.ex. brew install ffmpeg).
@@ -28,7 +28,7 @@ const FFMPEG_ENCODE = {
   ba: "80k",
 };
 
-const SOURCE_EXTS = [".wav", ".ogg"];
+const SOURCE_EXTS = [".wav", ".ogg", ".mp3"];
 
 async function exists(p) {
   try {
@@ -63,7 +63,7 @@ async function listSourceFiles(dir) {
 
 function mp3PathForSource(srcAbs) {
   const rel = path.relative(SOURCE_DIR, srcAbs);
-  const base = rel.replace(/\.(wav|ogg)$/i, "");
+  const base = rel.replace(/\.(wav|ogg|mp3)$/i, "");
   return path.join(OUT_DIR, `${base}.mp3`);
 }
 

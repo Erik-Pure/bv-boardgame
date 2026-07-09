@@ -70,6 +70,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
   const prevEventCardDiceSfxKeyRef = useRef<string | null>(null);
   const prevEventCardSfxSessionRef = useRef<string | null>(null);
   const prevMonsterOutcomeSfxKeyRef = useRef<string | null>(null);
+  const prevBrewerDownSfxKeyRef = useRef<string | null>(null);
   const sfxSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     prevCombatDiceSfxKeyRef.current = null;
     prevCombatSfxSessionRef.current = null;
     prevMonsterOutcomeSfxKeyRef.current = null;
+    prevBrewerDownSfxKeyRef.current = null;
     prevPendingTypeRef.current = state?.pending?.type ?? null;
     clearCombatIntroSfxKeys();
     clearTableSfxQueue();
@@ -298,6 +300,23 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
       playTableSfx("lose", { enabled: sfxEnabled });
     }
   }, [tableMonsterOutcomeSfxKey, sfxEnabled]);
+
+  useEffect(() => {
+    if (!state || state.phase !== "playing" || !sfxEnabled || !localPlayerId) {
+      prevBrewerDownSfxKeyRef.current = null;
+      return;
+    }
+    const pending = state.pending;
+    if (pending?.type !== "brewerDown") {
+      prevBrewerDownSfxKeyRef.current = null;
+      return;
+    }
+    if (pending.playerId !== localPlayerId) return;
+    const key = `${pending.playerId}:${pending.requestedAtMs ?? 0}`;
+    if (prevBrewerDownSfxKeyRef.current === key) return;
+    prevBrewerDownSfxKeyRef.current = key;
+    playTableSfx("gameover", { enabled: sfxEnabled });
+  }, [state, state?.pending, state?.phase, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
     if (!tableCardPendingKey) {
