@@ -17,6 +17,7 @@ import {
   type GameState,
   type Player,
 } from "@bv/game-core";
+import type { TurnBannerPlacement } from "../../lib/boardPerformancePrefs";
 import tableStyles from "../../routes/TableView.module.css";
 
 type Anchor = { x: number; y: number };
@@ -43,9 +44,20 @@ export function TurnBannerEmoteOverlay(props: {
   scrollerRef: RefObject<HTMLDivElement | null>;
   playerCardRefs: MutableRefObject<Map<string, HTMLDivElement>>;
   layoutTick: number;
+  placement?: TurnBannerPlacement;
 }) {
-  const { players, emoteBursts, klunkBursts, fanWrapRef, colorBarRef, scrollerRef, playerCardRefs, layoutTick } =
-    props;
+  const {
+    players,
+    emoteBursts,
+    klunkBursts,
+    fanWrapRef,
+    colorBarRef,
+    scrollerRef,
+    playerCardRefs,
+    layoutTick,
+    placement = "bottom",
+  } = props;
+  const side = placement === "right";
   const [anchors, setAnchors] = useState<Record<string, Anchor>>({});
 
   const measureAnchors = useCallback(() => {
@@ -53,17 +65,24 @@ export function TurnBannerEmoteOverlay(props: {
     const bar = colorBarRef.current;
     if (!wrap || !bar) return;
     const wrapRect = wrap.getBoundingClientRect();
-    const barTop = bar.getBoundingClientRect().top - wrapRect.top;
+    const barRect = bar.getBoundingClientRect();
     const next: Record<string, Anchor> = {};
     for (const [id, el] of playerCardRefs.current) {
       const r = el.getBoundingClientRect();
-      next[id] = {
-        x: r.left + r.width / 2 - wrapRect.left,
-        y: barTop,
-      };
+      if (side) {
+        next[id] = {
+          x: barRect.left - wrapRect.left,
+          y: r.top + r.height / 2 - wrapRect.top,
+        };
+      } else {
+        next[id] = {
+          x: r.left + r.width / 2 - wrapRect.left,
+          y: barRect.top - wrapRect.top,
+        };
+      }
     }
     setAnchors(next);
-  }, [fanWrapRef, colorBarRef, playerCardRefs]);
+  }, [fanWrapRef, colorBarRef, playerCardRefs, side]);
 
   useLayoutEffect(() => {
     measureAnchors();
@@ -83,6 +102,10 @@ export function TurnBannerEmoteOverlay(props: {
 
   const now = Date.now();
   const burstOffsetPx = BOARD_BURST_PAIR_OFFSET_PX;
+  const floatClass = side
+    ? `${tableStyles.turnPlayerEmoteFloatOnBoard} ${tableStyles.turnPlayerEmoteFloatOnBoardSide}`
+    : tableStyles.turnPlayerEmoteFloatOnBoard;
+
   return (
     <div className={tableStyles.turnPlayerEmoteOverlay} aria-hidden>
       {players.flatMap((p) => {
@@ -95,11 +118,12 @@ export function TurnBannerEmoteOverlay(props: {
           klunkIcons > 1 ? ((klunkIcons - 1) * KLUNK_BURST_ICON_SPACING_PX) / 2 : 0;
         const nodes: ReactNode[] = [];
         if (klunk) {
-          const groupCenterX = anchor.x - (emote ? burstOffsetPx : 0);
+          const groupCenter = side
+            ? anchor.y - (emote ? burstOffsetPx : 0)
+            : anchor.x - (emote ? burstOffsetPx : 0);
           for (let i = 0; i < klunkIcons; i++) {
-            const x =
-              groupCenterX +
-              (klunkIcons === 1 ? 0 : -klunkHalfSpan + i * KLUNK_BURST_ICON_SPACING_PX);
+            const spread =
+              klunkIcons === 1 ? 0 : -klunkHalfSpan + i * KLUNK_BURST_ICON_SPACING_PX;
             nodes.push(
               <img
                 key={`klunk-${p.id}-${klunk.at}-${i}`}
@@ -107,10 +131,10 @@ export function TurnBannerEmoteOverlay(props: {
                 alt=""
                 width={BOARD_BURST_ICON_PX}
                 height={BOARD_BURST_ICON_PX}
-                className={tableStyles.turnPlayerEmoteFloatOnBoard}
+                className={floatClass}
                 style={{
-                  left: x,
-                  top: anchor.y,
+                  left: side ? anchor.x : groupCenter + spread,
+                  top: side ? groupCenter + spread : anchor.y,
                   ["--emote-rot" as string]: `${klunkBurstRotationDeg({ ...klunk, at: klunk.at + i })}deg`,
                 }}
               />,
@@ -118,6 +142,7 @@ export function TurnBannerEmoteOverlay(props: {
           }
         }
         if (emote) {
+          const emoteOffset = klunk ? burstOffsetPx + klunkHalfSpan : 0;
           nodes.push(
             <img
               key={`emote-${p.id}-${emote.at}`}
@@ -125,10 +150,10 @@ export function TurnBannerEmoteOverlay(props: {
               alt=""
               width={BOARD_BURST_ICON_PX}
               height={BOARD_BURST_ICON_PX}
-              className={tableStyles.turnPlayerEmoteFloatOnBoard}
+              className={floatClass}
               style={{
-                left: anchor.x + (klunk ? burstOffsetPx + klunkHalfSpan : 0),
-                top: anchor.y,
+                left: side ? anchor.x : anchor.x + emoteOffset,
+                top: side ? anchor.y + emoteOffset : anchor.y,
                 ["--emote-rot" as string]: `${emoteBurstRotationDeg(emote)}deg`,
               }}
             />,

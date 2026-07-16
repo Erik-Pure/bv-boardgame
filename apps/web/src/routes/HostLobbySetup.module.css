@@ -374,3 +374,8 @@
   display: grid;
   gap: 8px;
 }
+
+.footerChecks {
+  display: grid;
+  gap: 8px;
+}

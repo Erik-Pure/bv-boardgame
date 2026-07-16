@@ -44,6 +44,12 @@ export function PlayBottomSheet(props: {
         aria-label={collapsed ? ui.play.panelMaximize : ui.play.panelMinimize}
         title={collapsed ? ui.play.panelMaximize : ui.play.panelMinimize}
         onClick={onToggleCollapsed}
+        className={[
+          styles.bottomSheetCollapseToggle,
+          heightInstant ? styles.bottomSheetCollapseToggleInstant : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={{
           position: "fixed",
           right: "max(10px, env(safe-area-inset-right))",

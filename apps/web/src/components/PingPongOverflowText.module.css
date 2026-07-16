@@ -1,0 +1,51 @@
+.wrap {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-align: center;
+}
+
+.wrap[data-overflow="true"] {
+  text-align: left;
+}
+
+.text {
+  display: inline-block;
+  max-width: none;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.marquee {
+  animation: pingPongMarquee var(--marquee-duration, 8s) ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes pingPongMarquee {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  45%,
+  55% {
+    transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+  }
+  88%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none;
+  }
+
+  .wrap[data-overflow="true"] .text {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

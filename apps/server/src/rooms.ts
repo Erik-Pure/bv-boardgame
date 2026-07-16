@@ -4,6 +4,7 @@ import {
   clampConfigNumber,
   createEmptyLobby,
   lobbyAddPlayer,
+  playingAddPlayer,
   LOG_MESSAGE_KEYS,
   normalizeLoadedGameState,
   pushLogEntry,
@@ -547,6 +548,7 @@ export function joinRoom(params: {
     gameMode?: "bossKill";
     difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
     hardcore?: boolean;
+    allowLateJoin?: boolean;
     boardSize?: "default" | "large" | "xlarge";
     levelCount?: number;
     maxHp?: number;
@@ -573,6 +575,9 @@ export function joinRoom(params: {
     }
     if (typeof params.config.hardcore === "boolean") {
       room.state.config.hardcore = params.config.hardcore;
+    }
+    if (typeof params.config.allowLateJoin === "boolean") {
+      room.state.config.allowLateJoin = params.config.allowLateJoin;
     }
     if (params.config.boardSize) {
       room.state.config.boardSize = params.config.boardSize;
@@ -632,7 +637,9 @@ export function joinRoom(params: {
   const playerId = existingPlayerId ?? reconnectPlayerIdByName ?? uuidv4();
 
   const addFreshLobbySlot = params.role === "controller" && !existingPlayerId && !reconnectPlayerIdByName;
-  if (addFreshLobbySlot && room.state.phase !== "lobby") {
+  const allowLateJoin =
+    room.state.phase === "playing" && room.state.config.allowLateJoin === true;
+  if (addFreshLobbySlot && room.state.phase !== "lobby" && !allowLateJoin) {
     return {
       error:
         "Spelet pågår redan och vi kunde inte återkänna din spelare (ingen sparad anslutning). Öppna från samma flik/enhet som tidigare. Om flera spelare har samma namn: välj olika namn nästa gång eller behåll denna webbläsarflik.",
@@ -643,13 +650,22 @@ export function joinRoom(params: {
   if (params.role === "controller") {
     if (addFreshLobbySlot) {
       const isFirstPlayer = room.state.players.length === 0;
-      const addRes = lobbyAddPlayer(room.state, {
-        id: playerId,
-        name: params.playerName,
-        isHost: isFirstPlayer,
-      });
-      if (addRes.error) return { error: addRes.error };
-      room.state = addRes.state;
+      if (room.state.phase === "playing") {
+        const addRes = playingAddPlayer(room.state, {
+          id: playerId,
+          name: params.playerName,
+        });
+        if (addRes.error) return { error: addRes.error };
+        room.state = addRes.state;
+      } else {
+        const addRes = lobbyAddPlayer(room.state, {
+          id: playerId,
+          name: params.playerName,
+          isHost: isFirstPlayer,
+        });
+        if (addRes.error) return { error: addRes.error };
+        room.state = addRes.state;
+      }
     } else {
       // reconnect / befintlig slot
     }
@@ -676,7 +692,7 @@ export function joinRoom(params: {
   };
   room.conns.add(conn);
   room.lastActivityAt = Date.now();
-  if (addFreshLobbySlot && room.state.phase === "lobby") {
+  if (addFreshLobbySlot && (room.state.phase === "lobby" || room.state.phase === "playing")) {
     room.stateSeq += 1;
     broadcastState(room);
   }

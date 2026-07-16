@@ -30,7 +30,6 @@ const MONSTER_ICON_TINT = "#ef4444";
 const MONSTER_HEADER_ICON_SIZE = 24;
 
 /** ~55% av tidigare badge — lite större än exakt hälften. */
-const THUMB_BADGE_SIZE = 20;
 const THUMB_ICON_SIZE = 10;
 
 const STAT_ICON_TINT: Record<"pant" | "reward" | "xp" | "klunk" | "heart", string> = {
@@ -72,16 +71,25 @@ function MaskedStatIcon({
   );
 }
 
-function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; value: number; emDash?: boolean }) {
+function StatChip({
+  kind,
+  value,
+  emDash,
+  dense,
+}: {
+  kind: keyof typeof STAT_ICON_TINT;
+  value: number;
+  emDash?: boolean;
+  /** Matchar styrke-pill `size="sm"` (mobil under namn). */
+  dense?: boolean;
+}) {
   const src = ICON[kind];
   const label = emDash ? "—" : value === 0 ? "-" : String(value);
-  const compact = !emDash && label.length >= 3;
-  // Container-query units: kortet ligger i `CardFlipModalShell` där `.faceInner` är en container.
-  // Gör att iPhone SE får mindre stats-siffror utan att påverka stora skärmar.
-  const iconSize = compact ? "clamp(14px, 4.0cqw, 17px)" : "clamp(15px, 4.5cqw, 19px)";
-  const fontSize = compact ? "clamp(12px, 3.6cqw, 15px)" : "clamp(13px, 4.1cqw, 17px)";
+  const compactNums = !emDash && label.length >= 3;
+  const iconSize = dense ? (compactNums ? 15 : 17) : compactNums ? "clamp(14px, 4.0cqw, 17px)" : "clamp(15px, 4.5cqw, 19px)";
+  const fontSize = dense ? (compactNums ? 13 : 15) : compactNums ? "clamp(12px, 3.6cqw, 15px)" : "clamp(13px, 4.1cqw, 17px)";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: compact ? 3 : 5 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: dense ? 3 : compactNums ? 3 : 5 }}>
       <MaskedStatIcon src={src} color={STAT_ICON_TINT[kind]} size={iconSize} />
       <span
         style={{
@@ -90,13 +98,154 @@ function StatChip({ kind, value, emDash }: { kind: keyof typeof STAT_ICON_TINT; 
           lineHeight: 1,
           color: "#fff",
           fontVariantNumeric: "tabular-nums",
-          minWidth: compact ? "0.85em" : "1em",
+          minWidth: compactNums ? "0.85em" : "1em",
           display: "inline-block",
           textAlign: "center",
         }}
       >
         {label}
       </span>
+    </div>
+  );
+}
+
+/** Svärd + styrkesiffra med samma pill-ram som på monsterkortet. */
+export function CombatStrengthPill(props: { value: number; className?: string; size?: "sm" }) {
+  const sm = props.size === "sm";
+  return (
+    <span
+      className={[styles.combatStrengthPill, sm ? styles.combatStrengthPillSm : "", props.className]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <img
+        src={ICON.combat}
+        alt=""
+        width={sm ? 18 : 22}
+        height={sm ? 18 : 22}
+        draggable={false}
+        className={[styles.combatStrengthIcon, sm ? styles.combatStrengthIconSm : ""].filter(Boolean).join(" ")}
+      />
+      <span
+        className={[styles.combatStrengthValue, sm ? styles.combatStrengthValueSm : ""].filter(Boolean).join(" ")}
+      >
+        {props.value}
+      </span>
+    </span>
+  );
+}
+
+export type MonsterCombatOutcomeRowProps = {
+  winGold: number;
+  winItems: number;
+  winXp: number;
+  lossDamage: number;
+  lossKlunks: number;
+  /** Slutboss: visa — i vinstrutan (pant + skatter). */
+  bossWinLootAsDash?: boolean;
+  /** Tätare, innehållsbredd (t.ex. under monsternamn i mobil). */
+  compact?: boolean;
+};
+
+/** Vinst- och förlust-rutor med ikoner/siffror — samma som på monsterkortet. */
+export function MonsterCombatOutcomeRow(props: MonsterCombatOutcomeRowProps) {
+  const hasWin = props.bossWinLootAsDash || props.winGold > 0 || props.winItems > 0 || props.winXp > 0;
+  const hasLoss = props.lossDamage > 0 || props.lossKlunks > 0;
+  if (!hasWin && !hasLoss) return null;
+
+  const compact = !!props.compact;
+
+  const badge = (src: string, solidBg: string, iconNudgeY: number) => (
+    <div
+      className={[styles.outcomeThumbBadge, compact ? styles.outcomeThumbBadgeCompact : ""].filter(Boolean).join(" ")}
+      style={{ borderColor: solidBg, background: solidBg }}
+    >
+      <img
+        src={src}
+        alt=""
+        width={compact ? 9 : THUMB_ICON_SIZE}
+        height={compact ? 9 : THUMB_ICON_SIZE}
+        draggable={false}
+        style={{
+          display: "block",
+          filter: ICON_LIGHT,
+          transform: `translateY(${iconNudgeY * (compact ? 0.75 : 1)}px)`,
+        }}
+      />
+    </div>
+  );
+
+  const outcomeBox = (
+    border: string,
+    bg: string,
+    thumbSrc: string,
+    thumbBadgeBg: string,
+    thumbNudgeY: number,
+    cells: ReactNode[],
+  ) => (
+    <div
+      className={[
+        styles.outcomeBox,
+        compact ? styles.outcomeBoxCompactWidth : "",
+        compact ? styles.outcomeBoxCompactScale : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        marginTop: compact ? 6 : 12,
+        border: `${compact ? 1.5 : 2}px solid ${border}`,
+        background: bg,
+      }}
+    >
+      {badge(thumbSrc, thumbBadgeBg, thumbNudgeY)}
+      <div className={[styles.outcomeBoxRow, compact ? styles.outcomeBoxRowCompact : ""].filter(Boolean).join(" ")}>
+        {cells.map((cell, idx) => (
+          <div key={idx} className={[styles.outcomeBoxCell, compact ? styles.outcomeBoxCellCompact : ""].filter(Boolean).join(" ")}>
+            {cell}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      className={[styles.outcomeRow, compact ? styles.outcomeRowCompact : ""].filter(Boolean).join(" ")}
+      style={
+        compact
+          ? undefined
+          : {
+              gridTemplateColumns: hasWin && hasLoss ? "minmax(0, 3fr) minmax(0, 2fr)" : "minmax(0,1fr)",
+            }
+      }
+    >
+      {hasWin
+        ? outcomeBox(
+            "rgba(34, 197, 94, 0.75)",
+            "rgba(6, 78, 59, 0.42)",
+            ICON.thumbUp,
+            THUMB_BADGE_WIN_BG,
+            -1.5,
+            [
+              <StatChip key="pant" kind="pant" value={props.winGold} emDash={props.bossWinLootAsDash} dense={compact} />,
+              <StatChip key="reward" kind="reward" value={props.winItems} emDash={props.bossWinLootAsDash} dense={compact} />,
+              <StatChip key="xp" kind="xp" value={props.winXp} emDash={props.bossWinLootAsDash} dense={compact} />,
+            ],
+          )
+        : null}
+      {hasLoss
+        ? outcomeBox(
+            "rgba(248, 113, 113, 0.7)",
+            "rgba(127, 29, 29, 0.45)",
+            ICON.thumbDown,
+            THUMB_BADGE_LOSS_BG,
+            1.5,
+            [
+              <StatChip key="heart" kind="heart" value={props.lossDamage} dense={compact} />,
+              <StatChip key="klunk" kind="klunk" value={props.lossKlunks} dense={compact} />,
+            ],
+          )
+        : null}
     </div>
   );
 }
@@ -132,81 +281,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
     typeof bossLives === "number" && bossLives >= 0 && Number.isFinite(bossLives);
   const heartsTotal = FINAL_BOSS_LIFE_TOTAL;
   const heartsFilled = Math.max(0, Math.min(heartsTotal, Math.floor(bossLives!)));
-  const hasWin = props.bossWinLootAsDash || props.winGold > 0 || props.winItems > 0 || props.winXp > 0;
-  const hasLoss = props.lossDamage > 0 || props.lossKlunks > 0;
   const rulesForDisplay = monsterSpecialRulesForDisplay(props.specialRules);
-
-  const badge = (src: string, solidBg: string, iconNudgeY: number) => (
-    <div
-      style={{
-        position: "absolute",
-        left: "50%",
-        top: 0,
-        transform: "translate(-50%, -50%)",
-        width: THUMB_BADGE_SIZE,
-        height: THUMB_BADGE_SIZE,
-        borderRadius: "50%",
-        border: `1px solid ${solidBg}`,
-        background: solidBg,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 3px 10px rgba(0,0,0,0.35)",
-      }}
-    >
-      <img
-        src={src}
-        alt=""
-        width={THUMB_ICON_SIZE}
-        height={THUMB_ICON_SIZE}
-        draggable={false}
-        style={{
-          display: "block",
-          filter: ICON_LIGHT,
-          transform: `translateY(${iconNudgeY}px)`,
-        }}
-      />
-    </div>
-  );
-
-  const outcomeColumnStyle = {
-    flex: "1 1 0%",
-    minWidth: 0,
-    display: "flex" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  };
-
-  const outcomeBox = (
-    border: string,
-    bg: string,
-    thumbSrc: string,
-    thumbBadgeBg: string,
-    thumbNudgeY: number,
-    cells: ReactNode[],
-  ) => (
-    <div
-      style={{
-        position: "relative",
-        minWidth: 0,
-        marginTop: 12,
-        padding: "11px 10px 9px",
-        borderRadius: 14,
-        border: `2px solid ${border}`,
-        background: bg,
-        boxSizing: "border-box",
-      }}
-    >
-      {badge(thumbSrc, thumbBadgeBg, thumbNudgeY)}
-      <div style={{ display: "flex", flexDirection: "row", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
-        {cells.map((cell, idx) => (
-          <div key={idx} style={outcomeColumnStyle}>
-            {cell}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   const showAttribution = !!artAttributionLabel(props.artKey);
   const artSources = artImageSources(props.artKey);
@@ -285,30 +360,7 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
             ) : null}
           </div>
         </div>
-        <div
-          style={{
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 12px",
-            borderRadius: 999,
-            border: "1px solid rgba(167, 139, 250, 0.65)",
-            background: "rgba(67, 56, 202, 0.22)",
-          }}
-        >
-          <img
-            src={ICON.combat}
-            alt=""
-            width={22}
-            height={22}
-            draggable={false}
-            style={{ filter: ICON_LIGHT }}
-          />
-          <span style={{ fontWeight: 900, fontSize: "clamp(16px, 5.4cqw, 20px)", lineHeight: 1, color: "#e9d5ff" }}>
-            {props.combatStrength}
-          </span>
-        </div>
+        <CombatStrengthPill value={props.combatStrength} />
       </div>
 
       <div
@@ -339,41 +391,14 @@ export function MonsterEncounterCard(props: MonsterEncounterCardProps) {
         />
       </div>
 
-      {hasWin || hasLoss ? (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: hasWin && hasLoss ? "minmax(0, 3fr) minmax(0, 2fr)" : "minmax(0,1fr)",
-            gap: 10,
-            alignItems: "stretch",
-          }}
-        >
-          {hasWin
-            ? outcomeBox(
-                "rgba(34, 197, 94, 0.75)",
-                "rgba(6, 78, 59, 0.42)",
-                ICON.thumbUp,
-                THUMB_BADGE_WIN_BG,
-                -1.5,
-                [
-                  <StatChip key="pant" kind="pant" value={props.winGold} emDash={props.bossWinLootAsDash} />,
-                  <StatChip key="reward" kind="reward" value={props.winItems} emDash={props.bossWinLootAsDash} />,
-                  <StatChip key="xp" kind="xp" value={props.winXp} emDash={props.bossWinLootAsDash} />,
-                ],
-              )
-            : null}
-          {hasLoss
-            ? outcomeBox(
-                "rgba(248, 113, 113, 0.7)",
-                "rgba(127, 29, 29, 0.45)",
-                ICON.thumbDown,
-                THUMB_BADGE_LOSS_BG,
-                1.5,
-                [<StatChip key="heart" kind="heart" value={props.lossDamage} />, <StatChip key="klunk" kind="klunk" value={props.lossKlunks} />],
-              )
-            : null}
-        </div>
-      ) : null}
+      <MonsterCombatOutcomeRow
+        winGold={props.winGold}
+        winItems={props.winItems}
+        winXp={props.winXp}
+        lossDamage={props.lossDamage}
+        lossKlunks={props.lossKlunks}
+        bossWinLootAsDash={props.bossWinLootAsDash}
+      />
 
       {rulesForDisplay ? (
         <div

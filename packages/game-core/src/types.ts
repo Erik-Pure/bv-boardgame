@@ -655,6 +655,8 @@ export interface GameConfig {
   gameMode: GameMode;
   difficulty: DifficultyPreset;
   hardcore: boolean;
+  /** När true får nya spelare ansluta under pågående match (inte efter ended). */
+  allowLateJoin: boolean;
   boardSize: BoardSizePreset;
   levelCount: number;
   maxHp: number;
@@ -811,6 +813,7 @@ export type ClientAction =
       reactionSeconds?: number;
       difficulty?: DifficultyPreset;
       hardcore?: boolean;
+      allowLateJoin?: boolean;
       boardSize?: BoardSizePreset;
       levelCount?: number;
       maxHp?: number;

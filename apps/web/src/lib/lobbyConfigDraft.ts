@@ -9,6 +9,7 @@ export function defaultLobbyConfigDraft(): LobbyConfigDraft {
     difficulty: "folkol",
     reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
     hardcore: false,
+    allowLateJoin: false,
     boardSize: "default",
     levelCount: 3,
     maxHp: CONFIG_NUMERIC.maxHp.default,

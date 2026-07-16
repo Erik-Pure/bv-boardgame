@@ -27,6 +27,128 @@
   transform: translateY(0.06em);
 }
 
+/** Styrka: svärd + siffra — samma pill på kort och i mobil-stridsvy. */
+.combatStrengthPill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.65);
+  background: rgba(67, 56, 202, 0.22);
+  box-sizing: border-box;
+}
+
+.combatStrengthIcon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
+}
+
+.combatStrengthValue {
+  font-weight: 900;
+  font-size: clamp(16px, 5.4cqw, 20px);
+  line-height: 1;
+  color: #e9d5ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.combatStrengthPillSm {
+  gap: 4px;
+  padding: 4px 9px;
+}
+
+.combatStrengthIconSm {
+  width: 18px;
+  height: 18px;
+}
+
+.combatStrengthValueSm {
+  font-size: 15px;
+}
+
+.outcomeRow {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.outcomeRowCompact {
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+  gap: 8px;
+  grid-template-columns: auto auto;
+  justify-content: center;
+}
+
+.outcomeBox {
+  position: relative;
+  min-width: 0;
+  padding: 11px 10px 9px;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.outcomeBoxCompactWidth {
+  /* Innehållsbredd — behåller padding via CompactScale. */
+  width: max-content;
+}
+
+.outcomeBoxCompactScale {
+  padding: 8px 9px 6px;
+  border-radius: 11px;
+}
+
+.outcomeThumbBadge {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.outcomeThumbBadgeCompact {
+  width: 17px;
+  height: 17px;
+}
+
+.outcomeBoxRow {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.outcomeBoxRowCompact {
+  width: auto;
+  gap: 6px;
+}
+
+.outcomeBoxCell {
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.outcomeBoxCellCompact {
+  flex: 0 0 auto;
+}
+
 .wrap {
   position: relative;
   width: 100%;

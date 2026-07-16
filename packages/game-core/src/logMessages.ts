@@ -10,6 +10,7 @@ export const LOG_MESSAGE_KEYS = {
   lobbyClosed: "lobby.closed",
   lobbySettingsSaved: "lobby.settingsSaved",
   lobbyPlayerJoined: "lobby.playerJoined",
+  playingPlayerJoined: "playing.playerJoined",
   lobbyPlayerLeft: "lobby.playerLeft",
   lobbyPlayerLeftReason: "lobby.playerLeftReason",
   lobbyPlayerKicked: "lobby.playerKicked",
@@ -80,6 +81,10 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
   [LOG_MESSAGE_KEYS.lobbyPlayerJoined]: {
     sv: "{name} gick med i lobbyn.",
     en: "{name} joined the lobby.",
+  },
+  [LOG_MESSAGE_KEYS.playingPlayerJoined]: {
+    sv: "{name} hoppade in i spelet.",
+    en: "{name} joined the game mid-match.",
   },
   [LOG_MESSAGE_KEYS.lobbyPlayerLeft]: {
     sv: "{name} lämnade spelet.",

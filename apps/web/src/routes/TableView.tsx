@@ -45,6 +45,7 @@ import {
   writeBoardPreventSleepEnabled,
   writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
+  writeTurnBannerPlacement,
 } from "../lib/boardPerformancePrefs";
 
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
@@ -108,6 +109,7 @@ import bossFinaleExitStyles from "../components/play/bossFinaleExit.module.css";
 import { bossFinaleExitCssVars } from "../lib/bossFinaleTiming";
 import { useBossFinaleExit } from "../lib/useBossFinaleExit";
 import { PLAYER_MARKER_TOKEN_W } from "../lib/playerMarkerSvg";
+import { PingPongOverflowText } from "../components/PingPongOverflowText";
 import { PlayerAvatarStack } from "../components/PlayerAvatarStack";
 import { TableBoardPlayerToken } from "../components/table/TableBoardPlayerToken";
 import u from "../styles/uiPrimitives.module.css";
@@ -1212,10 +1214,12 @@ function TableViewBody() {
     playingTurn && currentTurnAfflictions.length > 0
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
       : TABLE_TURN_BANNER_RESERVE_PX;
+  const turnBannerOnRight = playingTurn && boardPerf.turnBannerPlacement === "right";
+  const turnBannerOnBottom = playingTurn && !turnBannerOnRight;
   const showTableCombatBoardPanel = baseShowTableCombatBoardPanel || showMonsterCombatOutcomeOnCard;
 
   const bannerReserveStyle = {
-    "--table-banner-reserve": playingTurn ? `${turnBannerBottomReservePx}px` : "0px",
+    "--table-banner-reserve": turnBannerOnBottom ? `${turnBannerBottomReservePx}px` : "0px",
   } as CSSProperties;
   const vvHeight = useVisualViewportHeight();
   /** Matchar toppförankrade overlays paddingTop (84 vid uppskalning, annars 70). */
@@ -1242,6 +1246,126 @@ function TableViewBody() {
         })
       : 0;
   const tableToasts = useTableToasts(state, playersById, locale);
+
+  const turnPlayersScrollerEl = (
+    <div
+      className={[
+        tableStyles.turnPlayersScroller,
+        turnBannerOnRight ? tableStyles.turnPlayersScrollerVertical : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      ref={turnPlayersScrollerRef}
+    >
+      {boardPlayers.map((p) => {
+        const active = cur?.id === p.id;
+        const outOfGame = !isPlayerOnBoard(p);
+        const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
+        const brewerLv = brewerDisplayLevel(p);
+        const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
+        return (
+          <div
+            key={p.id}
+            className={[
+              tableStyles.turnPlayerCard,
+              active && !outOfGame ? tableStyles.turnBannerActivePlayerCardPulse : "",
+              outOfGame ? tableStyles.turnPlayerCardEliminated : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            ref={(el) => {
+              if (el) turnPlayerCardRefs.current.set(p.id, el);
+              else turnPlayerCardRefs.current.delete(p.id);
+              if (active) activeTurnPlayerCardRef.current = el;
+            }}
+            style={{
+              ["--turn-player-bg" as string]: active && !outOfGame ? p.color : "rgba(255,255,255,0.04)",
+              ["--turn-active-player-color" as string]: p.color,
+            }}
+            title={[p.name, ui.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p, ui)]
+              .filter(Boolean)
+              .join(" · ")}
+          >
+            <div className={tableStyles.turnPlayerName}>
+              <span className={tableStyles.turnPlayerNameRow}>
+                <span className={tableStyles.turnPlayerAvatarWrap} aria-hidden>
+                  <PlayerAvatarStack
+                    avatar={p.avatar}
+                    color={p.color}
+                    size="board"
+                    animate={false}
+                  />
+                </span>
+                {outOfGame ? (
+                  <img
+                    src="/icons/skull-icon.svg"
+                    alt=""
+                    aria-hidden
+                    width={18}
+                    height={18}
+                    className={tableStyles.turnPlayerSkull}
+                  />
+                ) : null}
+                <PingPongOverflowText text={`${p.name}${sleepTag}`} />
+              </span>
+            </div>
+            <div className={tableStyles.turnPlayerVitals}>
+              <PlayerVitals
+                hp={p.hp}
+                maxHp={p.maxHp}
+                pant={playerPant(p)}
+                klunkar={p.klunkar}
+                iconSize={22}
+                brewerRing={{ level: brewerLv, ratio: brewerRatio }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const turnBannerStripInner = (
+    <>
+      <div
+        ref={turnBannerColorBarRef}
+        className={[
+          turnBannerStyles.colorBar,
+          turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
+          tableStyles.turnBannerColorBar,
+          turnBannerOnRight ? tableStyles.turnBannerColorBarSide : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={
+          turnBannerOnRight
+            ? undefined
+            : ({
+                "--turn-banner-min-h": currentTurnAfflictions.length > 0 ? "98px" : "78px",
+              } as CSSProperties)
+        }
+      >
+        {turnBannerHandoff ? (
+          <div className={turnBannerStyles.shineSweep} key={cur?.id ?? "turn"} aria-hidden />
+        ) : null}
+        {currentTurnAfflictions.length > 0 ? (
+          <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
+        ) : null}
+        {turnPlayersScrollerEl}
+      </div>
+      <TurnBannerEmoteOverlay
+        players={boardPlayers}
+        emoteBursts={state?.playerEmoteBursts}
+        klunkBursts={state?.playerKlunkBursts}
+        fanWrapRef={turnBannerFanWrapRef}
+        colorBarRef={turnBannerColorBarRef}
+        scrollerRef={turnPlayersScrollerRef}
+        playerCardRefs={turnPlayerCardRefs}
+        layoutTick={emoteDisplayTick}
+        placement={turnBannerOnRight ? "right" : "bottom"}
+      />
+    </>
+  );
 
   return (
     <div
@@ -1854,6 +1978,14 @@ function TableViewBody() {
             </>
           )}
         </aside>
+
+        {turnBannerOnRight ? (
+          <div className={tableStyles.turnBannerDockSide} aria-live="polite">
+            <div className={tableStyles.turnBannerFanWrap} ref={turnBannerFanWrapRef}>
+              {turnBannerStripInner}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {state?.pending?.type === "pvp" && (
@@ -2036,115 +2168,20 @@ function TableViewBody() {
         </CardFlipModalShell>
       )}
 
-      {playingTurn ? (
+      {turnBannerOnBottom ? (
         <div className={tableStyles.turnBannerDock} aria-live="polite">
           <div className={tableStyles.turnBannerFanWrap} ref={turnBannerFanWrapRef}>
             {showItemPlayFan && state ? (
               <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
             ) : null}
-            <div
-              ref={turnBannerColorBarRef}
-              className={[
-                turnBannerStyles.colorBar,
-                turnBannerHandoff ? turnBannerStyles.colorBarHandoff : "",
-                tableStyles.turnBannerColorBar,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              style={
-                {
-                  "--turn-banner-min-h": currentTurnAfflictions.length > 0 ? "98px" : "78px",
-                } as CSSProperties
-              }
-            >
-            {turnBannerHandoff ? (
-              <div className={turnBannerStyles.shineSweep} key={cur?.id ?? "turn"} aria-hidden />
-            ) : null}
-            {currentTurnAfflictions.length > 0 ? (
-              <div className={tableStyles.turnBannerAfflictions}>{currentTurnAfflictions.join(" · ")}</div>
-            ) : null}
-            <div className={tableStyles.turnPlayersScroller} ref={turnPlayersScrollerRef}>
-              {boardPlayers.map((p) => {
-                const active = cur?.id === p.id;
-                const outOfGame = !isPlayerOnBoard(p);
-                const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
-                const brewerLv = brewerDisplayLevel(p);
-                const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
-                return (
-                  <div
-                    key={p.id}
-                    className={[
-                      tableStyles.turnPlayerCard,
-                      active && !outOfGame ? tableStyles.turnBannerActivePlayerCardPulse : "",
-                      outOfGame ? tableStyles.turnPlayerCardEliminated : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    ref={(el) => {
-                      if (el) turnPlayerCardRefs.current.set(p.id, el);
-                      else turnPlayerCardRefs.current.delete(p.id);
-                      if (active) activeTurnPlayerCardRef.current = el;
-                    }}
-                    style={{
-                      ["--turn-player-bg" as string]: active && !outOfGame ? p.color : "rgba(255,255,255,0.04)",
-                      ["--turn-active-player-color" as string]: p.color,
-                    }}
-                    title={[p.name, ui.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p, ui)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  >
-                    <div className={tableStyles.turnPlayerName}>
-                      <span className={tableStyles.turnPlayerNameRow}>
-                        <span className={tableStyles.turnPlayerAvatarWrap} aria-hidden>
-                          <PlayerAvatarStack
-                            avatar={p.avatar}
-                            color={p.color}
-                            size="board"
-                            animate={false}
-                          />
-                        </span>
-                        {outOfGame ? (
-                          <img
-                            src="/icons/skull-icon.svg"
-                            alt=""
-                            aria-hidden
-                            width={18}
-                            height={18}
-                            className={tableStyles.turnPlayerSkull}
-                          />
-                        ) : null}
-                        <span>
-                          {p.name}
-                          {sleepTag}
-                        </span>
-                      </span>
-                    </div>
-                    <div className={tableStyles.turnPlayerVitals}>
-                      <PlayerVitals
-                        hp={p.hp}
-                        maxHp={p.maxHp}
-                        pant={playerPant(p)}
-                        klunkar={p.klunkar}
-                        iconSize={22}
-                        brewerRing={{ level: brewerLv, ratio: brewerRatio }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {turnBannerStripInner}
           </div>
-          <TurnBannerEmoteOverlay
-            players={boardPlayers}
-            emoteBursts={state?.playerEmoteBursts}
-            klunkBursts={state?.playerKlunkBursts}
-            fanWrapRef={turnBannerFanWrapRef}
-            colorBarRef={turnBannerColorBarRef}
-            scrollerRef={turnPlayersScrollerRef}
-            playerCardRefs={turnPlayerCardRefs}
-            layoutTick={emoteDisplayTick}
-          />
-          </div>
+        </div>
+      ) : null}
+
+      {turnBannerOnRight && showItemPlayFan && state ? (
+        <div className={tableStyles.itemPlayFanDock} aria-hidden>
+          <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
         </div>
       ) : null}
 
@@ -2211,6 +2248,17 @@ function TableViewBody() {
             <label className={tableStyles.tableSettingsRow}>
               <input
                 type="checkbox"
+                checked={boardPerf.turnBannerPlacement === "right"}
+                onChange={(e) => {
+                  writeTurnBannerPlacement(e.target.checked ? "right" : "bottom");
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{ui.table.settingsTurnBannerRight}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
                 checked={boardPerf.preventSleepEnabled}
                 onChange={(e) => {
                   writeBoardPreventSleepEnabled(e.target.checked);
@@ -2257,7 +2305,7 @@ function TableViewBody() {
           className={tableStyles.tableToastDock}
           style={
             {
-              "--table-toast-bottom": `calc(${playingTurn ? turnBannerBottomReservePx : 0}px + env(safe-area-inset-bottom, 0px) + 12px)`,
+              "--table-toast-bottom": `calc(${turnBannerOnBottom ? turnBannerBottomReservePx : 0}px + env(safe-area-inset-bottom, 0px) + 12px)`,
             } as CSSProperties
           }
         >

@@ -21,6 +21,7 @@ import {
   penaltySipTotalForPlayer,
   playerCanCombatIntervene,
   playerHasPlayablePositiveHelpItem,
+  playerTotalItemCardBonus,
   previewHpAfterFlatDamage,
   pvpLootPantStealAmount,
   randomPlayerAvatar,
@@ -49,11 +50,13 @@ import { equipmentImageSources } from "../../lib/equipmentImageSrc";
 import { PlayArcadeButton as ArcadeButton } from "./PlayArcadeButton";
 import { DiceCube3D } from "../DiceCube3D";
 import { EffectBadgePillStrip } from "../EffectBadgePillStrip";
+import { CombatStrengthPill } from "../MonsterEncounterCard";
 import { PictureImg } from "../PictureImg";
 import { StatIcon } from "../StatIcon";
 import { CombatChooseTeammateSheet } from "./CombatChooseTeammateSheet";
 import { CombatEnemyIntroWaiting } from "./CombatEnemyIntroWaiting";
 import { CombatHitMitigationSheet } from "./CombatHitMitigationSheet";
+import { CombatItemButtonSuffix } from "./CombatItemButtonSuffix";
 import { CombatRollPreviewSheet } from "./CombatRollPreviewSheet";
 import { EquipmentCombatTotalsRow } from "./EquipmentCombatTotalsRow";
 import { MoveOptionLabel } from "./MoveOptionLabel";
@@ -152,6 +155,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
 
   const pending = state.pending ?? null;
   const myPending = isMyPending(pending, me);
+  const combatItemSuffixOpts = {
+    boardLevelIndex: me.levelIndex,
+    itemCardBonus: playerTotalItemCardBonus(me),
+  };
   const pvpPending = pending?.type === "pvp" ? pending : null;
   const pvpRound = pvpPending ? (pvpPending.roundNumber ?? pvpPending.pvpRound ?? 1) : 1;
   const pvpWins = pvpPending?.wins ?? { attacker: 0, defender: 0 };
@@ -719,6 +726,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 }
               >
                 {itemMetaForView(it.itemId).title}
+                <CombatItemButtonSuffix itemId={it.itemId} {...combatItemSuffixOpts} />
               </ArcadeButton>
             ))
           )}
@@ -827,16 +835,8 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       return (
         <div className={u.stack10}>
           <div className={u.reactionTitleRow}>
-            <span>{localizedCombatMonster(pending, locale).name}</span>
-            <span className={u.inlineFlexGap5}>
-              <img
-                src="/icons/combat-icon.svg"
-                alt=""
-                aria-hidden
-                className={u.combatIcon16}
-              />
-              <b>{pending.need + (pending.needMod ?? 0)}</b>
-            </span>
+            <span className={u.combatMonsterName}>{localizedCombatMonster(pending, locale).name}</span>
+            <CombatStrengthPill value={pending.need + (pending.needMod ?? 0)} />
           </div>
           {teammate ? (
             <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>
@@ -1206,19 +1206,11 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                     }}
                   >
                     {itemMetaForView(it.itemId).title}
-                    {String(it.itemId) === "weak_beer" ? ui.play.itemSuffixWeakBeer : ""}
-                    {String(it.itemId) === "light_beer" ? ui.play.itemSuffixLightBeer : ""}
-                    {String(it.itemId) === "folk_beer" ? ui.play.itemSuffixFolkBeer : ""}
-                    {String(it.itemId) === "tripwire" ? ui.play.itemSuffixTripwire : ""}
-                    {String(it.itemId) === "double_hops" ? ui.play.itemSuffixDoubleHops : ""}
-                    {String(it.itemId) === "beer_bomb" ? ui.play.itemSuffixBeerBomb : ""}
-                    {String(it.itemId) === "manopositiv" ? ui.play.itemSuffixManopositiv : ""}
-                    {String(it.itemId) === "get_lucky" ? " (+4, risk)" : ""}
-                    {String(it.itemId) === "hangover" ? ui.play.itemSuffixHangover : ""}
-                    {String(it.itemId) === "monster_hype" ? ui.play.itemSuffixMonsterHype : ""}
-                    {String(it.itemId) === "yeast_sabotage" ? ui.play.itemSuffixYeast : ""}
-                    {String(it.itemId) === "beer_bro" ? ui.play.itemSuffixBeerBro : ""}
-                    {String(it.itemId) === "lengraddad" ? ui.play.itemSuffixLengraddad : ""}
+                    <CombatItemButtonSuffix
+                      itemId={it.itemId}
+                      beerBroText={ui.play.itemSuffixBeerBro}
+                      {...combatItemSuffixOpts}
+                    />
                   </ArcadeButton>
                 ))}
             </div>

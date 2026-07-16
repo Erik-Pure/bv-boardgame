@@ -266,6 +266,17 @@
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
+}
+
+.combatMonsterName {
+  font-family: "Permanent Marker", var(--heading), sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.15rem, 5.2vw, 1.45rem);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .combatIcon16 {

@@ -788,6 +788,42 @@
   overflow: visible;
 }
 
+/** Vertikal spelarlista till höger om brädet (in-flow i .mainRow). */
+.turnBannerDockSide {
+  position: relative;
+  flex: 0 0 236px;
+  width: 236px;
+  max-width: 236px;
+  align-self: stretch;
+  min-height: 0;
+  z-index: 40000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.turnBannerDockSide .turnBannerFanWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/** Solfjäder kvar nertill när spelarlisten är till höger. */
+.itemPlayFanDock {
+  position: fixed;
+  left: 0;
+  right: 236px;
+  bottom: 0;
+  height: 0;
+  z-index: 35000;
+  pointer-events: none;
+  overflow: visible;
+}
+
 .turnBannerFanWrap {
   position: relative;
   width: 100%;
@@ -804,6 +840,17 @@
     0 -8px 28px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   min-width: 0;
+}
+
+.turnBannerColorBarSide {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    -8px 0 28px rgba(0, 0, 0, 0.35),
+    inset 1px 0 0 rgba(255, 255, 255, 0.18);
 }
 
 .boardTilesLit {
@@ -926,6 +973,12 @@
   word-break: break-word;
 }
 
+.turnBannerColorBarSide .turnBannerAfflictions {
+  flex-shrink: 0;
+  margin: 8px 6px 4px;
+  padding: 0 4px;
+}
+
 .turnBannerHeadline {
   display: none;
 }
@@ -939,6 +992,30 @@
   overflow-y: hidden;
   -ms-overflow-style: none; /* IE/Edge legacy */
   scrollbar-width: none; /* Firefox */
+}
+
+.turnPlayersScrollerVertical {
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 0;
+  gap: 6px;
+}
+
+.turnPlayersScrollerVertical .turnPlayerCard {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+.turnPlayersScrollerVertical .playerVitalsRow {
+  flex-wrap: nowrap;
+  gap: 10px;
 }
 
 .turnPlayersScroller::-webkit-scrollbar {
@@ -980,6 +1057,13 @@
     turnPlayerEmoteFade 3.4s ease-in-out forwards;
 }
 
+.turnPlayerEmoteFloatOnBoardSide {
+  transform: translate(calc(-100% + 8px), -50%) rotate(var(--emote-rot)) scale(0.88);
+  animation:
+    turnPlayerEmoteDriftSide 3.4s ease-in-out forwards,
+    turnPlayerEmoteFade 3.4s ease-in-out forwards;
+}
+
 /* En sammanhängande bana: sakta upp, lätt rotation, gradvis växande skala. */
 @keyframes turnPlayerEmoteDrift {
   from {
@@ -987,6 +1071,15 @@
   }
   to {
     transform: translate(-50%, calc(-100% - 88px)) rotate(calc(var(--emote-rot) + 3deg)) scale(1.22);
+  }
+}
+
+@keyframes turnPlayerEmoteDriftSide {
+  from {
+    transform: translate(calc(-100% + 8px), -50%) rotate(var(--emote-rot)) scale(0.88);
+  }
+  to {
+    transform: translate(calc(-100% - 88px), -50%) rotate(calc(var(--emote-rot) + 3deg)) scale(1.22);
   }
 }
 
@@ -1013,12 +1106,27 @@
       turnPlayerEmoteFade 2.4s ease-in-out forwards;
   }
 
+  .turnPlayerEmoteFloatOnBoardSide {
+    animation:
+      turnPlayerEmoteDriftSideReduced 2.4s ease-in-out forwards,
+      turnPlayerEmoteFade 2.4s ease-in-out forwards;
+  }
+
   @keyframes turnPlayerEmoteDriftReduced {
     from {
       transform: translate(-50%, calc(-100% + 6px)) rotate(var(--emote-rot)) scale(0.94);
     }
     to {
       transform: translate(-50%, calc(-100% - 48px)) rotate(var(--emote-rot)) scale(1.08);
+    }
+  }
+
+  @keyframes turnPlayerEmoteDriftSideReduced {
+    from {
+      transform: translate(calc(-100% + 6px), -50%) rotate(var(--emote-rot)) scale(0.94);
+    }
+    to {
+      transform: translate(calc(-100% - 48px), -50%) rotate(var(--emote-rot)) scale(1.08);
     }
   }
 }
@@ -1028,10 +1136,12 @@
 }
 
 .turnPlayerNameRow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
 }
 
@@ -1056,8 +1166,9 @@
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   margin-bottom: 2px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .turnPlayerVitals {

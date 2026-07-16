@@ -34,7 +34,8 @@ export function computeBottomSheetZIndexFlags(options: {
       state?.phase === "playing" &&
       pending?.type === "combat" &&
       pending.phase === "chooseTeammate" &&
-      !!pending.teamBattleRequired,
+      !!pending.teamBattleRequired &&
+      pending.attackerId === me.id,
     overEncounterChoice:
       !!me && state?.phase === "playing" && pending?.type === "encounterChoice" && pending.moverId === me.id,
     overTurnPrompt:

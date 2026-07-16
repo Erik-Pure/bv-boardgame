@@ -14,9 +14,11 @@ export function FloatingEmoteControl(props: {
   me: Player;
   send: (action: ClientAction) => void;
   bottom: string | number;
+  /** När true: hoppa bottom utan transition (första sheet-mätningen). */
+  bottomInstant?: boolean;
 }) {
   const ui = useUiStrings();
-  const { me, send, bottom } = props;
+  const { me, send, bottom, bottomInstant = false } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -54,6 +56,7 @@ export function FloatingEmoteControl(props: {
         styles.floatingEmoteBar,
         pickerOpen ? styles.floatingEmoteBarOpen : "",
         onCooldown ? styles.floatingEmoteBarCooldown : "",
+        bottomInstant ? styles.floatingEmoteBarBottomInstant : "",
       ]
         .filter(Boolean)
         .join(" ")}

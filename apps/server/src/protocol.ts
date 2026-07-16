@@ -24,6 +24,7 @@ export const clientHelloSchema = z.object({
       gameMode: z.enum(["bossKill"]).optional(),
       difficulty: z.enum(["lattol", "folkol", "starkol", "imperial"]).optional(),
       hardcore: z.boolean().optional(),
+      allowLateJoin: z.boolean().optional(),
       boardSize: z.enum(["default", "large", "xlarge"]).optional(),
       levelCount: z.number().int().min(1).max(5).optional(),
       maxHp: z.number().int().min(CONFIG_NUMERIC.maxHp.min).max(CONFIG_NUMERIC.maxHp.max).optional(),

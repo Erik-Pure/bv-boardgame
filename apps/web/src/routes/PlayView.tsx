@@ -636,6 +636,7 @@ export function PlayView() {
                     headerTopPad={headerTopPad}
                     bottomSheetVisible={bottomSheetVisible}
                     bottomSheetAnimatedHeight={bottomSheetAnimatedHeight}
+                    bottomSheetHeightInstant={bottomSheetHeightInstant}
                     mobileEquipmentCombatTotals={mobileEquipmentCombatTotals}
                     equipFlash={equipFlash}
                     equipFlashKey={equipFlashKey}
@@ -713,7 +714,12 @@ export function PlayView() {
       </div>
 
       {showFloatingEmote && me ? (
-        <FloatingEmoteControl me={me} send={send} bottom={floatingEmoteBottom} />
+        <FloatingEmoteControl
+          me={me}
+          send={send}
+          bottom={floatingEmoteBottom}
+          bottomInstant={bottomSheetHeightInstant}
+        />
       ) : null}
 
       <PlayBottomSheet

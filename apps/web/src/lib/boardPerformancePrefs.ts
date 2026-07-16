@@ -4,8 +4,11 @@ const STORAGE_TOKEN_ANIM = "bv.tokenMoveAnimationsEnabled";
 const STORAGE_SCALE_ANIM = "bv.scaleAnimationsEnabled";
 const STORAGE_PREVENT_SLEEP = "bv.boardPreventSleepEnabled";
 const STORAGE_MOBILE_SFX = "bv.mobileSfxEnabled";
+const STORAGE_TURN_BANNER_PLACEMENT = "bv.turnBannerPlacement";
 
 export const BOARD_PERF_PREFS_EVENT = "bv-board-performance-prefs";
+
+export type TurnBannerPlacement = "bottom" | "right";
 
 export type BoardPerformancePrefs = {
   boardPanEnabled: boolean;
@@ -17,6 +20,8 @@ export type BoardPerformancePrefs = {
   preventSleepEnabled: boolean;
   /** Ljudeffekter på mobil (/play). */
   mobileSfxEnabled: boolean;
+  /** Turbanner / spelarlista: nertill horisontellt eller till höger vertikalt. */
+  turnBannerPlacement: TurnBannerPlacement;
 };
 
 function readBool(key: string, defaultValue: boolean): boolean {
@@ -29,6 +34,17 @@ function readBool(key: string, defaultValue: boolean): boolean {
     // ignore
   }
   return defaultValue;
+}
+
+function readTurnBannerPlacement(): TurnBannerPlacement {
+  if (typeof window === "undefined") return "bottom";
+  try {
+    const v = window.localStorage.getItem(STORAGE_TURN_BANNER_PLACEMENT);
+    if (v === "right" || v === "bottom") return v;
+  } catch {
+    // ignore
+  }
+  return "bottom";
 }
 
 /** Testbar heuristik för “lite läge”-standardvärden (äldre telefoner / reduced motion). */
@@ -75,6 +91,7 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
     scaleAnimationsEnabled: readBool(STORAGE_SCALE_ANIM, !lite),
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, isMobileTouchDevice()),
     mobileSfxEnabled: readBool(STORAGE_MOBILE_SFX, true),
+    turnBannerPlacement: readTurnBannerPlacement(),
   };
 }
 
@@ -82,6 +99,16 @@ function writeBool(key: string, value: boolean): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(key, value ? "1" : "0");
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new Event(BOARD_PERF_PREFS_EVENT));
+}
+
+function writeString(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
   } catch {
     // ignore
   }
@@ -110,6 +137,10 @@ export function writeBoardPreventSleepEnabled(value: boolean): void {
 
 export function writeMobileSfxEnabled(value: boolean): void {
   writeBool(STORAGE_MOBILE_SFX, value);
+}
+
+export function writeTurnBannerPlacement(value: TurnBannerPlacement): void {
+  writeString(STORAGE_TURN_BANNER_PLACEMENT, value);
 }
 
 export function isLitePerformanceActive(): boolean {

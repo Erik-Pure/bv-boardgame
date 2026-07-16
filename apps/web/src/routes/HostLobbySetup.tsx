@@ -11,6 +11,7 @@ import {
   writeBoardPanEnabled,
   writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
+  writeTurnBannerPlacement,
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
 import { defaultLobbyConfigDraft, saveLobbyConfigDraft } from "../lib/lobbyConfigDraft";
@@ -264,6 +265,18 @@ export function HostLobbySetup() {
                   />
                   <span>{ui.table.settingsScaleAnimations}</span>
                 </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.turnBannerPlacement === "right"}
+                    onChange={(e) => {
+                      writeTurnBannerPlacement(e.target.checked ? "right" : "bottom");
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{ui.table.settingsTurnBannerRight}</span>
+                </label>
               </div>
             </SubSection>
             <SubSection title={ui.play.lobbyGameValues}>
@@ -357,15 +370,26 @@ export function HostLobbySetup() {
       </div>
 
       <div className={styles.divider}>
-        <label className={styles.inlineCheck}>
-          <input
-            type="checkbox"
-            checked={cfg.wakeLockBeforeStart}
-            onChange={(e) => setCfg((v) => ({ ...v, wakeLockBeforeStart: e.target.checked }))}
-            style={checkboxStyle}
-          />
-          <span>{ui.play.lobbyWakeLockDisableScreen}</span>
-        </label>
+        <div className={styles.footerChecks}>
+          <label className={styles.inlineCheck}>
+            <input
+              type="checkbox"
+              checked={cfg.wakeLockBeforeStart}
+              onChange={(e) => setCfg((v) => ({ ...v, wakeLockBeforeStart: e.target.checked }))}
+              style={checkboxStyle}
+            />
+            <span>{ui.play.lobbyWakeLockDisableScreen}</span>
+          </label>
+          <label className={styles.inlineCheck}>
+            <input
+              type="checkbox"
+              checked={cfg.allowLateJoin}
+              onChange={(e) => setCfg((v) => ({ ...v, allowLateJoin: e.target.checked }))}
+              style={checkboxStyle}
+            />
+            <span>{ui.play.lobbyAllowLateJoinLabel}</span>
+          </label>
+        </div>
         <ArcadeButton
           variant="pink"
           fullWidth

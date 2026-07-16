@@ -80,6 +80,7 @@ export {
   createEmptyLobby,
   levelUpCostsForTargetLevel,
   lobbyAddPlayer,
+  playingAddPlayer,
   normalizeLoadedGameState,
   penaltySipTotalForPlayer,
   PVP_BEST_OF,

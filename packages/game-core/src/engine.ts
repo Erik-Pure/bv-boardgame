@@ -189,6 +189,7 @@ const DEFAULT_CONFIG: GameState["config"] = {
   gameMode: "bossKill",
   difficulty: "folkol",
   hardcore: false,
+  allowLateJoin: false,
   boardSize: "default",
   levelCount: 3,
   maxHp: CONFIG_NUMERIC.maxHp.default,
@@ -219,6 +220,7 @@ function normalizeConfig(state: GameState): void {
     rawCover === "default" ? "card1" : rawCover === "alt1" ? "card2" : rawCover === "alt2" ? "card3" : rawCover;
   state.config.cardCover = mappedLegacyCover.length > 0 ? mappedLegacyCover.slice(0, 64) : "card1";
   state.config.hardcore = !!state.config.hardcore;
+  state.config.allowLateJoin = !!state.config.allowLateJoin;
   state.config.wakeLockBeforeStart = !!state.config.wakeLockBeforeStart;
   state.config.disabledCardIds = Array.from(
     new Set((state.config.disabledCardIds ?? []).filter((id) => typeof id === "string" && DRAWABLE_CARD_ID_SET.has(id))),
@@ -2181,6 +2183,54 @@ export function lobbyAddPlayer(
   return { state: next, events: ["lobbyUpdate"] };
 }
 
+/** Ny spelare under pågående match (require `config.allowLateJoin` på servern). */
+export function playingAddPlayer(
+  state: GameState,
+  opts: { id: string; name: string; avatar?: PlayerAvatar },
+): ApplyResult {
+  const next = cloneState(state);
+  normalizeConfig(next);
+  if (next.phase !== "playing") {
+    return { state, events: [], error: "Spelet pågår inte" };
+  }
+  if (next.players.length >= MAX_PLAYERS) {
+    return { state, events: [], error: "Lobbyn är full" };
+  }
+  const color = PLAYER_COLORS[next.players.length % PLAYER_COLORS.length]!;
+  const baseMaxHp = next.config.maxHp;
+  const p: Player = {
+    id: opts.id,
+    name: opts.name.trim() || "Bryggare",
+    color,
+    avatar: opts.avatar ? normalizePlayerAvatar(opts.avatar) : randomPlayerAvatar(),
+    isHost: false,
+    ready: true,
+    levelIndex: 0,
+    tileIndex: 0,
+    gold: next.config.startPant,
+    klunkar: 0,
+    hp: baseMaxHp,
+    maxHp: baseMaxHp,
+    xp: 0,
+    equipment: {},
+    inventory: [],
+    nextMoveBonus: 0,
+    nextCombatModifier: 0,
+    skippedTurns: 0,
+    eliminated: false,
+    stats: { ...DEFAULT_PLAYER_SESSION_STATS },
+  };
+  next.players.push(p);
+  next.turnOrder.push(p.id);
+  const itemRng = createRng((next.seed ^ fnv1a32(p.id) ^ 0x5f3759df) >>> 0);
+  grantStartingCombatItemsForPlayer(next, p, itemRng);
+  log(next, `${p.name} hoppade in i spelet.`, {
+    key: LOG_MESSAGE_KEYS.playingPlayerJoined,
+    params: { name: p.name },
+  });
+  return { state: next, events: ["playerJoined"] };
+}
+
 export function startGame(
   state: GameState,
   hostPlayerId: string,
@@ -2826,6 +2876,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (typeof action.hardcore === "boolean") {
         next.config.hardcore = action.hardcore;
+      }
+      if (typeof action.allowLateJoin === "boolean") {
+        next.config.allowLateJoin = action.allowLateJoin;
       }
       if (action.boardSize === "default" || action.boardSize === "large" || action.boardSize === "xlarge") {
         next.config.boardSize = action.boardSize;

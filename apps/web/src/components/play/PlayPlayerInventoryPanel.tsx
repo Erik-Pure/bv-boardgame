@@ -33,6 +33,7 @@ export type PlayPlayerInventoryPanelProps = {
   headerTopPad: number;
   bottomSheetVisible: boolean;
   bottomSheetAnimatedHeight: number | null;
+  bottomSheetHeightInstant?: boolean;
   mobileEquipmentCombatTotals: MobileEquipmentCombatTotals | null;
   equipFlash: Record<EquipmentSlot, StatFlash>;
   equipFlashKey: Record<EquipmentSlot, number>;
@@ -56,6 +57,7 @@ export function PlayPlayerInventoryPanel(props: PlayPlayerInventoryPanelProps) {
     headerTopPad,
     bottomSheetVisible,
     bottomSheetAnimatedHeight,
+    bottomSheetHeightInstant = false,
     mobileEquipmentCombatTotals,
     equipFlash,
     equipFlashKey,
@@ -74,17 +76,22 @@ export function PlayPlayerInventoryPanel(props: PlayPlayerInventoryPanelProps) {
 
   return (
     <div
-      className={styles.playerEquipmentShell}
-                  style={{
-                    top: headerTopPad,
-                    /* Luft under föremålsgrid när nedersta panelen täcker — kan scrollas fram */
-                    ...(bottomSheetVisible
-                      ? {
-                          paddingBottom: `calc(max(12px, env(safe-area-inset-bottom, 0px)) + ${(bottomSheetAnimatedHeight ?? 110) + 12}px)`,
-                        }
-                      : {}),
-                  }}
-                >
+      className={[
+        styles.playerEquipmentShell,
+        bottomSheetHeightInstant ? styles.playerEquipmentShellPadInstant : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        top: headerTopPad,
+        /* Luft under föremålsgrid när nedersta panelen täcker — kan scrollas fram */
+        ...(bottomSheetVisible && bottomSheetAnimatedHeight != null
+          ? {
+              paddingBottom: `calc(max(12px, env(safe-area-inset-bottom, 0px)) + ${bottomSheetAnimatedHeight + 12}px)`,
+            }
+          : {}),
+      }}
+    >
                   <div className={styles.equipmentGridWrap}>
                     <div className={styles.equipmentGrid}>
                       <EquipButton

@@ -149,7 +149,8 @@ export function PlayCardCombatModals(props: {
 
       {pending?.type === "combat" &&
         pending.teamBattleRequired &&
-        pending.phase === "chooseTeammate" && (
+        pending.phase === "chooseTeammate" &&
+        pending.attackerId === me.id && (
           <TeamBattleIntroCard
             variant="play"
             cardCoverId={cardCoverId}
