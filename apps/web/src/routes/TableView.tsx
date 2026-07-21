@@ -1846,10 +1846,27 @@ function TableViewBody() {
                 </p>
                 <EndedScoreboardTable variant="table" players={state.players} winnerId={state.winnerId} />
                 <EndedSpotlightCarousel players={state.players} />
-                <div className={u.mt20w100}>
-                  <ArcadeButton variant="pink" fullWidth onClick={() => navigate("/", { replace: true })}>
-                    {ui.play.gameOverLeaveToHome}
-                  </ArcadeButton>
+                <div className={u.mt20w100} style={{ display: "flex", gap: 12 }}>
+                  <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <ArcadeButton
+                      variant="gray"
+                      fullWidth
+                      onClick={() =>
+                        clientRef.current?.send({ type: "action", action: { type: "returnToLobby" } })
+                      }
+                    >
+                      {ui.play.gameOverPlayAgain}
+                    </ArcadeButton>
+                  </div>
+                  <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <ArcadeButton
+                      variant="pink"
+                      fullWidth
+                      onClick={() => navigate("/", { replace: true })}
+                    >
+                      {ui.play.gameOverLeaveToHome}
+                    </ArcadeButton>
+                  </div>
                 </div>
               </div>
             </div>

@@ -412,14 +412,6 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   }
 
   if (pending?.type === "combat" && pending.phase === "rollPreview") {
-    if (pending.attackerId !== me.id) {
-      const attacker = state.players.find((p) => p.id === pending.attackerId);
-      return (
-        <div className={`${u.textCenter} ${u.o82}`}>
-          {ui.play.waitAttackerContinue(attacker?.name ?? ui.play.theAttacker)}
-        </div>
-      );
-    }
     return (
       <CombatRollPreviewSheet
         state={state}

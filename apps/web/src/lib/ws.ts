@@ -10,7 +10,9 @@ export type ServerMessage =
   | { type: "helloAck"; playerId: string; roomCode: string; protocolVersion?: number }
   | { type: "state"; state: unknown; seq?: number }
   | { type: "stateDelta"; seq: number; patch: unknown }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** Controller bortkopplad medvetet (kick / rensad lobby) — klienten ska inte auto-reconnecta. */
+  | { type: "sessionEnded"; reason: "kicked" | "lobbyCleared" };
 
 function storageKey(roomCode: string): string {
   return `bv:playerId:${roomCode.toUpperCase()}`;
@@ -109,12 +111,19 @@ export function createClient(params: {
   let helloAcked = false;
   let actionSeq = 0;
   let handshakeTimeoutId: number | null = null;
+  let sessionEndedNotified = false;
 
   const clearHandshakeTimeout = () => {
     if (handshakeTimeoutId != null) {
       window.clearTimeout(handshakeTimeoutId);
       handshakeTimeoutId = null;
     }
+  };
+
+  const notifySessionEnded = (reason: "kicked" | "lobbyCleared") => {
+    if (sessionEndedNotified) return;
+    sessionEndedNotified = true;
+    params.onMessage({ type: "sessionEnded", reason });
   };
 
   const timeoutId = window.setTimeout(() => {
@@ -163,11 +172,14 @@ export function createClient(params: {
     );
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     clearConnTimeout();
     clearHandshakeTimeout();
+    if (ev.code === 4001 || ev.code === 4002) {
+      notifySessionEnded(ev.code === 4002 ? "lobbyCleared" : "kicked");
+    }
     params.onStatus("disconnected");
-    log.debug("close");
+    log.debug("close", { code: ev.code });
   };
   ws.onerror = () => {
     clearConnTimeout();
@@ -180,6 +192,10 @@ export function createClient(params: {
     try {
       const msg = JSON.parse(String(ev.data)) as ServerMessage;
       log.debug("recv", msg.type);
+      if (msg.type === "sessionEnded") {
+        notifySessionEnded(msg.reason);
+        return;
+      }
       if (msg.type === "helloAck") {
         if (typeof msg.protocolVersion === "number" && msg.protocolVersion !== CLIENT_PROTOCOL_VERSION) {
           ws.close();

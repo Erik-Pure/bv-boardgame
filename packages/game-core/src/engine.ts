@@ -190,6 +190,7 @@ const DEFAULT_CONFIG: GameState["config"] = {
   difficulty: "folkol",
   hardcore: false,
   allowLateJoin: false,
+  clearPlayersOnRematch: false,
   boardSize: "default",
   levelCount: 3,
   maxHp: CONFIG_NUMERIC.maxHp.default,
@@ -221,6 +222,7 @@ function normalizeConfig(state: GameState): void {
   state.config.cardCover = mappedLegacyCover.length > 0 ? mappedLegacyCover.slice(0, 64) : "card1";
   state.config.hardcore = !!state.config.hardcore;
   state.config.allowLateJoin = !!state.config.allowLateJoin;
+  state.config.clearPlayersOnRematch = !!state.config.clearPlayersOnRematch;
   state.config.wakeLockBeforeStart = !!state.config.wakeLockBeforeStart;
   state.config.disabledCardIds = Array.from(
     new Set((state.config.disabledCardIds ?? []).filter((id) => typeof id === "string" && DRAWABLE_CARD_ID_SET.has(id))),
@@ -299,6 +301,78 @@ export function createEmptyLobby(roomCode: string): GameState {
     playerKlunkBursts: [],
     combatEquipReplaceQueue: undefined,
   };
+}
+
+/** Efter avslutat parti: lobby med samma config/rumkod; rensar frivilligt lämnade spöken. */
+export function returnToLobby(state: GameState): ApplyResult {
+  if (state.phase !== "ended") {
+    return { state, events: [], error: "Spelet är inte slut" };
+  }
+  const next = cloneState(state);
+  const config = { ...next.config, disabledCardIds: [...(next.config.disabledCardIds ?? [])] };
+  let players: Player[] = [];
+  if (!config.clearPlayersOnRematch) {
+    const kept = next.players.filter((p) => !p.leftVoluntarily);
+    players = kept.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      avatar: p.avatar,
+      isHost: p.isHost,
+      ready: false,
+      levelIndex: 0,
+      tileIndex: 0,
+      gold: 0,
+      klunkar: 0,
+      hp: 10,
+      maxHp: 10,
+      xp: 0,
+      equipment: {},
+      inventory: [],
+      nextMoveBonus: 0,
+      nextCombatModifier: 0,
+      skippedTurns: 0,
+      eliminated: false,
+      stats: { ...DEFAULT_PLAYER_SESSION_STATS },
+    }));
+    const hostIdx = players.findIndex((p) => p.isHost);
+    const soleHostIdx = hostIdx >= 0 ? hostIdx : 0;
+    for (let i = 0; i < players.length; i++) {
+      players[i]!.isHost = i === soleHostIdx;
+    }
+  }
+
+  next.phase = "lobby";
+  next.seed = 0;
+  next.config = config;
+  next.players = players;
+  next.turnOrder = [];
+  next.currentTurnIndex = 0;
+  next.levels = [];
+  next.pending = null;
+  next.deferredPending = undefined;
+  next.offTurnPersonalPending = undefined;
+  next.winnerId = null;
+  next.winnerName = null;
+  next.gameStartedAt = null;
+  next.goldenBeerCarrierId = null;
+  next.finalBossMonsterId = null;
+  next.finalBossLivesRemaining = null;
+  next.bossFinaleExitStartedAt = null;
+  next.treasureTaken = {};
+  next.landingBypassEncounter = undefined;
+  next.lastDiceRoll = null;
+  next.lastDiceRollerId = null;
+  next.sipNotices = [];
+  next.tableItemPlayReveals = [];
+  next.playerEmoteBursts = [];
+  next.playerKlunkBursts = [];
+  next.combatEquipReplaceQueue = undefined;
+  next.stolenEquipmentEscrow = undefined;
+  log(next, "Nytt spel — tillbaka till lobbyn med samma inställningar.", {
+    key: LOG_MESSAGE_KEYS.gameReturnedToLobby,
+  });
+  return { state: next, events: ["lobbyUpdate"] };
 }
 
 function log(
@@ -2820,6 +2894,9 @@ function resolveLanding(state: GameState, p: Player, rng: () => number): void {
 }
 
 export function applyAction(state: GameState, action: ClientAction): ApplyResult {
+  if (action.type === "returnToLobby") {
+    return returnToLobby(state);
+  }
   const logEntropy = state.logSeq ?? state.log.length;
   const base = (state.seed + Math.imul(logEntropy, 997)) >>> 0;
   const actionMix = fnv1a32(stableStringify(action));
@@ -2879,6 +2956,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (typeof action.allowLateJoin === "boolean") {
         next.config.allowLateJoin = action.allowLateJoin;
+      }
+      if (typeof action.clearPlayersOnRematch === "boolean") {
+        next.config.clearPlayersOnRematch = action.clearPlayersOnRematch;
       }
       if (action.boardSize === "default" || action.boardSize === "large" || action.boardSize === "xlarge") {
         next.config.boardSize = action.boardSize;

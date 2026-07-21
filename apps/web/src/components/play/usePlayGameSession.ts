@@ -73,6 +73,14 @@ export function usePlayGameSession(options: {
           return null;
         });
       }
+      if (m.type === "sessionEnded") {
+        clearRememberedPlayerId(room);
+        showToast(
+          m.reason === "lobbyCleared" ? ui.play.sessionEndedLobbyCleared : ui.play.sessionEndedKicked,
+        );
+        navigate("/", { replace: true });
+        return;
+      }
       if (m.type === "error") showToast(m.message);
       if (m.type === "state" && isGameState(m.state)) {
         const next = applyFullGameState(stateSeqTrackerRef.current, m.state, m.seq) ?? m.state;

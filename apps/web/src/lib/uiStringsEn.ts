@@ -89,6 +89,8 @@ export const en = {
     wsReconnectFooterConnecting: "Connecting…",
     wsReconnectFooterWaiting: (n: number) => (n > 0 ? `Attempt ${n}` : "New attempt soon…"),
     notConnected: "Not connected to server.",
+    sessionEndedKicked: "You were removed from the game.",
+    sessionEndedLobbyCleared: "The lobby was cleared — join again if you want to continue.",
     lobbySheet: (ready: number, total: number) => `Lobby — ready: ${ready} / ${total}`,
     unready: "Undo ready",
     ready: "Ready",
@@ -418,6 +420,7 @@ export const en = {
     lobbySetupTitle: "Lobby Settings",
     lobbyHardcoreModeLabel: "Hardcore mode (only 1 life)",
     lobbyAllowLateJoinLabel: "Allow late join",
+    lobbyClearPlayersOnRematchLabel: "Clear players on new game",
     lobbyWakeLockDisableScreen: "Disable sleep mode for screens",
     lobbyWakeLockBeforeStart: "Keep screen awake already in lobby",
     lobbyStartLobby: "Start lobby",
@@ -464,6 +467,8 @@ export const en = {
     winner: "Winner",
     /** Button in modal when game ends — goes to home page. */
     gameOverLeaveToHome: "Exit game",
+    /** Table: new match in the same room with the same lobby settings. */
+    gameOverPlayAgain: "New game",
     /** Optional link to Google Forms after finished game (mobile). */
     gameOverFeedback: "Give feedback (optional)",
     spotlightRegionAria: "Highlights",

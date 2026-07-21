@@ -657,6 +657,11 @@ export interface GameConfig {
   hardcore: boolean;
   /** När true får nya spelare ansluta under pågående match (inte efter ended). */
   allowLateJoin: boolean;
+  /**
+   * När true: \"Nytt spel\" efter avslutat parti tömmer spelarlistan
+   * (servern stänger även controller-anslutningar).
+   */
+  clearPlayersOnRematch: boolean;
   boardSize: BoardSizePreset;
   levelCount: number;
   maxHp: number;
@@ -806,6 +811,8 @@ export type ClientAction =
   | { type: "setReady"; playerId: string; ready: boolean }
   | { type: "setAvatar"; playerId: string; avatar: import("./avatar.js").PlayerAvatar }
   | { type: "startGame"; playerId: string }
+  /** Bordet efter avslutat parti: återställ till lobby med samma config. */
+  | { type: "returnToLobby" }
   | {
       type: "setConfig";
       playerId: string;
@@ -814,6 +821,7 @@ export type ClientAction =
       difficulty?: DifficultyPreset;
       hardcore?: boolean;
       allowLateJoin?: boolean;
+      clearPlayersOnRematch?: boolean;
       boardSize?: BoardSizePreset;
       levelCount?: number;
       maxHp?: number;

@@ -44,7 +44,19 @@ export function useWsGameClient(args: Args) {
   const hiddenAtRef = useRef(0);
 
   const configKey =
-    args.config == null ? "" : `${args.config.gameMode ?? ""}-${args.config.turnSeconds ?? ""}`;
+    args.config == null
+      ? ""
+      : [
+          args.config.gameMode ?? "",
+          args.config.turnSeconds ?? "",
+          args.config.clearPlayersOnRematch === true ? "1" : "0",
+          args.config.allowLateJoin === true ? "1" : "0",
+          args.config.hardcore === true ? "1" : "0",
+          args.config.difficulty ?? "",
+          args.config.boardSize ?? "",
+          args.config.levelCount ?? "",
+          args.config.wakeLockBeforeStart === true ? "1" : "0",
+        ].join("-");
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current != null) {
@@ -108,7 +120,13 @@ export function useWsGameClient(args: Args) {
       config: args.config,
       connectTimeoutMs: args.connectTimeoutMs,
       onStatus: handleStatus,
-      onMessage: (m) => onMessageRef.current(m),
+      onMessage: (m) => {
+        if (m.type === "sessionEnded") {
+          intentionalCloseRef.current = true;
+          clearReconnectTimer();
+        }
+        onMessageRef.current(m);
+      },
     });
     clientRef.current = client;
 

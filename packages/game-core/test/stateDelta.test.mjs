@@ -37,6 +37,16 @@ describe("mergeGameStateDelta", () => {
     assert.equal(next.players.length, 1);
   });
 
+  it("clears all players when patch has empty players array", () => {
+    const prev = baseState();
+    const next = mergeGameStateDelta(prev, {
+      phase: "lobby",
+      players: [],
+    });
+    assert.equal(next.players.length, 0);
+    assert.equal(next.phase, "lobby");
+  });
+
   it("keeps levels when patch omits them", () => {
     const prev = baseState();
     const next = mergeGameStateDelta(prev, { pending: null });

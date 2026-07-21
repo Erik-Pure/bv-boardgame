@@ -16,6 +16,7 @@ function endedState(overrides: Partial<GameState> = {}): GameState {
       difficulty: "folkol",
       hardcore: false,
       allowLateJoin: false,
+      clearPlayersOnRematch: false,
       boardSize: "default",
       levelCount: 3,
       maxHp: 10,

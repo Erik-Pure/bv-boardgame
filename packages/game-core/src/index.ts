@@ -88,6 +88,7 @@ export {
   pvpLootPantStealAmount,
   MERCHANT_REROLL_GOLD_COST,
   rollMerchantItems,
+  returnToLobby,
   startGame,
 } from "./engine.js";
 export {

@@ -78,7 +78,7 @@ export function HostLobbySetup() {
   const ui = useUiStrings();
   const nav = useNavigate();
   const roomCode = useMemo(() => randomCode(), []);
-  const [cfg, setCfg] = useState(defaultLobbyConfigDraft);
+  const [cfg, setCfg] = useState(() => defaultLobbyConfigDraft());
   const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
 
   useEffect(() => subscribeBoardPerformancePrefs(() => setBoardPerf(readBoardPerformancePrefs())), []);
@@ -388,6 +388,15 @@ export function HostLobbySetup() {
               style={checkboxStyle}
             />
             <span>{ui.play.lobbyAllowLateJoinLabel}</span>
+          </label>
+          <label className={styles.inlineCheck}>
+            <input
+              type="checkbox"
+              checked={cfg.clearPlayersOnRematch}
+              onChange={(e) => setCfg((v) => ({ ...v, clearPlayersOnRematch: e.target.checked }))}
+              style={checkboxStyle}
+            />
+            <span>{ui.play.lobbyClearPlayersOnRematchLabel}</span>
           </label>
         </div>
         <ArcadeButton

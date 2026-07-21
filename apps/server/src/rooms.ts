@@ -8,6 +8,7 @@ import {
   LOG_MESSAGE_KEYS,
   normalizeLoadedGameState,
   pushLogEntry,
+  returnToLobby,
   startGame,
   type ClientAction,
   type GameState,
@@ -292,6 +293,69 @@ export function getRoom(code: string): Room | undefined {
   return rooms.get(code.trim().toUpperCase());
 }
 
+type TableHelloConfig = {
+  turnSeconds?: number;
+  reactionSeconds?: number;
+  gameMode?: "bossKill";
+  difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
+  hardcore?: boolean;
+  allowLateJoin?: boolean;
+  clearPlayersOnRematch?: boolean;
+  boardSize?: "default" | "large" | "xlarge";
+  levelCount?: number;
+  maxHp?: number;
+  startPant?: number;
+  wakeLockBeforeStart?: boolean;
+  disabledCardIds?: string[];
+  cardCover?: string;
+};
+
+/** Applicera bordets hello-config (skapande, reconnect i lobby/ended). */
+function applyTableHelloConfig(room: Room, config: TableHelloConfig): void {
+  if (typeof config.turnSeconds === "number") {
+    room.state.config.turnSeconds = clampConfigNumber("turnSeconds", config.turnSeconds);
+  }
+  if (typeof config.reactionSeconds === "number") {
+    room.state.config.reactionSeconds = clampConfigNumber("reactionSeconds", config.reactionSeconds);
+  }
+  if (config.gameMode) {
+    room.state.config.gameMode = config.gameMode;
+  }
+  if (config.difficulty) {
+    room.state.config.difficulty = config.difficulty;
+  }
+  if (typeof config.hardcore === "boolean") {
+    room.state.config.hardcore = config.hardcore;
+  }
+  if (typeof config.allowLateJoin === "boolean") {
+    room.state.config.allowLateJoin = config.allowLateJoin;
+  }
+  if (typeof config.clearPlayersOnRematch === "boolean") {
+    room.state.config.clearPlayersOnRematch = config.clearPlayersOnRematch;
+  }
+  if (config.boardSize) {
+    room.state.config.boardSize = config.boardSize;
+  }
+  if (typeof config.levelCount === "number") {
+    room.state.config.levelCount = Math.max(1, Math.min(5, Math.floor(config.levelCount)));
+  }
+  if (typeof config.maxHp === "number") {
+    room.state.config.maxHp = clampConfigNumber("maxHp", config.maxHp);
+  }
+  if (typeof config.startPant === "number") {
+    room.state.config.startPant = clampConfigNumber("startPant", config.startPant);
+  }
+  if (typeof config.wakeLockBeforeStart === "boolean") {
+    room.state.config.wakeLockBeforeStart = config.wakeLockBeforeStart;
+  }
+  if (Array.isArray(config.disabledCardIds)) {
+    room.state.config.disabledCardIds = Array.from(new Set(config.disabledCardIds.filter(Boolean)));
+  }
+  if (config.cardCover) {
+    room.state.config.cardCover = config.cardCover;
+  }
+}
+
 export function listPersistedRooms(): PersistedRoom[] {
   return [...rooms.values()].map((room) => ({
     code: room.code,
@@ -436,8 +500,12 @@ function buildStateDelta(room: Room): { seq: number; patch: GameStateDeltaPatch 
   };
   appendChangedStateFields(room, patch);
 
-  if (changedPlayers.length > 0) {
-    if (!rosterChanged && changedPlayers.length < room.state.players.length) {
+  // rosterChanged måste skickas även när players=[] (annars behåller klienterna gamla spelare).
+  if (rosterChanged) {
+    patch.players = room.state.players;
+    syncBroadcastPlayerCache(room, room.state.players);
+  } else if (changedPlayers.length > 0) {
+    if (changedPlayers.length < room.state.players.length) {
       patch.players = changedPlayers;
       patch.playersPartial = true;
       for (const p of changedPlayers) {
@@ -485,6 +553,28 @@ export function scheduleBroadcastState(room: Room): void {
 
 export function sendError(ws: WebSocket, message: string): void {
   ws.send(JSON.stringify({ type: "error", message }));
+}
+
+/** Skicka sessionEnded och stäng controller — så mobilen inte auto-reconnectar in i lobbyn igen. */
+export function disconnectControllerSession(
+  room: Room,
+  conn: ClientConn,
+  reason: "kicked" | "lobbyCleared",
+): void {
+  try {
+    if (conn.ws.readyState === conn.ws.OPEN) {
+      conn.ws.send(JSON.stringify({ type: "sessionEnded", reason }));
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    // 4001 = kicked, 4002 = lobby cleared (privat app-intervall).
+    conn.ws.close(reason === "lobbyCleared" ? 4002 : 4001);
+  } catch {
+    // ignore
+  }
+  room.conns.delete(conn);
 }
 
 export function getRuntimeStats(): {
@@ -549,6 +639,7 @@ export function joinRoom(params: {
     difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
     hardcore?: boolean;
     allowLateJoin?: boolean;
+    clearPlayersOnRematch?: boolean;
     boardSize?: "default" | "large" | "xlarge";
     levelCount?: number;
     maxHp?: number;
@@ -560,50 +651,22 @@ export function joinRoom(params: {
 }): { conn: ClientConn; room: Room } | { error: string } {
   const { room, created } = getOrCreateRoom(params.roomCode);
 
-  if (created && params.role === "table" && params.config) {
-    if (typeof params.config.turnSeconds === "number") {
-      room.state.config.turnSeconds = clampConfigNumber("turnSeconds", params.config.turnSeconds);
+  /**
+   * Bordets hello bär lobbyinställningar. Applicera inte bara vid `created` —
+   * reconnect / Strict Mode / återställd snapshot hoppar annars över t.ex. clearPlayersOnRematch.
+   */
+  if (
+    params.role === "table" &&
+    params.config &&
+    (created || room.state.phase === "lobby" || room.state.phase === "ended")
+  ) {
+    applyTableHelloConfig(room, params.config);
+    if (created) {
+      pushLogEntry(room.state, {
+        message: `Värden sparade lobbyinställningar.`,
+        key: LOG_MESSAGE_KEYS.lobbySettingsSaved,
+      });
     }
-    if (typeof params.config.reactionSeconds === "number") {
-      room.state.config.reactionSeconds = clampConfigNumber("reactionSeconds", params.config.reactionSeconds);
-    }
-    if (params.config.gameMode) {
-      room.state.config.gameMode = params.config.gameMode;
-    }
-    if (params.config.difficulty) {
-      room.state.config.difficulty = params.config.difficulty;
-    }
-    if (typeof params.config.hardcore === "boolean") {
-      room.state.config.hardcore = params.config.hardcore;
-    }
-    if (typeof params.config.allowLateJoin === "boolean") {
-      room.state.config.allowLateJoin = params.config.allowLateJoin;
-    }
-    if (params.config.boardSize) {
-      room.state.config.boardSize = params.config.boardSize;
-    }
-    if (typeof params.config.levelCount === "number") {
-      room.state.config.levelCount = Math.max(1, Math.min(5, Math.floor(params.config.levelCount)));
-    }
-    if (typeof params.config.maxHp === "number") {
-      room.state.config.maxHp = clampConfigNumber("maxHp", params.config.maxHp);
-    }
-    if (typeof params.config.startPant === "number") {
-      room.state.config.startPant = clampConfigNumber("startPant", params.config.startPant);
-    }
-    if (typeof params.config.wakeLockBeforeStart === "boolean") {
-      room.state.config.wakeLockBeforeStart = params.config.wakeLockBeforeStart;
-    }
-    if (Array.isArray(params.config.disabledCardIds)) {
-      room.state.config.disabledCardIds = Array.from(new Set(params.config.disabledCardIds.filter(Boolean)));
-    }
-    if (params.config.cardCover) {
-      room.state.config.cardCover = params.config.cardCover;
-    }
-    pushLogEntry(room.state, {
-      message: `Värden sparade lobbyinställningar.`,
-      key: LOG_MESSAGE_KEYS.lobbySettingsSaved,
-    });
   }
 
   const existingPlayerId =
@@ -812,7 +875,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
   room.stateSeq += 1;
   room.lastActivityAt = Date.now();
   const action = raw as ClientAction | { type?: string };
-  const privilegedActionTypes = new Set(["startGame", "setConfig", "tableKickPlayer"]);
+  const privilegedActionTypes = new Set(["startGame", "setConfig", "tableKickPlayer", "returnToLobby"]);
   try {
     if (action?.type && privilegedActionTypes.has(action.type) && !conn.trusted) {
       stats.actionErrors += 1;
@@ -844,12 +907,24 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       });
       for (const c of [...room.conns]) {
         if (c.role === "controller" && c.playerId === targetId) {
-          try {
-            c.ws.close();
-          } catch {
-            // ignore
+          disconnectControllerSession(room, c, "kicked");
+        }
+      }
+      scheduleBroadcastState(room);
+      return null;
+    }
+
+    if (action?.type === "returnToLobby") {
+      if (conn.role !== "table") return "Endast bordet kan starta nytt spel";
+      if (room.state.phase !== "ended") return "Spelet är inte slut";
+      const res = returnToLobby(room.state);
+      if (res.error) return res.error;
+      room.state = res.state;
+      if (room.state.config.clearPlayersOnRematch === true) {
+        for (const c of [...room.conns]) {
+          if (c.role === "controller") {
+            disconnectControllerSession(room, c, "lobbyCleared");
           }
-          room.conns.delete(c);
         }
       }
       scheduleBroadcastState(room);

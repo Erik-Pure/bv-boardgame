@@ -25,6 +25,7 @@ export const clientHelloSchema = z.object({
       difficulty: z.enum(["lattol", "folkol", "starkol", "imperial"]).optional(),
       hardcore: z.boolean().optional(),
       allowLateJoin: z.boolean().optional(),
+      clearPlayersOnRematch: z.boolean().optional(),
       boardSize: z.enum(["default", "large", "xlarge"]).optional(),
       levelCount: z.number().int().min(1).max(5).optional(),
       maxHp: z.number().int().min(CONFIG_NUMERIC.maxHp.min).max(CONFIG_NUMERIC.maxHp.max).optional(),
@@ -64,4 +65,6 @@ export type ServerMessage =
   | { type: "helloAck"; playerId: string; roomCode: string; protocolVersion?: number }
   | { type: "state"; state: unknown; seq?: number }
   | { type: "stateDelta"; seq: number; patch: unknown }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** Controller bortkopplad medvetet (kick / rensad lobby) — klienten ska inte auto-reconnecta. */
+  | { type: "sessionEnded"; reason: "kicked" | "lobbyCleared" };

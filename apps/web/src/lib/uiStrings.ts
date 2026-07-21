@@ -204,6 +204,8 @@ export const sv = {
     wsReconnectFooterConnecting: "Ansluter…",
     wsReconnectFooterWaiting: (n: number) => (n > 0 ? `Försök ${n}` : "Nytt försök snart…"),
     notConnected: "Inte ansluten till servern.",
+    sessionEndedKicked: "Du togs bort från spelet.",
+    sessionEndedLobbyCleared: "Lobbyn rensades — gå med igen om du vill fortsätta.",
     lobbySheet: (ready: number, total: number) => `Lobby — redo: ${ready} / ${total}`,
     unready: "Ångra redo",
     ready: "Redo",
@@ -533,6 +535,7 @@ export const sv = {
     lobbySetupTitle: "Lobbyinställningar",
     lobbyHardcoreModeLabel: "Hardcore mode (endast 1 liv)",
     lobbyAllowLateJoinLabel: "Tillåt sen anslutning",
+    lobbyClearPlayersOnRematchLabel: "Rensa spelare vid nytt spel",
     lobbyWakeLockDisableScreen: "Inaktivera sömnläge för skärm",
     lobbyWakeLockBeforeStart: "Håll skärmen vaken redan i lobby",
     lobbyStartLobby: "Starta lobby",
@@ -579,6 +582,8 @@ export const sv = {
     winner: "Vinnare",
     /** Knapp i modalen när spelet är slut — går till startsidan. */
     gameOverLeaveToHome: "Avsluta spelet",
+    /** Bord: nytt parti i samma rum med samma lobbyinställningar. */
+    gameOverPlayAgain: "Nytt spel",
     /** Valfri länk till Google Forms efter avslutat parti (mobil). */
     gameOverFeedback: "Ge feedback (valfritt)",
     spotlightRegionAria: "Höjdpunkter",
