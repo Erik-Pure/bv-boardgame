@@ -36,7 +36,7 @@
 .tableHeader {
   padding: 8px 10px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 8px;
   align-items: center;
   column-gap: 10px;
@@ -63,6 +63,21 @@
   max-width: 100%;
 }
 
+.headerLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.headerLogoImg {
+  display: block;
+  height: clamp(22px, 4.2vmin, 34px);
+  width: auto;
+  max-width: min(240px, 42vw);
+  object-fit: contain;
+}
+
 .headerStatusText {
   opacity: 0.88;
   font-size: var(--type-sm);
@@ -77,6 +92,7 @@
   min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
+  justify-self: end;
 }
 
 .headerToolbar {

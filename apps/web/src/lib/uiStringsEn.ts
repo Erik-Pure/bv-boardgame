@@ -433,6 +433,7 @@ export const en = {
     lobbyHideCardToggles: "Hide card selection",
     lobbyCardToggleHint: "System cards can't be turned off here. Unchecked cards aren't drawn in the game.",
     lobbyAdvancedSettings: "Advanced settings",
+    lobbyGeneral: "General",
     lobbyAccessibility: "Accessibility",
     lobbyGameValues: "Game values",
     lobbyAllowedCards: "Allowed cards",

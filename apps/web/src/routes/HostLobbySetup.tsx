@@ -163,6 +163,28 @@ export function HostLobbySetup() {
           </label>
         </div>
         <AdvancedSection title={ui.play.lobbyAdvancedSettings}>
+          <SubSection title={ui.play.lobbyGeneral}>
+            <div className={styles.stack}>
+              <label className={styles.inlineCheck}>
+                <input
+                  type="checkbox"
+                  checked={cfg.allowLateJoin}
+                  onChange={(e) => setCfg((v) => ({ ...v, allowLateJoin: e.target.checked }))}
+                  style={checkboxStyle}
+                />
+                <span>{ui.play.lobbyAllowLateJoinLabel}</span>
+              </label>
+              <label className={styles.inlineCheck}>
+                <input
+                  type="checkbox"
+                  checked={cfg.clearPlayersOnRematch}
+                  onChange={(e) => setCfg((v) => ({ ...v, clearPlayersOnRematch: e.target.checked }))}
+                  style={checkboxStyle}
+                />
+                <span>{ui.play.lobbyClearPlayersOnRematchLabel}</span>
+              </label>
+            </div>
+          </SubSection>
           <SubSection title={ui.table.board}>
             <div className={`${styles.stack} ${styles.boardGrid}`}>
               <label className={styles.field}>
@@ -379,24 +401,6 @@ export function HostLobbySetup() {
               style={checkboxStyle}
             />
             <span>{ui.play.lobbyWakeLockDisableScreen}</span>
-          </label>
-          <label className={styles.inlineCheck}>
-            <input
-              type="checkbox"
-              checked={cfg.allowLateJoin}
-              onChange={(e) => setCfg((v) => ({ ...v, allowLateJoin: e.target.checked }))}
-              style={checkboxStyle}
-            />
-            <span>{ui.play.lobbyAllowLateJoinLabel}</span>
-          </label>
-          <label className={styles.inlineCheck}>
-            <input
-              type="checkbox"
-              checked={cfg.clearPlayersOnRematch}
-              onChange={(e) => setCfg((v) => ({ ...v, clearPlayersOnRematch: e.target.checked }))}
-              style={checkboxStyle}
-            />
-            <span>{ui.play.lobbyClearPlayersOnRematchLabel}</span>
           </label>
         </div>
         <ArcadeButton

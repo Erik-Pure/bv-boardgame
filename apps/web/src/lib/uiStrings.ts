@@ -548,6 +548,7 @@ export const sv = {
     lobbyHideCardToggles: "Dölj kortval",
     lobbyCardToggleHint: "Systemkort kan inte stängas av här. Avmarkerade kort dras inte i spelet.",
     lobbyAdvancedSettings: "Avancerade inställningar",
+    lobbyGeneral: "Generella",
     lobbyAccessibility: "Tillgänglighet",
     lobbyGameValues: "Spelvärden",
     lobbyAllowedCards: "Tillåtna kort",

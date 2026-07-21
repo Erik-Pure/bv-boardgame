@@ -1379,6 +1379,14 @@ function TableViewBody() {
               {ui.table.lobby}: {room}
             </span>
           </div>
+          <div className={tableStyles.headerLogo}>
+            <BrandLogoImg
+              variant="horizontal"
+              alt={ui.home.title}
+              draggable={false}
+              className={tableStyles.headerLogoImg}
+            />
+          </div>
           <div className={tableStyles.headerRightControls}>
             <span className={tableStyles.headerStatusText}>
               {ui.table.status}: {wsStatusLabel(status, locale)}
