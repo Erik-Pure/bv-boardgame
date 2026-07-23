@@ -46,6 +46,7 @@ import {
   writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
   writeTurnBannerPlacement,
+  writeTableSidebarOpen,
 } from "../lib/boardPerformancePrefs";
 
 import { EndedScoreboardTable } from "../components/EndedScoreboardTable";
@@ -95,6 +96,7 @@ import cardFlipShellStyles from "../components/CardFlipModalShell.module.css";
 import { TableCombatBoardPanel } from "../components/table/TableCombatBoardPanel";
 import { TablePvpBoardPanel } from "../components/table/TablePvpBoardPanel";
 import { LevelRingCell } from "../components/LevelRingCell";
+import { EquipIcon } from "../components/play/EquipIcon";
 import { StatIcon, type StatIconKind } from "../components/StatIcon";
 import { DiceCube3D } from "../components/DiceCube3D";
 import { UserMenuIcon } from "../components/UserMenuIcon";
@@ -339,30 +341,44 @@ function TablePreGameLobbyPlayerRow(props: {
 
 function TableLobbyPlayerRow(props: {
   p: TableLobbyPlayer;
+  active: boolean;
   kickEnabled: boolean;
   onKickPlayer: (playerId: string, displayName: string) => void;
+  cardRef?: (el: HTMLDivElement | null) => void;
 }) {
   const locale = useLocale();
   const ui = useUiStrings();
-  const { p, kickEnabled, onKickPlayer } = props;
+  const { p, active, kickEnabled, onKickPlayer, cardRef } = props;
   const afflictions = tablePlayerAfflictionLines(p, ui);
-  const weaponName = getEquipmentDisplayByEquippedName(p.equipment.weapon?.name, locale)?.name ?? "—";
-  const armorName = getEquipmentDisplayByEquippedName(p.equipment.armor?.name, locale)?.name ?? "—";
-  const helmetName = getEquipmentDisplayByEquippedName(p.equipment.helmet?.name, locale)?.name ?? "—";
-  const accessoryName = getEquipmentDisplayByEquippedName(p.equipment.accessory?.name, locale)?.name ?? "—";
-  const dotStyle = { "--player-color": p.color } as CSSProperties;
+  const brewerLv = brewerDisplayLevel(p);
+  const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
+  const equipSlots = [
+    { slot: "weapon" as const, label: ui.play.equipWeapon, piece: p.equipment.weapon },
+    { slot: "armor" as const, label: ui.play.equipArmor, piece: p.equipment.armor },
+    { slot: "helmet" as const, label: ui.play.equipHelmet, piece: p.equipment.helmet },
+    { slot: "accessory" as const, label: ui.play.equipAccessory, piece: p.equipment.accessory },
+  ];
   return (
-    <div className={tableStyles.lobbyCard}>
+    <div
+      ref={cardRef}
+      className={[
+        tableStyles.lobbyCard,
+        active ? tableStyles.lobbyCardActive : "",
+        active ? tableStyles.lobbyCardActivePulse : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        ["--turn-player-bg" as string]: active ? p.color : undefined,
+        ["--turn-active-player-color" as string]: p.color,
+      }}
+    >
       <div className={`${u.flexSpaceBetweenGap10} ${tableStyles.lobbyRowTop}`}>
         <div className={`${tableStyles.lobbyNameCluster} ${tableStyles.lobbyNameClusterGrow}`}>
-          <span aria-hidden className={tableStyles.playerColorDot12} style={dotStyle} />
-          <span>
-            {p.name}
-            {p.isHost ? " (värd)" : ""}
+          <span className={tableStyles.lobbyPlayerAvatarWrap} aria-hidden>
+            <PlayerAvatarStack avatar={p.avatar} color={p.color} size="board" animate={false} />
           </span>
-          <span aria-label={p.ready ? ui.play.ready : ui.play.unready}>
-            {p.ready ? "✅" : "⛔"}
-          </span>
+          <span>{p.name}</span>
         </div>
         <button
           type="button"
@@ -375,26 +391,36 @@ function TableLobbyPlayerRow(props: {
           {ui.table.tableKickPlayerButton}
         </button>
       </div>
-      <div
-        className={`${u.inlineFlexGap12WrapEnd} ${tableStyles.lobbyStatsRow}`}
-        aria-label={ui.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}
-      >
-        <PlayerVitals hp={p.hp} maxHp={p.maxHp} pant={playerPant(p)} klunkar={p.klunkar} iconSize={18} />
+      <div className={tableStyles.lobbyStatsRow} aria-label={ui.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}>
+        <PlayerVitals
+          hp={p.hp}
+          maxHp={p.maxHp}
+          pant={playerPant(p)}
+          klunkar={p.klunkar}
+          iconSize={18}
+          brewerRing={{ level: brewerLv, ratio: brewerRatio }}
+        />
       </div>
       {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
       <div className={tableStyles.lobbyEquipGrid}>
-        <div className={u.ellipsis}>
-          {ui.play.equipWeapon}: {weaponName}
-        </div>
-        <div className={u.ellipsis}>
-          {ui.play.equipArmor}: {armorName}
-        </div>
-        <div className={u.ellipsis}>
-          {ui.play.equipHelmet}: {helmetName}
-        </div>
-        <div className={u.ellipsis}>
-          {ui.play.equipAccessory}: {accessoryName}
-        </div>
+        {equipSlots.map(({ slot, label, piece }) => {
+          const empty = !piece?.name;
+          const displayName = getEquipmentDisplayByEquippedName(piece?.name, locale)?.name;
+          return (
+            <div
+              key={slot}
+              className={[
+                tableStyles.lobbyEquipTile,
+                empty ? tableStyles.lobbyEquipTileEmpty : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-label={empty ? ui.equipAria.empty(label) : `${label}: ${displayName ?? piece!.name}`}
+            >
+              <EquipIcon slot={slot} disabled={empty} equippedName={piece?.name} iconSize={28} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -710,7 +736,7 @@ function TableViewBody() {
 
   const [state, setState] = useState<GameState | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => readBoardPerformancePrefs().tableSidebarOpen);
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
   const stateSeqTrackerRef = useRef(createStateSeqTracker());
@@ -1045,10 +1071,19 @@ function TableViewBody() {
     const id = window.setInterval(() => setEmoteDisplayTick((n) => n + 1), 200);
     return () => window.clearInterval(id);
   }, [hasActiveTurnBannerBursts]);
+  /** Remeasure emote-ankare när sidopanelen öppnas/stängs (bredd-transition). */
+  useEffect(() => {
+    setEmoteDisplayTick((n) => n + 1);
+    const t = window.setTimeout(() => setEmoteDisplayTick((n) => n + 1), 220);
+    return () => window.clearTimeout(t);
+  }, [sidebarOpen]);
   const turnBannerFanWrapRef = useRef<HTMLDivElement | null>(null);
   const turnBannerColorBarRef = useRef<HTMLDivElement | null>(null);
   const turnPlayersScrollerRef = useRef<HTMLDivElement | null>(null);
   const turnPlayerCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const lobbyPlayerCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const sidebarAsideRef = useRef<HTMLElement | null>(null);
+  const sidebarEmoteFanWrapRef = useRef<HTMLDivElement | null>(null);
   const activeTurnPlayerCardRef = useRef<HTMLDivElement | null>(null);
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const prevPlayerTilesRef = useRef<Map<string, { levelIndex: number; tileIndex: number }>>(new Map());
@@ -1198,6 +1233,22 @@ function TableViewBody() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [playingTurn, cur?.id, boardPlayers.length]);
+  useEffect(() => {
+    if (!sidebarOpen || !playingTurn || !cur?.id) return;
+    const scrollToActive = () => {
+      lobbyPlayerCardRefs.current.get(cur.id)?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    };
+    const raf = window.requestAnimationFrame(scrollToActive);
+    // Efter sidopanelens öppnings-transition så kortet finns i synlig bredd.
+    const t = window.setTimeout(scrollToActive, 220);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [sidebarOpen, playingTurn, cur?.id, boardPlayers.length]);
   const itemPlayFanCards = useMemo(() => {
     if (!state) return [];
     if (state.pending?.type === "combat" && (state.pending.reactionItemPlays?.length ?? 0) > 0) {
@@ -1214,8 +1265,10 @@ function TableViewBody() {
     playingTurn && currentTurnAfflictions.length > 0
       ? TABLE_TURN_BANNER_RESERVE_WITH_STATUS_PX
       : TABLE_TURN_BANNER_RESERVE_PX;
-  const turnBannerOnRight = playingTurn && boardPerf.turnBannerPlacement === "right";
-  const turnBannerOnBottom = playingTurn && !turnBannerOnRight;
+  const turnBannerOnRight =
+    playingTurn && !sidebarOpen && boardPerf.turnBannerPlacement === "right";
+  const turnBannerOnBottom = playingTurn && !sidebarOpen && !turnBannerOnRight;
+  const showStandaloneItemFan = showItemPlayFan && playingTurn && !turnBannerOnBottom;
   const showTableCombatBoardPanel = baseShowTableCombatBoardPanel || showMonsterCombatOutcomeOnCard;
 
   const bannerReserveStyle = {
@@ -1420,7 +1473,13 @@ function TableViewBody() {
                 aria-label={ui.play.players}
                 title={ui.play.players}
                 aria-expanded={sidebarOpen}
-                onClick={() => setSidebarOpen((o) => !o)}
+                onClick={() =>
+                  setSidebarOpen((o) => {
+                    const next = !o;
+                    writeTableSidebarOpen(next);
+                    return next;
+                  })
+                }
               >
                 <UserMenuIcon size={26} />
               </button>
@@ -1957,37 +2016,32 @@ function TableViewBody() {
         ) : null}
 
         <aside
+          ref={sidebarAsideRef}
           className={tableStyles.tableSidebarAside}
           data-open={sidebarOpen ? "true" : "false"}
         >
-          <h2 className={tableStyles.sidebarGameTitle}>{ui.table.game}</h2>
           {!state && <div className={tableStyles.waitingLine}>{ui.table.waitingState}</div>}
           {err && <div className={tableStyles.sidebarError}>{err}</div>}
 
           {state && (
             <>
-              <h3>{ui.table.lobbyList}</h3>
               <div className={u.stack8}>
                 {state.players.map((p) => (
                   <TableLobbyPlayerRow
                     key={p.id}
                     p={p}
+                    active={cur?.id === p.id}
                     kickEnabled={tableKickEnabled}
                     onKickPlayer={kickPlayerFromTable}
+                    cardRef={(el) => {
+                      if (el) lobbyPlayerCardRefs.current.set(p.id, el);
+                      else lobbyPlayerCardRefs.current.delete(p.id);
+                    }}
                   />
                 ))}
               </div>
 
-              <label className={tableStyles.sidebarPanelToggleRow}>
-                <input
-                  type="checkbox"
-                  checked={showSidebarLog}
-                  onChange={(e) => setShowSidebarLog(e.target.checked)}
-                  aria-label={ui.table.sidebarShowLog}
-                />
-                <span>{ui.table.sidebarShowLog}</span>
-              </label>
-
+              {/* Visa logg-toggle dold tillsvidare; state + loggpanel finns kvar. */}
               {showSidebarLog ? (
                 <>
                   <h3>{ui.table.log}</h3>
@@ -2003,6 +2057,22 @@ function TableViewBody() {
             </>
           )}
         </aside>
+
+        {sidebarOpen && state ? (
+          <div className={tableStyles.sidebarEmoteFanWrap} ref={sidebarEmoteFanWrapRef} aria-hidden>
+            <TurnBannerEmoteOverlay
+              players={boardPlayers}
+              emoteBursts={state.playerEmoteBursts}
+              klunkBursts={state.playerKlunkBursts}
+              fanWrapRef={sidebarEmoteFanWrapRef}
+              colorBarRef={sidebarAsideRef}
+              scrollerRef={sidebarAsideRef}
+              playerCardRefs={lobbyPlayerCardRefs}
+              layoutTick={emoteDisplayTick}
+              placement="right"
+            />
+          </div>
+        ) : null}
 
         {turnBannerOnRight ? (
           <div className={tableStyles.turnBannerDockSide} aria-live="polite">
@@ -2036,6 +2106,76 @@ function TableViewBody() {
           fanReservePx={fanReservePx}
         />
       ) : null}
+
+      {state?.phase === "playing" && state.pending?.type === "combat"
+        ? (() => {
+            const combatPending = state.pending;
+            const helpBannerPhase =
+              combatPending.phase === "helpChooseHelper" ||
+              combatPending.phase === "helpAwaitDecision" ||
+              combatPending.phase === "helpAwaitRequesterDecision" ||
+              combatPending.phase === "helpAwaitCard";
+            if (!helpBannerPhase) return null;
+
+            let label: string;
+            let aria: string;
+
+            if (combatPending.phase === "helpAwaitCard" && combatPending.helpSelectedHelperId) {
+              const helper =
+                playersById.get(combatPending.helpSelectedHelperId)?.name ??
+                ui.table.toastFallbackHelper;
+              label = ui.table.combatHelpAwaitCardBanner(helper);
+              aria = label;
+            } else {
+              const attacker = playersById.get(combatPending.attackerId);
+              if (!attacker) return null;
+              const awaitingRequester = combatPending.phase === "helpAwaitRequesterDecision";
+              label = awaitingRequester
+                ? ui.table.combatHelpRequesterWaitBanner(attacker.name)
+                : ui.table.combatHelpRequestBanner(attacker.name);
+              aria = awaitingRequester
+                ? ui.table.combatHelpRequesterWaitBannerAria(attacker.name)
+                : ui.table.combatHelpRequestBannerAria(attacker.name);
+            }
+
+            const animDots = boardPerf.boardAnimationsEnabled;
+            return (
+              <div
+                className={tableStyles.combatHelpRequestOverlay}
+                aria-live="polite"
+                aria-label={aria}
+              >
+                <div
+                  className={tableStyles.combatHelpRequestInner}
+                  data-anim-off={animDots ? undefined : "true"}
+                >
+                  <span>{label}</span>
+                  {animDots ? (
+                    <>
+                      <span className={tableStyles.merchantDot} aria-hidden>
+                        .
+                      </span>
+                      <span
+                        className={[tableStyles.merchantDot, tableStyles.merchantDot2].join(" ")}
+                        aria-hidden
+                      >
+                        .
+                      </span>
+                      <span
+                        className={[tableStyles.merchantDot, tableStyles.merchantDot3].join(" ")}
+                        aria-hidden
+                      >
+                        .
+                      </span>
+                    </>
+                  ) : (
+                    <span aria-hidden>…</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()
+        : null}
 
       {state?.pending?.type === "brewerDown" && (
         <CardFlipModalShell
@@ -2204,8 +2344,16 @@ function TableViewBody() {
         </div>
       ) : null}
 
-      {turnBannerOnRight && showItemPlayFan && state ? (
-        <div className={tableStyles.itemPlayFanDock} aria-hidden>
+      {showStandaloneItemFan && state ? (
+        <div
+          className={[
+            tableStyles.itemPlayFanDock,
+            sidebarOpen ? tableStyles.itemPlayFanDockSidebar : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-hidden
+        >
           <TableCombatReactionFan cards={itemPlayFanCards} liftPx={TABLE_ITEM_PLAY_LIFT_PX} />
         </div>
       ) : null}

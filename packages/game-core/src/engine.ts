@@ -105,6 +105,8 @@ import { combatItemAttackModForBoardLevel } from "./combatItemMods.js";
 import { pendingAllowsShortcutTaproom } from "./canUseItem.js";
 import { SHORTCUT_TELEPORT_GOLD_COST } from "./shortcutDisplayCost.js";
 import {
+  ANYTIME_PVP_PHASE_ITEM_IDS,
+  ANYTIME_USE_ITEM_IDS,
   isPositiveHelpItemId,
   playerHasPvpPreRoundItem,
   PVP_PRE_ROUND_ITEM_IDS,
@@ -450,9 +452,6 @@ export const PVP_LOOT_MAX_PANT = 10;
 export function pvpLootPantStealAmount(loserGold: number): number {
   return Math.min(PVP_LOOT_MAX_PANT, Math.max(0, Math.floor(loserGold)));
 }
-/** Helande föremål som får spelas utan tur (ej under stupad bryggare / strid / BvB där charity blockeras nedan). */
-const HEALING_ANYTIME_ITEM_IDS: ReadonlySet<ItemId> = new Set(["healing_potion", "pretzel_snack", "charity"]);
-
 /** Går till slag när båda är uttryckligen klara eller saknar PvB-föremål att spela i förberedelsen. */
 function tryAdvancePvpPreRoundToRolls(state: GameState, pending: Extract<Pending, { type: "pvp" }>): void {
   if (pending.phase !== "preRoundItems") return;
@@ -3443,7 +3442,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const inactiveErr = errorIfInactiveOtherPlayerTarget(itemTarget, user.id);
       if (inactiveErr) return { state, events: [], error: inactiveErr };
     }
-    if (next.pending?.type === "brewerDown" && HEALING_ANYTIME_ITEM_IDS.has(inst.itemId)) {
+    if (next.pending?.type === "brewerDown" && ANYTIME_USE_ITEM_IDS.has(inst.itemId)) {
       return { state, events: [], error: "Vänta tills du valt efter stupad bryggare." };
     }
 
@@ -3472,7 +3471,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       return { state, events: [], error: "Du kan inte sabotera din egen strid med det här föremålet." };
     }
     const skipHelpAwaitCardRules =
-      HEALING_ANYTIME_ITEM_IDS.has(inst.itemId) &&
+      ANYTIME_USE_ITEM_IDS.has(inst.itemId) &&
       inCombatHelpAwaitCard &&
       combatPending &&
       action.playerId !== combatPending.helpSelectedHelperId;
@@ -3488,18 +3487,18 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
     }
     const isYourTurn = cp.id === user.id;
-    const healingAnytimeOk = HEALING_ANYTIME_ITEM_IDS.has(inst.itemId);
-    if (!isYourTurn && !inCombatItemWindow && !inPvpPreRoundItems && !inPvpAwaitingRollsParticipant && !healingAnytimeOk) {
+    const anytimeUseOk = ANYTIME_USE_ITEM_IDS.has(inst.itemId);
+    if (!isYourTurn && !inCombatItemWindow && !inPvpPreRoundItems && !inPvpAwaitingRollsParticipant && !anytimeUseOk) {
       return { state, events: [], error: "Inte din tur" };
     }
-    const healingPvpRollOk =
-      inPvpAwaitingRollsParticipant && (inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack");
-    if (inPvpAwaitingRollsParticipant && !PVP_ROLL_PHASE_ITEM_IDS.has(inst.itemId) && !healingPvpRollOk) {
+    const anytimePvpRollOk =
+      inPvpAwaitingRollsParticipant && ANYTIME_PVP_PHASE_ITEM_IDS.has(inst.itemId);
+    if (inPvpAwaitingRollsParticipant && !PVP_ROLL_PHASE_ITEM_IDS.has(inst.itemId) && !anytimePvpRollOk) {
       return { state, events: [], error: "Det kortet kan inte spelas under BvB-slaget." };
     }
-    const healingPvpPreRoundOk =
-      inPvpPreRoundItems && (inst.itemId === "healing_potion" || inst.itemId === "pretzel_snack");
-    if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId) && !healingPvpPreRoundOk) {
+    const anytimePvpPreRoundOk =
+      inPvpPreRoundItems && ANYTIME_PVP_PHASE_ITEM_IDS.has(inst.itemId);
+    if (inPvpPreRoundItems && !PVP_PRE_ROUND_ITEM_IDS.has(inst.itemId) && !anytimePvpPreRoundOk) {
       return { state, events: [], error: "Det kortet kan inte spelas i BvB före rundan." };
     }
     const playCost = effectiveItemPlayGoldCost(user, inst.itemId);

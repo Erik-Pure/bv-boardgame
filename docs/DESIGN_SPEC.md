@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.78 |
-| Senast uppdaterad | 2026-07-21 |
+| Version | 0.79 |
+| Senast uppdaterad | 2026-07-23 |
 
 ---
 
@@ -76,7 +76,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Turindikator (detaljer):** i remsan/kolumnen visas **alla spelare** (namn + HP/pant/klunk). Aktiv spelare markeras med **spelarens färg**. Vid `bottom`: raden är centrerad när den får plats och kan annars scrolla **horisontellt**; vid `right`: **vertikal** scroll. **Långa namn** som inte ryms åker sakta **fram och tillbaka** (`PingPongOverflowText`); vid `prefers-reduced-motion` trunceras med ellipsis.
 - **Turindikator (status):** sömnstatus ska också synas i spelarraden; spelare som står över tur p.g.a. normal sömn markeras med **`(Zzz)`** efter namnet.
 - **Eliminerade / lämnat (bord):** spelare med **`eliminated`** eller **`leftVoluntarily`** har **ingen pjäs** på brädet. I turbannern: **vit döskalle** före namnet, **nedtonad** rad, ingen aktiv-puls även om de råkar vara «aktiva» i turordning. Spelare med **0 HP** men ej eliminerad (väntar på stupad-bryggare-val) behåller pjäs och normal banner tills de gett upp eller startar om.
-- **Emotes (bord):** valda emotes synkas via `sendEmote` och visas i ett **overlay** över turbannern (på brädet — bannerhöjden ökas **inte**). Ca **76×76 px**, **sammanhängande** rörelse: fade in, **långsam glidning** (uppåt vid `bottom`, **vänsterut** vid `right`) med **lätt rotation** (±7° start, +3° under färden) och **gradvis växande skala**, sedan fade ut (~**3,4 s**). Position följer spelarens kort i spelarraden (uppdateras vid scroll).
+- **Emotes (bord):** valda emotes synkas via `sendEmote` och visas i ett **overlay** över turbannern (på brädet — bannerhöjden ökas **inte**). Ca **76×76 px**, **sammanhängande** rörelse: fade in, **långsam glidning** (uppåt vid `bottom`, **vänsterut** vid `right`) med **lätt rotation** (±7° start, +3° under färden) och **gradvis växande skala**, sedan fade ut (~**3,4 s**). Position följer spelarens kort i spelarraden (uppdateras vid scroll). När **sidopanelens spelarlista är öppen** döljs turbannern; samma overlay ankras då till listans spelarkort och flyter **vänsterut** över brädet.
 - **Header på bordet:** huvudraden visar tydligt **`Lobby: KOD`** samt **anslutningsstatus**; “senaste tillstånd” och separata zoomknappar är borttagna. På desktop finns även en toggle **“Inaktivera sömnläge”** till vänster om status (wake lock när webbläsaren stödjer det).
 - **Målrutor (rörelseval):** markerade rutor har **ram** med marginal till tile-grafiken; ram kan ha **subtil pulserande animation**; SVG har **inre padding** så ramar inte klipps vid kanten.
 - **Före rörelsetärning:** på storskärmsbrädet (`/table`) ska rutan där **den aktiva spelaren** står markeras med **samma ram/puls** som målrutorna efter slag, så länge det är dags att slå rörelsetärning (`pending` tomt, spelarens tur) — tydlig “du står här” innan val av riktning.
@@ -99,7 +99,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **BvB-duellpanel (bord):** den flytande duellpanelen ska ha en **tydligt synlig** horisontell färgton (angripare / försvarare) med **lätt** mörk scrim ovanpå så typografi (t.ex. *DUELL*, rondrad) inte drunknar.
 - **BvB-tärningar på bordet:** visa **fast tärning direkt per spelare** så fort den spelarens kast finns. Endast sidan som ännu inte kastat ska fortsätta med idle-spin under `awaitingRolls`/reveal-delay. Undvik blink/flicker när en sida redan har resultat.
 - **Team battle-overlay på bordet:** vid övergången från **välj medkämpe** till nästa stridsfas ska overlayn vara renderingsstabil (ingen helsvart vy). Stridspanelen måste hantera fasbytet utan att bryta Reacts hook-ordning eller unmounta hela board-vyn.
-- **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation** (stats + utrustningsrader). I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
+- **Sidopanel (`/table`):** när spelet pågår visar spelarlistan **mobil-lik spelarinformation**: stats (HP/pant/klunk + bryggnivå-ring), **bildrutor för utrustning** (samma slot-ikoner som mobilen), och **turmarkering** som turbannern (spelarfärg + pulse). Ingen värd-etikett eller redo-status i listan under spelet. **Öppen sidopanel döljer turbannern**; emotes/klunk ankras då i listan. I pre-game lobby används fortsatt **enklare rad** med namn/redo för snabb överblick.
 - Teknik: se [TECH_SPEC.md](./TECH_SPEC.md) §3.2.
 
 ### 2.2 Festöversikt (`/fest`)
@@ -283,7 +283,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Demonkrigare (före strid):** om spelaren har **≥ 10 pant** visas ett valkort **betala 10 pant och undvik striden** / **Slåss**. Om spelaren har **< 10 pant** ska **inget** sådant valkort visas — mötet går **direkt till monsterintro/strid** (som vanliga slumpmonster utan förhandsmodal).
 - **Brewizard / Sourceress:** vid **förlorat** slag ska spelaren efter tärningsresultatet välja **ta en sip för reducerad skada** (och då +1 sip) **eller** **ta full skada enligt monsterets basvärde utan sip**. *(Exakta tal i data: t.ex. −3 / −2 mot full bas-skada.)* **Straffklunk-notis:** sip-meddelandet efter förlust ska visa **samma total** som tilldelats (monsterförlustens klunkar **plus** den valfria mitigations-klunken i **en** notis, inte två i rad.)
 - **Klunk på förlust:** fler monster än tidigare ger nu explicit klunk-straff vid förlust (utöver HP-skada), inte bara specialfall.
-- **Begär hjälp i monsterstrid (efter reaktioner, före slag):** angriparen kan välja **Be om hjälp** om det finns andra aktiva spelare med **positiva hjälpkort** för attack. Angriparen väljer hjälpare, hjälparen väljer kontrakt (**gratis**, **pant**, **skatt**, **dela lika**) eller nekar. Om hjälparen accepterar måste den spela **minst ett positivt kort** innan striden får gå vidare till slag.
+- **Begär hjälp i monsterstrid (efter reaktioner, före slag):** angriparen kan välja **Be om hjälp** om det finns andra aktiva spelare med **positiva hjälpkort** för attack. Angriparen väljer hjälpare, hjälparen väljer kontrakt (**gratis**, **pant**, **skatt**, **dela lika**) eller nekar. Om hjälparen accepterar måste den spela **minst ett positivt kort** innan striden får gå vidare till slag. **Bräd-TV:** under hela hjälpflödet visas en stor centrerad statusbanner i samma familj som Panta burkar (t.ex. `{namn} ber om hjälp`, `{hjälpare} hjälper till`), ovanför kortfan och tärning.
 - **Nya monsterspecialer:**  
   - **Demonkrigare:** vid förlust läker en **annan** levande spelare +3 HP (slumpad mottagare, cap vid max HP).  
   - **Busiga buskar:** vid förlust ger angriparen upp till **5 pant** till spelaren med **minst pant** (vid lika väljs mottagare slumpmässigt).  
@@ -305,6 +305,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - Reward i team battle följer samma mix som övrig PvE-loot: **itemkort och/eller utrustning**.
 - Vid **förlust** tar båda **samma inkommande skada** (med sina egna rustnings-/reduceringsregler tillämpade individuellt) och båda får klunk-straff enligt monsterregeln.
 - **Väntan på slag (mobil):** medan båda ska slå i lagstrid ska status visa vem som **redan slagit** respektive **inte slagit** (lokaliserad copy per spelarnamn).
+- **Partiella slag på bordet (lagstrid/Ölkompis):** under `reactions` med vald medkämpe visar bordet **två** tärningsplatser (angripare, sedan medkämpe). Varje tärning **fryses** så fort `pending.teamRolls[id]` har resultatet; den andra fortsätter snurra tills båda slagit. «N totalt» visas först i `rollPreview`.
 - **Efter båda slagit (`rollPreview`, mobil):** **alla** berörda (angripare, medhjälpare/ölkompis och övriga) ska se **resultattärningarna** (`previewDie` / `previewBroDie`) + totalsammanfattning tills angriparen trycker **Fortsätt** (`combatRollAck`). Icke-angripare får väntetext i stället för Fortsätt-knappen — **inte** en tom vänteskärm utan tärningar.
 - **Stridsrubrik på bordet (lagstrid):** vid lagstrid med vald medkämpe visar bordet **en** rubrikrad — *«ERIK OCH VERA MÖTER»* (`combatMeetBannerTeam` / `namesAndJoin` i `uiStrings`) — och den tidigare underraden *«Lagstrid: Vera»* utgår.
 - **Total efter slag (bord):** när stridstärningen är slagen (`rollPreview`, både singel och lagstrid) visas **«N totalt»** under tärning + modifierare (`previewTotal`, samma Permanent Marker-stil som siffran, mindre grad på ordet *totalt*); döljs vid döskalle (auto-förlust på etta/ettor).
@@ -680,4 +681,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.76 | 2026-07-06 | §2.1 **fit-to-viewport-skalning** av bordsöverlägg (små skärmar/solfjäder, uppskalning på ultrawide) + **mjuk omskalning** med toggle (`scaleAnimationsEnabled`); §2.1 ingen **dubbel klunk-toast** (`suppressTableToast`); §9.1.1 lagstridsrubrik *«A OCH B MÖTER»*, **«N totalt»** under tärningen efter slag, exakt modifierare ur `previewTotal` + aggregerad vapen-klunkbonus (`teamRolls.sipBoost`); §11 `itemCardBonus` bevaras vid **slumpad utrustning**; §12 omstart nollställer **bryggnivåbonusar** (`resetBrewerPerkProgress`); EN-kortnamn **Gotta Go Fast** (`item_beard_back`) |
 | 0.77 | 2026-07-16 | §2.1 turbanner: lokal pref **`turnBannerPlacement`** (`bottom`/`right`) i bordsinställningar + värd-lobby (tillgänglighet), **ping-pong** för långa namn, emotes vänsterut i högerläge; §4/§4.2 **`allowLateJoin`** + mid-game join (`playingAddPlayer`, ghost-slots räknas mot max 8); §9.1 mobil strid: **Permanent Marker** + **`CombatStrengthPill`** (samma framing som monsterkort); win/loss-rutor endast på kortet, inte i fight-panelen |
 | 0.78 | 2026-07-21 | §2.1/§4.2 **Nytt spel** (`returnToLobby`) + **`clearPlayersOnRematch`**; §13.1/`sessionEnded` vid kick/rensad lobby (ingen auto-reconnect); §9.1.1 medhjälpare ser resultattärningar under `rollPreview`; §16 `stateDelta` skickar även tom `players: []` vid roster-clear |
+| 0.79 | 2026-07-23 | §9.1.1 bord: lagstrid/Ölkompis fryser varje tärning så fort `teamRolls` har resultatet under `reactions` |
 

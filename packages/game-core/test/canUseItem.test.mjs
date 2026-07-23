@@ -134,6 +134,18 @@ describe("canUseItem", () => {
     assert.equal(canUseItem(helpAwait, "p2", "healing_potion", "self_or_other"), false);
   });
 
+  it("sip_card and coin_purse playable off-turn like healing", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false });
+    const offTurn = playingState([p1, p2], null, { currentTurnIndex: 1 });
+    assert.equal(canUseItem(offTurn, "p1", "sip_card", "other"), true);
+    assert.equal(canUseItem(offTurn, "p1", "coin_purse", "self"), true);
+
+    const brewerDown = playingState([p1, p2], { type: "brewerDown", playerId: "p1" });
+    assert.equal(canUseItem(brewerDown, "p1", "sip_card", "other"), false);
+    assert.equal(canUseItem(brewerDown, "p1", "coin_purse", "self"), false);
+  });
+
   it("shortcut playable during encounterChoice on own turn with enough pant", () => {
     const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, gold: 30 });
     const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });

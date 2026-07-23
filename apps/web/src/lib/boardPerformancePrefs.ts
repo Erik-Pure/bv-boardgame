@@ -5,6 +5,7 @@ const STORAGE_SCALE_ANIM = "bv.scaleAnimationsEnabled";
 const STORAGE_PREVENT_SLEEP = "bv.boardPreventSleepEnabled";
 const STORAGE_MOBILE_SFX = "bv.mobileSfxEnabled";
 const STORAGE_TURN_BANNER_PLACEMENT = "bv.turnBannerPlacement";
+const STORAGE_TABLE_SIDEBAR_OPEN = "bv.tableSidebarOpen";
 
 export const BOARD_PERF_PREFS_EVENT = "bv-board-performance-prefs";
 
@@ -22,6 +23,8 @@ export type BoardPerformancePrefs = {
   mobileSfxEnabled: boolean;
   /** Turbanner / spelarlista: nertill horisontellt eller till höger vertikalt. */
   turnBannerPlacement: TurnBannerPlacement;
+  /** Sidopanelens spelarlista öppen/stängd på `/table`. */
+  tableSidebarOpen: boolean;
 };
 
 function readBool(key: string, defaultValue: boolean): boolean {
@@ -92,6 +95,7 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, isMobileTouchDevice()),
     mobileSfxEnabled: readBool(STORAGE_MOBILE_SFX, true),
     turnBannerPlacement: readTurnBannerPlacement(),
+    tableSidebarOpen: readBool(STORAGE_TABLE_SIDEBAR_OPEN, false),
   };
 }
 
@@ -141,6 +145,10 @@ export function writeMobileSfxEnabled(value: boolean): void {
 
 export function writeTurnBannerPlacement(value: TurnBannerPlacement): void {
   writeString(STORAGE_TURN_BANNER_PLACEMENT, value);
+}
+
+export function writeTableSidebarOpen(value: boolean): void {
+  writeBool(STORAGE_TABLE_SIDEBAR_OPEN, value);
 }
 
 export function isLitePerformanceActive(): boolean {

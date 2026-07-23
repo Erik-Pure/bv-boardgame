@@ -752,6 +752,15 @@ export const sv = {
     combatHelpAwaitCard: (name: string) => `${name} måste spela ett positivt hjälpkort.`,
     combatHelpAcceptedContract: (name: string, contract: string) =>
       `${name} hjälper till (${contract}).`,
+    /** Bräd-TV: stor banner medan hjälpare ska spela föremålskort. */
+    combatHelpAwaitCardBanner: (helperName: string) => `${helperName} hjälper till`,
+    /** Bräd-TV: stor banner medan hjälpbegäran väntar på ja/nej (stil som merchantShopping). */
+    combatHelpRequestBanner: (attackerName: string) => `${attackerName} ber om hjälp`,
+    combatHelpRequestBannerAria: (attackerName: string) => `${attackerName} ber om hjälp`,
+    /** Bräd-TV: stor banner medan angriparen svarar på hjälparens villkor. */
+    combatHelpRequesterWaitBanner: (attackerName: string) => `Väntar på ${attackerName}`,
+    combatHelpRequesterWaitBannerAria: (attackerName: string) =>
+      `Väntar på att ${attackerName} svarar på hjälpvillkoret`,
     attackerChoosesHit: (reduce: number) =>
       `Angriparen väljer: klunk (−${reduce} skada) eller full träff.`,
     attackerChoosesInterrobangHit:
@@ -759,10 +768,16 @@ export const sv = {
     attackerChoosesTransporterHit:
       "Angriparen väljer: betala 10 pant (0 skada) eller full träff.",
     /** Visas vid tärningen under reaktionsfasen när angriparen har pip-vapen (modifier utanför t6). */
-    diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} mot pantkostnad (valfritt)`,
-    diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} mot pantkostnad (valfritt)`,
+    diceModifierOptionalSipSuffix: (sipBonus: number, costKlunks = 0) =>
+      costKlunks > 0
+        ? `· +${sipBonus} mot straffklunk (valfritt)`
+        : `· +${sipBonus} mot pantkostnad (valfritt)`,
+    diceModifierOnlyOptionalSip: (sipBonus: number, costKlunks = 0) =>
+      costKlunks > 0
+        ? `+${sipBonus} mot straffklunk (valfritt)`
+        : `+${sipBonus} mot pantkostnad (valfritt)`,
     /** Bräd-tv: efter slag om valfri pip-vapenbonus faktiskt togs — bara siffra + etikett vid tärningen. */
-    diceModifierSipTakenSub: "mot pantkostnad",
+    diceModifierSipTakenSub: (costKlunks = 0) => (costKlunks > 0 ? "mot straffklunk" : "mot pantkostnad"),
     /** Bräde: summeringsrad under stridstärningen ("totalt 9"). */
     diceTotalCaption: "totalt",
     pvpDuel: "BvB",

@@ -1,4 +1,9 @@
-import { levelUpCostsForTargetLevel, type GameState, type TileType } from "@bv/game-core";
+import {
+  isPlayerActiveInMatch,
+  levelUpCostsForTargetLevel,
+  type GameState,
+  type TileType,
+} from "@bv/game-core";
 import { moveChoiceTileVisual } from "../../lib/moveChoiceTileVisual";
 import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
 import { tileTypeLabel } from "../../lib/uiStrings";
@@ -33,6 +38,7 @@ export function MoveOptionLabel(props: {
   const hasOtherPlayer = props.state.players.some(
     (p) =>
       p.id !== props.meId &&
+      isPlayerActiveInMatch(p) &&
       p.levelIndex === props.levelIndex &&
       p.tileIndex === props.tileIndex,
   );

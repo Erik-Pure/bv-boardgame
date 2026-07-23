@@ -6,6 +6,7 @@ import {
   isFinalBossMonsterId,
   localizeFinalBossRoundLabel,
   monsterCombatEquipmentAttackBonus,
+  sipWeaponExtraAttackCosts,
   type GameState,
   type MonsterId,
   type Player,
@@ -19,7 +20,7 @@ import { CombatLoseCardContent } from "../CombatLoseCard";
 import { CombatSheetFrame } from "../CombatResultSheet";
 import { CombatWinCardContent } from "../CombatWinCard";
 import { CombatCritFailDiceCaption } from "../combat/CombatCritFailDiceCaption";
-import { combatPreviewShowsSkullOnOne } from "../../lib/combatCritFailUi";
+import { combatPreviewShowsSkullOnOne, combatTeamRollShowsSkullOnOne } from "../../lib/combatCritFailUi";
 import {
   combatLossKlunksForDisplay,
   monsterBoardFloorLevel,
@@ -67,21 +68,6 @@ function hitMitigationBoardHint(monsterId: string | undefined, table: UiStrings[
   if (monsterId === "kapten_interrobang") return table.attackerChoosesInterrobangHit;
   if (monsterId === "transporter") return table.attackerChoosesTransporterHit;
   return table.attackerChoosesHit(2);
-}
-
-function helpContractLabel(contract: "free" | "pant" | "treasure" | "split" | undefined): string {
-  switch (contract) {
-    case "free":
-      return "gratis";
-    case "pant":
-      return "mot panten";
-    case "treasure":
-      return "mot skatten";
-    case "split":
-      return "dela lika";
-    default:
-      return "okänt val";
-  }
 }
 
 /**
@@ -276,6 +262,9 @@ function TableCombatBoardPanelInner(props: {
   }
 
   const attacker = state.players.find((p) => p.id === pending.attackerId);
+  const assistPlayer = pending.assistId
+    ? state.players.find((p) => p.id === pending.assistId)
+    : undefined;
   const localizedMonster = localizedCombatMonster(pending, locale);
   const isFinalBossCombat = isFinalBossMonsterId(pending.monsterId as MonsterId);
   const need = pending.need + (pending.needMod ?? 0);
@@ -293,11 +282,23 @@ function TableCombatBoardPanelInner(props: {
     diceBesideCardPhases &&
     pending.phase !== "rollPreview" &&
     pending.phase !== "chooseHitMitigation";
+  /** Lagstrid/Ölkompis: visa två platser och frys varje slag så fort `teamRolls` har det. */
+  const showTeamReactionsDice =
+    combatBoardDiceSpinning && pending.phase === "reactions" && !!pending.assistId;
+  const attackerTeamRoll = showTeamReactionsDice
+    ? pending.teamRolls?.[pending.attackerId]
+    : undefined;
+  const assistTeamRoll =
+    showTeamReactionsDice && pending.assistId
+      ? pending.teamRolls?.[pending.assistId]
+      : undefined;
   const showCritFailDiceCaption =
     pending.phase === "rollPreview" &&
     pending.previewCritFailOnOne === true &&
     !combatBoardDiceSpinning;
   const previewSkullOnOne = combatPreviewShowsSkullOnOne(pending.previewCritFailOnOne);
+  const attackerTeamSkullOnOne = combatTeamRollShowsSkullOnOne(attacker);
+  const assistTeamSkullOnOne = combatTeamRollShowsSkullOnOne(assistPlayer);
   const finalBossRoundLabel = (() => {
     if (!isFinalBossCombat) return null;
     const raw = state.finalBossLivesRemaining ?? FINAL_BOSS_LIFE_TOTAL;
@@ -543,6 +544,19 @@ function TableCombatBoardPanelInner(props: {
         })()
       : null;
   const sipWeaponTakenBonus = sipWeaponTakenBonusFromPreview ?? sipWeaponTakenBonusFromReactions;
+  const sipWeaponTakenCostKlunks =
+    sipWeaponTakenBonus != null
+      ? (() => {
+          const ids = pending.assistId ? [pending.attackerId, pending.assistId] : [pending.attackerId];
+          let sum = 0;
+          for (const id of ids) {
+            if (pending.sipWeaponBonusChoice?.[id] !== true) continue;
+            const pl = modifierState.players.find((x) => x.id === id);
+            sum += sipWeaponExtraAttackCosts(pl?.equipment.weapon).klunks;
+          }
+          return sum;
+        })()
+      : 0;
   /** Slaget klart: summera tärning(ar) + modifierare åt spelarna. Döskalle (etta = förlust) visar ingen total. */
   const diceTotalEl =
     (pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") &&
@@ -623,13 +637,44 @@ function TableCombatBoardPanelInner(props: {
                     {sipWeaponTakenBonus != null ? (
                       <div className={combatStyles.modifierStackGap2}>
                         <span className={combatStyles.sipBonusBig}>+{sipWeaponTakenBonus}</span>
-                        <span className={combatStyles.sipTakenCaption}>{ui.table.diceModifierSipTakenSub}</span>
+                        <span className={combatStyles.sipTakenCaption}>
+                          {ui.table.diceModifierSipTakenSub(sipWeaponTakenCostKlunks)}
+                        </span>
                       </div>
                     ) : null}
                   </div>
                 ) : null}
                 <div className={combatStyles.diceGlowCircle}>
-                  {combatBoardDiceSpinning ? (
+                  {showTeamReactionsDice ? (
+                    <div className={combatStyles.flexCenterGap10}>
+                      {attackerTeamRoll ? (
+                        <DiceCube3D
+                          value={attackerTeamRoll.die}
+                          size={TABLE_MONSTER_COMBAT_DICE_PX}
+                          oneAsSkullIcon={attackerTeamSkullOnOne}
+                        />
+                      ) : (
+                        <DiceCube3D
+                          idleSpin
+                          spinning={boardAnimationsEnabled}
+                          size={TABLE_MONSTER_COMBAT_DICE_PX}
+                        />
+                      )}
+                      {assistTeamRoll ? (
+                        <DiceCube3D
+                          value={assistTeamRoll.die}
+                          size={TABLE_MONSTER_COMBAT_DICE_PX}
+                          oneAsSkullIcon={assistTeamSkullOnOne}
+                        />
+                      ) : (
+                        <DiceCube3D
+                          idleSpin
+                          spinning={boardAnimationsEnabled}
+                          size={TABLE_MONSTER_COMBAT_DICE_PX}
+                        />
+                      )}
+                    </div>
+                  ) : combatBoardDiceSpinning ? (
                     <DiceCube3D idleSpin spinning={boardAnimationsEnabled} size={TABLE_MONSTER_COMBAT_DICE_PX} />
                   ) : (
                     <div className={combatStyles.flexCenterGap10}>
@@ -700,37 +745,6 @@ function TableCombatBoardPanelInner(props: {
           {ui.play.waitIntervene}
         </div>
       )}
-      {pending.phase === "helpChooseHelper" ? (
-        <div className={combatStyles.hintLine13}>
-          <b>{ui.table.combatHelpAsking}</b>{" "}
-          {(pending.helpCandidateIds ?? [])
-            .map((id) => playersById.get(id)?.name ?? id)
-            .join(", ")}
-        </div>
-      ) : null}
-      {pending.phase === "helpAwaitDecision" && pending.helpSelectedHelperId ? (
-        <div className={combatStyles.hintLine13}>
-          {ui.table.combatHelpAwaitDecision(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
-        </div>
-      ) : null}
-      {pending.phase === "helpAwaitRequesterDecision" && pending.helpSelectedHelperId ? (
-        <div className={combatStyles.hintLine13}>
-          {ui.table.combatHelpAwaitDecision(playersById.get(pending.attackerId)?.name ?? "angriparen")}
-        </div>
-      ) : null}
-      {pending.phase === "helpAwaitCard" && pending.helpSelectedHelperId ? (
-        <div className={combatStyles.hintLine13}>
-          {ui.table.combatHelpAwaitCard(playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren")}
-          {pending.helpAccepted && pending.helpContract ? (
-            <div className={combatStyles.helpContractSub}>
-              {ui.table.combatHelpAcceptedContract(
-                playersById.get(pending.helpSelectedHelperId)?.name ?? "spelaren",
-                helpContractLabel(pending.helpContract),
-              )}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
       {(pending.phase === "rollPreview" || pending.phase === "chooseHitMitigation") && !monsterDiceHeroLayout && (
         <div className={combatStyles.diceRowWrap}>
           <DiceCube3D value={pending.previewDie ?? 1} size={TABLE_MONSTER_COMBAT_DICE_PX} oneAsSkullIcon={previewSkullOnOne} />

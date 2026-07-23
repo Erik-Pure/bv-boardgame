@@ -177,6 +177,8 @@ export {
 } from "./combatReactionAutopass.js";
 export { combatReactorsFor, playerCanCombatIntervene } from "./combatReactors.js";
 export {
+  ANYTIME_PVP_PHASE_ITEM_IDS,
+  ANYTIME_USE_ITEM_IDS,
   isPositiveHelpItemId,
   playerHasPvpPreRoundItem,
   POSITIVE_HELP_ITEM_IDS,

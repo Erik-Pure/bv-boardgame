@@ -1,5 +1,25 @@
 import type { ItemId, Player } from "./types.js";
 
+/**
+ * Föremål som får spelas utan egen tur.
+ * Blockeras under stupad bryggare; `charity` har ytterligare restriktioner (ej strid/BvB).
+ */
+export const ANYTIME_USE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
+  "healing_potion",
+  "pretzel_snack",
+  "sip_card",
+  "coin_purse",
+  "charity",
+]);
+
+/** Anytime-föremål som även får spelas under BvB-förberedelse och -slag. */
+export const ANYTIME_PVP_PHASE_ITEM_IDS: ReadonlySet<ItemId> = new Set([
+  "healing_potion",
+  "pretzel_snack",
+  "sip_card",
+  "coin_purse",
+]);
+
 /** Positiva attack-/hjälpföremål som kan spelas i stridshjälp (Begär hjälp). */
 export const POSITIVE_HELP_ITEM_IDS: ReadonlySet<ItemId> = new Set([
   "light_beer",

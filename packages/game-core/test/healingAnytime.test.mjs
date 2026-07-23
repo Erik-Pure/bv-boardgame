@@ -97,6 +97,54 @@ describe("healing anytime (off-turn + brewerDown)", () => {
     assert.equal((u.inventory ?? []).length, 0);
   });
 
+  it("coin_purse går att använda när det inte är spelarens tur", () => {
+    const purse = createItemInstance("coin_purse", "inst_purse");
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 2,
+      inventory: [purse],
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1 });
+    const state = baseState([p1, p2], 1, null);
+    const r = applyAction(state, {
+      type: "useItem",
+      playerId: "p1",
+      instanceId: "inst_purse",
+    });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    assert.ok(u);
+    assert.equal(u.gold, 6);
+    assert.equal((u.inventory ?? []).length, 0);
+  });
+
+  it("sip_card går att använda när det inte är spelarens tur", () => {
+    const sip = createItemInstance("sip_card", "inst_sip");
+    const p1 = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      inventory: [sip],
+    });
+    const p2 = mkPlayer({ id: "p2", name: "B", isHost: false, tileIndex: 1, klunkar: 0 });
+    const state = baseState([p1, p2], 1, null);
+    const r = applyAction(state, {
+      type: "useItem",
+      playerId: "p1",
+      instanceId: "inst_sip",
+      targetPlayerId: "p2",
+    });
+    assert.equal(r.error, undefined);
+    const u = r.state.players.find((x) => x.id === "p1");
+    const t = r.state.players.find((x) => x.id === "p2");
+    assert.ok(u);
+    assert.ok(t);
+    assert.equal(t.klunkar, 1);
+    assert.equal((u.inventory ?? []).length, 0);
+  });
+
   it("healing_potion nekas under stupad bryggare", () => {
     const hp = createItemInstance("healing_potion", "inst_hp");
     const p1 = mkPlayer({

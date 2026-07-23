@@ -637,6 +637,15 @@ export const en = {
     combatHelpAwaitCard: (name: string) => `${name} must play a positive help card.`,
     combatHelpAcceptedContract: (name: string, contract: string) =>
       `${name} is helping (${contract}).`,
+    /** Board TV: large banner while helper should play an item card. */
+    combatHelpAwaitCardBanner: (helperName: string) => `${helperName} is helping`,
+    /** Board TV: large banner while help request awaits yes/no (same family as merchantShopping). */
+    combatHelpRequestBanner: (attackerName: string) => `${attackerName} asking for help`,
+    combatHelpRequestBannerAria: (attackerName: string) => `${attackerName} is asking for help`,
+    /** Board TV: large banner while attacker responds to helper's terms. */
+    combatHelpRequesterWaitBanner: (attackerName: string) => `Waiting for ${attackerName}`,
+    combatHelpRequesterWaitBannerAria: (attackerName: string) =>
+      `Waiting for ${attackerName} to respond to the help terms`,
     attackerChoosesHit: (reduce: number) =>
       `Attacker chooses: sip (−${reduce} damage) or full hit.`,
     attackerChoosesInterrobangHit:
@@ -644,10 +653,16 @@ export const en = {
     attackerChoosesTransporterHit:
       "Attacker chooses: pay 10 cans (0 damage) or full hit.",
     /** Shown by the die during reaction phase when attacker has pip weapon (modifier outside d6). */
-    diceModifierOptionalSipSuffix: (sipBonus: number) => `· +${sipBonus} for can cost (optional)`,
-    diceModifierOnlyOptionalSip: (sipBonus: number) => `+${sipBonus} for can cost (optional)`,
+    diceModifierOptionalSipSuffix: (sipBonus: number, costKlunks = 0) =>
+      costKlunks > 0
+        ? `· +${sipBonus} for penalty sip (optional)`
+        : `· +${sipBonus} for can cost (optional)`,
+    diceModifierOnlyOptionalSip: (sipBonus: number, costKlunks = 0) =>
+      costKlunks > 0
+        ? `+${sipBonus} for penalty sip (optional)`
+        : `+${sipBonus} for can cost (optional)`,
     /** Board TV: after roll if optional pip weapon bonus was taken — just number + label by die. */
-    diceModifierSipTakenSub: "for can cost",
+    diceModifierSipTakenSub: (costKlunks = 0) => (costKlunks > 0 ? "for penalty sip" : "for can cost"),
     /** Board: summary line under the combat die ("total 9"). */
     diceTotalCaption: "total",
     pvpDuel: "BvB",

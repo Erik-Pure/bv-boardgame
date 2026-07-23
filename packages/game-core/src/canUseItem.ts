@@ -6,6 +6,7 @@ import {
 import { effectiveItemPlayGoldCost } from "./combatReactionAutopass.js";
 import { playerCanCombatIntervene } from "./combatReactors.js";
 import {
+  ANYTIME_PVP_PHASE_ITEM_IDS,
   isPositiveHelpItemId,
   POSITIVE_HELP_ITEM_IDS,
   PVP_PRE_ROUND_ITEM_IDS,
@@ -78,7 +79,7 @@ export function canUseItem(
 
   const itemPlayGoldCost = (id: ItemId) => effectiveItemPlayGoldCost(me, id);
 
-  if (itemId === "healing_potion" || itemId === "pretzel_snack") {
+  if (ANYTIME_PVP_PHASE_ITEM_IDS.has(itemId)) {
     if (me.eliminated) return false;
     if (pending?.type === "brewerDown") return false;
     if (

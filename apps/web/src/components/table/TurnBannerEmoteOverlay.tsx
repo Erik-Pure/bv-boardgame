@@ -40,8 +40,8 @@ export function TurnBannerEmoteOverlay(props: {
   emoteBursts: GameState["playerEmoteBursts"];
   klunkBursts: GameState["playerKlunkBursts"];
   fanWrapRef: RefObject<HTMLDivElement | null>;
-  colorBarRef: RefObject<HTMLDivElement | null>;
-  scrollerRef: RefObject<HTMLDivElement | null>;
+  colorBarRef: RefObject<HTMLElement | null>;
+  scrollerRef: RefObject<HTMLElement | null>;
   playerCardRefs: MutableRefObject<Map<string, HTMLDivElement>>;
   layoutTick: number;
   placement?: TurnBannerPlacement;
