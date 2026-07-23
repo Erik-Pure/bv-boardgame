@@ -106,7 +106,7 @@ function TableCombatBoardPanelInner(props: {
 }) {
   const locale = useLocale();
   const ui = useUiStrings();
-  const { state, playersById, boardAnimationsEnabled = true, monsterResultHoldover: hold } = props;
+  const { state, boardAnimationsEnabled = true, monsterResultHoldover: hold } = props;
   const overlayScale = useTableOverlayContentScale();
   const vvHeight = useVisualViewportHeight();
   const fanReservePx = props.fanReservePx ?? 0;

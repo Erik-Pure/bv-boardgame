@@ -742,8 +742,8 @@ function TableViewBody() {
   const stateSeqTrackerRef = useRef(createStateSeqTracker());
   const requestSnapshotRef = useRef<() => void>(() => undefined);
   const [showTileTypeLabels, setShowTileTypeLabels] = useState(false);
-  /** Sidopanel: spelhändelselogg dold tills användaren slår på den. */
-  const [showSidebarLog, setShowSidebarLog] = useState(false);
+  /** Sidopanel: spelhändelselogg dold tillsvidare (toggle UI borttagen; state kvar för återaktivering). */
+  const [showSidebarLog] = useState(false);
   const [joinUrlCopied, setJoinUrlCopied] = useState(false);
 
   const copyLobbyJoinUrl = useCallback(async () => {
