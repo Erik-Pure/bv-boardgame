@@ -71,6 +71,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
   const prevEventCardSfxSessionRef = useRef<string | null>(null);
   const prevMonsterOutcomeSfxKeyRef = useRef<string | null>(null);
   const prevBrewerDownSfxKeyRef = useRef<string | null>(null);
+  const prevActivePlayerIdRef = useRef<string | null | undefined>(undefined);
   const sfxSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     prevCombatSfxSessionRef.current = null;
     prevMonsterOutcomeSfxKeyRef.current = null;
     prevBrewerDownSfxKeyRef.current = null;
+    prevActivePlayerIdRef.current = undefined;
     prevPendingTypeRef.current = state?.pending?.type ?? null;
     clearCombatIntroSfxKeys();
     clearTableSfxQueue();
@@ -101,6 +103,24 @@ export function useGameSfxSync(props: GameSfxSyncProps): void {
     prevReactionPlaySeqRef.current =
       tableCombatSessionKey && state ? (lastCombatReactionPlaySeq(state) ?? -1) : null;
   }, [tableCombatSessionKey, state]);
+
+  /** Början av spelarens tur (bräde: varje turbyte; mobil: bara när det blir din tur). */
+  useEffect(() => {
+    if (!state || state.phase !== "playing" || !sfxEnabled) {
+      if (!sfxEnabled || state?.phase !== "playing") prevActivePlayerIdRef.current = undefined;
+      return;
+    }
+    const activeId = state.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
+    if (prevActivePlayerIdRef.current === undefined) {
+      prevActivePlayerIdRef.current = activeId;
+      return;
+    }
+    if (activeId === prevActivePlayerIdRef.current) return;
+    prevActivePlayerIdRef.current = activeId;
+    if (!activeId) return;
+    if (localPlayerId != null && activeId !== localPlayerId) return;
+    playTableSfx("playerTurn", { enabled: sfxEnabled });
+  }, [state, state?.phase, state?.currentTurnIndex, state?.turnOrder, sfxEnabled, localPlayerId]);
 
   useEffect(() => {
     if (tableCardPendingKey === prevEventCardSfxSessionRef.current) return;

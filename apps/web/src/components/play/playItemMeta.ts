@@ -1,7 +1,13 @@
-import type { GameLocale } from "@bv/game-core";
+import type { GameLocale, ItemId } from "@bv/game-core";
 import {
+  COMBAT_ITEM_BASE_ATTACK_MODS,
+  combatItemAttackModForBoardLevel,
   findBossTileIndexInLevel,
+  FLAT_ITEM_USE_BASE_AMOUNTS,
+  flatCombatItemAttackDisplayBase,
+  flatItemUseAmount,
   getCard,
+  playerTotalItemCardBonus,
   type GameState,
   type ItemUseTarget,
   type Player,
@@ -43,6 +49,72 @@ const ITEM_TARGET: Record<string, ItemUseTarget> = {
   get_lucky: "combat",
 };
 
+/** Katalogstil: unicode-minus för negativa värden. */
+export function formatItemEffectAmount(n: number): string {
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `−${Math.abs(n)}`;
+  return "0";
+}
+
+/**
+ * Ersätter effektens baskatalogsiffra med buffat/skalat värde.
+ * Kostnader (andra siffror i samma text) lämnas orörda genom att först matcha
+ * den signerade formen av basvärdet.
+ */
+export function replaceItemEffectAmountInText(text: string, base: number, adjusted: number): string {
+  if (base === adjusted || !text) return text;
+  const adjSigned = formatItemEffectAmount(adjusted);
+
+  if (base > 0) {
+    const plusBase = `+${base}`;
+    if (text.includes(plusBase)) {
+      return text.replace(plusBase, adjSigned);
+    }
+    // Heal-texter m.m. med bar siffra ("återställ 3 HP")
+    return text.replace(new RegExp(`(?<![\\d+−\\-])${base}(?!\\d)`), String(adjusted));
+  }
+
+  if (base < 0) {
+    const abs = Math.abs(base);
+    const uni = `−${abs}`;
+    const ascii = `-${abs}`;
+    if (text.includes(uni)) return text.replace(uni, adjSigned);
+    if (text.includes(ascii)) return text.replace(ascii, adjSigned);
+  }
+
+  return text;
+}
+
+export function applyItemCardBonusToItemText(
+  itemId: string,
+  text: string,
+  me: Player,
+  state: GameState | null,
+): string {
+  const id = String(itemId);
+  const bonus = playerTotalItemCardBonus(me);
+
+  const useBase = FLAT_ITEM_USE_BASE_AMOUNTS[id as ItemId];
+  if (typeof useBase === "number") {
+    const adjusted = flatItemUseAmount(id as ItemId, bonus);
+    if (adjusted == null) return text;
+    return replaceItemEffectAmountInText(text, useBase, adjusted);
+  }
+
+  const combatBase = COMBAT_ITEM_BASE_ATTACK_MODS[id];
+  if (typeof combatBase === "number") {
+    const boardLevel = me.levelIndex;
+    const adjusted =
+      state?.levels?.length && Number.isFinite(boardLevel)
+        ? combatItemAttackModForBoardLevel(id, boardLevel, bonus)
+        : flatCombatItemAttackDisplayBase(id, bonus);
+    if (adjusted == null) return text;
+    return replaceItemEffectAmountInText(text, combatBase, adjusted);
+  }
+
+  return text;
+}
+
 export function shortcutItemGoldCostForTargetLevel(targetLevelIndex: number): number {
   const levelNumber = Math.max(1, Math.floor(targetLevelIndex) + 1);
   return Math.max(0, levelNumber * 10);
@@ -73,7 +145,11 @@ export function itemMetaForView(
 ): { title: string; text: string; target: ItemUseTarget } {
   const ui = getUiStrings(locale);
   const base = itemMeta(itemId, locale);
-  if (String(itemId) !== "taproom_key" || !me || !state) return base;
+  const textWithBonus =
+    me != null ? applyItemCardBonusToItemText(itemId, base.text, me, state) : base.text;
+  const withBonus = textWithBonus === base.text ? base : { ...base, text: textWithBonus };
+
+  if (String(itemId) !== "taproom_key" || !me || !state) return withBonus;
   const levelsLen = state.levels?.length ?? 0;
   const lastIdx = levelsLen > 0 ? levelsLen - 1 : 0;
   const targetLevelIndex = me.levelIndex + 1;
@@ -82,8 +158,8 @@ export function itemMetaForView(
     const bossIdx = findBossTileIndexInLevel(state.levels[me.levelIndex]);
     if (bossIdx < 0) {
       return {
-        ...base,
-        text: `${base.text}\n${ui.play.itemShortcutNoBossTile}`,
+        ...withBonus,
+        text: `${withBonus.text}\n${ui.play.itemShortcutNoBossTile}`,
       };
     }
     const goldCost =
@@ -92,14 +168,14 @@ export function itemMetaForView(
         : shortcutItemGoldCostForTargetLevel(me.levelIndex);
     const onBoss = me.tileIndex === bossIdx;
     return {
-      ...base,
-      text: `${base.text}\n${ui.play.itemShortcutBossCost(goldCost, onBoss)}`,
+      ...withBonus,
+      text: `${withBonus.text}\n${ui.play.itemShortcutBossCost(goldCost, onBoss)}`,
     };
   }
   if (targetLevelIndex >= levelsLen) {
     return {
-      ...base,
-      text: `${base.text}\n${ui.play.itemShortcutTopFloor}`,
+      ...withBonus,
+      text: `${withBonus.text}\n${ui.play.itemShortcutTopFloor}`,
     };
   }
   const goldCost =
@@ -110,7 +186,7 @@ export function itemMetaForView(
         })()
       : shortcutItemGoldCostForTargetLevel(targetLevelIndex);
   return {
-    ...base,
-    text: `${base.text}\n${ui.play.itemShortcutLevelCost(goldCost, targetLevelIndex + 1)}`,
+    ...withBonus,
+    text: `${withBonus.text}\n${ui.play.itemShortcutLevelCost(goldCost, targetLevelIndex + 1)}`,
   };
 }

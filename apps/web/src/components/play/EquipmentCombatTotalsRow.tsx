@@ -3,11 +3,18 @@ import styles from "../../routes/PlayView.module.css";
 
 export type EquipmentCombatTotals = {
   maxHp: number;
+  /** Attack från utrustning + bryggbonus (utan tillfällig nextCombatModifier). */
   attack: number;
+  /** Tillfällig attackmodifierare (t.ex. Lengräddad) till nästa strid. */
+  nextCombatMod: number;
   shield: number;
   bvb: number;
   itemCards: number;
 };
+
+function formatSignedMod(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
 
 export function EquipmentCombatTotalsRow(props: {
   totals: EquipmentCombatTotals;
@@ -15,11 +22,16 @@ export function EquipmentCombatTotalsRow(props: {
 }) {
   const ui = useUiStrings();
   const { totals, className } = props;
+  const tempMod = totals.nextCombatMod ?? 0;
+  const attackAria =
+    tempMod !== 0
+      ? ui.play.equipmentAttackFromGearWithTempAria(totals.attack, tempMod)
+      : ui.play.equipmentAttackFromGearAria(totals.attack);
   return (
     <div
       className={[styles.equipmentCombatTotalsRow, className ?? ""].filter(Boolean).join(" ")}
       role="group"
-      aria-label={`${ui.play.equipmentMaxHpAria(totals.maxHp)} · ${ui.play.equipmentAttackFromGearAria(totals.attack)} · ${ui.play.equipmentDefenseFromGearAria(totals.shield)} · ${ui.play.equipmentBvbFromGearAria(totals.bvb)} · ${ui.play.brewerItemCardBonusAria(totals.itemCards)}`}
+      aria-label={`${ui.play.equipmentMaxHpAria(totals.maxHp)} · ${attackAria} · ${ui.play.equipmentDefenseFromGearAria(totals.shield)} · ${ui.play.equipmentBvbFromGearAria(totals.bvb)} · ${ui.play.brewerItemCardBonusAria(totals.itemCards)}`}
     >
       <div
         className={styles.equipmentCombatTotalPill}
@@ -36,8 +48,8 @@ export function EquipmentCombatTotalsRow(props: {
         <span>{totals.maxHp}</span>
       </div>
       <div
-        className={`${styles.equipmentCombatTotalPill}${totals.attack === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}`}
-        aria-label={ui.play.equipmentAttackFromGearAria(totals.attack)}
+        className={`${styles.equipmentCombatTotalPill}${totals.attack === 0 && tempMod === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : ""}${tempMod < 0 ? ` ${styles.equipmentCombatTotalPillNegative}` : ""}`}
+        aria-label={attackAria}
       >
         <img
           className={styles.equipmentCombatTotalIcon}
@@ -48,6 +60,11 @@ export function EquipmentCombatTotalsRow(props: {
           draggable={false}
         />
         <span>{totals.attack}</span>
+        {tempMod !== 0 ? (
+          <span className={styles.equipmentCombatTempMod} title={ui.play.equipmentNextCombatModHint}>
+            {formatSignedMod(tempMod)}
+          </span>
+        ) : null}
       </div>
       <div
         className={`${styles.equipmentCombatTotalPill}${totals.shield === 0 ? ` ${styles.equipmentCombatTotalPillMuted}` : totals.shield < 0 ? ` ${styles.equipmentCombatTotalPillNegative}` : ""}`}

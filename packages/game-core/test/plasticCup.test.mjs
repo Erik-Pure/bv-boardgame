@@ -96,6 +96,34 @@ function combatReactionsState(attacker, extra = {}) {
   };
 }
 
+function merchantState(player, shelfItems) {
+  return {
+    phase: "playing",
+    seed: 7,
+    config: gameConfig(),
+    roomCode: "T",
+    players: [player],
+    turnOrder: [player.id],
+    currentTurnIndex: 0,
+    levels: [{ tiles: [{ id: "m0", type: "merchant" }] }],
+    pending: {
+      type: "merchant",
+      playerId: player.id,
+      items: shelfItems,
+    },
+    log: [],
+    winnerId: null,
+    winnerName: null,
+    goldenBeerCarrierId: null,
+    finalBossMonsterId: "store_narcissius",
+    finalBossLivesRemaining: 3,
+    treasureTaken: {},
+    lastDiceRoll: null,
+    lastDiceRollerId: null,
+    sipNotices: [],
+  };
+}
+
 describe("Plastmugg", () => {
   it("monsterCombatEquipmentAttackBonus ger −2 attack", () => {
     const p = mkPlayer({
@@ -152,5 +180,63 @@ describe("Plastmugg", () => {
     });
     const pending = combatReactionsState(attacker).pending;
     assert.equal(playerHasCombatReactionPlayableItem(attacker, pending), true);
+  });
+
+  it("merchantBuy Enkelpipa över Plastmugg nollställer power och freeInventoryItemPlay", () => {
+    const buyer = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 50,
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+    });
+    const state = merchantState(buyer, [
+      {
+        id: "ew_singlepipe",
+        slot: "weapon",
+        name: "Enkelpipa",
+        price: 11,
+        power: 1,
+        sipAttackBonus: 1,
+      },
+    ]);
+    const r = applyAction(state, { type: "merchantBuy", playerId: "p1", itemId: "ew_singlepipe" });
+    assert.equal(r.error, undefined);
+    const w = r.state.players[0].equipment.weapon;
+    assert.equal(w?.name, "Enkelpipa");
+    assert.equal(w?.power, 1);
+    assert.equal(w?.sipAttackBonus, 1);
+    assert.equal(w?.freeInventoryItemPlay, undefined);
+    assert.equal(playerHasFreeInventoryItemPlay(r.state.players[0]), false);
+    assert.equal(monsterCombatEquipmentAttackBonus(r.state.players[0]), 1);
+  });
+
+  it("merchantBuy hydrerar Enkelpipa från katalog även om hyllraden har Plastmugg-fält", () => {
+    const buyer = mkPlayer({
+      id: "p1",
+      name: "A",
+      isHost: true,
+      gold: 50,
+      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+    });
+    const state = merchantState(buyer, [
+      {
+        id: "ew_singlepipe",
+        slot: "weapon",
+        name: "Enkelpipa",
+        price: 11,
+        // Korrupt/ofullständig hyllrad — ska ignoreras till förmån för katalogen
+        power: -2,
+        freeInventoryItemPlay: true,
+      },
+    ]);
+    const r = applyAction(state, { type: "merchantBuy", playerId: "p1", itemId: "ew_singlepipe" });
+    assert.equal(r.error, undefined);
+    const w = r.state.players[0].equipment.weapon;
+    assert.equal(w?.name, "Enkelpipa");
+    assert.equal(w?.power, 1);
+    assert.equal(w?.sipAttackBonus, 1);
+    assert.equal(w?.freeInventoryItemPlay, undefined);
+    assert.equal(monsterCombatEquipmentAttackBonus(r.state.players[0]), 1);
   });
 });

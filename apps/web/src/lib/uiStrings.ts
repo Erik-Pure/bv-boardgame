@@ -214,8 +214,11 @@ export const sv = {
     hostNeedPlayers: "Behövs minst 2 spelare och alla måste vara redo.",
     waitHostStart: "Väntar på att värden startar när alla är redo.",
     strength: "Styrka",
-    /** Mobil: utrustningsrad under slots — attack från utrustning + ev. stridsmodifierare. */
-    equipmentAttackFromGearAria: (n: number) => `Attack från utrustning (inkl. modifierare): ${n}`,
+    /** Mobil: utrustningsrad under slots — attack från utrustning (utan tillfällig modifierare). */
+    equipmentAttackFromGearAria: (n: number) => `Attack från utrustning: ${n}`,
+    equipmentAttackFromGearWithTempAria: (gear: number, temp: number) =>
+      `Attack från utrustning: ${gear}, tillfällig modifierare till nästa strid: ${temp > 0 ? `+${temp}` : temp}`,
+    equipmentNextCombatModHint: "Tillfällig attackmodifierare till nästa strid",
     equipmentMaxHpAria: (n: number) => `Max HP (utrustning och bryggbonusar): ${n}`,
     /** Mobil: sköld = skadersläckning från rustning/hjälm/tillbehör m.m. */
     equipmentDefenseFromGearAria: (n: number) => `Sköld — skadersläckning från utrustning: ${n}`,
@@ -275,7 +278,8 @@ export const sv = {
     combatHelpChooseHelper: "Välj vem du vill be om hjälp",
     combatHelpNoCandidates: "Ingen kan hjälpa till just nu.",
     combatHelpWaitAttackerChoose: (name: string) => `Väntar på att ${name} väljer hjälpare…`,
-    combatHelpDecisionPrompt: "Vill du hjälpa till i striden?",
+    combatHelpDecisionPrompt:
+      "Vill du hjälpa till? Du slår din egen tärning (som i lagstrid) och delar risken vid förlust.",
     combatHelpDecisionDecline: "Hjälp inte till",
     combatHelpDecisionFree: "Hjälp till (gratis)",
     combatHelpDecisionPant: "Hjälp till mot panten",
@@ -289,6 +293,7 @@ export const sv = {
     combatHelpPlayPositiveCard: "Spela minst ett positivt kort för att hjälpa till.",
     combatHelpNoPlayablePositiveCards: "Du har inget positivt hjälpkort att spela.",
     combatHelpWaitHelperCard: (name: string) => `Väntar på att ${name} spelar ett hjälpkort…`,
+    combatHelpWaitHelperRoll: (name: string) => `Väntar på att ${name} slår sin tärning i striden…`,
     combatHelpDeniedToast: (name: string) => `${name} avböjde att hjälpa till.`,
     intervenePickCard: "Ingrip — välj ett kort",
     /** Avslutar ingripande utan kort — skickar pass till servern (samma som “Gör inget”). */
@@ -434,6 +439,9 @@ export const sv = {
       pant > 0 ? `Sälj Plastback (+${pant} pant)` : "Sälj Plastback",
     takePlastbackBottle: (packRemaining: number) =>
       packRemaining > 0 ? `Ta flaska (${packRemaining} kvar)` : "Ta flaska",
+    /** Ta bort/kasta utrustad pjäs (förstörs). */
+    unequipEquipment: "Ta bort",
+    unequipEquipmentAria: (itemName: string) => `Ta bort ${itemName}`,
     leave: "Lämna",
     pvpChooseLoot: "BvB — välj byte",
     takePantMax10: "Ta pant (max 10)",
@@ -749,10 +757,10 @@ export const sv = {
     canIntervene: "Kan ingripa:",
     combatHelpAsking: "Begär hjälp:",
     combatHelpAwaitDecision: (name: string) => `Väntar på svar från ${name}…`,
-    combatHelpAwaitCard: (name: string) => `${name} måste spela ett positivt hjälpkort.`,
+    combatHelpAwaitCard: (name: string) => `${name} ska slå tärning i striden.`,
     combatHelpAcceptedContract: (name: string, contract: string) =>
       `${name} hjälper till (${contract}).`,
-    /** Bräd-TV: stor banner medan hjälpare ska spela föremålskort. */
+    /** Bräd-TV: stor banner medan hjälpare deltar (legacy helpAwaitCard). */
     combatHelpAwaitCardBanner: (helperName: string) => `${helperName} hjälper till`,
     /** Bräd-TV: stor banner medan hjälpbegäran väntar på ja/nej (stil som merchantShopping). */
     combatHelpRequestBanner: (attackerName: string) => `${attackerName} ber om hjälp`,

@@ -45,6 +45,7 @@ export const LOG_MESSAGE_KEYS = {
   combatHelpAsk: "combat.helpAsk",
   combatHelpDeclined: "combat.helpDeclined",
   playerTakePlastbackBottle: "player.takePlastbackBottle",
+  playerUnequipEquipment: "player.unequipEquipment",
   playerSwapWeaponTomFlaskaFromPlastback: "player.swapWeaponTomFlaskaFromPlastback",
   itemGrantPenaltySip: "item.grantPenaltySip",
   pvpLootGold: "pvp.lootGold",
@@ -222,6 +223,10 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
   [LOG_MESSAGE_KEYS.playerTakePlastbackBottle]: {
     sv: "{name} tar en flaska ur Plastback.",
     en: "{name} takes a bottle from the Crate.",
+  },
+  [LOG_MESSAGE_KEYS.playerUnequipEquipment]: {
+    sv: "{name} tar bort {itemName}.",
+    en: "{name} removes {itemName}.",
   },
   [LOG_MESSAGE_KEYS.playerSwapWeaponTomFlaskaFromPlastback]: {
     sv: "{name} byter ut vapen mot Tom flaska från Plastback.",

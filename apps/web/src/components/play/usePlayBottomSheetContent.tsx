@@ -62,6 +62,7 @@ export function usePlayBottomSheetContent(options: {
   mobileEquipmentCombatTotals: {
     maxHp: number;
     attack: number;
+    nextCombatMod: number;
     shield: number;
     bvb: number;
     itemCards: number;

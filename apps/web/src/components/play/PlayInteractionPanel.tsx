@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import {
   BREWER_PERK_MAX_PER_CATEGORY,
-  POSITIVE_HELP_ITEM_IDS,
   PVP_PRE_ROUND_ITEM_IDS,
   brewerPerkPickCount,
   canAffordPant,
@@ -20,7 +19,6 @@ import {
   monsterCombatEquipmentAttackBonus,
   penaltySipTotalForPlayer,
   playerCanCombatIntervene,
-  playerHasPlayablePositiveHelpItem,
   playerTotalItemCardBonus,
   previewHpAfterFlatDamage,
   pvpLootPantStealAmount,
@@ -85,6 +83,7 @@ import { capitalizeWord, equipmentSlotLabel, tileTypeLabel } from "../../lib/uiS
 export type MobileEquipmentCombatTotals = {
   maxHp: number;
   attack: number;
+  nextCombatMod: number;
   shield: number;
   bvb: number;
   itemCards: number;
@@ -685,57 +684,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   }
 
   if (pending?.type === "combat" && pending.phase === "helpAwaitCard") {
+    // Legacy: äldre klienter/partier — hjälparen ska slå tärning, inte spela kort.
     const helperId = pending.helpSelectedHelperId;
-    const isHelper = helperId === me.id;
     const helperName = helperId ? (state.players.find((p) => p.id === helperId)?.name ?? "—") : "—";
-    const helperItems = (me.inventory ?? []).filter((it) => {
-      const id = String(it.itemId);
-      if (!POSITIVE_HELP_ITEM_IDS.has(id as ItemId)) return false;
-      const cost = itemPlayGoldCost(id as ItemId);
-      return cost <= 0 || canAffordPant(me, cost);
-    });
-    if (isHelper) {
-      return (
-        <div className={u.stack10}>
-          <div className={`${u.textCenter} ${u.o92}`}>
-            {ui.play.combatHelpPlayPositiveCard}
-          </div>
-          {helperItems.length === 0 ? (
-            <div className={`${u.textCenter} ${u.o82}`}>{ui.play.combatHelpNoPlayablePositiveCards}</div>
-          ) : (
-            helperItems.map((it) => (
-              <ArcadeButton
-                key={it.instanceId}
-                variant="pink"
-                fullWidth
-                onClick={() =>
-                  send({
-                    type: "useItem",
-                    playerId: me.id,
-                    instanceId: it.instanceId,
-                    targetPlayerId: pending.attackerId,
-                  })
-                }
-              >
-                {itemMetaForView(it.itemId).title}
-                <CombatItemButtonSuffix itemId={it.itemId} {...combatItemSuffixOpts} />
-              </ArcadeButton>
-            ))
-          )}
-        </div>
-      );
-    }
     return (
       <div className={u.stack10}>
         <div className={`${u.textCenter} ${u.o82}`}>
-          {ui.play.combatHelpWaitHelperCard(helperName)}
+          {ui.play.combatHelpWaitHelperRoll(helperName)}
         </div>
         {pending.attackerId === me.id ? (
-          <ArcadeButton
-            variant="gray"
-            fullWidth
-            onClick={cancelCombatHelpRequest}
-          >
+          <ArcadeButton variant="gray" fullWidth onClick={cancelCombatHelpRequest}>
             {ui.play.combatHelpCancel}
           </ArcadeButton>
         ) : null}
@@ -776,6 +734,11 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         (p.nextCombatModifier ?? 0)
       );
     })();
+    const diceModifierPlayer =
+      pending.assistId != null
+        ? state.players.find((x) => x.id === me.id)
+        : state.players.find((x) => x.id === pending.attackerId);
+    const nextCombatModForDice = diceModifierPlayer?.nextCombatModifier ?? 0;
     const myWeaponSipBonus = me.equipment.weapon?.sipAttackBonus ?? 0;
     const mySipWeaponChoice = pending.sipWeaponBonusChoice?.[me.id];
     const mySipWeaponBonusActive = mySipWeaponChoice === true && myWeaponSipBonus > 0;
@@ -811,8 +774,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
       (pl) =>
         pl.id !== pending.attackerId &&
         pl.id !== pending.assistId &&
-        isPlayerActiveInMatch(pl) &&
-        playerHasPlayablePositiveHelpItem(state, pl),
+        isPlayerActiveInMatch(pl),
     );
     const myTeamRoll = pending.teamRolls?.[me.id];
     const attackerRoll = pending.teamRolls?.[pending.attackerId];
@@ -840,10 +802,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           ) : null}
           <div className={sheetDiceBlockClass}>
             <div className={styles.sheetDiceRowWithModifier}>
-              {diceModifierTotal !== 0 || attackDiceDoubledHint ? (
+              {diceModifierTotal !== 0 || attackDiceDoubledHint || nextCombatModForDice !== 0 ? (
                 <div className={styles.sheetDiceModifierSlot}>
                   {diceModifierTotal !== 0 ? (
                     <div className={styles.sheetDiceModifierBig}>{modTotalDisplay}</div>
+                  ) : null}
+                  {nextCombatModForDice !== 0 ? (
+                    <div className={styles.sheetDiceAttackDoubledHint}>
+                      {ui.play.equipmentNextCombatModHint}:{" "}
+                      {nextCombatModForDice > 0 ? `+${nextCombatModForDice}` : nextCombatModForDice}
+                    </div>
                   ) : null}
                   {attackDiceDoubledHint ? (
                     <div className={styles.sheetDiceAttackDoubledHint}>{attackDiceDoubledHint}</div>

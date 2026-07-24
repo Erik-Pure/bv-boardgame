@@ -100,7 +100,10 @@ export const en = {
     waitHostStart: "Waiting for the host to start when everyone is ready.",
     strength: "Strength",
     /** Mobile: equipment row under slots — attack from gear + any combat modifiers. */
-    equipmentAttackFromGearAria: (n: number) => `Attack from equipment (incl. modifiers): ${n}`,
+    equipmentAttackFromGearAria: (n: number) => `Attack from equipment: ${n}`,
+    equipmentAttackFromGearWithTempAria: (gear: number, temp: number) =>
+      `Attack from equipment: ${gear}, temporary modifier for next combat: ${temp > 0 ? `+${temp}` : temp}`,
+    equipmentNextCombatModHint: "Temporary attack modifier for next combat",
     equipmentMaxHpAria: (n: number) => `Max HP (equipment and brew bonuses): ${n}`,
     /** Mobile: shield = damage reduction from armor/helmet/accessory etc. */
     equipmentDefenseFromGearAria: (n: number) => `Shield — damage reduction from equipment: ${n}`,
@@ -160,7 +163,8 @@ export const en = {
     combatHelpChooseHelper: "Choose who you want to ask for help",
     combatHelpNoCandidates: "Nobody can help right now.",
     combatHelpWaitAttackerChoose: (name: string) => `Waiting for ${name} to choose a helper…`,
-    combatHelpDecisionPrompt: "Do you want to help in the fight?",
+    combatHelpDecisionPrompt:
+      "Do you want to help? You roll your own die (like a team battle) and share the risk on a loss.",
     combatHelpDecisionDecline: "Don't help",
     combatHelpDecisionFree: "Help (free)",
     combatHelpDecisionPant: "Help for cans",
@@ -174,6 +178,7 @@ export const en = {
     combatHelpPlayPositiveCard: "Play at least one positive card to help.",
     combatHelpNoPlayablePositiveCards: "You have no positive help cards to play.",
     combatHelpWaitHelperCard: (name: string) => `Waiting for ${name} to play a help card…`,
+    combatHelpWaitHelperRoll: (name: string) => `Waiting for ${name} to roll their die in combat…`,
     combatHelpDeniedToast: (name: string) => `${name} declined to help.`,
     intervenePickCard: "Intervene — choose a card",
     /** Ends intervention without a card — sends pass to server (same as "Do nothing"). */
@@ -319,6 +324,9 @@ export const en = {
       pant > 0 ? `Sell Crate (+${formatCanAmount(pant)})` : "Sell Crate",
     takePlastbackBottle: (packRemaining: number) =>
       packRemaining > 0 ? `Take bottle (${packRemaining} left)` : "Take bottle",
+    /** Remove/discard equipped piece (destroyed). */
+    unequipEquipment: "Remove",
+    unequipEquipmentAria: (itemName: string) => `Remove ${itemName}`,
     leave: "Leave",
     pvpChooseLoot: "BvB — choose loot",
     takePantMax10: "Take cans (max 10)",
@@ -634,10 +642,10 @@ export const en = {
     canIntervene: "Can intervene:",
     combatHelpAsking: "Requesting help:",
     combatHelpAwaitDecision: (name: string) => `Waiting for a response from ${name}…`,
-    combatHelpAwaitCard: (name: string) => `${name} must play a positive help card.`,
+    combatHelpAwaitCard: (name: string) => `${name} should roll their die in combat.`,
     combatHelpAcceptedContract: (name: string, contract: string) =>
       `${name} is helping (${contract}).`,
-    /** Board TV: large banner while helper should play an item card. */
+    /** Board TV: large banner while helper participates (legacy helpAwaitCard). */
     combatHelpAwaitCardBanner: (helperName: string) => `${helperName} is helping`,
     /** Board TV: large banner while help request awaits yes/no (same family as merchantShopping). */
     combatHelpRequestBanner: (attackerName: string) => `${attackerName} asking for help`,

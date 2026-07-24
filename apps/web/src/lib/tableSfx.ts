@@ -19,7 +19,8 @@ export type TableSfxId =
   | "badBatch"
   | "lose"
   | "gameover"
-  | "cans";
+  | "cans"
+  | "playerTurn";
 
 /** Alla ids med färdiga filer under public/sfx/. */
 export const TABLE_SFX_PLAYABLE_IDS = [
@@ -35,6 +36,7 @@ export const TABLE_SFX_PLAYABLE_IDS = [
   "lose",
   "gameover",
   "cans",
+  "playerTurn",
 ] as const satisfies readonly TableSfxId[];
 
 const TABLE_SFX_VOLUME = 0.62;
@@ -80,6 +82,8 @@ const TABLE_SFX_SRC: Record<TableSfxId, string | readonly string[]> = {
   gameover: "/sfx/gameover.mp3",
   /** Panta burkar (`chooseMerchant` eller landning på affärsruta): slump cans1–4 */
   cans: ["/sfx/cans1.mp3", "/sfx/cans2.mp3", "/sfx/cans3.mp3", "/sfx/cans4.mp3"],
+  /** Början av en spelares tur */
+  playerTurn: "/sfx/playerturn.mp3",
 };
 
 /** En `Audio` per fil — köad uppspelning väntar på `ended` så samma element räcker. */

@@ -218,12 +218,13 @@ export function PlayView() {
     if (!me || state?.phase !== "playing") return null;
     return {
       maxHp: me.maxHp,
-      attack: monsterCombatEquipmentAttackBonus(me) + (me.nextCombatModifier ?? 0),
+      attack: monsterCombatEquipmentAttackBonus(me),
+      nextCombatMod: me.nextCombatModifier ?? 0,
       shield: equipmentDamageNegate(me),
       bvb: pvpEquipmentDieBonusTotal(me),
       itemCards: playerTotalItemCardBonus(me),
     };
-  }, [me, state?.phase, me?.brewerItemCardBonus, me?.equipment]);
+  }, [me, state?.phase, me?.brewerItemCardBonus, me?.equipment, me?.nextCombatModifier]);
   const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
   const footerTurnCaption = useMemo(() => {
     if (!state || state.phase !== "playing" || !activeId) return null;

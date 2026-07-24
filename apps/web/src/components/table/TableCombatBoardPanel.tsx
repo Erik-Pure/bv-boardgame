@@ -337,7 +337,7 @@ function TableCombatBoardPanelInner(props: {
               : pending.phase === "helpAwaitRequesterDecision"
                 ? "2.65 — Väntar godkännande"
               : pending.phase === "helpAwaitCard"
-                ? "2.7 — Väntar hjälpkort"
+                ? "2.7 — Hjälpare i striden"
           : pending.phase === "chooseHitMitigation"
             ? ui.table.combatPhase3Choice
             : ui.table.combatPhase3Result;

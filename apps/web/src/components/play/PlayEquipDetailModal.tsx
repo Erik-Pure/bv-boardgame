@@ -160,6 +160,19 @@ export function PlayEquipDetailModal(props: {
                 </ArcadeButton>
               </div>
             ) : null}
+            {isMyTurn ? (
+              <ArcadeButton
+                variant="gray"
+                fullWidth
+                aria-label={ui.play.unequipEquipmentAria(modalTitle)}
+                onClick={() => {
+                  send({ type: "unequipEquipment", playerId: me.id, slot });
+                  onClose();
+                }}
+              >
+                {ui.play.unequipEquipment}
+              </ArcadeButton>
+            ) : null}
           </>
         )}
       </div>

@@ -873,6 +873,8 @@ export type ClientAction =
   | { type: "sellAccessory"; playerId: string }
   /** Ta en Tom flaska ur Plastback-hållaren. */
   | { type: "takePlastbackBottle"; playerId: string }
+  /** Ta bort/kasta utrustning från en slot (förstörs). */
+  | { type: "unequipEquipment"; playerId: string; slot: EquipmentSlot }
   | { type: "sendEmote"; playerId: string; emoteId: EmoteId };
 
 export interface ApplyResult {

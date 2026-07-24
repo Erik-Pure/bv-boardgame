@@ -568,7 +568,7 @@ export function shopItemEffectBadges(it: ShopItem): EffectBadgeData[] {
     pushShopBadge(badges, seen, { icon: "level", label: `+${it.moveBonus}` });
   }
   if (it.pvpCannotBeChallenged) {
-    pushShopBadge(badges, seen, { icon: "bvb", label: "PvB" });
+    pushShopBadge(badges, seen, { icon: "bvb", label: "BvB" });
   }
 
   return badges;

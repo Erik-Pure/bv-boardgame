@@ -1115,6 +1115,14 @@
   opacity: 1;
 }
 
+.equipmentCombatTempMod {
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.95;
+  margin-left: 1px;
+}
+
 .equipmentCombatTotalIcon {
   display: block;
   width: 18px;

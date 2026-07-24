@@ -499,14 +499,14 @@ function playerHasPlayablePositiveHelpItem(player: Player): boolean {
   return false;
 }
 
+/** Aktiva spelare som kan ombes om hjälp (inte angripare/assist — oberoende av förrådskort). */
 function combatHelpCandidateIds(state: GameState, pending: Extract<Pending, { type: "combat" }>): string[] {
   return state.players
-    .filter((pl) =>
-      pl.id !== pending.attackerId &&
-      pl.id !== pending.assistId &&
-      !pl.eliminated &&
-      pl.hp > 0 &&
-      playerHasPlayablePositiveHelpItem(pl),
+    .filter(
+      (pl) =>
+        pl.id !== pending.attackerId &&
+        pl.id !== pending.assistId &&
+        isPlayerActiveInMatch(pl),
     )
     .map((pl) => pl.id);
 }
@@ -518,6 +518,29 @@ function clearCombatHelpRequest(pending: Extract<Pending, { type: "combat" }>): 
   pending.helpUsedPositiveItem = undefined;
   pending.helpContract = undefined;
   pending.helpProposedContract = undefined;
+}
+
+/** Accepterad hjälp: hjälparen blir assist (slår tärning som i lagstrid/ölkompis). */
+function activateCombatHelpAsAssist(
+  state: GameState,
+  pending: Extract<Pending, { type: "combat" }>,
+  helperId: string,
+  contract: CombatHelpContract,
+): void {
+  pending.helpAccepted = true;
+  pending.helpUsedPositiveItem = true;
+  pending.helpContract = contract;
+  pending.helpProposedContract = undefined;
+  pending.helpSelectedHelperId = helperId;
+  pending.assistId = helperId;
+  pending.reactors = combatReactorsFor(state, pending.attackerId, helperId);
+  const reacted = { ...(pending.reacted ?? {}) };
+  for (const rid of Object.keys(reacted)) {
+    if (!pending.reactors.includes(rid)) delete reacted[rid];
+  }
+  pending.reacted = reacted;
+  pending.teamRolls = {};
+  pending.phase = "reactions";
 }
 
 function pvpWinsWithDefaults(pending: Extract<Pending, { type: "pvp" }>): { attacker: number; defender: number } {
@@ -661,82 +684,120 @@ function syncDynamicMaxHp(state: GameState): void {
   }
 }
 
+/**
+ * När hyll-/bytestid finns i katalogen: använd katalogfält så korrupt shop-rad
+ * inte kan lämna kvar t.ex. Plastmugg-power eller freeInventoryItemPlay.
+ */
+function resolveShopItemForEquip(item: ShopItem): ShopItem {
+  if (
+    item.slot !== "weapon" &&
+    item.slot !== "armor" &&
+    item.slot !== "helmet" &&
+    item.slot !== "accessory"
+  ) {
+    return item;
+  }
+  const eq = EQUIPMENT_CATALOG.find((e) => e.id === item.id && e.slot === item.slot);
+  if (!eq) return item;
+  return {
+    ...catalogEquipmentToMerchantShopItem(eq, eq.id),
+    price: item.price,
+    breakWinsRemaining: item.breakWinsRemaining,
+  };
+}
+
+function buildEquippedWeaponFromShopItem(item: ShopItem): Weapon {
+  const weapon: Weapon = {
+    name: item.name,
+    power: item.power ?? 1,
+  };
+  if (typeof item.sipAttackBonus === "number") weapon.sipAttackBonus = item.sipAttackBonus;
+  if (typeof item.sipWeaponBonusGoldCost === "number") {
+    weapon.sipWeaponBonusGoldCost = item.sipWeaponBonusGoldCost;
+  }
+  if (typeof item.sipWeaponBonusKlunks === "number") {
+    weapon.sipWeaponBonusKlunks = item.sipWeaponBonusKlunks;
+  }
+  if (typeof item.pvpDieBonus === "number") weapon.pvpDieBonus = item.pvpDieBonus;
+  if (typeof item.gainGoldOnWin === "number") weapon.gainGoldOnWin = item.gainGoldOnWin;
+  if (typeof item.powerAtGold10 === "number") weapon.powerAtGold10 = item.powerAtGold10;
+  if (typeof item.powerAtGold20 === "number") weapon.powerAtGold20 = item.powerAtGold20;
+  if (typeof item.powerAtGold30 === "number") weapon.powerAtGold30 = item.powerAtGold30;
+  if (typeof item.powerDynamicMax === "number") weapon.powerDynamicMax = item.powerDynamicMax;
+  if (typeof item.randomOtherDamageOnWin === "number") {
+    weapon.randomOtherDamageOnWin = item.randomOtherDamageOnWin;
+  }
+  if (item.breakOnWin === true) weapon.breakOnWin = true;
+  if (typeof item.breakWinsRemaining === "number") {
+    weapon.breakWinsRemaining = item.breakWinsRemaining;
+  }
+  if (typeof item.monsterLossSipReduction === "number") {
+    weapon.monsterLossSipReduction = item.monsterLossSipReduction;
+  }
+  if (item.freeInventoryItemPlay === true) weapon.freeInventoryItemPlay = true;
+  return weapon;
+}
+
 /** Sätter utrustning från affär/skatt-byte (samma fält som `merchantBuy`). */
 function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number): void {
-  if (item.slot === "weapon") {
-    p.equipment.weapon = {
-      name: item.name,
-      power: item.power ?? 1,
-      sipAttackBonus: item.sipAttackBonus,
-      sipWeaponBonusGoldCost: item.sipWeaponBonusGoldCost,
-      sipWeaponBonusKlunks: item.sipWeaponBonusKlunks,
-      pvpDieBonus: item.pvpDieBonus,
-      gainGoldOnWin: item.gainGoldOnWin,
-      powerAtGold10: item.powerAtGold10,
-      powerAtGold20: item.powerAtGold20,
-      powerAtGold30: item.powerAtGold30,
-      powerDynamicMax: item.powerDynamicMax,
-      randomOtherDamageOnWin: item.randomOtherDamageOnWin,
-      breakOnWin: item.breakOnWin,
-      breakWinsRemaining: item.breakWinsRemaining,
-      monsterLossSipReduction: item.monsterLossSipReduction,
-      freeInventoryItemPlay: item.freeInventoryItemPlay,
-    };
-  } else if (item.slot === "armor") {
+  const src = resolveShopItemForEquip(item);
+  if (src.slot === "weapon") {
+    p.equipment.weapon = buildEquippedWeaponFromShopItem(src);
+  } else if (src.slot === "armor") {
     p.equipment.armor = {
-      name: item.name,
-      bonusHp: item.bonusHp ?? 0,
-      combatBonus: item.combatBonus ?? 0,
-      damageNegate: item.damageNegate,
-      bossDamageNegateBonus: item.bossDamageNegateBonus,
-      negateAllOnce: item.negateAllOnce,
-      pvpCannotBeChallenged: item.pvpCannotBeChallenged,
-      pvpDieBonus: item.pvpDieBonus,
-      gainGoldOnDamageTaken: item.gainGoldOnDamageTaken,
-      healHpPerTurn: item.healHpPerTurn,
-      itemCardBonus: item.itemCardBonus,
+      name: src.name,
+      bonusHp: src.bonusHp ?? 0,
+      combatBonus: src.combatBonus ?? 0,
+      damageNegate: src.damageNegate,
+      bossDamageNegateBonus: src.bossDamageNegateBonus,
+      negateAllOnce: src.negateAllOnce,
+      pvpCannotBeChallenged: src.pvpCannotBeChallenged,
+      pvpDieBonus: src.pvpDieBonus,
+      gainGoldOnDamageTaken: src.gainGoldOnDamageTaken,
+      healHpPerTurn: src.healHpPerTurn,
+      itemCardBonus: src.itemCardBonus,
     };
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
     p.hp = Math.min(p.hp + 2, p.maxHp);
-  } else if (item.slot === "helmet") {
+  } else if (src.slot === "helmet") {
     p.equipment.helmet = {
-      name: item.name,
-      bonusHp: item.bonusHp ?? 0,
-      combatBonus: item.combatBonus ?? 0,
-      damageNegate: item.damageNegate,
-      bossDamageNegateBonus: item.bossDamageNegateBonus,
-      negateAllOnce: item.negateAllOnce,
-      penaltySipExtra: item.penaltySipExtra,
-      klunkAttackBonus10: item.klunkAttackBonus10,
-      klunkAttackBonus20: item.klunkAttackBonus20,
-      klunkAttackBonusMax: item.klunkAttackBonusMax,
-      pvpDieBonus: item.pvpDieBonus,
-      itemCardBonus: item.itemCardBonus,
+      name: src.name,
+      bonusHp: src.bonusHp ?? 0,
+      combatBonus: src.combatBonus ?? 0,
+      damageNegate: src.damageNegate,
+      bossDamageNegateBonus: src.bossDamageNegateBonus,
+      negateAllOnce: src.negateAllOnce,
+      penaltySipExtra: src.penaltySipExtra,
+      klunkAttackBonus10: src.klunkAttackBonus10,
+      klunkAttackBonus20: src.klunkAttackBonus20,
+      klunkAttackBonusMax: src.klunkAttackBonusMax,
+      pvpDieBonus: src.pvpDieBonus,
+      itemCardBonus: src.itemCardBonus,
     };
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
-    const helmHp = item.bonusHp ?? 0;
+    const helmHp = src.bonusHp ?? 0;
     if (helmHp > 0) p.hp = Math.min(p.hp + helmHp, p.maxHp);
     else p.hp = Math.min(p.hp, p.maxHp);
-  } else if (item.slot === "accessory") {
+  } else if (src.slot === "accessory") {
     p.equipment.accessory = {
-      name: item.name,
-      damageNegate: item.damageNegate,
-      combatBonus: item.combatBonus,
-      penaltySipExtra: item.penaltySipExtra,
-      moveBonus: item.moveBonus,
-      gainGoldPerCombat: item.gainGoldPerCombat,
-      gainKlunkPerCombat: item.gainKlunkPerCombat,
-      gainGoldPerPenaltyKlunk: item.gainGoldPerPenaltyKlunk,
-      preventTheft: item.preventTheft,
-      levelUpDiscountGold: item.levelUpDiscountGold,
-      canSkipMonsterEncounter: item.canSkipMonsterEncounter,
-      pvpDieBonus: item.pvpDieBonus,
-      ignoreCombatCritFailOnOne: item.ignoreCombatCritFailOnOne,
-      deathContinueCost: item.deathContinueCost,
-      merchantDiscountGold: item.merchantDiscountGold,
-      itemCardBonus: item.itemCardBonus,
+      name: src.name,
+      damageNegate: src.damageNegate,
+      combatBonus: src.combatBonus,
+      penaltySipExtra: src.penaltySipExtra,
+      moveBonus: src.moveBonus,
+      gainGoldPerCombat: src.gainGoldPerCombat,
+      gainKlunkPerCombat: src.gainKlunkPerCombat,
+      gainGoldPerPenaltyKlunk: src.gainGoldPerPenaltyKlunk,
+      preventTheft: src.preventTheft,
+      levelUpDiscountGold: src.levelUpDiscountGold,
+      canSkipMonsterEncounter: src.canSkipMonsterEncounter,
+      pvpDieBonus: src.pvpDieBonus,
+      ignoreCombatCritFailOnOne: src.ignoreCombatCritFailOnOne,
+      deathContinueCost: src.deathContinueCost,
+      merchantDiscountGold: src.merchantDiscountGold,
+      itemCardBonus: src.itemCardBonus,
     };
-    if (item.name === PLASTBACK_ACCESSORY_NAME) initPlastbackPack(p.equipment.accessory);
+    if (src.name === PLASTBACK_ACCESSORY_NAME) initPlastbackPack(p.equipment.accessory);
   }
   syncPlastbackEmptyBottleSynergy(p);
 }
@@ -1906,7 +1967,9 @@ function finalizeCombatAfterRollPreview(
       for (let i = 0; i < attackerItemCount; i++) {
         applyCombatRewardGrant(p, attackerGrantedRewardTitles);
       }
-      if (assistMate) {
+      // Ölkompis-skatter: inte när assist är stridshjälp (kontraktet styr hjälparens loot).
+      const assistIsHelpMate = !!(helpMate && assistMate && helpMate.id === assistMate.id);
+      if (assistMate && !assistIsHelpMate) {
         for (let i = 0; i < attackerItemCount; i++) {
           applyCombatRewardGrant(assistMate, beerBroGrantedRewardTitles);
         }
@@ -2904,6 +2967,20 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   normalizeConfig(next);
   // Keep dynamic equipment thresholds (e.g. Legendarisk Burkhjälm from nivå 4) in sync.
   syncDynamicMaxHp(next);
+  // Legacy: accepterad hjälp som väntade på positivt kort → assist + dual-roll.
+  if (
+    next.pending?.type === "combat" &&
+    next.pending.phase === "helpAwaitCard" &&
+    next.pending.helpAccepted === true &&
+    next.pending.helpSelectedHelperId
+  ) {
+    activateCombatHelpAsAssist(
+      next,
+      next.pending,
+      next.pending.helpSelectedHelperId,
+      next.pending.helpContract ?? "free",
+    );
+  }
   const events: string[] = [];
 
   if (next.phase === "lobby") {
@@ -3246,6 +3323,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     if (pending.teamBattleRequired || isFinalBossMonsterId(pending.monsterId as MonsterId)) {
       return { state, events: [], error: "Hjälp kan bara begäras i vanliga batchstrider" };
     }
+    if (pending.assistId) {
+      return { state, events: [], error: "En medhjälpare deltar redan i striden" };
+    }
     autoPassReactorsWithoutPlayableItems(next, pending);
     const everyoneDone = combatReactionsAllAnswered(pending.reactors ?? [], pending.reacted);
     const reactionDeadlineAt = pending.reactionsDeadlineAt ?? 0;
@@ -3364,16 +3444,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.phase = "reactions";
       return { state: next, events: ["state"] };
     }
-    if (!playerHasPlayablePositiveHelpItem(helper)) {
-      return { state, events: [], error: "Du har inget positivt hjälpkort du kan spela nu (t.ex. för lite pant)." };
-    }
     if (action.decision === "free") {
-      pending.helpAccepted = true;
-      pending.helpUsedPositiveItem = false;
-      pending.helpContract = "free";
-      pending.helpProposedContract = undefined;
-      pending.phase = "helpAwaitCard";
-      log(next, `${helper.name} accepterar att hjälpa till (free).`);
+      activateCombatHelpAsAssist(next, pending, helper.id, "free");
+      log(next, `${helper.name} accepterar att hjälpa till (gratis) och slår tärning i striden.`);
       return { state: next, events: ["state"] };
     }
     pending.helpAccepted = undefined;
@@ -3411,17 +3484,10 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       pending.phase = "reactions";
       return { state: next, events: ["state"] };
     }
-    if (!playerHasPlayablePositiveHelpItem(helper)) {
-      return { state, events: [], error: "Hjälparen kan inte spela något positivt hjälpkort nu (t.ex. för lite pant)." };
-    }
-    pending.helpAccepted = true;
-    pending.helpUsedPositiveItem = false;
-    pending.helpContract = requested as CombatHelpContract;
-    pending.helpProposedContract = undefined;
-    pending.phase = "helpAwaitCard";
+    activateCombatHelpAsAssist(next, pending, helper.id, requested as CombatHelpContract);
     log(
       next,
-      `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} accepterar hjälpvillkoret (${requested}) från ${helper.name}.`,
+      `${next.players.find((p) => p.id === action.playerId)?.name ?? "Angriparen"} accepterar hjälpvillkoret (${requested}) från ${helper.name} — båda slår tärning.`,
     );
     return { state: next, events: ["state"] };
   }
@@ -5698,6 +5764,39 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       next,
       pant > 0 ? `${cp.name} säljer Plastback och får ${pant} pant.` : `${cp.name} säljer Plastback.`,
     );
+    return { state: next, events: ["state"] };
+  }
+
+  if (action.type === "unequipEquipment") {
+    if (next.phase !== "playing") return { state, events: [], error: "Spelet är slut" };
+    const p = next.players.find((x) => x.id === action.playerId);
+    if (!p) return { state, events: [], error: "Spelaren hittades inte" };
+    if (p.eliminated || p.leftVoluntarily) {
+      return { state, events: [], error: "Du är ute ur spelet" };
+    }
+    const cp = currentPlayer(next);
+    if (!cp || cp.id !== action.playerId) {
+      return { state, events: [], error: "Inte din tur" };
+    }
+    const slot = action.slot;
+    if (slot !== "weapon" && slot !== "armor" && slot !== "helmet" && slot !== "accessory") {
+      return { state, events: [], error: "Ogiltig slot" };
+    }
+    const piece = p.equipment[slot];
+    if (!piece) {
+      return { state, events: [], error: "Ingen utrustning i den slotten" };
+    }
+    const name = piece.name ?? slot;
+    p.equipment[slot] = undefined;
+    if (slot === "armor" || slot === "helmet") {
+      p.maxHp = playerMaxHpFromBase(next.config.maxHp, p);
+      if (p.hp > p.maxHp) p.hp = p.maxHp;
+    }
+    onPlayerEquipmentSlotCleared(p, slot);
+    log(next, `${p.name} tar bort ${name}.`, {
+      key: LOG_MESSAGE_KEYS.playerUnequipEquipment,
+      params: { name: p.name, itemName: name },
+    });
     return { state: next, events: ["state"] };
   }
 
