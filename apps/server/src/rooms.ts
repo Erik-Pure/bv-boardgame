@@ -9,6 +9,7 @@ import {
   normalizeLoadedGameState,
   pushLogEntry,
   returnToLobby,
+  endMatch,
   startGame,
   type ClientAction,
   type GameState,
@@ -875,7 +876,13 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
   room.stateSeq += 1;
   room.lastActivityAt = Date.now();
   const action = raw as ClientAction | { type?: string };
-  const privilegedActionTypes = new Set(["startGame", "setConfig", "tableKickPlayer", "returnToLobby"]);
+  const privilegedActionTypes = new Set([
+    "startGame",
+    "setConfig",
+    "tableKickPlayer",
+    "returnToLobby",
+    "endMatch",
+  ]);
   try {
     if (action?.type && privilegedActionTypes.has(action.type) && !conn.trusted) {
       stats.actionErrors += 1;
@@ -927,6 +934,16 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
           }
         }
       }
+      scheduleBroadcastState(room);
+      return null;
+    }
+
+    if (action?.type === "endMatch") {
+      if (conn.role !== "table") return "Endast bordet kan avsluta spelet";
+      if (room.state.phase !== "playing") return "Spelet pågår inte";
+      const res = endMatch(room.state);
+      if (res.error) return res.error;
+      room.state = res.state;
       scheduleBroadcastState(room);
       return null;
     }

@@ -26,6 +26,11 @@ import { BeerBackdropLayers } from "../components/BeerBackdropLayers";
 import { FinalBossCombatBackdrop } from "../components/FinalBossCombatBackdrop";
 import { TableCombatReactionFan } from "../components/table/TableCombatReactionFan";
 import { TurnBannerEmoteOverlay } from "../components/table/TurnBannerEmoteOverlay";
+import { TableTurnAnnounceOverlay } from "../components/table/TableTurnAnnounceOverlay";
+import {
+  TableMatchStartOverlay,
+  type MatchStartDigit,
+} from "../components/table/TableMatchStartOverlay";
 import { expandReactionPlaysToFanCards, expandTableRevealsToFanCards } from "../lib/tableItemPlayFanCards";
 import {
   applyFullGameState,
@@ -349,6 +354,8 @@ function TableLobbyPlayerRow(props: {
   const locale = useLocale();
   const ui = useUiStrings();
   const { p, active, kickEnabled, onKickPlayer, cardRef } = props;
+  const outOfGame = !isPlayerOnBoard(p);
+  const leftVoluntary = p.leftVoluntarily === true;
   const afflictions = tablePlayerAfflictionLines(p, ui);
   const brewerLv = brewerDisplayLevel(p);
   const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
@@ -358,18 +365,21 @@ function TableLobbyPlayerRow(props: {
     { slot: "helmet" as const, label: ui.play.equipHelmet, piece: p.equipment.helmet },
     { slot: "accessory" as const, label: ui.play.equipAccessory, piece: p.equipment.accessory },
   ];
+  const showActive = active && !outOfGame;
+  const outTag = leftVoluntary ? ui.festDashboard.left : ui.festDashboard.eliminated;
   return (
     <div
       ref={cardRef}
       className={[
         tableStyles.lobbyCard,
-        active ? tableStyles.lobbyCardActive : "",
-        active ? tableStyles.lobbyCardActivePulse : "",
+        showActive ? tableStyles.lobbyCardActive : "",
+        showActive ? tableStyles.lobbyCardActivePulse : "",
+        outOfGame ? tableStyles.lobbyCardOutOfGame : "",
       ]
         .filter(Boolean)
         .join(" ")}
       style={{
-        ["--turn-player-bg" as string]: active ? p.color : undefined,
+        ["--turn-player-bg" as string]: showActive ? p.color : undefined,
         ["--turn-active-player-color" as string]: p.color,
       }}
     >
@@ -378,7 +388,31 @@ function TableLobbyPlayerRow(props: {
           <span className={tableStyles.lobbyPlayerAvatarWrap} aria-hidden>
             <PlayerAvatarStack avatar={p.avatar} color={p.color} size="board" animate={false} />
           </span>
-          <span>{p.name}</span>
+          {outOfGame ? (
+            leftVoluntary ? (
+              <img
+                src="/icons/door-exit.svg"
+                alt={ui.play.scoreboardLeftGameAria}
+                title={ui.play.scoreboardLeftGameAria}
+                width={18}
+                height={18}
+                className={tableStyles.lobbyOutIcon}
+              />
+            ) : (
+              <img
+                src="/icons/skull-icon.svg"
+                alt=""
+                aria-hidden
+                width={18}
+                height={18}
+                className={tableStyles.lobbyOutIcon}
+              />
+            )
+          ) : null}
+          <span>
+            {p.name}
+            {outOfGame ? ` · ${outTag}` : ""}
+          </span>
         </div>
         <button
           type="button"
@@ -391,37 +425,46 @@ function TableLobbyPlayerRow(props: {
           {ui.table.tableKickPlayerButton}
         </button>
       </div>
-      <div className={tableStyles.lobbyStatsRow} aria-label={ui.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}>
-        <PlayerVitals
-          hp={p.hp}
-          maxHp={p.maxHp}
-          pant={playerPant(p)}
-          klunkar={p.klunkar}
-          iconSize={18}
-          brewerRing={{ level: brewerLv, ratio: brewerRatio }}
-        />
-      </div>
-      {afflictions.length > 0 ? <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div> : null}
-      <div className={tableStyles.lobbyEquipGrid}>
-        {equipSlots.map(({ slot, label, piece }) => {
-          const empty = !piece?.name;
-          const displayName = getEquipmentDisplayByEquippedName(piece?.name, locale)?.name;
-          return (
-            <div
-              key={slot}
-              className={[
-                tableStyles.lobbyEquipTile,
-                empty ? tableStyles.lobbyEquipTileEmpty : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              aria-label={empty ? ui.equipAria.empty(label) : `${label}: ${displayName ?? piece!.name}`}
-            >
-              <EquipIcon slot={slot} disabled={empty} equippedName={piece?.name} iconSize={28} />
-            </div>
-          );
-        })}
-      </div>
+      {!outOfGame ? (
+        <>
+          <div
+            className={tableStyles.lobbyStatsRow}
+            aria-label={ui.play.statsLine(p.hp, p.maxHp, playerPant(p), p.klunkar)}
+          >
+            <PlayerVitals
+              hp={p.hp}
+              maxHp={p.maxHp}
+              pant={playerPant(p)}
+              klunkar={p.klunkar}
+              iconSize={18}
+              brewerRing={{ level: brewerLv, ratio: brewerRatio }}
+            />
+          </div>
+          {afflictions.length > 0 ? (
+            <div className={tableStyles.lobbyAfflictBanner}>{afflictions.join(" · ")}</div>
+          ) : null}
+          <div className={tableStyles.lobbyEquipGrid}>
+            {equipSlots.map(({ slot, label, piece }) => {
+              const empty = !piece?.name;
+              const displayName = getEquipmentDisplayByEquippedName(piece?.name, locale)?.name;
+              return (
+                <div
+                  key={slot}
+                  className={[
+                    tableStyles.lobbyEquipTile,
+                    empty ? tableStyles.lobbyEquipTileEmpty : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-label={empty ? ui.equipAria.empty(label) : `${label}: ${displayName ?? piece!.name}`}
+                >
+                  <EquipIcon slot={slot} disabled={empty} equippedName={piece?.name} iconSize={28} />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -738,6 +781,7 @@ function TableViewBody() {
   const [err, setErr] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => readBoardPerformancePrefs().tableSidebarOpen);
   const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [tableSettingsEndConfirm, setTableSettingsEndConfirm] = useState(false);
   const [boardPerf, setBoardPerf] = useState(() => readBoardPerformancePrefs());
   const stateSeqTrackerRef = useRef(createStateSeqTracker());
   const requestSnapshotRef = useRef<() => void>(() => undefined);
@@ -899,7 +943,10 @@ function TableViewBody() {
   useEffect(() => {
     if (!tableSettingsOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setTableSettingsOpen(false);
+      if (e.key === "Escape") {
+        setTableSettingsOpen(false);
+        setTableSettingsEndConfirm(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1091,6 +1138,12 @@ function TableViewBody() {
   const pendingMoveChoiceByPlayerRef = useRef<Map<string, Map<string, "cw" | "ccw">>>(new Map());
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
   const [showCenterTurnReminder, setShowCenterTurnReminder] = useState(false);
+  const [turnAnnounce, setTurnAnnounce] = useState<{ id: string; label: string } | null>(null);
+  const prevAnnounceTurnIdRef = useRef<string | null>(null);
+  const prevPhaseForMatchStartRef = useRef<GameState["phase"] | null>(null);
+  const [matchStartDigit, setMatchStartDigit] = useState<MatchStartDigit | null>(null);
+  const [matchStartFadingOut, setMatchStartFadingOut] = useState(false);
+  const matchStartIntroActive = matchStartDigit != null || matchStartFadingOut;
   const [moveTurnHudExit, setMoveTurnHudExit] = useState<{ id: string; label: string } | null>(null);
   const prevShowMoveTurnHudRef = useRef(false);
   const lastShownMoveHudRef = useRef<{ id: string; label: string } | null>(null);
@@ -1195,6 +1248,59 @@ function TableViewBody() {
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
   }, [state?.pending?.type]);
+  useLayoutEffect(() => {
+    const phase = state?.phase ?? null;
+    const prev = prevPhaseForMatchStartRef.current;
+    prevPhaseForMatchStartRef.current = phase;
+
+    if (phase !== "playing") {
+      setMatchStartDigit(null);
+      setMatchStartFadingOut(false);
+      return;
+    }
+
+    if (prev !== "lobby") return;
+
+    const reduceMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const digitMs = reduceMotion ? 400 : 1000;
+    const fadeMs = reduceMotion ? 350 : 700;
+    const digits: MatchStartDigit[] = [5, 4, 3, 2, 1];
+
+    const activeId = state?.turnOrder?.[state.currentTurnIndex ?? 0] ?? null;
+    if (activeId) prevAnnounceTurnIdRef.current = activeId;
+    setTurnAnnounce(null);
+    setMatchStartFadingOut(false);
+    setMatchStartDigit(5);
+
+    const timers: number[] = [];
+    digits.forEach((d, i) => {
+      if (i === 0) return;
+      timers.push(
+        window.setTimeout(() => {
+          setMatchStartDigit(d);
+        }, digitMs * i),
+      );
+    });
+    timers.push(
+      window.setTimeout(() => {
+        setMatchStartDigit(null);
+        setMatchStartFadingOut(true);
+      }, digitMs * digits.length),
+    );
+    timers.push(
+      window.setTimeout(() => {
+        setMatchStartFadingOut(false);
+        prevAnnounceTurnIdRef.current = null;
+      }, digitMs * digits.length + fadeMs),
+    );
+
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+    // Endast phase: turordning får inte avbryta nedräkningstimers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [state?.phase]);
   useEffect(() => {
     if (!cur?.id) {
       prevTurnPlayerIdRef.current = null;
@@ -1213,6 +1319,22 @@ function TableViewBody() {
     }
     prevTurnPlayerIdRef.current = cur.id;
   }, [cur?.id, playersById]);
+  useEffect(() => {
+    if (!playingTurn || !cur?.id) {
+      prevAnnounceTurnIdRef.current = null;
+      setTurnAnnounce(null);
+      return;
+    }
+    if (matchStartIntroActive) return;
+    if (prevAnnounceTurnIdRef.current === cur.id) return;
+    prevAnnounceTurnIdRef.current = cur.id;
+    const label = ui.play.footerTurnOther(cur.name);
+    setTurnAnnounce({ id: cur.id, label });
+    const t = window.setTimeout(() => {
+      setTurnAnnounce((v) => (v?.id === cur.id ? null : v));
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [playingTurn, cur?.id, cur?.name, ui, matchStartIntroActive]);
   useEffect(() => {
     if (!playingTurn || !cur?.id) {
       setShowCenterTurnReminder(false);
@@ -1313,6 +1435,7 @@ function TableViewBody() {
       {boardPlayers.map((p) => {
         const active = cur?.id === p.id;
         const outOfGame = !isPlayerOnBoard(p);
+        const leftVoluntary = p.leftVoluntarily === true;
         const sleepTag = (p.skippedTurns ?? 0) > 0 && p.skipTurnReasons?.includes("normal") ? " (Zzz)" : "";
         const brewerLv = brewerDisplayLevel(p);
         const brewerRatio = brewerKlunkProgressRatio(p.xp ?? 0);
@@ -1335,7 +1458,16 @@ function TableViewBody() {
               ["--turn-player-bg" as string]: active && !outOfGame ? p.color : "rgba(255,255,255,0.04)",
               ["--turn-active-player-color" as string]: p.color,
             }}
-            title={[p.name, ui.play.levelUpProgressTitle(brewerLv), ...tablePlayerAfflictionLines(p, ui)]
+            title={[
+              p.name,
+              outOfGame
+                ? leftVoluntary
+                  ? ui.festDashboard.left
+                  : ui.festDashboard.eliminated
+                : null,
+              ui.play.levelUpProgressTitle(brewerLv),
+              ...tablePlayerAfflictionLines(p, ui),
+            ]
               .filter(Boolean)
               .join(" · ")}
           >
@@ -1350,28 +1482,41 @@ function TableViewBody() {
                   />
                 </span>
                 {outOfGame ? (
-                  <img
-                    src="/icons/skull-icon.svg"
-                    alt=""
-                    aria-hidden
-                    width={18}
-                    height={18}
-                    className={tableStyles.turnPlayerSkull}
-                  />
+                  leftVoluntary ? (
+                    <img
+                      src="/icons/door-exit.svg"
+                      alt={ui.play.scoreboardLeftGameAria}
+                      title={ui.play.scoreboardLeftGameAria}
+                      width={18}
+                      height={18}
+                      className={tableStyles.turnPlayerSkull}
+                    />
+                  ) : (
+                    <img
+                      src="/icons/skull-icon.svg"
+                      alt=""
+                      aria-hidden
+                      width={18}
+                      height={18}
+                      className={tableStyles.turnPlayerSkull}
+                    />
+                  )
                 ) : null}
                 <PingPongOverflowText text={`${p.name}${sleepTag}`} />
               </span>
             </div>
-            <div className={tableStyles.turnPlayerVitals}>
-              <PlayerVitals
-                hp={p.hp}
-                maxHp={p.maxHp}
-                pant={playerPant(p)}
-                klunkar={p.klunkar}
-                iconSize={22}
-                brewerRing={{ level: brewerLv, ratio: brewerRatio }}
-              />
-            </div>
+            {!outOfGame ? (
+              <div className={tableStyles.turnPlayerVitals}>
+                <PlayerVitals
+                  hp={p.hp}
+                  maxHp={p.maxHp}
+                  pant={playerPant(p)}
+                  klunkar={p.klunkar}
+                  iconSize={22}
+                  brewerRing={{ level: brewerLv, ratio: brewerRatio }}
+                />
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -1450,7 +1595,10 @@ function TableViewBody() {
                 className={tableStyles.tableHeaderIconBtn}
                 aria-label={ui.table.openSettings}
                 aria-expanded={tableSettingsOpen}
-                onClick={() => setTableSettingsOpen(true)}
+                onClick={() => {
+                  setTableSettingsEndConfirm(false);
+                  setTableSettingsOpen(true);
+                }}
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
                   <path
@@ -2009,7 +2157,15 @@ function TableViewBody() {
           }
         />
 
-        {playingTurn && showCenterTurnReminder ? (
+        {matchStartIntroActive ? (
+          <TableMatchStartOverlay digit={matchStartDigit} fadingOut={matchStartFadingOut} />
+        ) : null}
+
+        {turnAnnounce && !matchStartIntroActive ? (
+          <TableTurnAnnounceOverlay key={turnAnnounce.id} label={turnAnnounce.label} />
+        ) : null}
+
+        {playingTurn && showCenterTurnReminder && !turnAnnounce && !matchStartIntroActive ? (
           <div className={tableStyles.centerTurnReminder} aria-live="polite">
             <div className={tableStyles.centerTurnReminderText}>{centerTurnReminderText}</div>
           </div>
@@ -2362,7 +2518,10 @@ function TableViewBody() {
         <div
           className={tableStyles.tableSettingsBackdrop}
           role="presentation"
-          onClick={() => setTableSettingsOpen(false)}
+          onClick={() => {
+            setTableSettingsOpen(false);
+            setTableSettingsEndConfirm(false);
+          }}
         >
           <div
             className={tableStyles.tableSettingsCard}
@@ -2372,8 +2531,38 @@ function TableViewBody() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="table-settings-title" className={tableStyles.tableSettingsTitle}>
-              {ui.table.settingsTitle}
+              {tableSettingsEndConfirm ? ui.table.settingsEndMatch : ui.table.settingsTitle}
             </h2>
+            {tableSettingsEndConfirm ? (
+              <div className={u.stack10}>
+                <p className={tableStyles.tableSettingsEndHint}>{ui.table.settingsEndMatchConfirm}</p>
+                <ArcadeButton
+                  variant="pink"
+                  fullWidth
+                  onClick={() => {
+                    if (state?.phase === "playing") {
+                      clientRef.current?.send({ type: "action", action: { type: "endMatch" } });
+                      setTableSettingsOpen(false);
+                      setTableSettingsEndConfirm(false);
+                      return;
+                    }
+                    setTableSettingsOpen(false);
+                    setTableSettingsEndConfirm(false);
+                    navigate("/", { replace: true });
+                  }}
+                >
+                  {ui.table.settingsEndMatch}
+                </ArcadeButton>
+                <ArcadeButton
+                  variant="gray"
+                  fullWidth
+                  onClick={() => setTableSettingsEndConfirm(false)}
+                >
+                  {ui.table.settingsEndMatchCancel}
+                </ArcadeButton>
+              </div>
+            ) : (
+              <>
             <label className={tableStyles.tableSettingsRow}>
               <input
                 type="checkbox"
@@ -2451,9 +2640,23 @@ function TableViewBody() {
               />
               <span>{ui.table.tileTypeLabels}</span>
             </label>
-            <ArcadeButton variant="gray" fullWidth onClick={() => setTableSettingsOpen(false)}>
-              {ui.table.settingsClose}
-            </ArcadeButton>
+            <div className={tableStyles.tableSettingsActions}>
+              <ArcadeButton variant="pink" fullWidth onClick={() => setTableSettingsEndConfirm(true)}>
+                {ui.table.settingsEndMatch}
+              </ArcadeButton>
+              <ArcadeButton
+                variant="gray"
+                fullWidth
+                onClick={() => {
+                  setTableSettingsOpen(false);
+                  setTableSettingsEndConfirm(false);
+                }}
+              >
+                {ui.table.settingsClose}
+              </ArcadeButton>
+            </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

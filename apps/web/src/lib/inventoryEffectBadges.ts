@@ -379,6 +379,7 @@ export function shopItemToEquipmentPreviewPiece(
       breakWinsRemaining: item.breakWinsRemaining,
       monsterLossSipReduction: item.monsterLossSipReduction,
       freeInventoryItemPlay: item.freeInventoryItemPlay,
+      bonusHp: item.bonusHp,
     };
   }
   if (item.slot === "armor") {

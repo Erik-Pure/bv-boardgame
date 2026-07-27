@@ -94,7 +94,7 @@ function formatShopItemEffectSummaryEn(it: ShopItem, ui: UiStrings): string {
     else parts.push(p.shopBeerSetShield);
   } else if (it.id === "eh_beer_cap_helm_2" && typeof it.damageNegate === "number" && it.damageNegate > 0) {
     parts.push(p.shopDamageNegateFromLevel4(it.damageNegate));
-  } else if (typeof it.damageNegate === "number") {
+  } else if (typeof it.damageNegate === "number" && it.damageNegate !== 0) {
     parts.push(p.shopDamageNegate(it.damageNegate));
   }
   if (typeof it.gainKlunkPerCombat === "number" && it.gainKlunkPerCombat > 0) {
@@ -221,7 +221,7 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
     else parts.push("Burk-set sköld: +1 / +2 / +3 skada bort (1–3 delar)");
   } else if (it.id === "eh_beer_cap_helm_2" && typeof it.damageNegate === "number" && it.damageNegate > 0) {
     parts.push(`Skada −${it.damageNegate} (aktiv från nivå 4)`);
-  } else if (typeof it.damageNegate === "number") {
+  } else if (typeof it.damageNegate === "number" && it.damageNegate !== 0) {
     const v = it.damageNegate;
     parts.push(v >= 0 ? `Skada −${v}` : `Skada +${Math.abs(v)}`);
   }
@@ -292,4 +292,25 @@ export function formatLocalizedShopItemEffectSummary(
     return formatShopItemEffectSummaryEn(it, ui);
   }
   return formatShopItemEffectSummary(it);
+}
+
+/**
+ * Mekaniska effektdelar (en per rad) för utförlig affärsdetalj — alltid summering,
+ * inte enbart rulesText (som EN-`formatLocalized` kan returnera).
+ */
+export function shopItemMechanicalEffectParts(
+  it: ShopItem,
+  locale: GameLocale,
+  ui: UiStrings,
+): string[] {
+  const joined =
+    locale === "en" ? formatShopItemEffectSummaryEn(it, ui) : formatShopItemEffectSummary(it);
+  if (!joined || joined === "—") {
+    const supplement = localizedShopItemSupplement(it, locale, ui);
+    return supplement ? [supplement] : [];
+  }
+  return joined
+    .split(" · ")
+    .map((x) => x.trim())
+    .filter(Boolean);
 }

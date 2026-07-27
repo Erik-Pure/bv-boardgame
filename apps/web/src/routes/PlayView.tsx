@@ -41,6 +41,7 @@ import { usePlayBottomSheetContent } from "../components/play/usePlayBottomSheet
 import { PlayActionBusyProvider } from "../components/play/playActionBusy";
 import { usePlayGameSession } from "../components/play/usePlayGameSession";
 import { usePlayPendingTransitions } from "../components/play/usePlayPendingTransitions";
+import { usePlayItemTargetedToast } from "../components/play/usePlayItemTargetedToast";
 import { PlayEndedOverlay } from "../components/play/PlayEndedOverlay";
 import { PlayEquipDetailModal } from "../components/play/PlayEquipDetailModal";
 import { FloatingEmoteControl } from "../components/play/FloatingEmoteControl";
@@ -50,6 +51,12 @@ import { PlayPlayersModal } from "../components/play/PlayPlayersModal";
 import { PlaySettingsModals } from "../components/play/PlaySettingsModals";
 import { PlayItemDetailModal } from "../components/play/PlayItemDetailModal";
 import { type ItemDetailSelection } from "../components/play/PlayItemDetailSheet";
+import {
+  normalizePlayToast,
+  type PlayToastPayload,
+  type ShowPlayToast,
+} from "../components/play/playToast";
+import { itemImageSrc } from "../lib/itemImageSrc";
 import { isMyPending } from "../lib/playInteractionHelpers";
 import { myPersonalTurnPrompt } from "../components/play/playSessionHelpers";
 import styles from "./PlayView.module.css";
@@ -107,15 +114,15 @@ export function PlayView() {
   const room = (sp.get("room") ?? "").toUpperCase() || "TEST1";
   const name = sp.get("name") ?? "Bryggare";
 
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<PlayToastPayload | null>(null);
   const toastHideTimerRef = useRef<number | null>(null);
 
-  const showToast = useCallback((message: string, durationMs = 3600) => {
+  const showToast = useCallback<ShowPlayToast>((payload, durationMs = 3600) => {
     if (toastHideTimerRef.current != null) {
       window.clearTimeout(toastHideTimerRef.current);
       toastHideTimerRef.current = null;
     }
-    setToast(message);
+    setToast(normalizePlayToast(payload));
     toastHideTimerRef.current = window.setTimeout(() => {
       setToast(null);
       toastHideTimerRef.current = null;
@@ -438,6 +445,13 @@ export function PlayView() {
     mySipNotice.noticeKind !== "toast" &&
     !suppressSipNoticeForCombatLoseCard &&
     pending?.type !== "brewerDown";
+
+  usePlayItemTargetedToast({
+    state,
+    me,
+    showToast,
+    hasBlockingSipNotice,
+  });
 
   const { showMyTurnOverlay, showLevelUpOverlay } = usePlayTurnOverlays({
     isMyTurn: !!isMyTurn,
@@ -834,8 +848,27 @@ export function PlayView() {
       ) : null}
 
       {toast ? (
-        <div className={styles.playToast} role="status" aria-live="polite">
-          {toast}
+        <div
+          className={[styles.playToast, toast.itemId ? styles.playToastRich : ""].filter(Boolean).join(" ")}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.itemId ? (
+            <>
+              <img
+                src={itemImageSrc(String(toast.itemId))}
+                alt=""
+                className={styles.playToastArt}
+                draggable={false}
+              />
+              <div className={styles.playToastBody}>
+                {toast.itemTitle ? <div className={styles.playToastTitle}>{toast.itemTitle}</div> : null}
+                <div className={styles.playToastMessage}>{toast.message}</div>
+              </div>
+            </>
+          ) : (
+            toast.message
+          )}
         </div>
       ) : null}
     </div>

@@ -120,6 +120,21 @@ function brewerPerkPromptFor(p: Player): Extract<Pending, { type: "brewerPerkCho
   };
 }
 
+/** Bevara stridsloot-bytesval så de inte raderas när bryggbonus tar `offTurnPersonalPending`. */
+function requeueOffTurnEquipReplaceIfNeeded(state: GameState): void {
+  const off = state.offTurnPersonalPending;
+  if (off?.type !== "equipmentReplaceOffer") return;
+  if (!off.catalogId) return;
+  const q = state.combatEquipReplaceQueue ?? [];
+  q.unshift({
+    playerId: off.playerId,
+    slot: off.slot,
+    catalogId: off.catalogId,
+    newName: off.newName,
+  });
+  state.combatEquipReplaceQueue = q;
+}
+
 function isBrewerPerkOpenFor(state: GameState, playerId: string): boolean {
   if (state.pending?.type === "brewerPerkChoice" && state.pending.playerId === playerId) {
     return true;
@@ -179,6 +194,7 @@ export function tryOpenBrewerPerkChoice(
     } else {
       const off = state.offTurnPersonalPending;
       if (off && off.playerId !== playerId) return false;
+      requeueOffTurnEquipReplaceIfNeeded(state);
       state.offTurnPersonalPending = prompt;
     }
     log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
@@ -189,6 +205,7 @@ export function tryOpenBrewerPerkChoice(
     if (cur.playerId === playerId) return true;
     const off = state.offTurnPersonalPending;
     if (off && off.playerId !== playerId) return false;
+    requeueOffTurnEquipReplaceIfNeeded(state);
     state.offTurnPersonalPending = prompt;
     log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
     return true;
@@ -206,6 +223,7 @@ export function tryOpenBrewerPerkChoice(
     if (off.playerId !== playerId) return false;
     if (off.type === "brewerPerkChoice") return true;
   }
+  requeueOffTurnEquipReplaceIfNeeded(state);
   state.offTurnPersonalPending = prompt;
   log?.(state, `${p.name} har stigit i bryggnivå — välj bonus.`);
   return true;

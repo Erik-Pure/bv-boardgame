@@ -33,7 +33,7 @@ const EQUIPMENT_LOCALE_EN: Record<string, EquipmentDisplayText> = {
   ew_plastic_cup: {
     name: "Plastic Cup",
     rulesText:
-      "−2 attack in monster fights. All items you play cost 0 cans while Plastic Cup is equipped.",
+      "−1 attack in monster fights and −2 max HP. All items you play cost 0 cans while Plastic Cup is equipped.",
   },
   ew_humleklubba: {
     name: "Hop Club",
@@ -83,7 +83,7 @@ const EQUIPMENT_LOCALE_EN: Record<string, EquipmentDisplayText> = {
   },
   eh_beanie: {
     name: "Beanie",
-    rulesText: "Cozy hat: a little more life and easier to shrug off hits.",
+    rulesText: "Cozy hat: +2 max HP.",
   },
   eh_headband: {
     name: "Headband",
@@ -111,7 +111,7 @@ const EQUIPMENT_LOCALE_EN: Record<string, EquipmentDisplayText> = {
   },
   ex_gold_chain: {
     name: "Gold Chain",
-    rulesText: "Bling at every monster fight: a few cans when the fight starts.",
+    rulesText: "Bling at every monster fight: +2 cans when the fight starts.",
   },
   ex_beer_cape: {
     name: "Cape",
@@ -139,7 +139,8 @@ const EQUIPMENT_LOCALE_EN: Record<string, EquipmentDisplayText> = {
   },
   ex_medical_papers: {
     name: "Life Insurance",
-    rulesText: "When you die you can pay 10 cans to continue with full health.",
+    rulesText:
+      "When you die you can pay 10 cans to continue with full health. Consumed on use.",
   },
   ex_totebag: {
     name: "Tote Bag",
@@ -213,15 +214,37 @@ const EQUIPMENT_LOCALE_EN: Record<string, EquipmentDisplayText> = {
   },
   special_robotarm: {
     name: "Robot Arm",
-    rulesText: "Can only be obtained by defeating Rally Robot.",
+    rulesText: "Can only be obtained by defeating Rally Robot. +2 BvB.",
   },
   special_robothjalm: {
     name: "Robot Helmet",
-    rulesText: "Can only be obtained by defeating Rally Robot.",
+    rulesText: "Can only be obtained by defeating Rally Robot. +2 shield.",
+  },
+};
+
+/** Monster-specials finns inte i EQUIPMENT_CATALOG (ska inte dyka upp i handeln). */
+const SPECIAL_EQUIPMENT_SV: Record<string, EquipmentDisplayText> = {
+  special_robotarm: {
+    name: "Robotarm",
+    rulesText: "Kan endast erhållas genom att vinna mot Rally Robot. +2 BvB.",
+  },
+  special_robothjalm: {
+    name: "Robothjälm",
+    rulesText: "Kan endast erhållas genom att vinna mot Rally Robot. +2 sköld.",
+  },
+  special_rabarbersvard: {
+    name: "Rabarbersvärd",
+    rulesText: "Kan endast erhållas genom att vinna mot Rabarbar.",
+  },
+  special_korsbarshjalm: {
+    name: "Körsbärshjälm",
+    rulesText: "Kan endast erhållas genom att vinna mot Rabarbar.",
   },
 };
 
 function equipmentDisplayFromCatalog(catalogId: string): EquipmentDisplayText {
+  const special = SPECIAL_EQUIPMENT_SV[catalogId];
+  if (special) return special;
   const item = EQUIPMENT_CATALOG.find((x) => x.id === catalogId);
   if (!item) {
     return { name: catalogId, rulesText: "" };

@@ -284,6 +284,7 @@ export const sv = {
     combatHelpDecisionFree: "Hjälp till (gratis)",
     combatHelpDecisionPant: "Hjälp till mot panten",
     combatHelpDecisionTreasure: "Hjälp till mot skatten",
+    combatHelpDecisionAll: "Hjälp till mot allt",
     combatHelpDecisionSplit: "Dela lika på vinsten",
     combatHelpWaitDecision: (name: string) => `Väntar på svar från ${name}…`,
     combatHelpRequesterPrompt: (name: string) => `${name} vill hjälpa till mot följande ersättning:`,
@@ -476,6 +477,8 @@ export const sv = {
       const n = name.trim() || "—";
       return `${n}${n.endsWith("s") ? "" : "s"} tur`;
     },
+    /** Toast när någon spelar ett föremål på dig. */
+    itemPlayedOnYou: (actorName: string) => `${actorName} spelade på dig`,
     /** Mobil: åskådare under pågående BvB. */
     emoteCaptionSpectatingPvp: (attacker: string, defender: string) =>
       `BvB: ${attacker} mot ${defender}`,
@@ -879,6 +882,10 @@ export const sv = {
     settingsScaleAnimations: "Mjuk omskalning av kort (t.ex. när föremål spelas)",
     settingsTurnBannerRight: "Visa spelare till höger (vertikalt)",
     settingsClose: "Stäng",
+    settingsEndMatch: "Avsluta spelet",
+    settingsEndMatchConfirm:
+      "Vill du verkligen avsluta spelet för alla? Under pågående match visas resultatlistan.",
+    settingsEndMatchCancel: "Avbryt",
     /** Bräde: spelaren är i köp/affär-läge (mobil). */
     merchantShopping: (playerName: string) => `${playerName} handlar`,
     merchantShoppingAria: (playerName: string) => `${playerName} är i affären`,

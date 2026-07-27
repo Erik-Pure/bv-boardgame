@@ -55,10 +55,11 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "weapon",
     name: "Plastmugg",
     price: 9,
-    power: -2,
+    power: -1,
+    bonusHp: -2,
     freeInventoryItemPlay: true,
     rulesText:
-      "−2 attack i monsterstrid. Alla föremål du spelar kostar 0 pant så länge Plastmugg sitter utrustad.",
+      "−1 attack i monsterstrid och −2 max-HP. Alla föremål du spelar kostar 0 pant så länge Plastmugg sitter utrustad.",
   },
   {
     id: "ew_humleklubba",
@@ -164,8 +165,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Beanie",
     price: 10,
     bonusHp: 2,
-    damageNegate: 1,
-    rulesText: "Mysig mössa: lite mer liv och lättare att stå emot smällar.",
+    rulesText: "Mysig mössa: +2 max-HP.",
   },
   {
     id: "eh_headband",
@@ -227,8 +227,8 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     slot: "accessory",
     name: "Guldkedja",
     price: 9,
-    gainGoldPerCombat: 1,
-    rulesText: "Bling vid varje monsterstrid: lite pant när striden tar fart.",
+    gainGoldPerCombat: 2,
+    rulesText: "Bling vid varje monsterstrid: +2 pant när striden tar fart.",
   },
   {
     id: "ex_beer_cape",
@@ -279,7 +279,8 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
     name: "Livförsäkring",
     price: 12,
     deathContinueCost: 10,
-    rulesText: "När du dör kan du betala 10 pant för att fortsätta med fullt liv.",
+    rulesText:
+      "När du dör kan du betala 10 pant för att fortsätta med fullt liv. Förbrukas vid användning.",
   },
   {
     id: "ex_totebag",
@@ -355,7 +356,7 @@ export const EQUIPMENT_CATALOG: EquipmentShopItem[] = [
   {
     id: "ea_hawaiishirt",
     slot: "armor",
-    name: "Hawaiiskojorta",
+    name: "Hawaiiskjorta",
     price: 10,
     bonusHp: 0,
     itemCardBonus: 2,

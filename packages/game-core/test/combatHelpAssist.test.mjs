@@ -161,4 +161,66 @@ describe("combat help as dual-roll assist", () => {
     assert.equal(r.state.pending?.helpContract, "pant");
     assert.ok(r.state.pending?.teamRolls?.p1 || r.state.pending?.phase === "reactions" || r.state.pending?.phase === "rollPreview");
   });
+
+  it("all contract is proposed then accepted as helpContract", () => {
+    let state = soloCombatReactionsClosed([
+      mkPlayer({ id: "p1", name: "A", isHost: true }),
+      mkPlayer({ id: "p2", name: "B" }),
+    ]);
+    state = applyAction(state, { type: "combatRequestHelp", playerId: "p1" }).state;
+    state = applyAction(state, { type: "combatChooseHelper", playerId: "p1", helperId: "p2" }).state;
+    const proposed = applyAction(state, {
+      type: "combatHelperDecision",
+      playerId: "p2",
+      decision: "all",
+    });
+    assert.equal(proposed.error, undefined);
+    assert.equal(proposed.state.pending?.phase, "helpAwaitRequesterDecision");
+    assert.equal(proposed.state.pending?.helpProposedContract, "all");
+
+    const accepted = applyAction(proposed.state, {
+      type: "combatHelpRequesterDecision",
+      playerId: "p1",
+      accept: true,
+    });
+    assert.equal(accepted.error, undefined);
+    assert.equal(accepted.state.pending?.phase, "reactions");
+    assert.equal(accepted.state.pending?.assistId, "p2");
+    assert.equal(accepted.state.pending?.helpContract, "all");
+  });
+
+  it("all contract gives helper pant and treasure on win", () => {
+    let state = soloCombatReactionsClosed([
+      mkPlayer({ id: "p1", name: "A", isHost: true, gold: 0, nextForcedDieFace: 6 }),
+      mkPlayer({ id: "p2", name: "B", gold: 0, nextForcedDieFace: 6 }),
+    ]);
+    state.pending.rewardGold = 4;
+    state.pending.rewardItems = 1;
+    state.pending.need = 2;
+    state = applyAction(state, { type: "combatRequestHelp", playerId: "p1" }).state;
+    state = applyAction(state, { type: "combatChooseHelper", playerId: "p1", helperId: "p2" }).state;
+    state = applyAction(state, {
+      type: "combatHelperDecision",
+      playerId: "p2",
+      decision: "all",
+    }).state;
+    state = applyAction(state, {
+      type: "combatHelpRequesterDecision",
+      playerId: "p1",
+      accept: true,
+    }).state;
+    state = applyAction(state, { type: "combatRoll", playerId: "p1" }).state;
+    state = applyAction(state, { type: "combatRoll", playerId: "p2" }).state;
+    assert.equal(state.pending?.phase, "rollPreview");
+    const ack = applyAction(state, { type: "combatRollAck", playerId: "p1" });
+    assert.equal(ack.error, undefined);
+    assert.equal(ack.state.pending?.type, "card");
+    assert.equal(ack.state.pending?.cardId, "combat_win");
+
+    const p1 = ack.state.players.find((p) => p.id === "p1");
+    const p2 = ack.state.players.find((p) => p.id === "p2");
+    assert.equal(p1.gold, 0, "attacker keeps no pant under all contract");
+    assert.equal(p2.gold, 4, "helper receives all pant");
+    assert.equal(p1.inventory?.length ?? 0, 0, "attacker gets no treasure under all contract");
+  });
 });

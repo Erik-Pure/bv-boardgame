@@ -72,6 +72,14 @@ describe("locale", () => {
     assert.equal(helm?.name, "Robot Helmet");
   });
 
+  it("getEquipmentDisplayByEquippedName keeps Swedish names for special loot", () => {
+    assert.equal(getEquipmentDisplayByEquippedName("Robotarm", "sv")?.name, "Robotarm");
+    assert.equal(getEquipmentDisplayByEquippedName("Robothjälm", "sv")?.name, "Robothjälm");
+    assert.equal(getEquipmentDisplayByEquippedName("Rabarbersvärd", "sv")?.name, "Rabarbersvärd");
+    assert.equal(getEquipmentDisplayByEquippedName("Körsbärshjälm", "sv")?.name, "Körsbärshjälm");
+    assert.notEqual(getEquipmentDisplayByEquippedName("Robotarm", "sv")?.name, "special_robotarm");
+  });
+
   it("formatCanAmount uses singular can and plural cans", () => {
     assert.equal(formatCanAmount(1), "1 can");
     assert.equal(formatCanAmount(5), "5 cans");

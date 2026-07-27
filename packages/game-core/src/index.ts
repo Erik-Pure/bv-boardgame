@@ -89,6 +89,7 @@ export {
   MERCHANT_REROLL_GOLD_COST,
   rollMerchantItems,
   returnToLobby,
+  endMatch,
   startGame,
 } from "./engine.js";
 export {

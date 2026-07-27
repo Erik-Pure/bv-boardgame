@@ -169,6 +169,7 @@ export const en = {
     combatHelpDecisionFree: "Help (free)",
     combatHelpDecisionPant: "Help for cans",
     combatHelpDecisionTreasure: "Help for treasure",
+    combatHelpDecisionAll: "Help for everything",
     combatHelpDecisionSplit: "Split winnings equally",
     combatHelpWaitDecision: (name: string) => `Waiting for a response from ${name}…`,
     combatHelpRequesterPrompt: (name: string) => `${name} wants to help for the following compensation:`,
@@ -361,6 +362,8 @@ export const en = {
       const n = name.trim() || "—";
       return n.endsWith("s") ? `${n}' turn` : `${n}'s turn`;
     },
+    /** Toast when someone plays an item on you. */
+    itemPlayedOnYou: (actorName: string) => `${actorName} played on you`,
     /** Mobile: spectator during ongoing BvB. */
     emoteCaptionSpectatingPvp: (attacker: string, defender: string) =>
       `BvB: ${attacker} vs ${defender}`,
@@ -763,6 +766,10 @@ export const en = {
     settingsScaleAnimations: "Smooth card rescaling (e.g. when items are played)",
     settingsTurnBannerRight: "Show players on the right (vertical)",
     settingsClose: "Close",
+    settingsEndMatch: "End game",
+    settingsEndMatchConfirm:
+      "Really end the game for everyone? During a match this shows the scoreboard.",
+    settingsEndMatchCancel: "Cancel",
     /** Board: player is in buy/shop mode (phone). */
     merchantShopping: (playerName: string) => `${playerName} shopping`,
     merchantShoppingAria: (playerName: string) => `${playerName} is in the shop`,

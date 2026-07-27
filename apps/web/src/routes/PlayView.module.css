@@ -89,6 +89,46 @@
   animation: playToastIn 0.22s ease-out;
 }
 
+.playToastRich {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: normal;
+}
+
+.playToastArt {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.playToastBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playToastTitle {
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1.2;
+  color: #f8fafc;
+}
+
+.playToastMessage {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.35;
+  color: rgba(248, 250, 252, 0.88);
+  white-space: pre-line;
+}
+
 .myTurnOverlay {
   position: fixed;
   inset: 0;
@@ -2011,6 +2051,16 @@
   border-radius: 14px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.04);
+}
+
+.playersCardOutOfGame {
+  opacity: 0.48;
+}
+
+.playersOutIcon {
+  flex-shrink: 0;
+  display: block;
+  filter: brightness(0) invert(1);
 }
 
 .playersHeaderRow {

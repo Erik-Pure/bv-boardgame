@@ -48,8 +48,8 @@ function kindLabel(kind: CardKind, catalog: UiStrings["catalog"]): string {
 
 const EQUIP_SLOT_ORDER: Array<EquipmentShopItem["slot"]> = ["weapon", "armor", "helmet", "accessory"];
 const EXTRA_OVERVIEW_EQUIPMENT: EquipmentShopItem[] = [
-  { id: "special_robotarm", slot: "weapon", name: "Robotarm", price: 0, power: 0, pvpDieBonus: 1 },
-  { id: "special_robothjalm", slot: "helmet", name: "Robothjälm", price: 0, damageNegate: 1 },
+  { id: "special_robotarm", slot: "weapon", name: "Robotarm", price: 0, power: 0, pvpDieBonus: 2 },
+  { id: "special_robothjalm", slot: "helmet", name: "Robothjälm", price: 0, damageNegate: 2 },
   {
     id: "special_rabarbersvard",
     slot: "weapon",

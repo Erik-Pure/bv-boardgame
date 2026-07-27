@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
   type MutableRefObject,
   type ReactNode,
@@ -35,6 +36,15 @@ function klunkBurstIconCount(burst: { klunkCount?: number }): number {
   );
 }
 
+/** True om kortets mittpunkt ligger inom scroller-viewporten. */
+function isCardVisibleInScroller(card: HTMLElement, scroller: HTMLElement): boolean {
+  const c = card.getBoundingClientRect();
+  const s = scroller.getBoundingClientRect();
+  const midX = c.left + c.width / 2;
+  const midY = c.top + c.height / 2;
+  return midX >= s.left && midX <= s.right && midY >= s.top && midY <= s.bottom;
+}
+
 export function TurnBannerEmoteOverlay(props: {
   players: readonly Player[];
   emoteBursts: GameState["playerEmoteBursts"];
@@ -59,6 +69,9 @@ export function TurnBannerEmoteOverlay(props: {
   } = props;
   const side = placement === "right";
   const [anchors, setAnchors] = useState<Record<string, Anchor>>({});
+  /** Senast hanterade burst-`at` per spelare (emote respektive klunk). */
+  const seenEmoteAtRef = useRef<Map<string, number>>(new Map());
+  const seenKlunkAtRef = useRef<Map<string, number>>(new Map());
 
   const measureAnchors = useCallback(() => {
     const wrap = fanWrapRef.current;
@@ -99,6 +112,48 @@ export function TurnBannerEmoteOverlay(props: {
       window.removeEventListener("resize", onScroll);
     };
   }, [measureAnchors, scrollerRef]);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const now = Date.now();
+    const toReveal = new Set<string>();
+
+    for (const p of players) {
+      const emote = latestEmoteBurstForPlayer(emoteBursts, p.id, now);
+      if (emote) {
+        const prev = seenEmoteAtRef.current.get(p.id) ?? 0;
+        if (emote.at > prev) {
+          seenEmoteAtRef.current.set(p.id, emote.at);
+          toReveal.add(p.id);
+        }
+      }
+      const klunk = latestKlunkBurstForPlayer(klunkBursts, p.id, now);
+      if (klunk) {
+        const prev = seenKlunkAtRef.current.get(p.id) ?? 0;
+        if (klunk.at > prev) {
+          seenKlunkAtRef.current.set(p.id, klunk.at);
+          toReveal.add(p.id);
+        }
+      }
+    }
+
+    if (toReveal.size === 0) return;
+
+    const raf = window.requestAnimationFrame(() => {
+      for (const playerId of toReveal) {
+        const card = playerCardRefs.current.get(playerId);
+        if (!card) continue;
+        if (isCardVisibleInScroller(card, scroller)) continue;
+        card.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+          behavior: "smooth",
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [emoteBursts, klunkBursts, players, playerCardRefs, scrollerRef]);
 
   const now = Date.now();
   const burstOffsetPx = BOARD_BURST_PAIR_OFFSET_PX;

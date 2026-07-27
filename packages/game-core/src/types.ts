@@ -85,6 +85,8 @@ export interface Weapon {
   monsterLossSipReduction?: number;
   /** Medan vapnet sitter utrustat: inga pantkostnader för att spela föremål (ITEM_PLAY_GOLD_COST). */
   freeInventoryItemPlay?: boolean;
+  /** Extra max HP (räknas in i {@link Player.maxHp}; kan vara negativt, t.ex. Plastmugg). */
+  bonusHp?: number;
 }
 
 export interface ArmorPiece {
@@ -293,7 +295,7 @@ export interface CombatLoseSummary {
   helpMateImpact?: { playerId: string; hpLost: number; klunksGained: number };
 }
 
-export type CombatHelpContract = "free" | "pant" | "treasure" | "split";
+export type CombatHelpContract = "free" | "pant" | "treasure" | "split" | "all";
 
 /** Straffklunk som visas för mottagaren via sip-modal efter att dragande spelare tryckt Fortsätt. */
 export type PenaltySipQueueEntry = {
@@ -537,7 +539,7 @@ export type Pending =
       /** Hjälp-funktion: ersättningsmodell om hjälp accepterats. */
       helpContract?: CombatHelpContract;
       /** Hjälp-funktion: hjälparens föreslagna ersättning som angriparen måste godkänna. */
-      helpProposedContract?: "pant" | "treasure" | "split";
+      helpProposedContract?: "pant" | "treasure" | "split" | "all";
       /** Hjälp-funktion: hjälparen har accepterat att hjälpa. */
       helpAccepted?: boolean;
       /** Hjälp-funktion: hjälparen har spelat minst ett positivt kort i denna förfrågan. */
@@ -813,6 +815,8 @@ export type ClientAction =
   | { type: "startGame"; playerId: string }
   /** Bordet efter avslutat parti: återställ till lobby med samma config. */
   | { type: "returnToLobby" }
+  /** Bordet under pågående parti: avsluta matchen (visa resultat). */
+  | { type: "endMatch" }
   | {
       type: "setConfig";
       playerId: string;
@@ -863,7 +867,7 @@ export type ClientAction =
   | {
       type: "combatHelperDecision";
       playerId: string;
-      decision: "decline" | "free" | "pant" | "treasure" | "split";
+      decision: "decline" | "free" | "pant" | "treasure" | "split" | "all";
     }
   | { type: "combatHelpRequesterDecision"; playerId: string; accept: boolean }
   | { type: "sipNoticeAck"; playerId: string }

@@ -78,10 +78,10 @@ describe("unequipEquipment", () => {
       id: "p1",
       name: "A",
       isHost: true,
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     const state = playingState([p1, mkPlayer({ id: "p2", name: "B" })]);
-    assert.equal(monsterCombatEquipmentAttackBonus(p1), -2);
+    assert.equal(monsterCombatEquipmentAttackBonus(p1), -1);
     const r = applyAction(state, { type: "unequipEquipment", playerId: "p1", slot: "weapon" });
     assert.equal(r.error, undefined);
     assert.equal(r.state.players[0].equipment.weapon, undefined);
@@ -118,7 +118,7 @@ describe("unequipEquipment", () => {
     const p2 = mkPlayer({
       id: "p2",
       name: "B",
-      equipment: { weapon: { name: "Plastmugg", power: -2 } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2 } },
     });
     const state = playingState([p1, p2]);
     const r = applyAction(state, { type: "unequipEquipment", playerId: "p2", slot: "weapon" });

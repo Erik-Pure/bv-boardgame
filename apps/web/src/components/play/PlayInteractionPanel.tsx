@@ -47,7 +47,6 @@ import { moveChoiceTileVisual } from "../../lib/moveChoiceTileVisual";
 import { equipmentImageSources } from "../../lib/equipmentImageSrc";
 import { PlayArcadeButton as ArcadeButton } from "./PlayArcadeButton";
 import { DiceCube3D } from "../DiceCube3D";
-import { EffectBadgePillStrip } from "../EffectBadgePillStrip";
 import { CombatStrengthPill } from "../MonsterEncounterCard";
 import { PictureImg } from "../PictureImg";
 import { StatIcon } from "../StatIcon";
@@ -72,7 +71,12 @@ import {
   merchantSlotOccupied,
   myOffTurnCombatEquipReplace,
 } from "../../lib/playInteractionHelpers";
-import { renderEquipmentReplaceEffects } from "../../lib/playInteractionEquipmentEffects";
+import {
+  effectDescPanelStyle,
+  renderEquipmentReplaceEffects,
+  renderInlineEffectBadges,
+  renderShopItemEffectDetail,
+} from "../../lib/playInteractionEquipmentEffects";
 import { merchantShopItemDisplayName } from "../../lib/merchantLocale";
 import { localizedCombatMonster } from "../../lib/combatUi";
 import styles from "../../routes/PlayView.module.css";
@@ -306,7 +310,10 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             />
           </div>
         </div>
-        <div className={`${u.textCenter} ${u.fs14} ${u.lineHeight145} ${u.colorE8}`}>
+        <div
+          className={`${u.fs14} ${u.lineHeight145} ${u.colorE8}`}
+          style={{ ...effectDescPanelStyle, textAlign: "center" }}
+        >
           {ui.play.merchantReplaceBody(
             capitalizeWord(equipmentSlotLabel(slot, locale)),
             equippedDisplayName,
@@ -523,6 +530,17 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         {")"}
       </span>
     );
+    const allOutcomeInline = (
+      <span className={styles.contractOutcomeSuffix}>
+        {" ("}
+        {pantGoldReward}{" "}
+        <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />
+        {", "}
+        {treasureItemsReward}{" "}
+        <TutorialInlineIcon src="/icons/reward-icon.svg" color={CONTRACT_ICON_REWARD_COLOR} gap="0 2px 0 0" />
+        {")"}
+      </span>
+    );
     if (!helperId) return <div className={`${u.textCenter} ${u.o82}`}>{ui.play.waitingState}</div>;
     if (isHelper) {
       return (
@@ -560,6 +578,16 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
             <>
               {ui.play.combatHelpDecisionTreasure}
               {treasureOutcomeInline}
+            </>
+          </ArcadeButton>
+          <ArcadeButton
+            variant="pink"
+            fullWidth
+            onClick={() => send({ type: "combatHelperDecision", playerId: me.id, decision: "all" })}
+          >
+            <>
+              {ui.play.combatHelpDecisionAll}
+              {allOutcomeInline}
             </>
           </ArcadeButton>
           <ArcadeButton
@@ -627,22 +655,39 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                 </span>
               </>
             )
-          : (
-              <>
-                {ui.play.combatHelpDecisionSplit}{" "}
-                <span className={styles.contractOutcomeSuffix}>
-                  ({Math.floor(pantGoldReward / 2)}{" "}
-                  <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />
-                  {", "}
-                  {Math.floor(treasureItemsReward / 2)}{" "}
-                  <TutorialInlineIcon
-                    src="/icons/reward-icon.svg"
-                    color={CONTRACT_ICON_REWARD_COLOR}
-                    gap="0 2px 0 0"
-                  />)
-                </span>
-              </>
-            );
+          : requested === "all"
+            ? (
+                <>
+                  {ui.play.combatHelpDecisionAll}{" "}
+                  <span className={styles.contractOutcomeSuffix}>
+                    ({pantGoldReward}{" "}
+                    <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />
+                    {", "}
+                    {treasureItemsReward}{" "}
+                    <TutorialInlineIcon
+                      src="/icons/reward-icon.svg"
+                      color={CONTRACT_ICON_REWARD_COLOR}
+                      gap="0 2px 0 0"
+                    />)
+                  </span>
+                </>
+              )
+            : (
+                <>
+                  {ui.play.combatHelpDecisionSplit}{" "}
+                  <span className={styles.contractOutcomeSuffix}>
+                    ({Math.floor(pantGoldReward / 2)}{" "}
+                    <TutorialInlineIcon src="/icons/pant-icon.svg" color={CONTRACT_ICON_PANT_COLOR} gap="0 2px 0 0" />
+                    {", "}
+                    {Math.floor(treasureItemsReward / 2)}{" "}
+                    <TutorialInlineIcon
+                      src="/icons/reward-icon.svg"
+                      color={CONTRACT_ICON_REWARD_COLOR}
+                      gap="0 2px 0 0"
+                    />)
+                  </span>
+                </>
+              );
     if (isRequester) {
       return (
         <div className={u.stack10}>
@@ -1548,6 +1593,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           ? ui.play.merchantItemKindGold
           : ui.play.merchantItemKindConsumable;
       const effectSummary = formatLocalizedShopItemEffectSummary(detail, locale, ui);
+      const effectDetail = renderShopItemEffectDetail(detail, locale, ui);
       return (
         <div className={u.stack10}>
           <div className={`${u.textCenter} ${u.fs15} ${u.o92}`}>{kindLabel}</div>
@@ -1557,8 +1603,18 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
           <div className={`${u.textCenter} ${u.fs18} ${u.fw700}`}>
             {merchantShopItemDisplayName(detail, locale)}
           </div>
-          {effectSummary !== "—" ? (
-            <div className={`${u.textCenter} ${u.o85}`}>{effectSummary}</div>
+          {effectDetail ? effectDetail : effectSummary !== "—" ? (
+            <div
+              className={`${u.o90}`}
+              style={{
+                ...effectDescPanelStyle,
+                textAlign: "center",
+                fontSize: 14,
+                lineHeight: 1.45,
+              }}
+            >
+              {effectSummary}
+            </div>
           ) : null}
           <div className={u.grid2Equal10}>
             <ArcadeButton variant="gray" fullWidth onClick={() => setMerchantDetailItem(null)}>
@@ -1713,7 +1769,7 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                           className={styles.merchantShopRowEffect}
                           aria-label={effectSummary !== "—" ? effectSummary : undefined}
                         >
-                          <EffectBadgePillStrip badges={effectBadges} size="md" />
+                          {renderInlineEffectBadges(effectBadges, { iconPx: 14, fontSize: 12 })}
                           {effectSupplement ? (
                             <span className={styles.merchantShopRowEffectSupplement}>{effectSupplement}</span>
                           ) : null}

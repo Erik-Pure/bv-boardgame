@@ -19,6 +19,7 @@ export const LOG_MESSAGE_KEYS = {
   lobbyAvatarChanged: "lobby.avatarChanged",
   gameStarted: "game.started",
   gameReturnedToLobby: "game.returnedToLobby",
+  gameEndedFromTable: "game.endedFromTable",
   gameFinalBossIntro: "game.finalBossIntro",
   turnRollDice: "turn.rollDice",
   turnChanged: "turn.changed",
@@ -119,6 +120,10 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
   [LOG_MESSAGE_KEYS.gameReturnedToLobby]: {
     sv: "Nytt spel — tillbaka till lobbyn med samma inställningar.",
     en: "New game — back to lobby with the same settings.",
+  },
+  [LOG_MESSAGE_KEYS.gameEndedFromTable]: {
+    sv: "Spelet avslutades från bordet.",
+    en: "The game was ended from the board.",
   },
   [LOG_MESSAGE_KEYS.gameFinalBossIntro]: {
     sv: "Slutboss {bossName} — {lives} liv, vinn {lives} {roundsWord}.",

@@ -1,13 +1,35 @@
+import type { CSSProperties, ReactNode } from "react";
+import { Fragment } from "react";
 import type { EquipmentSlot, GameLocale, Player, ShopItem, Weapon } from "@bv/game-core";
-import { getEquipmentDisplay, getEquipmentDisplayByEquippedName } from "@bv/game-core";
+import {
+  BEER_CAN_HELM1_NAME,
+  BEER_CAN_RUSTNING_NAME,
+  beerCanSetPiecesEquippedCount,
+  getCard,
+  getEquipmentDisplay,
+  getEquipmentDisplayByEquippedName,
+  isBeerCanShieldName,
+} from "@bv/game-core";
+import { CardRichText } from "../components/CardRichText";
 import {
   equipmentCatalogByEquippedName,
   equipmentCatalogById,
+  equipmentInventoryEffectBadges,
+  effectBadgeIconFilter,
+  ITEM_EFFECT_BADGE_ICONS,
+  shopItemEffectBadges,
+  shopItemEffectSupplementText,
+  type EffectBadgeData,
 } from "./inventoryEffectBadges";
-import { formatLocalizedShopItemEffectSummary } from "./equipmentEffectSummary";
+import {
+  formatLocalizedShopItemEffectSummary,
+  shopItemMechanicalEffectParts,
+} from "./equipmentEffectSummary";
 import { merchantEquippedName } from "./playInteractionHelpers";
 import type { UiStrings } from "./uiStrings";
 import u from "../styles/uiPrimitives.module.css";
+
+type StatIconKind = keyof typeof ITEM_EFFECT_BADGE_ICONS;
 
 function localizedEquippedDisplayName(
   equippedName: string | undefined,
@@ -15,6 +37,256 @@ function localizedEquippedDisplayName(
 ): string | undefined {
   if (!equippedName) return undefined;
   return getEquipmentDisplayByEquippedName(equippedName, locale)?.name ?? equippedName;
+}
+
+const inlineBadgeWrap: CSSProperties = {
+  display: "inline-flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "0.15em 0.35em",
+  lineHeight: 1.35,
+};
+
+const inlineBadgeItem: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+  fontWeight: 800,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: "-0.02em",
+};
+
+/** Tonad bakgrund så effekttext läses mot regnbågs-/spelbakgrund. */
+export const effectDescPanelStyle: CSSProperties = {
+  background: "rgba(6, 10, 22, 0.78)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 12,
+  padding: "10px 12px",
+  boxShadow: "0 4px 18px rgba(0,0,0,0.35)",
+};
+
+function StatImg(props: { kind: StatIconKind; danger?: boolean; px?: number }) {
+  const px = props.px ?? 15;
+  return (
+    <img
+      src={ITEM_EFFECT_BADGE_ICONS[props.kind]}
+      alt=""
+      width={px}
+      height={px}
+      draggable={false}
+      style={{
+        display: "inline-block",
+        width: px,
+        height: px,
+        objectFit: "contain",
+        verticalAlign: "-0.2em",
+        margin: "0 2px",
+        flexShrink: 0,
+        filter: effectBadgeIconFilter(props.kind, props.danger, "md"),
+      }}
+    />
+  );
+}
+
+/**
+ * Ikon + siffra i textflödet (ingen pill) — samma språk som förrådsikoner / CombatItemButtonSuffix.
+ * Separeras med " · ".
+ */
+export function renderInlineEffectBadges(
+  badges: EffectBadgeData[],
+  opts?: { iconPx?: number; fontSize?: number },
+): ReactNode {
+  if (badges.length === 0) return null;
+  const iconPx = opts?.iconPx ?? 15;
+  const fontSize = opts?.fontSize ?? 13;
+  return (
+    <span style={inlineBadgeWrap} aria-hidden>
+      {badges.map((b, idx) => {
+        const danger = b.labelTone === "danger";
+        const icon = <StatImg kind={b.icon} danger={danger} px={iconPx} />;
+        const label = (
+          <span
+            style={{
+              fontSize,
+              fontWeight: 800,
+              fontVariantNumeric: "tabular-nums",
+              color: danger ? "#fca5a5" : "inherit",
+              lineHeight: 1,
+            }}
+          >
+            {b.label}
+          </span>
+        );
+        return (
+          <span key={`${idx}-${b.icon}:${b.label}:${b.labelTone ?? ""}`} style={{ display: "inline-flex", alignItems: "center" }}>
+            {idx > 0 ? (
+              <span style={{ opacity: 0.55, fontWeight: 600, margin: "0 0.2em" }}>·</span>
+            ) : null}
+            <span style={inlineBadgeItem}>
+              {b.iconAfter ? (
+                <>
+                  {label}
+                  {icon}
+                </>
+              ) : (
+                <>
+                  {icon}
+                  {label}
+                </>
+              )}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+type ProseTok =
+  | { t: "text"; v: string }
+  | { t: "icon"; kind: StatIconKind; danger?: boolean };
+
+/** Väver in stat-ikoner i en mekanisk effektrad (t.ex. "+5 max HP", "Vid 10+ klunkar: +1 attack"). */
+export function renderProseWithStatIcons(line: string, iconPx = 15): ReactNode {
+  const tokens: ProseTok[] = [];
+  let rest = line;
+  const rules: Array<{ re: RegExp; to: (m: RegExpExecArray) => ProseTok[] }> = [
+    {
+      re: /([+-]?\d+)\s*max\s*HP\b/i,
+      to: (m) => [{ t: "text", v: m[1]! }, { t: "icon", kind: "heart" }],
+    },
+    {
+      re: /Skada\s+([−\-+]?\d+)/i,
+      to: (m) => [{ t: "icon", kind: "armor" }, { t: "text", v: ` ${m[1]!}` }],
+    },
+    {
+      re: /Damage\s+([−\-+]?\d+)/i,
+      to: (m) => [{ t: "icon", kind: "armor" }, { t: "text", v: ` ${m[1]!}` }],
+    },
+    {
+      re: /(?:Attack|Kraft|Power)\s+([+-]?\d+)/i,
+      to: (m) => {
+        const n = Number(m[1]);
+        return [{ t: "icon", kind: "attack", danger: n < 0 }, { t: "text", v: ` ${m[1]!}` }];
+      },
+    },
+    {
+      re: /([+-]?\d+)\s*attack\b/i,
+      to: (m) => {
+        const n = Number(m[1]);
+        return [{ t: "text", v: m[1]! }, { t: "icon", kind: "attack", danger: n < 0 }];
+      },
+    },
+    {
+      re: /([+-]?\d+)\s*HP\b/i,
+      to: (m) => [{ t: "text", v: m[1]! }, { t: "icon", kind: "heart" }],
+    },
+    {
+      re: /(\d+)\+\s*klunkar?\b/i,
+      to: (m) => [{ t: "text", v: `${m[1]!}+` }, { t: "icon", kind: "klunk" }],
+    },
+    {
+      re: /([+-]?\d+)\s*klunk(?:ar)?\b/i,
+      to: (m) => [{ t: "text", v: m[1]! }, { t: "icon", kind: "klunk", danger: Number(m[1]) < 0 }],
+    },
+    {
+      re: /(\d+)\+\s*sips?\b/i,
+      to: (m) => [{ t: "text", v: `${m[1]!}+` }, { t: "icon", kind: "klunk" }],
+    },
+    {
+      re: /([+-]?\d+)\s*(?:pant|cans?)\b/i,
+      to: (m) => [{ t: "text", v: m[1]! }, { t: "icon", kind: "pant" }],
+    },
+    {
+      re: /\bBvB\b/,
+      to: () => [{ t: "icon", kind: "bvb" }, { t: "text", v: " BvB" }],
+    },
+  ];
+
+  while (rest.length > 0) {
+    let best: { idx: number; len: number; toks: ProseTok[] } | null = null;
+    for (const rule of rules) {
+      const m = rule.re.exec(rest);
+      if (!m || m.index == null) continue;
+      if (!best || m.index < best.idx || (m.index === best.idx && m[0].length > best.len)) {
+        best = { idx: m.index, len: m[0].length, toks: rule.to(m) };
+      }
+    }
+    if (!best) {
+      tokens.push({ t: "text", v: rest });
+      break;
+    }
+    if (best.idx > 0) tokens.push({ t: "text", v: rest.slice(0, best.idx) });
+    tokens.push(...best.toks);
+    rest = rest.slice(best.idx + best.len);
+  }
+
+  return (
+    <span style={{ lineHeight: 1.45 }}>
+      {tokens.map((tok, i) =>
+        tok.t === "icon" ? (
+          <StatImg key={i} kind={tok.kind} danger={tok.danger} px={iconPx} />
+        ) : (
+          <Fragment key={i}>{tok.v}</Fragment>
+        ),
+      )}
+    </span>
+  );
+}
+
+/** Utförlig affärsdetalj: mekaniska rader med ikoner + ev. rulesText. */
+export function renderShopItemEffectDetail(
+  it: ShopItem,
+  locale: GameLocale,
+  ui: UiStrings,
+): ReactNode {
+  const parts = shopItemMechanicalEffectParts(it, locale, ui);
+  const supplement = shopItemEffectSupplementText(it);
+  let rulesText: string | undefined;
+  if (it.slot === "weapon" || it.slot === "armor" || it.slot === "helmet" || it.slot === "accessory") {
+    rulesText = getEquipmentDisplay(it.id, locale).rulesText?.trim() || undefined;
+  } else if (it.slot === "inventory" && it.inventoryItemId) {
+    try {
+      rulesText = getCard(`item_${it.inventoryItemId}`, locale).text?.trim() || undefined;
+    } catch {
+      rulesText = undefined;
+    }
+  }
+
+  const hasParts = parts.length > 0;
+  const showRules =
+    !!rulesText &&
+    !(parts.length === 1 && parts[0] === rulesText) &&
+    rulesText !== parts.join(" · ");
+
+  if (!hasParts && !showRules && !supplement) return null;
+
+  return (
+    <div
+      className={u.stack8}
+      style={{
+        ...effectDescPanelStyle,
+        textAlign: "left",
+        fontSize: 14,
+        lineHeight: 1.45,
+        color: "rgba(232,236,244,0.95)",
+      }}
+      aria-label={formatLocalizedShopItemEffectSummary(it, locale, ui)}
+    >
+      {hasParts
+        ? parts.map((line, i) => <div key={i}>{renderProseWithStatIcons(line)}</div>)
+        : null}
+      {showRules ? (
+        <CardRichText
+          text={rulesText!}
+          style={{ opacity: 0.9, fontSize: 13.5, lineHeight: 1.5 }}
+        />
+      ) : null}
+      {supplement && !parts.includes(supplement) ? (
+        <div style={{ fontSize: 13, opacity: 0.85 }}>{supplement}</div>
+      ) : null}
+    </div>
+  );
 }
 
 function catalogEffectSummaryLines(
@@ -45,6 +317,59 @@ function equipmentReplaceEffectSummaryLines(
   return equipmentModalDetailLines(slot, piece, pieceName, ui, locale);
 }
 
+function burkSetCountForPiece(
+  player: Player,
+  slot: EquipmentSlot,
+  pieceName: string | undefined,
+): number | undefined {
+  if (!pieceName) return undefined;
+  const isBurkPiece =
+    (slot === "armor" && pieceName === BEER_CAN_RUSTNING_NAME) ||
+    (slot === "helmet" && pieceName === BEER_CAN_HELM1_NAME) ||
+    (slot === "accessory" && isBeerCanShieldName(pieceName));
+  return isBurkPiece ? beerCanSetPiecesEquippedCount(player) : undefined;
+}
+
+function resolveNewEquipmentShopItem(
+  newName: string,
+  newCatalogId?: string,
+): ShopItem | undefined {
+  return newCatalogId
+    ? equipmentCatalogById(newCatalogId)
+    : equipmentCatalogByEquippedName(newName);
+}
+
+function replaceEffectBlock(
+  label: string,
+  displayName: string | undefined,
+  badges: EffectBadgeData[],
+  fallbackLines: string[],
+  ariaSummary: string | undefined,
+  supplement?: string,
+) {
+  const hasBadges = badges.length > 0;
+  const hasFallback = fallbackLines.length > 0;
+  if (!hasBadges && !hasFallback) return null;
+  return (
+    <div>
+      <div style={{ marginBottom: hasBadges || hasFallback ? 4 : 0 }}>
+        <strong>{label}</strong>
+        {displayName ? ` (${displayName}): ` : ": "}
+        {hasBadges ? (
+          <span aria-label={ariaSummary && ariaSummary !== "—" ? ariaSummary : undefined}>
+            {renderInlineEffectBadges(badges)}
+          </span>
+        ) : (
+          <span>{fallbackLines.join(" · ")}</span>
+        )}
+      </div>
+      {hasBadges && supplement ? (
+        <div style={{ fontSize: 12, opacity: 0.82, marginTop: 2 }}>{supplement}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function renderEquipmentReplaceEffects(
   slot: EquipmentSlot,
   player: Player,
@@ -59,25 +384,57 @@ export function renderEquipmentReplaceEffects(
   const newDisplayName = newCatalogId
     ? getEquipmentDisplay(newCatalogId, locale).name
     : localizedEquippedDisplayName(newName, locale) ?? newName;
+
+  const currentBadges = equipmentInventoryEffectBadges(
+    currentPiece,
+    player.gold,
+    burkSetCountForPiece(player, slot, currentName),
+    player,
+  );
   const currentLines = equipmentReplaceEffectSummaryLines(slot, currentPiece, currentName, ui, locale);
+  const currentCat = equipmentCatalogByEquippedName(currentName);
+  const currentAria = currentCat
+    ? formatLocalizedShopItemEffectSummary(currentCat, locale, ui)
+    : currentLines.join(" · ");
+
+  const newCat = resolveNewEquipmentShopItem(newName, newCatalogId);
+  const newBadges = newCat ? shopItemEffectBadges(newCat) : [];
+  const newSupplement = newCat ? shopItemEffectSupplementText(newCat) : undefined;
   const newLines = equipmentReplaceEffectSummaryLines(slot, undefined, newName, ui, locale, newCatalogId);
-  if (currentLines.length === 0 && newLines.length === 0) return null;
+  const newAria = newCat
+    ? formatLocalizedShopItemEffectSummary(newCat, locale, ui)
+    : newLines.join(" · ");
+
+  const currentBlock = replaceEffectBlock(
+    ui.play.equipmentReplaceCurrentEffects,
+    currentDisplayName,
+    currentBadges,
+    currentLines,
+    currentAria,
+  );
+  const newBlock = replaceEffectBlock(
+    ui.play.equipmentReplaceNewEffects,
+    newDisplayName,
+    newBadges,
+    newLines,
+    newAria,
+    newSupplement,
+  );
+  if (!currentBlock && !newBlock) return null;
+
   return (
     <div
       className={u.stack8}
-      style={{ textAlign: "left", fontSize: 13, lineHeight: 1.45, color: "#e8ecf4", padding: "0 4px" }}
+      style={{
+        ...effectDescPanelStyle,
+        textAlign: "left",
+        fontSize: 13,
+        lineHeight: 1.45,
+        color: "#e8ecf4",
+      }}
     >
-      {currentLines.length > 0 ? (
-        <div>
-          <strong>{ui.play.equipmentReplaceCurrentEffects}</strong> ({currentDisplayName}):{" "}
-          {currentLines.join(" · ")}
-        </div>
-      ) : null}
-      {newLines.length > 0 ? (
-        <div>
-          <strong>{ui.play.equipmentReplaceNewEffects}</strong> ({newDisplayName}): {newLines.join(" · ")}
-        </div>
-      ) : null}
+      {currentBlock}
+      {newBlock}
     </div>
   );
 }

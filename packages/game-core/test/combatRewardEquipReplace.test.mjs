@@ -365,6 +365,32 @@ describe("turn order after combat win", () => {
     assert.equal(r.state.pending, null);
   });
 
+  it("brewer perk does not wipe combat loot replace after turn advances", () => {
+    const { state, weaponA } = combatWinStateTwoPlayers();
+    state.players[0].xp = 120;
+    state.players[0].brewerPerkLevelsClaimed = 0;
+    state.players[0].pendingBrewerPerkLevels = 1;
+
+    let r = applyAction(state, { type: "confirmCard", playerId: "p1" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.currentTurnIndex, 1);
+    assert.equal(r.state.offTurnPersonalPending?.type, "brewerPerkChoice");
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
+    assert.ok(
+      (r.state.combatEquipReplaceQueue ?? []).some(
+        (e) => e.playerId === "p1" && e.catalogId === weaponA.id,
+      ),
+      "replace offer should be re-queued while perk is open",
+    );
+
+    r = applyAction(r.state, { type: "brewerPerkDecision", playerId: "p1", choice: "attack" });
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.offTurnPersonalPending?.type, "equipmentReplaceOffer");
+    assert.equal(r.state.offTurnPersonalPending?.playerId, "p1");
+    assert.equal(r.state.offTurnPersonalPending?.fromCombatLoot, true);
+    assert.equal(r.state.offTurnPersonalPending?.catalogId, weaponA.id);
+  });
+
   it("two-player loot queue keeps turn with next player between replace offers", () => {
     const weaponA = EQUIPMENT_CATALOG.find((e) => e.slot === "weapon");
     const helmetB = EQUIPMENT_CATALOG.find((e) => e.slot === "helmet");

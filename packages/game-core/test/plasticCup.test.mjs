@@ -125,13 +125,13 @@ function merchantState(player, shelfItems) {
 }
 
 describe("Plastmugg", () => {
-  it("monsterCombatEquipmentAttackBonus ger −2 attack", () => {
+  it("monsterCombatEquipmentAttackBonus ger −1 attack", () => {
     const p = mkPlayer({
       id: "p1",
       name: "A",
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
-    assert.equal(monsterCombatEquipmentAttackBonus(p), -2);
+    assert.equal(monsterCombatEquipmentAttackBonus(p), -1);
   });
 
   it("effectiveItemPlayGoldCost nollställer pantkostnad med Plastmugg", () => {
@@ -139,7 +139,7 @@ describe("Plastmugg", () => {
     const cup = mkPlayer({
       id: "p1",
       name: "A",
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     assert.equal(itemPlayGoldCost("manopositiv"), 10);
     assert.equal(effectiveItemPlayGoldCost(bare, "manopositiv"), 10);
@@ -156,7 +156,7 @@ describe("Plastmugg", () => {
       isHost: true,
       gold: 0,
       inventory: [item],
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     const state = combatReactionsState(attacker);
     const r = applyAction(state, {
@@ -176,7 +176,7 @@ describe("Plastmugg", () => {
       name: "A",
       gold: 0,
       inventory: [item],
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     const pending = combatReactionsState(attacker).pending;
     assert.equal(playerHasCombatReactionPlayableItem(attacker, pending), true);
@@ -188,7 +188,7 @@ describe("Plastmugg", () => {
       name: "A",
       isHost: true,
       gold: 50,
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     const state = merchantState(buyer, [
       {
@@ -217,7 +217,7 @@ describe("Plastmugg", () => {
       name: "A",
       isHost: true,
       gold: 50,
-      equipment: { weapon: { name: "Plastmugg", power: -2, freeInventoryItemPlay: true } },
+      equipment: { weapon: { name: "Plastmugg", power: -1, bonusHp: -2, freeInventoryItemPlay: true } },
     });
     const state = merchantState(buyer, [
       {

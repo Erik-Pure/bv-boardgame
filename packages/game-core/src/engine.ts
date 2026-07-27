@@ -377,6 +377,32 @@ export function returnToLobby(state: GameState): ApplyResult {
   return { state: next, events: ["lobbyUpdate"] };
 }
 
+/** Bordet avbryter pågående parti — går till resultatfas utan vinnare. */
+export function endMatch(state: GameState): ApplyResult {
+  if (state.phase !== "playing") {
+    return { state, events: [], error: "Spelet pågår inte" };
+  }
+  const next = cloneState(state);
+  next.phase = "ended";
+  next.pending = null;
+  next.deferredPending = undefined;
+  next.offTurnPersonalPending = undefined;
+  next.winnerId = null;
+  next.winnerName = null;
+  next.bossFinaleExitStartedAt = null;
+  next.landingBypassEncounter = undefined;
+  next.sipNotices = [];
+  next.tableItemPlayReveals = [];
+  next.playerEmoteBursts = [];
+  next.playerKlunkBursts = [];
+  next.combatEquipReplaceQueue = undefined;
+  next.stolenEquipmentEscrow = undefined;
+  log(next, "Spelet avslutades från bordet.", {
+    key: LOG_MESSAGE_KEYS.gameEndedFromTable,
+  });
+  return { state: next, events: ["gameEnded"] };
+}
+
 function log(
   state: GameState,
   message: string,
@@ -735,6 +761,7 @@ function buildEquippedWeaponFromShopItem(item: ShopItem): Weapon {
     weapon.monsterLossSipReduction = item.monsterLossSipReduction;
   }
   if (item.freeInventoryItemPlay === true) weapon.freeInventoryItemPlay = true;
+  if (typeof item.bonusHp === "number") weapon.bonusHp = item.bonusHp;
   return weapon;
 }
 
@@ -743,6 +770,10 @@ function equipShopLikeItemToPlayer(p: Player, item: ShopItem, baseMaxHp: number)
   const src = resolveShopItemForEquip(item);
   if (src.slot === "weapon") {
     p.equipment.weapon = buildEquippedWeaponFromShopItem(src);
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
+    const weaponHp = src.bonusHp ?? 0;
+    if (weaponHp > 0) p.hp = Math.min(p.hp + weaponHp, p.maxHp);
+    else p.hp = Math.min(p.hp, p.maxHp);
   } else if (src.slot === "armor") {
     p.equipment.armor = {
       name: src.name,
@@ -812,6 +843,8 @@ function assignEquipmentPieceFromLoot(
   const baseMaxHp = state.config.maxHp;
   if (slot === "weapon") {
     p.equipment.weapon = { ...(piece as Weapon) };
+    p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
   } else if (slot === "armor") {
     p.equipment.armor = { ...(piece as ArmorPiece) };
     p.maxHp = playerMaxHpFromBase(baseMaxHp, p);
@@ -1242,11 +1275,11 @@ function grantRandomCombatReward(
     if (rallySlots.length > 0) {
       const slot = pick(rng, rallySlots);
       if (slot === "weapon") {
-        player.equipment.weapon = { name: "Robotarm", power: 0, pvpDieBonus: 1 };
+        player.equipment.weapon = { name: "Robotarm", power: 0, pvpDieBonus: 2 };
         log(state, `${player.name} får Robotarm efter segern mot ${sourceName}!`);
         return { title: "Robotarm" };
       }
-      player.equipment.helmet = { name: "Robothjälm", damageNegate: 1, combatBonus: 0 };
+      player.equipment.helmet = { name: "Robothjälm", damageNegate: 2, combatBonus: 0 };
       log(state, `${player.name} får Robothjälm efter segern mot ${sourceName}!`);
       return { title: "Robothjälm" };
     }
@@ -1939,6 +1972,15 @@ function finalizeCombatAfterRollPreview(
       attackerItemCount = 0;
       helperItemCount = rewardItems;
       log(next, `${helpMate.name} hjälpte till och får skatten enligt överenskommelsen.`);
+    } else if (helpMate && helpContract === "all") {
+      const transfer = Math.max(0, Math.min(rewardGold, p.gold));
+      if (transfer > 0) {
+        p.gold -= transfer;
+        helpMate.gold += transfer;
+      }
+      attackerItemCount = 0;
+      helperItemCount = rewardItems;
+      log(next, `${helpMate.name} hjälpte till och får all pant och skatt enligt överenskommelsen.`);
     } else if (helpMate && helpContract === "split") {
       const helperGold = Math.floor(rewardGold / 2);
       const attackerGold = rewardGold - helperGold;
@@ -2256,6 +2298,13 @@ function tryOfferLevelUpAfterSipAck(state: GameState, playerId: string): void {
 function offerPostTurnPrompts(state: GameState, playerId: string): void {
   if (tryOpenBrewerPerkChoice(state, playerId, log, { offTurn: true })) return;
   if (playerHasPendingSipNotice(state, playerId)) return;
+  if (!state.offTurnPersonalPending) {
+    drainNextCombatEquipReplace(state);
+  }
+  const offReplace = state.offTurnPersonalPending;
+  if (offReplace?.type === "equipmentReplaceOffer" && offReplace.playerId === playerId) {
+    return;
+  }
   const p = state.players.find((x) => x.id === playerId);
   if (!p) return;
   const onOwnTurn = state.turnOrder[state.currentTurnIndex] === playerId;
@@ -2959,6 +3008,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   if (action.type === "returnToLobby") {
     return returnToLobby(state);
   }
+  if (action.type === "endMatch") {
+    return endMatch(state);
+  }
   const logEntropy = state.logSeq ?? state.log.length;
   const base = (state.seed + Math.imul(logEntropy, 997)) >>> 0;
   const actionMix = fnv1a32(stableStringify(action));
@@ -3133,6 +3185,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       const victimGoldBeforeIns = victim.gold;
       victim.gold = Math.max(0, victim.gold - insuranceCost);
       recordPantSpent(next, victim.id, victimGoldBeforeIns - victim.gold);
+      victim.equipment.accessory = undefined;
       victim.eliminated = false;
       victim.hp = victim.maxHp;
       log(next, `${victim.name} använder Livförsäkring och betalar ${insuranceCost} pant för att fortsätta med fullt liv.`, {
@@ -5788,7 +5841,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     const name = piece.name ?? slot;
     p.equipment[slot] = undefined;
-    if (slot === "armor" || slot === "helmet") {
+    if (slot === "armor" || slot === "helmet" || slot === "weapon") {
       p.maxHp = playerMaxHpFromBase(next.config.maxHp, p);
       if (p.hp > p.maxHp) p.hp = p.maxHp;
     }

@@ -10,7 +10,8 @@ describe("formatLocalizedShopItemEffectSummary", () => {
     const plasticCup = EQUIPMENT_CATALOG.find((e) => e.id === "ew_plastic_cup");
     assert.ok(plasticCup);
     const summary = formatLocalizedShopItemEffectSummary(plasticCup, "en", en);
-    assert.match(summary, /−2 attack in monster fights/i);
+    assert.match(summary, /−1 attack in monster fights/i);
+    assert.match(summary, /−2 max HP/i);
     assert.match(summary, /free to play|0 cans/i);
     assert.doesNotMatch(summary, /Kraft|Föremål/i);
   });
@@ -19,7 +20,8 @@ describe("formatLocalizedShopItemEffectSummary", () => {
     const plasticCup = EQUIPMENT_CATALOG.find((e) => e.id === "ew_plastic_cup");
     assert.ok(plasticCup);
     const summary = formatLocalizedShopItemEffectSummary(plasticCup, "sv", sv);
-    assert.match(summary, /Kraft -2/);
+    assert.match(summary, /Kraft -1/);
+    assert.match(summary, /-2 max HP/);
     assert.match(summary, /gratis att spela/i);
   });
 });

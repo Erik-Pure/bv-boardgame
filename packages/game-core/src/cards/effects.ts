@@ -50,7 +50,12 @@ export function tryGrantRandomEquipmentOrOffer(
       breakOnWin: eq.breakOnWin,
       monsterLossSipReduction: eq.monsterLossSipReduction,
       freeInventoryItemPlay: eq.freeInventoryItemPlay,
+      bonusHp: eq.bonusHp,
     };
+    player.maxHp = playerMaxHpFromBase(baseMaxHp, player);
+    const weaponHp = eq.bonusHp ?? 0;
+    if (weaponHp > 0) player.hp = Math.min(player.hp + weaponHp, player.maxHp);
+    else player.hp = Math.min(player.hp, player.maxHp);
     syncPlastbackEmptyBottleSynergy(player);
   } else if (slot === "armor") {
     player.equipment.armor = {
