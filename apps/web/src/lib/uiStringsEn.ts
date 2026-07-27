@@ -158,6 +158,9 @@ export const en = {
     attackModifier: (m: number) => `Attack modifier: ${m}`,
     waitIntervene: "Waiting for other players to intervene…",
     rollCombat: "Roll die",
+    /** Approximate win chance before the combat roll (next to monster strength). */
+    combatWinChancePct: (pct: number) => `${pct}%`,
+    combatWinChanceAria: (pct: number) => `Approximate win chance ${pct} percent`,
     combatHelpRequest: "Ask for help",
     combatHelpCancel: "Cancel help request",
     combatHelpChooseHelper: "Choose who you want to ask for help",

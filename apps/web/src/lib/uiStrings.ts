@@ -273,6 +273,9 @@ export const sv = {
     attackModifier: (m: number) => `Attackmodifierare: ${m}`,
     waitIntervene: "Väntar på att andra spelare ingriper…",
     rollCombat: "Slå tärning",
+    /** Ungefärlig vinstchans före tärningsslag (bredvid monsterstyrka). */
+    combatWinChancePct: (pct: number) => `${pct}%`,
+    combatWinChanceAria: (pct: number) => `Ungefärlig vinstchans ${pct} procent`,
     combatHelpRequest: "Be om hjälp",
     combatHelpCancel: "Avbryt hjälpbegäran",
     combatHelpChooseHelper: "Välj vem du vill be om hjälp",

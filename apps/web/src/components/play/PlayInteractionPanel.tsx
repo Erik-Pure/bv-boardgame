@@ -17,6 +17,7 @@ import {
   isPlayerActiveInMatch,
   itemPlayGoldCost,
   monsterCombatEquipmentAttackBonus,
+  monsterCombatWinChancePercent,
   penaltySipTotalForPlayer,
   playerCanCombatIntervene,
   playerTotalItemCardBonus,
@@ -830,12 +831,53 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
         ? (teammate?.name ?? "")
         : (attacker?.name ?? ui.play.theAttacker);
 
+    const combatNeed = pending.need + (pending.needMod ?? 0);
+    const rollerOddsInput = (p: Player | null | undefined) => {
+      if (!p) return null;
+      const rolled = pending.teamRolls?.[p.id];
+      if (rolled) {
+        const dieContrib = rolled.attackDiceDoubled ? rolled.die * 2 : rolled.die;
+        return {
+          flatBonus: rolled.total - dieContrib,
+          attackDiceDoubled: rolled.attackDiceDoubled === true,
+          ignoreCritFailOnOne: p.equipment.accessory?.ignoreCombatCritFailOnOne === true,
+          fixedDie: rolled.die,
+        };
+      }
+      const sip =
+        pending.sipWeaponBonusChoice?.[p.id] === true ? (p.equipment.weapon?.sipAttackBonus ?? 0) : 0;
+      const forced = p.nextForcedDieFace;
+      return {
+        flatBonus:
+          monsterCombatEquipmentAttackBonus(p) +
+          (pending.attackMods?.[p.id] ?? 0) +
+          (p.nextCombatModifier ?? 0) +
+          sip,
+        attackDiceDoubled: p.nextCombatAttackDiceDouble === true,
+        ignoreCritFailOnOne: p.equipment.accessory?.ignoreCombatCritFailOnOne === true,
+        fixedDie:
+          typeof forced === "number" && forced >= 1 && forced <= 6 && Number.isInteger(forced)
+            ? forced
+            : undefined,
+      };
+    };
+    const attackerOdds = rollerOddsInput(attacker);
+    const assistOdds = pending.assistId ? rollerOddsInput(teammate) : null;
+    const winChancePct =
+      attackerOdds && !bothTeamRolled
+        ? monsterCombatWinChancePercent({
+            need: combatNeed,
+            attacker: attackerOdds,
+            assist: assistOdds,
+          })
+        : null;
+
     if (isTeamFighter) {
       return (
         <div className={u.stack10}>
           <div className={u.reactionTitleRow}>
             <span className={u.combatMonsterName}>{localizedCombatMonster(pending, locale).name}</span>
-            <CombatStrengthPill value={pending.need + (pending.needMod ?? 0)} />
+            <CombatStrengthPill value={combatNeed} />
           </div>
           {teammate ? (
             <div className={`${u.textCenter} ${u.o82} ${u.fs12}`}>
@@ -874,6 +916,14 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
                   <DiceCube3D idleSpin spinning={!everyoneDone || combatDiceSpinning} size={76} />
                 )}
               </div>
+              {winChancePct != null ? (
+                <div
+                  className={styles.sheetDiceWinChanceSlot}
+                  aria-label={ui.play.combatWinChanceAria(winChancePct)}
+                >
+                  {ui.play.combatWinChancePct(winChancePct)}
+                </div>
+              ) : null}
             </div>
             {myTeamRoll ? (
               <>

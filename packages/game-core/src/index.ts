@@ -70,6 +70,10 @@ export {
   pvpEquipmentDieBonusTotal,
   sipWeaponExtraAttackCosts,
 } from "./weaponPower.js";
+export {
+  monsterCombatWinChancePercent,
+  type CombatRollerOddsInput,
+} from "./combatWinChance.js";
 export { clockwiseTileIndex, counterClockwiseTileIndex } from "./ringMovement.js";
 export {
   applyAction,

@@ -4,7 +4,7 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.81 |
+| Version | 0.82 |
 | Senast uppdaterad | 2026-07-27 |
 
 ---
@@ -282,6 +282,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Presentation av monsterkort (UI):** siffror för styrka, förlust (skada/klunk), vinst (pant/items) ska **inte ligga i sidhuvudet** utan samlas i en **rad längst ner på kortet**, med **ikon ovanför respektive siffra** (kolumnlayout per värde), så beskrivning och bild får fokus. **Styrka** i sidhuvudet visas som **lila pill** (svärdikon + siffra, `CombatStrengthPill`) — samma komponent på kort och i mobilens stridsvy.
 - **Våningsnummer på dålig batch (UI):** efter batchnamnet visas **(N)** där **N** är **1-baserad våning** (`levelIndex + 1`) — t.ex. *Kapten Interrobang (3)*. Siffran och parentes i **rött**, typsnitt **Saira** (`var(--sans)`); namnet behåller **Permanent Marker**. Gäller **mobil** (monsterintro, team battle, stridskort) och **bord** (`MonsterEncounterCard`), men **inte** slutboss.
 - **Mobil stridsvy (efter intro, före/under slag):** ovanför tärning/knappar visas **batchnamn i Permanent Marker** + **`CombatStrengthPill`** (samma framing som på kortet). **Vinst-/förlust-rutor** visas **inte** i denna panel (bara på monsterkortet/intro).
+- **Vinstchans (mobil, före slag):** till **höger om stridstärningen** visas ungefärlig **vinstprocent** (normal textvikt, ingen pill) via `monsterCombatWinChancePercent` — samma regler som motorn (t6 + utrustning/attackmods/`nextCombatModifier`/vald vapen-klunkbonus, kritisk miss på etta / båda ettor i lag, Fyrklöver, dubbel tärning). Till **vänster** står attackmodifieraren som tidigare. Procenten uppdateras när buffar/hjälp/sip-vapenval ändras och döljs när båda (eller enda) slag är klara.
 
 **Särskilda monster (val som spelaren gör):**
 
@@ -297,7 +298,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Kontraktsutfall:** hjälparbelöning betalas endast ut om laget **vinner** striden; vid **förlust** sker ingen utbetalning **och den accepterade hjälparen tar samma monster-HP-skada och straffklunk som angriparen i princip får i lagstrid** (egna rustnings-/vapenregler; mitigationsval för t.ex. Kapten Interrobang eller Sura bär följer angriparens val). **Ölkompis** i strid utan separat hjälpkontrakt hade redan motsvarande risk; på mobil speglas båda i **vinst-/förlust-modal** (och ev. toast enligt §2 ovan).
 - **Ingripande / reaktionskort:** spelare som får ingripa kan spela flera spelbara reaktionsföremål i samma fönster. **Bordet** visar inte **vilka** som kan ingripa (hemligt); mobil visar bara generisk väntan för icke-ingripare. Efter varje spelat kort ska servern kontrollera om spelaren har fler **faktiskt spelbara** ingripandekort kvar; om inte markeras spelaren automatiskt klar/pass (ingen extra “Gör inget” krävs). “Faktiskt spelbar” tar hänsyn till kostnad och läge, t.ex. **Manopositiv** kräver 4 pant och **Ölkompis** kan inte spelas om någon redan hjälper.
 - **Stridande spelare under reaktionsfasen:** angripare/medkämpe ska kunna spela egna fighter-kort innan slaget, t.ex. **Get Lucky**, **Manopositiv**, **Skägget rakt bak** och andra positiva attackkort, men de väljs från spelarens **inventory/föremålslista** som vanligt — inte som extra knappar i själva stridspanelen.
-- **Lagstrid på mobil:** bredvid tärningen visas **endast din egen** attackmodifier (utrustning, kortbuffar, `nextCombatModifier` m.m.) — inte summan av båda stridande. **Storskärmsbrädet** kan fortfarande visa lagets **samlade** modifier enligt befintlig presentation.
+- **Lagstrid på mobil:** bredvid tärningen visas **endast din egen** attackmodifier (utrustning, kortbuffar, `nextCombatModifier` m.m.) — inte summan av båda stridande. **Vinstchans** räknar däremot **båda** stridandes bidrag (och villkorlig odds om ena redan slagit). **Storskärmsbrädet** kan fortfarande visa lagets **samlade** modifier enligt befintlig presentation.
 - **Stridstärning — resultatrad (mobil):** under tärningen efter slag visas attacktotal mot fiendens styrka (t.ex. *Attack totalt **6** mot **3*** med stridsikon) — copy ska följa `locale` (`uiStrings` / `uiStringsEn`).
 
 ### 9.1.1 Team battle-monster
@@ -691,4 +692,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.79 | 2026-07-23 | §9.1.1 bord: lagstrid/Ölkompis fryser varje tärning så fort `teamRolls` har resultatet under `reactions` |
 | 0.80 | 2026-07-24 | §9.1 **stridshjälp** = dual-roll (`assistId`) utan krav på positiva hjälpkort; kontrakt styr loot; §11 buffade **föremålstexter**, attackpiller vs `nextCombatModifier`, **Ta bort** utrustning, katalog-hydrering vid equip, Kapsylbikini-badge **BvB**; §2 mobil **playerTurn**-SFX |
 | 0.81 | 2026-07-27 | §2/§2.1: matchstart-nedräkning 5→1, turbyte-banner, eliminerade/lämnat i lista (dölj vitals), emote-scroll, **`endMatch`** från bordsinställningar; §2 mobil toast när föremål spelas på dig; §10.2 handel/byte **inline ikon+siffra**; §11 balans **Plastmugg** (−1/−2 HP), **Beanie** (+2 HP), **Guldkedja** (+2 pant/strid), **Robotarm** (+2 BvB), **Robothjälm** (+2 sköld); Livförsäkring förbrukas |
+| 0.82 | 2026-07-27 | §9.1 mobil strid: **vinstchans %** till höger om tärningen (`monsterCombatWinChancePercent`); attackmod vänster; uppdateras med buffar/hjälp |
 
