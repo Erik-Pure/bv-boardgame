@@ -849,7 +849,14 @@ export function PlayView() {
 
       {toast ? (
         <div
-          className={[styles.playToast, toast.itemId ? styles.playToastRich : ""].filter(Boolean).join(" ")}
+          className={[
+            styles.playToast,
+            toast.itemId ? styles.playToastRich : "",
+            toast.tone === "positive" ? styles.playToastPositive : "",
+            toast.tone === "negative" ? styles.playToastNegative : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           role="status"
           aria-live="polite"
         >

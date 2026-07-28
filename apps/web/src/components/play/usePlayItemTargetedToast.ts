@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { GameState, Player } from "@bv/game-core";
 import { lastCombatReactionPlaySeq, lastTableItemRevealSeq } from "../../lib/gameSfxSyncHelpers";
+import { itemPlayToastTone } from "../../lib/itemPlayPolarity";
 import { useLocale, useUiStrings } from "../../lib/locale/LocaleContext";
 import { itemMetaForView } from "./playItemMeta";
 import type { ShowPlayToast } from "./playToast";
@@ -73,6 +74,7 @@ export function usePlayItemTargetedToast(options: {
           itemId: play.itemId,
           itemTitle: meta.title,
           message: ui.play.itemPlayedOnYou(actorName),
+          tone: itemPlayToastTone(play.itemId),
         },
         4000,
       );
