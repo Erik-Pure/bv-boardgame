@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.82 |
-| Senast uppdaterad | 2026-07-27 |
+| Version | 0.83 |
+| Senast uppdaterad | 2026-07-29 |
 
 ---
 
@@ -598,6 +598,7 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 Följande värden ska ses som **tuning-variabler** (inte hårda designregler). Justera i data/kod och uppdatera siffror här vid behov.
 
 - **Startpant vid spelstart och omstart:** lobbyns **startpant** (default 5) per spelare vid spelstart och vid **Starta om på nytt**; livförsäkring och övriga pantflöden följer §12.
+- **Skatt-tiles per nivå:** **1** (ned från 2); gäller alla nivåer inklusive fallback-nivåer.
 - **Team-monsterfrekvens per nivå:** ~4% / 9% / 14%.
 - **Monster `need`:** +`2 × levelIndex` på styrkekrav på den våningen (lokalt per plan; konstant `MONSTER_NEED_BONUS_PER_LEVEL = 2`).
 - **Monster förlust-skada (HP):** +`2 × levelIndex` på den våningen för **standardmonster**; team battle och slutboss använder sin baslogik utan denna extra skaleffekt.
@@ -693,4 +694,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.80 | 2026-07-24 | §9.1 **stridshjälp** = dual-roll (`assistId`) utan krav på positiva hjälpkort; kontrakt styr loot; §11 buffade **föremålstexter**, attackpiller vs `nextCombatModifier`, **Ta bort** utrustning, katalog-hydrering vid equip, Kapsylbikini-badge **BvB**; §2 mobil **playerTurn**-SFX |
 | 0.81 | 2026-07-27 | §2/§2.1: matchstart-nedräkning 5→1, turbyte-banner, eliminerade/lämnat i lista (dölj vitals), emote-scroll, **`endMatch`** från bordsinställningar; §2 mobil toast när föremål spelas på dig; §10.2 handel/byte **inline ikon+siffra**; §11 balans **Plastmugg** (−1/−2 HP), **Beanie** (+2 HP), **Guldkedja** (+2 pant/strid), **Robotarm** (+2 BvB), **Robothjälm** (+2 sköld); Livförsäkring förbrukas |
 | 0.82 | 2026-07-27 | §9.1 mobil strid: **vinstchans %** till höger om tärningen (`monsterCombatWinChancePercent`); attackmod vänster; uppdateras med buffar/hjälp |
+|| 0.83 | 2026-07-29 | §19 **skatt-tiles per nivå: 1** (ned från 2) — `tileCountsForLevel` i `game-core/board.ts` |
 

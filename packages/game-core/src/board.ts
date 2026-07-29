@@ -57,7 +57,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
         merchant: 0,
         door: 0,
         rest: 1,
-        treasure: 2,
+        treasure: 1,
         boss: DEV_QUICK_BOSS_TEST.bossTilesOnLevel0,
       };
     }
@@ -68,7 +68,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
       merchant: 0,
       door: 0,
       rest: 1,
-      treasure: 2,
+      treasure: 1,
       boss: 0,
     };
   }
@@ -80,7 +80,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
       merchant: 0,
       door: 0,
       rest: 1,
-      treasure: 2,
+      treasure: 1,
       boss: 0,
     };
   }
@@ -92,7 +92,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
       merchant: 0,
       door: 0,
       rest: 0,
-      treasure: 2,
+      treasure: 1,
       boss: 1,
     };
   }
@@ -103,7 +103,7 @@ function tileCountsForLevel(li: number): Record<TileType, number> {
     merchant: 0,
     door: 0,
     rest: 0,
-    treasure: 2,
+    treasure: 1,
     boss: 1,
   };
 }
