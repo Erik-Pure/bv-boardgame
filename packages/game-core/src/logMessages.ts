@@ -23,6 +23,7 @@ export const LOG_MESSAGE_KEYS = {
   gameFinalBossIntro: "game.finalBossIntro",
   turnRollDice: "turn.rollDice",
   turnChanged: "turn.changed",
+  turnTimeout: "turn.timeout",
   tileEmpty: "tile.empty",
   tileRestHeal: "tile.restHeal",
   tileTreasureAlreadyTaken: "tile.treasureAlreadyTaken",
@@ -136,6 +137,10 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
   [LOG_MESSAGE_KEYS.turnChanged]: {
     sv: "— {name}s tur —",
     en: "— {name}'s turn —",
+  },
+  [LOG_MESSAGE_KEYS.turnTimeout]: {
+    sv: "{name}s tur tog slut (timeout).",
+    en: "{name}'s turn ended (timeout).",
   },
   [LOG_MESSAGE_KEYS.tileEmpty]: {
     sv: "{name} hamnar på en lugn ruta.",

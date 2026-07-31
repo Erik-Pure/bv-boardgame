@@ -3,6 +3,7 @@ export const CONFIG_NUMERIC = {
   reactionSeconds: { min: 0, max: 30, default: 5 },
   maxHp: { min: 6, max: 30, default: 10 },
   startPant: { min: 0, max: 50, default: 5 },
+  pvpBestOf: { min: 1, max: 5, default: 1 },
 } as const;
 
 export type ConfigNumericKey = keyof typeof CONFIG_NUMERIC;

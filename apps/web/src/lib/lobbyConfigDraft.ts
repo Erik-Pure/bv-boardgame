@@ -2,11 +2,13 @@ import { CONFIG_NUMERIC, type GameConfig } from "@bv/game-core";
 
 const KEY_PREFIX = "bv:lobbyConfigDraft:";
 
-export type LobbyConfigDraft = Omit<GameConfig, "turnSeconds" | "gameMode">;
+export type LobbyConfigDraft = Omit<GameConfig, "gameMode">;
 
 export function defaultLobbyConfigDraft(): LobbyConfigDraft {
   return {
     difficulty: "folkol",
+    turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
+    turnTimeoutEnabled: false,
     reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
     hardcore: false,
     allowLateJoin: false,
@@ -15,6 +17,7 @@ export function defaultLobbyConfigDraft(): LobbyConfigDraft {
     levelCount: 3,
     maxHp: CONFIG_NUMERIC.maxHp.default,
     startPant: CONFIG_NUMERIC.startPant.default,
+    pvpBestOf: CONFIG_NUMERIC.pvpBestOf.default,
     wakeLockBeforeStart: false,
     disabledCardIds: [],
     cardCover: "card1",

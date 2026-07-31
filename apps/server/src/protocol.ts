@@ -15,6 +15,7 @@ export const clientHelloSchema = z.object({
   config: z
     .object({
       turnSeconds: z.number().int().min(CONFIG_NUMERIC.turnSeconds.min).max(CONFIG_NUMERIC.turnSeconds.max).optional(),
+      turnTimeoutEnabled: z.boolean().optional(),
       reactionSeconds: z
         .number()
         .int()
@@ -30,6 +31,7 @@ export const clientHelloSchema = z.object({
       levelCount: z.number().int().min(1).max(5).optional(),
       maxHp: z.number().int().min(CONFIG_NUMERIC.maxHp.min).max(CONFIG_NUMERIC.maxHp.max).optional(),
       startPant: z.number().int().min(CONFIG_NUMERIC.startPant.min).max(CONFIG_NUMERIC.startPant.max).optional(),
+      pvpBestOf: z.number().int().min(CONFIG_NUMERIC.pvpBestOf.min).max(CONFIG_NUMERIC.pvpBestOf.max).optional(),
       wakeLockBeforeStart: z.boolean().optional(),
       disabledCardIds: z.array(z.string().min(1)).optional(),
       cardCover: z.string().min(1).max(64).optional(),

@@ -187,6 +187,7 @@ const DRAWABLE_CARD_ID_SET = new Set(
 );
 const DEFAULT_CONFIG: GameState["config"] = {
   turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
+  turnTimeoutEnabled: false,
   reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
   gameMode: "bossKill",
   difficulty: "folkol",
@@ -197,6 +198,7 @@ const DEFAULT_CONFIG: GameState["config"] = {
   levelCount: 3,
   maxHp: CONFIG_NUMERIC.maxHp.default,
   startPant: CONFIG_NUMERIC.startPant.default,
+  pvpBestOf: CONFIG_NUMERIC.pvpBestOf.default,
   wakeLockBeforeStart: false,
   disabledCardIds: [],
   cardCover: "card1",
@@ -208,10 +210,12 @@ function normalizeConfig(state: GameState): void {
     ...state.config,
   };
   state.config.turnSeconds = clampConfigNumber("turnSeconds", state.config.turnSeconds);
+  state.config.turnTimeoutEnabled = !!state.config.turnTimeoutEnabled;
   state.config.reactionSeconds = clampConfigNumber("reactionSeconds", state.config.reactionSeconds);
   state.config.levelCount = Math.max(1, Math.min(5, Math.floor(Number(state.config.levelCount || 3))));
   state.config.maxHp = clampConfigNumber("maxHp", state.config.maxHp);
   state.config.startPant = clampConfigNumber("startPant", state.config.startPant);
+  state.config.pvpBestOf = clampConfigNumber("pvpBestOf", state.config.pvpBestOf);
   if (!["lattol", "folkol", "starkol", "imperial"].includes(state.config.difficulty)) {
     state.config.difficulty = "folkol";
   }
@@ -267,6 +271,9 @@ function reconcilePlayingPersonalPrompts(state: GameState): void {
 /** Normalisera inläst/sparad state (config, avatar, perk-prompts). */
 export function normalizeLoadedGameState(state: GameState): void {
   normalizeConfig(state);
+  if (state.turnDeadlineAt === undefined) {
+    state.turnDeadlineAt = null;
+  }
   if (state.gameStartedAt == null && (state.phase === "playing" || state.phase === "ended")) {
     const startLine = state.log.find((e) => e.message.includes("börjar!"));
     if (startLine) state.gameStartedAt = startLine.at;
@@ -291,6 +298,7 @@ export function createEmptyLobby(roomCode: string): GameState {
     winnerId: null,
     winnerName: null,
     gameStartedAt: null,
+    turnDeadlineAt: null,
     goldenBeerCarrierId: null,
     finalBossMonsterId: null,
     finalBossLivesRemaining: null,
@@ -357,6 +365,7 @@ export function returnToLobby(state: GameState): ApplyResult {
   next.winnerId = null;
   next.winnerName = null;
   next.gameStartedAt = null;
+  next.turnDeadlineAt = null;
   next.goldenBeerCarrierId = null;
   next.finalBossMonsterId = null;
   next.finalBossLivesRemaining = null;
@@ -390,6 +399,7 @@ export function endMatch(state: GameState): ApplyResult {
   next.winnerId = null;
   next.winnerName = null;
   next.bossFinaleExitStartedAt = null;
+  next.turnDeadlineAt = null;
   next.landingBypassEncounter = undefined;
   next.sipNotices = [];
   next.tableItemPlayReveals = [];
@@ -577,12 +587,17 @@ function pvpRoundWithDefaults(pending: Extract<Pending, { type: "pvp" }>): numbe
   return pending.roundNumber ?? pending.pvpRound ?? 1;
 }
 
-function initPvpPending(attackerId: string, defenderId: string): Extract<Pending, { type: "pvp" }> {
+function initPvpPending(
+  state: GameState,
+  attackerId: string,
+  defenderId: string,
+): Extract<Pending, { type: "pvp" }> {
+  const bestOf = clampConfigNumber("pvpBestOf", state.config.pvpBestOf ?? PVP_BEST_OF);
   return {
     type: "pvp",
     attackerId,
     defenderId,
-    bestOf: PVP_BEST_OF,
+    bestOf,
     wins: { attacker: 0, defender: 0 },
     roundNumber: 1,
     pvpRound: 1,
@@ -2324,6 +2339,70 @@ function endTurnOrOfferLevelUp(state: GameState, activePlayerId: string): void {
   offerPostTurnPrompts(state, activePlayerId);
 }
 
+/** Pending där tur-timeout får ticka (paus under handel/strid/BvB/kort). */
+export function isTurnTimeoutActionablePending(pending: Pending | null | undefined): boolean {
+  if (pending == null) return true;
+  return pending.type === "moveChoice" || pending.type === "encounterChoice";
+}
+
+export function clearTurnDeadline(state: GameState): void {
+  state.turnDeadlineAt = null;
+}
+
+/** Sätt ny deadline för aktiv tur när timeout är på; annars null. */
+export function refreshTurnDeadline(state: GameState, now = Date.now()): void {
+  if (state.phase === "playing" && state.config.turnTimeoutEnabled) {
+    const secs = clampConfigNumber("turnSeconds", state.config.turnSeconds);
+    state.turnDeadlineAt = now + secs * 1000;
+  } else {
+    state.turnDeadlineAt = null;
+  }
+}
+
+function forceEndTurnOnTimeout(state: GameState): void {
+  const cp = currentPlayer(state);
+  if (!cp) {
+    clearTurnDeadline(state);
+    return;
+  }
+  const pending = state.pending;
+  if (pending?.type === "moveChoice" || pending?.type === "encounterChoice") {
+    state.pending = null;
+  } else if (pending != null) {
+    return;
+  }
+  log(state, `${cp.name}s tur tog slut (timeout).`, {
+    key: LOG_MESSAGE_KEYS.turnTimeout,
+    params: { name: cp.name },
+  });
+  clearTurnDeadline(state);
+  endTurnOrOfferLevelUp(state, cp.id);
+}
+
+/**
+ * Servertick: om tur-timeout är due och spelaren är i fritt handlingsläge, avsluta turen.
+ * Returnerar ny state + events, eller null om ingen ändring.
+ */
+export function applyTurnTimeoutIfDue(state: GameState, now = Date.now()): ApplyResult | null {
+  if (state.phase !== "playing" || !state.config.turnTimeoutEnabled) {
+    if (state.turnDeadlineAt != null) {
+      const next = cloneState(state);
+      clearTurnDeadline(next);
+      return { state: next, events: ["state"] };
+    }
+    return null;
+  }
+  if (!isTurnTimeoutActionablePending(state.pending)) {
+    return null;
+  }
+  if (state.turnDeadlineAt == null || now < state.turnDeadlineAt) {
+    return null;
+  }
+  const next = cloneState(state);
+  forceEndTurnOnTimeout(next);
+  return { state: next, events: ["state", "turnTimeout"] };
+}
+
 function cloneState(s: GameState): GameState {
   // Node/TS-lib kan sakna structuredClone beroende på target/lib.
   return JSON.parse(JSON.stringify(s)) as GameState;
@@ -2521,6 +2600,7 @@ export function startGame(
     });
     applyArmorHealHpPerTurnAtTurnStart(next, cur);
   }
+  refreshTurnDeadline(next);
   return { state: next, events: ["gameStarted"] };
 }
 
@@ -3068,6 +3148,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (typeof action.turnSeconds === "number") {
         next.config.turnSeconds = clampConfigNumber("turnSeconds", action.turnSeconds);
       }
+      if (typeof action.turnTimeoutEnabled === "boolean") {
+        next.config.turnTimeoutEnabled = action.turnTimeoutEnabled;
+      }
       if (typeof action.reactionSeconds === "number" && Number.isFinite(action.reactionSeconds)) {
         next.config.reactionSeconds = clampConfigNumber("reactionSeconds", action.reactionSeconds);
       }
@@ -3099,6 +3182,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (typeof action.startPant === "number" && Number.isFinite(action.startPant)) {
         next.config.startPant = clampConfigNumber("startPant", action.startPant);
+      }
+      if (typeof action.pvpBestOf === "number" && Number.isFinite(action.pvpBestOf)) {
+        next.config.pvpBestOf = clampConfigNumber("pvpBestOf", action.pvpBestOf);
       }
       if (typeof action.wakeLockBeforeStart === "boolean") {
         next.config.wakeLockBeforeStart = action.wakeLockBeforeStart;
@@ -5588,7 +5674,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       if (!opp) return { state, events: [], error: "Opponent not found" };
       log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
       clearTableItemPlay(next);
-      next.pending = initPvpPending(mover.id, opp.id);
+      next.pending = initPvpPending(next, mover.id, opp.id);
       tryAdvancePvpPreRoundToRolls(next, next.pending);
       return { state: next, events: ["state"] };
     }
@@ -5618,7 +5704,7 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
     }
     log(next, `${mover.name} utmanar ${opp.name} till BvB!`);
     clearTableItemPlay(next);
-    next.pending = initPvpPending(mover.id, opp.id);
+    next.pending = initPvpPending(next, mover.id, opp.id);
     tryAdvancePvpPreRoundToRolls(next, next.pending);
     return { state: next, events: ["state"] };
   }
@@ -6408,6 +6494,8 @@ function advanceTurn(state: GameState): void {
     log(state, `— ${n.name}s tur —`);
     applyArmorHealHpPerTurnAtTurnStart(state, n);
     surfaceActivePlayerCombatLoot(state);
+    refreshTurnDeadline(state);
     return;
   }
+  clearTurnDeadline(state);
 }

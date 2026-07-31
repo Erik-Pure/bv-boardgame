@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
 import {
   applyAction,
+  applyTurnTimeoutIfDue,
   clampConfigNumber,
   createEmptyLobby,
   lobbyAddPlayer,
@@ -60,6 +61,7 @@ const BROADCAST_DELTA_FIELD_KEYS = [
   "logSeq",
   "winnerId",
   "winnerName",
+  "turnDeadlineAt",
   "goldenBeerCarrierId",
   "finalBossMonsterId",
   "finalBossLivesRemaining",
@@ -296,6 +298,7 @@ export function getRoom(code: string): Room | undefined {
 
 type TableHelloConfig = {
   turnSeconds?: number;
+  turnTimeoutEnabled?: boolean;
   reactionSeconds?: number;
   gameMode?: "bossKill";
   difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
@@ -306,6 +309,7 @@ type TableHelloConfig = {
   levelCount?: number;
   maxHp?: number;
   startPant?: number;
+  pvpBestOf?: number;
   wakeLockBeforeStart?: boolean;
   disabledCardIds?: string[];
   cardCover?: string;
@@ -315,6 +319,9 @@ type TableHelloConfig = {
 function applyTableHelloConfig(room: Room, config: TableHelloConfig): void {
   if (typeof config.turnSeconds === "number") {
     room.state.config.turnSeconds = clampConfigNumber("turnSeconds", config.turnSeconds);
+  }
+  if (typeof config.turnTimeoutEnabled === "boolean") {
+    room.state.config.turnTimeoutEnabled = config.turnTimeoutEnabled;
   }
   if (typeof config.reactionSeconds === "number") {
     room.state.config.reactionSeconds = clampConfigNumber("reactionSeconds", config.reactionSeconds);
@@ -345,6 +352,9 @@ function applyTableHelloConfig(room: Room, config: TableHelloConfig): void {
   }
   if (typeof config.startPant === "number") {
     room.state.config.startPant = clampConfigNumber("startPant", config.startPant);
+  }
+  if (typeof config.pvpBestOf === "number") {
+    room.state.config.pvpBestOf = clampConfigNumber("pvpBestOf", config.pvpBestOf);
   }
   if (typeof config.wakeLockBeforeStart === "boolean") {
     room.state.config.wakeLockBeforeStart = config.wakeLockBeforeStart;
@@ -624,6 +634,22 @@ export function pruneIdleRooms(now = Date.now()): number {
     removed += 1;
   }
   return removed;
+}
+
+/** Enforce tur-timeout i alla spelande rum; broadcast vid ändring. */
+export function tickTurnTimeouts(now = Date.now()): number {
+  let applied = 0;
+  for (const room of rooms.values()) {
+    if (room.state.phase !== "playing" || !room.state.config.turnTimeoutEnabled) continue;
+    const result = applyTurnTimeoutIfDue(room.state, now);
+    if (!result) continue;
+    room.state = result.state;
+    room.stateSeq += 1;
+    touchRoom(room);
+    broadcastState(room);
+    applied += 1;
+  }
+  return applied;
 }
 
 export function joinRoom(params: {

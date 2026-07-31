@@ -44,6 +44,14 @@ function clampReactionSeconds(n: number): number {
   return clampConfigNumber("reactionSeconds", n);
 }
 
+function clampTurnSeconds(n: number): number {
+  return clampConfigNumber("turnSeconds", n);
+}
+
+function clampPvpBestOf(n: number): number {
+  return clampConfigNumber("pvpBestOf", n);
+}
+
 const DIFFICULTY_OPTION_DEFS: Array<{
   id: DifficultyPreset;
   iconSrc: string;
@@ -339,6 +347,58 @@ export function HostLobbySetup() {
                 </label>
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>
+                    {ui.play.lobbyPvpBestOf}{" "}
+                    <span className={styles.fieldHint}>
+                      ({CONFIG_NUMERIC.pvpBestOf.min}–{CONFIG_NUMERIC.pvpBestOf.max})
+                    </span>
+                  </span>
+                  <select
+                    value={cfg.pvpBestOf}
+                    onChange={(e) =>
+                      setCfg((v) => ({ ...v, pvpBestOf: clampPvpBestOf(Number(e.target.value)) }))
+                    }
+                    style={lobbyFieldControlStyle}
+                  >
+                    {Array.from(
+                      { length: CONFIG_NUMERIC.pvpBestOf.max - CONFIG_NUMERIC.pvpBestOf.min + 1 },
+                      (_, i) => CONFIG_NUMERIC.pvpBestOf.min + i,
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={cfg.turnTimeoutEnabled}
+                    onChange={(e) => setCfg((v) => ({ ...v, turnTimeoutEnabled: e.target.checked }))}
+                    style={checkboxStyle}
+                  />
+                  <span>{ui.play.lobbyTurnTimeoutEnabled}</span>
+                </label>
+                {cfg.turnTimeoutEnabled ? (
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>
+                      {ui.play.lobbyTurnSeconds}{" "}
+                      <span className={styles.fieldHint}>
+                        ({CONFIG_NUMERIC.turnSeconds.min}–{CONFIG_NUMERIC.turnSeconds.max} sek)
+                      </span>
+                    </span>
+                    <input
+                      type="number"
+                      min={CONFIG_NUMERIC.turnSeconds.min}
+                      max={CONFIG_NUMERIC.turnSeconds.max}
+                      value={cfg.turnSeconds}
+                      onChange={(e) => setCfg((v) => ({ ...v, turnSeconds: Number(e.target.value) }))}
+                      onBlur={() => setCfg((v) => ({ ...v, turnSeconds: clampTurnSeconds(v.turnSeconds) }))}
+                      style={lobbyFieldControlStyle}
+                    />
+                  </label>
+                ) : null}
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>
                     {ui.play.lobbyReactionSeconds}{" "}
                     <span className={styles.fieldHint}>
                       ({CONFIG_NUMERIC.reactionSeconds.min}–{CONFIG_NUMERIC.reactionSeconds.max} sek)
@@ -412,6 +472,8 @@ export function HostLobbySetup() {
               maxHp: clampMaxHp(cfg.maxHp),
               startPant: clampStartPant(cfg.startPant),
               reactionSeconds: clampReactionSeconds(cfg.reactionSeconds),
+              turnSeconds: clampTurnSeconds(cfg.turnSeconds),
+              pvpBestOf: clampPvpBestOf(cfg.pvpBestOf),
             };
             setCfg(safe);
             saveLobbyConfigDraft(roomCode, safe);

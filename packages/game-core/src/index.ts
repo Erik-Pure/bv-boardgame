@@ -95,6 +95,10 @@ export {
   returnToLobby,
   endMatch,
   startGame,
+  applyTurnTimeoutIfDue,
+  clearTurnDeadline,
+  refreshTurnDeadline,
+  isTurnTimeoutActionablePending,
 } from "./engine.js";
 export {
   MERCHANT_SELLABLE_COMBAT_ITEM_IDS,

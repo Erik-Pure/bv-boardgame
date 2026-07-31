@@ -27,6 +27,7 @@ import {
   sendStateSnapshot,
   sendError,
   touchRoom,
+  tickTurnTimeouts,
 } from "./rooms.js";
 import { loadRoomSnapshot, saveRoomSnapshot } from "./roomPersistence.js";
 import type { PersistedRoom } from "./rooms.js";
@@ -235,6 +236,10 @@ setInterval(() => {
     if (now - bucket.windowStartMs >= 60_000) helloRateByIp.delete(ip);
   }
 }, 60_000).unref?.();
+
+setInterval(() => {
+  tickTurnTimeouts();
+}, 1000).unref?.();
 
 async function flushRoomSnapshot(): Promise<void> {
   const rooms = listPersistedRooms();

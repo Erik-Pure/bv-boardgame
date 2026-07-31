@@ -391,9 +391,9 @@ export type Pending =
       type: "pvp";
       attackerId: string;
       defenderId: string;
-      /** Visad rond i bäst-av-3 (1..3). */
+      /** Visad rond i best-of-N (1..N). */
       pvpRound?: number;
-      /** Matchlängd i rundor (standard: 3). */
+      /** Matchlängd i rundor (från `config.pvpBestOf`, default 1). */
       bestOf?: number;
       /** Antal vunna rundor per duellant. */
       wins?: { attacker: number; defender: number };
@@ -653,6 +653,8 @@ export type BoardSizePreset = "default" | "large" | "xlarge";
 
 export interface GameConfig {
   turnSeconds: number;
+  /** När true: turen avslutas automatiskt efter `turnSeconds`. */
+  turnTimeoutEnabled: boolean;
   reactionSeconds: number;
   gameMode: GameMode;
   difficulty: DifficultyPreset;
@@ -668,6 +670,8 @@ export interface GameConfig {
   levelCount: number;
   maxHp: number;
   startPant: number;
+  /** BvB best-of (1–5). */
+  pvpBestOf: number;
   wakeLockBeforeStart: boolean;
   disabledCardIds: string[];
   cardCover: string;
@@ -763,6 +767,11 @@ export interface GameState {
   winnerName: string | null;
   /** Epoch ms när partiet startade (`startGame`); null i lobby. */
   gameStartedAt: number | null;
+  /**
+   * Epoch ms när aktiv tur tar slut om `config.turnTimeoutEnabled`.
+   * Null när timeout är av, fas ≠ playing, eller under paus (strid/BvB/kort).
+   */
+  turnDeadlineAt: number | null;
   goldenBeerCarrierId: string | null;
   /** Slutboss på sista nivån (en av {@link FINAL_BOSS_IDS}); sätts vid spelstart. */
   finalBossMonsterId: MonsterId | null;
@@ -821,6 +830,7 @@ export type ClientAction =
       type: "setConfig";
       playerId: string;
       turnSeconds?: number;
+      turnTimeoutEnabled?: boolean;
       reactionSeconds?: number;
       difficulty?: DifficultyPreset;
       hardcore?: boolean;
@@ -830,6 +840,7 @@ export type ClientAction =
       levelCount?: number;
       maxHp?: number;
       startPant?: number;
+      pvpBestOf?: number;
       wakeLockBeforeStart?: boolean;
       disabledCardIds?: string[];
       cardCover?: string;

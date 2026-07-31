@@ -1480,6 +1480,21 @@
   text-align: center;
 }
 
+.turnPlayerTimeout {
+  flex-shrink: 0;
+  margin-left: 6px;
+  font-family: "Permanent Marker", cursive;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: #fde68a;
+  font-variant-numeric: tabular-nums;
+}
+
+.turnPlayerTimeoutUrgent {
+  color: #f87171;
+}
+
 .preGameTintBox {
   flex: 1;
   min-width: 0;

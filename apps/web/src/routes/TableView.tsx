@@ -16,6 +16,7 @@ import {
   playerPant,
   prunePlayerEmoteBursts,
   prunePlayerKlunkBursts,
+  isTurnTimeoutActionablePending,
   tableToastIconKinds,
   type GameState,
   type Player,
@@ -350,10 +351,12 @@ function TableLobbyPlayerRow(props: {
   kickEnabled: boolean;
   onKickPlayer: (playerId: string, displayName: string) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
+  turnTimeoutLabel?: string | null;
+  turnTimeoutUrgent?: boolean;
 }) {
   const locale = useLocale();
   const ui = useUiStrings();
-  const { p, active, kickEnabled, onKickPlayer, cardRef } = props;
+  const { p, active, kickEnabled, onKickPlayer, cardRef, turnTimeoutLabel, turnTimeoutUrgent } = props;
   const outOfGame = !isPlayerOnBoard(p);
   const leftVoluntary = p.leftVoluntarily === true;
   const afflictions = tablePlayerAfflictionLines(p, ui);
@@ -367,6 +370,7 @@ function TableLobbyPlayerRow(props: {
   ];
   const showActive = active && !outOfGame;
   const outTag = leftVoluntary ? ui.festDashboard.left : ui.festDashboard.eliminated;
+  const showTimeout = showActive && !!turnTimeoutLabel;
   return (
     <div
       ref={cardRef}
@@ -413,6 +417,19 @@ function TableLobbyPlayerRow(props: {
             {p.name}
             {outOfGame ? ` · ${outTag}` : ""}
           </span>
+          {showTimeout ? (
+            <span
+              className={[
+                tableStyles.turnPlayerTimeout,
+                turnTimeoutUrgent ? tableStyles.turnPlayerTimeoutUrgent : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-label={ui.table.turnTimeoutAria(turnTimeoutLabel!)}
+            >
+              {turnTimeoutLabel}
+            </span>
+          ) : null}
         </div>
         <button
           type="button"
@@ -1106,6 +1123,44 @@ function TableViewBody() {
   const currentTurnAfflictions = cur ? tablePlayerAfflictionLines(cur, ui) : [];
   const boardPlayers = state?.players ?? [];
   const [emoteDisplayTick, setEmoteDisplayTick] = useState(0);
+  const [turnTimeoutNow, setTurnTimeoutNow] = useState(() => Date.now());
+  const [turnTimeoutFrozenSec, setTurnTimeoutFrozenSec] = useState<number | null>(null);
+  const turnTimeoutHasDeadline =
+    !!state?.config.turnTimeoutEnabled &&
+    typeof state.turnDeadlineAt === "number" &&
+    state.turnDeadlineAt > 0;
+  const turnTimeoutTicking =
+    turnTimeoutHasDeadline && isTurnTimeoutActionablePending(state?.pending);
+  const turnTimeoutPausedForMerchant =
+    turnTimeoutHasDeadline && state?.pending?.type === "merchant";
+  useEffect(() => {
+    if (turnTimeoutPausedForMerchant && state?.turnDeadlineAt) {
+      setTurnTimeoutFrozenSec((prev) =>
+        prev != null
+          ? prev
+          : Math.max(0, Math.ceil((state.turnDeadlineAt! - Date.now()) / 1000)),
+      );
+      return;
+    }
+    setTurnTimeoutFrozenSec(null);
+  }, [turnTimeoutPausedForMerchant, state?.turnDeadlineAt, state?.currentTurnIndex]);
+  useEffect(() => {
+    if (!turnTimeoutTicking) return;
+    setTurnTimeoutNow(Date.now());
+    const id = window.setInterval(() => setTurnTimeoutNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [turnTimeoutTicking, state?.turnDeadlineAt]);
+  const turnTimeoutRemainingSec = turnTimeoutPausedForMerchant
+    ? turnTimeoutFrozenSec
+    : turnTimeoutTicking
+      ? Math.max(0, Math.ceil(((state!.turnDeadlineAt as number) - turnTimeoutNow) / 1000))
+      : null;
+  const turnTimeoutLabel =
+    turnTimeoutRemainingSec != null
+      ? `${Math.floor(turnTimeoutRemainingSec / 60)}:${String(turnTimeoutRemainingSec % 60).padStart(2, "0")}`
+      : null;
+  const turnTimeoutUrgent =
+    turnTimeoutRemainingSec != null && turnTimeoutRemainingSec <= 10;
   const hasActiveTurnBannerBursts = useMemo(() => {
     const now = Date.now();
     return (
@@ -1503,6 +1558,19 @@ function TableViewBody() {
                   )
                 ) : null}
                 <PingPongOverflowText text={`${p.name}${sleepTag}`} />
+                {active && !outOfGame && turnTimeoutLabel ? (
+                  <span
+                    className={[
+                      tableStyles.turnPlayerTimeout,
+                      turnTimeoutUrgent ? tableStyles.turnPlayerTimeoutUrgent : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-label={ui.table.turnTimeoutAria(turnTimeoutLabel)}
+                  >
+                    {turnTimeoutLabel}
+                  </span>
+                ) : null}
               </span>
             </div>
             {!outOfGame ? (
@@ -2189,6 +2257,8 @@ function TableViewBody() {
                     active={cur?.id === p.id}
                     kickEnabled={tableKickEnabled}
                     onKickPlayer={kickPlayerFromTable}
+                    turnTimeoutLabel={cur?.id === p.id ? turnTimeoutLabel : null}
+                    turnTimeoutUrgent={cur?.id === p.id ? turnTimeoutUrgent : false}
                     cardRef={(el) => {
                       if (el) lobbyPlayerCardRefs.current.set(p.id, el);
                       else lobbyPlayerCardRefs.current.delete(p.id);

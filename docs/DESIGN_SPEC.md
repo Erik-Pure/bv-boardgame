@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.83 |
-| Senast uppdaterad | 2026-07-29 |
+| Version | 0.84 |
+| Senast uppdaterad | 2026-07-31 |
 
 ---
 
@@ -201,10 +201,10 @@ Medan partiet fortfarande är i **lobby** och spelet inte startat ska **mobil-ko
 ## 6. Turer och tid
 
 - Spelet är **strikt turordnat**: en spelare i taget.
-- **Max tid per tur:** 60 sekunder som standard.
-- **Konfigurerbart** i lobby (värd ställer in, inom rimliga gränser, t.ex. 30–120 s) så att gruppen kan anpassa tempot.
-
-Om tiden går ut: definiera **automatisk åtgärd** vid implementation (t.ex. avsluta turen utan extra rörelse, eller slumpa minimal handling) och dokumentera det här när beslutet är taget.
+- **Tur-timeout (lobby):** valfritt via **Tur-timeout**-toggle (default **av**). När på: tid per tur är konfigurerbar (**30–120 s**, default **60**).
+- **Deadline** (`turnDeadlineAt`) sätts vid turbyte / matchstart. Nedräkning visas på **brädet** (turbannern, aktiv spelare).
+- **Paus:** timeout tickar bara när aktiv spelare kan agera fritt (`pending` tom, `moveChoice` eller `encounterChoice`). Under **handel (Panta burkar)** fryses kvarvarande tid (visas stilla på brädet); under strid/BvB/kort pausas enforcement (deadline behålls men förfaller inte).
+- **Vid utgång:** servern avslutar turen utan rörelse (stänger mötesval, kastar moveChoice) och går vidare till nästa spelare. Spellogg: *«{namn}s tur tog slut (timeout).»*
 
 ---
 
@@ -328,7 +328,7 @@ Ytterligare idéer vid behov: **fälla** (dold strid tills någon landar), **vä
 - **Första valet (den som flyttade in):** **BvB** (båda slår tärning + vapen och jämför) **eller** **lös rutan** utan BvB (tile-effekter/kort/strid enligt ruttyp körs som vanligt).
 - **Flera motståndare på rutan:** efter att spelaren valt BvB ska den **välja vilken bryggare** som utmanas (lista med namn); därefter startar duellen mot vald motståndare.
 - **Duell:** båda slår **d6 + vapenstyrka + eventuell `pvpDieBonus`** (tärningsbonus **endast i BvB** — påverkar **inte** monsterstrid). Högst total vinner rundan.
-- **Rondformat (uppdaterat):** BvB spelas som **en rond** (default `bestOf: 1`). Fasmaskinen (föremålsfönster, rondresultat, matchställning) finns kvar så framtida kort kan höja till t.ex. bäst av 3.
+- **Rondformat:** BvB spelas som **best-of N** där **N = `config.pvpBestOf`** (lobby: **1–5**, default **1**). Första till `floor(N/2)+1` rondvinster vinner duellen. Fasmaskinen (föremålsfönster, rondresultat, matchställning) stödjer multi-rond; UI visar rond/ställning när `bestOf > 1`.
 - **Föremålsfönster före varje rond:** innan båda slår tärning finns en förberedelsefas där båda duellanterna kan spela tillåtna PvP-föremål (buff på sig själv eller sabotage på motståndaren) och markerar **Klar**. När båda är klara startar slaget för rundan.
 - **Auto-klar vid tom hand:** om en duellant inte har några tillåtna PvP-föremål kvar i förberedelsefasen räknas den spelaren automatiskt som klar; copy ska vara kortfattad (t.ex. bara att inga BvB-föremål finns — **ingen** extra mening om att man “inte behöver trycka Klar”).
 - **Tillåtna BvB-föremål:** klient och server ska hålla samma lista för förberedelsefasen. **Manopositiv** är tillåtet i BvB och måste därför både visas som spelbart och göra att **Klar**-knappen finns när spelaren har kortet (förutsatt 4 pant).
@@ -582,7 +582,6 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - Finjustering av **XP-kurva** och mappning till visad bryggnivå vid behov (utan att bryta UI- och gating-synk mellan §7.3 och §13.1).
 - **Vem bär** den gyllene ölen vid bossdöd i variantläget (dropp till sista slaget vs slump vs alla kan tävla om upplockning).
 - **Vilken målruta** som räknas som “start/slut” när båda finns — per ban-seed eller lobby-val.
-- **Timeout-tur:** exakt auto-beteende vid 60 s (eller inställt värde).
 - **Hex vs kvadrat** för tiles.
 - **Min spelare** och om spelet får startas med färre än max.
 - **BvB:** ytterligare utlösare (kort, dedikerad tile) om de läggs till; **förlorarens** slutliga konsekvens efter duell; ev. begränsning av **vilka slots** vinnaren får stjäla från.
@@ -694,5 +693,6 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.80 | 2026-07-24 | §9.1 **stridshjälp** = dual-roll (`assistId`) utan krav på positiva hjälpkort; kontrakt styr loot; §11 buffade **föremålstexter**, attackpiller vs `nextCombatModifier`, **Ta bort** utrustning, katalog-hydrering vid equip, Kapsylbikini-badge **BvB**; §2 mobil **playerTurn**-SFX |
 | 0.81 | 2026-07-27 | §2/§2.1: matchstart-nedräkning 5→1, turbyte-banner, eliminerade/lämnat i lista (dölj vitals), emote-scroll, **`endMatch`** från bordsinställningar; §2 mobil toast när föremål spelas på dig; §10.2 handel/byte **inline ikon+siffra**; §11 balans **Plastmugg** (−1/−2 HP), **Beanie** (+2 HP), **Guldkedja** (+2 pant/strid), **Robotarm** (+2 BvB), **Robothjälm** (+2 sköld); Livförsäkring förbrukas |
 | 0.82 | 2026-07-27 | §9.1 mobil strid: **vinstchans %** till höger om tärningen (`monsterCombatWinChancePercent`); attackmod vänster; uppdateras med buffar/hjälp |
-|| 0.83 | 2026-07-29 | §19 **skatt-tiles per nivå: 1** (ned från 2) — `tileCountsForLevel` i `game-core/board.ts` |
+| 0.83 | 2026-07-29 | §19 **skatt-tiles per nivå: 1** (ned från 2) — `tileCountsForLevel` i `game-core/board.ts` |
+| 0.84 | 2026-07-31 | Lobby: **`pvpBestOf`** (1–5) + **tur-timeout**-toggle (`turnTimeoutEnabled` + `turnSeconds`); §6 timeout-beteende + brädnedräkning; §9.2 best-of från config |
 
