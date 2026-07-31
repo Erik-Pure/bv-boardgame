@@ -54,6 +54,25 @@ export function artAttributionLabel(artKey?: string): string | undefined {
   return ART_ATTRIBUTION_SV[artKey];
 }
 
+/** Ölnamn + valfri samarbetspartner, utan ordet Bryggverket. */
+export type ArtAttributionParts = { beer: string; collab?: string };
+
+/** Dela upp etikettsträng i ölnamn och eventuell collab. */
+export function parseArtAttribution(label: string): ArtAttributionParts {
+  const withCollab = /^(.*), Bryggverket & (.+)$/.exec(label);
+  if (withCollab) return { beer: withCollab[1], collab: withCollab[2] };
+  const alone = /^(.*), Bryggverket$/.exec(label);
+  if (alone) return { beer: alone[1] };
+  return { beer: label };
+}
+
+/** Strukturerad etikettreferens för `artKey`, om definierad. */
+export function artAttributionParts(artKey?: string): ArtAttributionParts | undefined {
+  const label = artAttributionLabel(artKey);
+  if (!label) return undefined;
+  return parseArtAttribution(label);
+}
+
 /** True om kort/monster har en registrerad ölreferens (etikett under bilden). */
 export function hasArtAttribution(artKey?: string): boolean {
   return artAttributionLabel(artKey) != null;

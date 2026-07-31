@@ -14,13 +14,14 @@ import {
   type EquipmentShopItem,
   type MonsterDef,
 } from "@bv/game-core";
-import { artAttributionLabel, artImageSources, hasArtAttribution } from "../lib/cardArt";
+import { artImageSources, hasArtAttribution } from "../lib/cardArt";
 import { CatalogImageBadgeStrip, cardDefOverviewBadges } from "../lib/catalogCardOverviewBadges";
 import { formatLocalizedShopItemEffectSummary } from "../lib/equipmentEffectSummary";
 import { equipmentShopCatalogBadges, type EffectBadgeData } from "../lib/inventoryEffectBadges";
 import { equipmentImageSources } from "../lib/equipmentImageSrc";
 import { useLocale, useUiStrings } from "../lib/locale/LocaleContext";
 import { capitalizeWord, equipmentSlotLabel, type UiStrings } from "../lib/uiStrings";
+import { CardArtAttribution } from "../components/CardArtAttribution";
 import { PictureImg } from "../components/PictureImg";
 import { RandomAvatarPreview } from "../components/RandomAvatarPreview";
 import { CardRichText, TextWithBoldNumbers } from "../components/CardRichText";
@@ -405,7 +406,6 @@ function MonsterCatalogCard(props: {
   const m = props.monster;
   const display = getMonsterDisplay(m.id, locale);
   const sources = artImageSources(m.artKey);
-  const attr = artAttributionLabel(m.artKey);
   const tagline = props.showBossTagline ? getFinalBossTagline(m.id, locale) : null;
   return (
     <article
@@ -478,7 +478,7 @@ function MonsterCatalogCard(props: {
             style={{ fontSize: 11, opacity: 0.78, lineHeight: 1.35, fontStyle: "normal" }}
           />
         ) : null}
-        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>{ui.cardModal.etikettRef} {attr}</div> : null}
+        <CardArtAttribution artKey={m.artKey} dense />
       </div>
     </article>
   );
@@ -557,7 +557,6 @@ function CatalogCard({ card }: { card: CardDef }) {
   const ui = useUiStrings();
   const c = ui.catalog;
   const sources = artImageSources(card.artKey);
-  const attr = artAttributionLabel(card.artKey);
   const overviewBadges = cardDefOverviewBadges(card);
   const eventLayout = catalogCardUsesEventTitle(card.kind);
   return (
@@ -609,7 +608,7 @@ function CatalogCard({ card }: { card: CardDef }) {
             <CardRichText text={card.text} rollOutcomes={card.rollOutcomes} style={CARD_BODY_TEXT_STYLE} />
           </>
         ) : null}
-        {attr ? <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.35 }}>{ui.cardModal.etikettRef} {attr}</div> : null}
+        <CardArtAttribution artKey={card.artKey} dense />
       </div>
     </article>
   );
