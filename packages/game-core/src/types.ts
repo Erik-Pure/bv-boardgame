@@ -639,6 +639,8 @@ export interface Player {
   skippedTurns: number;
   /** FIFO med orsak till varje köad hopptur (sömn = normal, skakad öl-förlust = oil). */
   skipTurnReasons?: ("normal" | "oil")[];
+  /** Missade turer i rad p.g.a. tur-timeout (nollställs när spelaren agerar). */
+  consecutiveMissedTurnTimeouts?: number;
   /** True när spelaren gett upp efter stupad bryggare — hoppas över i turordning. */
   eliminated?: boolean;
   /** True när spelaren lämnat spelet frivilligt — rad finns kvar för resultatlista / statistik. */
@@ -655,6 +657,11 @@ export interface GameConfig {
   turnSeconds: number;
   /** När true: turen avslutas automatiskt efter `turnSeconds`. */
   turnTimeoutEnabled: boolean;
+  /**
+   * Kick efter så många missade turer i rad p.g.a. tur-timeout.
+   * 0 = av. Gäller bara när `turnTimeoutEnabled`.
+   */
+  missedTurnsKickAfter: number;
   reactionSeconds: number;
   gameMode: GameMode;
   difficulty: DifficultyPreset;
@@ -831,6 +838,7 @@ export type ClientAction =
       playerId: string;
       turnSeconds?: number;
       turnTimeoutEnabled?: boolean;
+      missedTurnsKickAfter?: number;
       reactionSeconds?: number;
       difficulty?: DifficultyPreset;
       hardcore?: boolean;

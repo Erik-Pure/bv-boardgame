@@ -571,6 +571,8 @@ export const sv = {
     lobbyPvpBestOf: "Antal BvB-rundor",
     lobbyTurnTimeoutEnabled: "Tur-timeout",
     lobbyTurnSeconds: "Tid per tur",
+    lobbyMissedTurnsKickAfter: "Kick efter missade turer",
+    lobbyMissedTurnsKickAfterOff: "Av",
     lobbyReactionSeconds: "Reaktionstimer",
     brewerDownTitle: "Stupad bryggare",
     brewerDownLead: "Du har noll HP. Välj hur du vill fortsätta.",

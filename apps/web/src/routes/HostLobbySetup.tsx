@@ -52,6 +52,10 @@ function clampPvpBestOf(n: number): number {
   return clampConfigNumber("pvpBestOf", n);
 }
 
+function clampMissedTurnsKickAfter(n: number): number {
+  return clampConfigNumber("missedTurnsKickAfter", n);
+}
+
 const DIFFICULTY_OPTION_DEFS: Array<{
   id: DifficultyPreset;
   iconSrc: string;
@@ -379,23 +383,57 @@ export function HostLobbySetup() {
                   <span>{ui.play.lobbyTurnTimeoutEnabled}</span>
                 </label>
                 {cfg.turnTimeoutEnabled ? (
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>
-                      {ui.play.lobbyTurnSeconds}{" "}
-                      <span className={styles.fieldHint}>
-                        ({CONFIG_NUMERIC.turnSeconds.min}–{CONFIG_NUMERIC.turnSeconds.max} sek)
+                  <>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>
+                        {ui.play.lobbyTurnSeconds}{" "}
+                        <span className={styles.fieldHint}>
+                          ({CONFIG_NUMERIC.turnSeconds.min}–{CONFIG_NUMERIC.turnSeconds.max} sek)
+                        </span>
                       </span>
-                    </span>
-                    <input
-                      type="number"
-                      min={CONFIG_NUMERIC.turnSeconds.min}
-                      max={CONFIG_NUMERIC.turnSeconds.max}
-                      value={cfg.turnSeconds}
-                      onChange={(e) => setCfg((v) => ({ ...v, turnSeconds: Number(e.target.value) }))}
-                      onBlur={() => setCfg((v) => ({ ...v, turnSeconds: clampTurnSeconds(v.turnSeconds) }))}
-                      style={lobbyFieldControlStyle}
-                    />
-                  </label>
+                      <input
+                        type="number"
+                        min={CONFIG_NUMERIC.turnSeconds.min}
+                        max={CONFIG_NUMERIC.turnSeconds.max}
+                        value={cfg.turnSeconds}
+                        onChange={(e) => setCfg((v) => ({ ...v, turnSeconds: Number(e.target.value) }))}
+                        onBlur={() => setCfg((v) => ({ ...v, turnSeconds: clampTurnSeconds(v.turnSeconds) }))}
+                        style={lobbyFieldControlStyle}
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>
+                        {ui.play.lobbyMissedTurnsKickAfter}{" "}
+                        <span className={styles.fieldHint}>
+                          ({CONFIG_NUMERIC.missedTurnsKickAfter.min}–{CONFIG_NUMERIC.missedTurnsKickAfter.max})
+                        </span>
+                      </span>
+                      <select
+                        value={cfg.missedTurnsKickAfter}
+                        onChange={(e) =>
+                          setCfg((v) => ({
+                            ...v,
+                            missedTurnsKickAfter: clampMissedTurnsKickAfter(Number(e.target.value)),
+                          }))
+                        }
+                        style={lobbyFieldControlStyle}
+                      >
+                        {Array.from(
+                          {
+                            length:
+                              CONFIG_NUMERIC.missedTurnsKickAfter.max -
+                              CONFIG_NUMERIC.missedTurnsKickAfter.min +
+                              1,
+                          },
+                          (_, i) => CONFIG_NUMERIC.missedTurnsKickAfter.min + i,
+                        ).map((n) => (
+                          <option key={n} value={n}>
+                            {n === 0 ? ui.play.lobbyMissedTurnsKickAfterOff : n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
                 ) : null}
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>
@@ -474,6 +512,7 @@ export function HostLobbySetup() {
               reactionSeconds: clampReactionSeconds(cfg.reactionSeconds),
               turnSeconds: clampTurnSeconds(cfg.turnSeconds),
               pvpBestOf: clampPvpBestOf(cfg.pvpBestOf),
+              missedTurnsKickAfter: clampMissedTurnsKickAfter(cfg.missedTurnsKickAfter),
             };
             setCfg(safe);
             saveLobbyConfigDraft(roomCode, safe);

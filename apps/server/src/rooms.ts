@@ -9,6 +9,7 @@ import {
   LOG_MESSAGE_KEYS,
   normalizeLoadedGameState,
   pushLogEntry,
+  refreshTurnDeadline,
   returnToLobby,
   endMatch,
   startGame,
@@ -299,6 +300,7 @@ export function getRoom(code: string): Room | undefined {
 type TableHelloConfig = {
   turnSeconds?: number;
   turnTimeoutEnabled?: boolean;
+  missedTurnsKickAfter?: number;
   reactionSeconds?: number;
   gameMode?: "bossKill";
   difficulty?: "lattol" | "folkol" | "starkol" | "imperial";
@@ -322,6 +324,12 @@ function applyTableHelloConfig(room: Room, config: TableHelloConfig): void {
   }
   if (typeof config.turnTimeoutEnabled === "boolean") {
     room.state.config.turnTimeoutEnabled = config.turnTimeoutEnabled;
+  }
+  if (typeof config.missedTurnsKickAfter === "number") {
+    room.state.config.missedTurnsKickAfter = clampConfigNumber(
+      "missedTurnsKickAfter",
+      config.missedTurnsKickAfter,
+    );
   }
   if (typeof config.reactionSeconds === "number") {
     room.state.config.reactionSeconds = clampConfigNumber("reactionSeconds", config.reactionSeconds);
@@ -644,6 +652,21 @@ export function tickTurnTimeouts(now = Date.now()): number {
     const result = applyTurnTimeoutIfDue(room.state, now);
     if (!result) continue;
     room.state = result.state;
+    const afkKickEvent = result.events.find((e) => e.startsWith("afkKick:"));
+    if (afkKickEvent) {
+      const playerId = afkKickEvent.slice("afkKick:".length);
+      removePlayerFromRoomState(room.state, playerId, { purgeSlot: true });
+      for (const c of [...room.conns]) {
+        if (c.role === "controller" && c.playerId === playerId) {
+          disconnectControllerSession(room, c, "kicked");
+        }
+      }
+      if (room.state.phase === "playing") {
+        refreshTurnDeadline(room.state, now);
+      } else {
+        room.state.turnDeadlineAt = null;
+      }
+    }
     room.stateSeq += 1;
     touchRoom(room);
     broadcastState(room);

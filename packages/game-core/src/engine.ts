@@ -188,6 +188,7 @@ const DRAWABLE_CARD_ID_SET = new Set(
 const DEFAULT_CONFIG: GameState["config"] = {
   turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
   turnTimeoutEnabled: false,
+  missedTurnsKickAfter: CONFIG_NUMERIC.missedTurnsKickAfter.default,
   reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
   gameMode: "bossKill",
   difficulty: "folkol",
@@ -211,6 +212,10 @@ function normalizeConfig(state: GameState): void {
   };
   state.config.turnSeconds = clampConfigNumber("turnSeconds", state.config.turnSeconds);
   state.config.turnTimeoutEnabled = !!state.config.turnTimeoutEnabled;
+  state.config.missedTurnsKickAfter = clampConfigNumber(
+    "missedTurnsKickAfter",
+    state.config.missedTurnsKickAfter,
+  );
   state.config.reactionSeconds = clampConfigNumber("reactionSeconds", state.config.reactionSeconds);
   state.config.levelCount = Math.max(1, Math.min(5, Math.floor(Number(state.config.levelCount || 3))));
   state.config.maxHp = clampConfigNumber("maxHp", state.config.maxHp);
@@ -240,6 +245,11 @@ function normalizeConfig(state: GameState): void {
       p.avatar = normalizePlayerAvatar(p.avatar);
     }
     normalizeBrewerPerkProgress(p);
+    if (typeof p.consecutiveMissedTurnTimeouts !== "number" || !Number.isFinite(p.consecutiveMissedTurnTimeouts)) {
+      p.consecutiveMissedTurnTimeouts = 0;
+    } else {
+      p.consecutiveMissedTurnTimeouts = Math.max(0, Math.floor(p.consecutiveMissedTurnTimeouts));
+    }
   }
 }
 
@@ -342,6 +352,7 @@ export function returnToLobby(state: GameState): ApplyResult {
       nextMoveBonus: 0,
       nextCombatModifier: 0,
       skippedTurns: 0,
+      consecutiveMissedTurnTimeouts: 0,
       eliminated: false,
       stats: { ...DEFAULT_PLAYER_SESSION_STATS },
     }));
@@ -2359,17 +2370,27 @@ export function refreshTurnDeadline(state: GameState, now = Date.now()): void {
   }
 }
 
-function forceEndTurnOnTimeout(state: GameState): void {
+function forceEndTurnOnTimeout(state: GameState): string | null {
   const cp = currentPlayer(state);
   if (!cp) {
     clearTurnDeadline(state);
-    return;
+    return null;
   }
   const pending = state.pending;
   if (pending?.type === "moveChoice" || pending?.type === "encounterChoice") {
     state.pending = null;
   } else if (pending != null) {
-    return;
+    return null;
+  }
+  cp.consecutiveMissedTurnTimeouts = (cp.consecutiveMissedTurnTimeouts ?? 0) + 1;
+  const kickAfter = clampConfigNumber("missedTurnsKickAfter", state.config.missedTurnsKickAfter);
+  if (kickAfter > 0 && cp.consecutiveMissedTurnTimeouts >= kickAfter) {
+    log(state, `${cp.name} togs bort efter ${cp.consecutiveMissedTurnTimeouts} missade turer.`, {
+      key: LOG_MESSAGE_KEYS.turnAfkKick,
+      params: { name: cp.name, count: String(cp.consecutiveMissedTurnTimeouts) },
+    });
+    clearTurnDeadline(state);
+    return cp.id;
   }
   log(state, `${cp.name}s tur tog slut (timeout).`, {
     key: LOG_MESSAGE_KEYS.turnTimeout,
@@ -2377,11 +2398,13 @@ function forceEndTurnOnTimeout(state: GameState): void {
   });
   clearTurnDeadline(state);
   endTurnOrOfferLevelUp(state, cp.id);
+  return null;
 }
 
 /**
  * Servertick: om tur-timeout är due och spelaren är i fritt handlingsläge, avsluta turen.
  * Returnerar ny state + events, eller null om ingen ändring.
+ * Vid AFK-kick ingår event `afkKick:${playerId}` (servern purgar slot).
  */
 export function applyTurnTimeoutIfDue(state: GameState, now = Date.now()): ApplyResult | null {
   if (state.phase !== "playing" || !state.config.turnTimeoutEnabled) {
@@ -2399,8 +2422,10 @@ export function applyTurnTimeoutIfDue(state: GameState, now = Date.now()): Apply
     return null;
   }
   const next = cloneState(state);
-  forceEndTurnOnTimeout(next);
-  return { state: next, events: ["state", "turnTimeout"] };
+  const afkKickId = forceEndTurnOnTimeout(next);
+  const events = ["state", "turnTimeout"];
+  if (afkKickId) events.push(`afkKick:${afkKickId}`);
+  return { state: next, events };
 }
 
 function cloneState(s: GameState): GameState {
@@ -2436,6 +2461,7 @@ export function lobbyAddPlayer(
     nextMoveBonus: 0,
     nextCombatModifier: 0,
     skippedTurns: 0,
+    consecutiveMissedTurnTimeouts: 0,
     eliminated: false,
     stats: { ...DEFAULT_PLAYER_SESSION_STATS },
   };
@@ -2481,6 +2507,7 @@ export function playingAddPlayer(
     nextMoveBonus: 0,
     nextCombatModifier: 0,
     skippedTurns: 0,
+    consecutiveMissedTurnTimeouts: 0,
     eliminated: false,
     stats: { ...DEFAULT_PLAYER_SESSION_STATS },
   };
@@ -3099,6 +3126,17 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
   normalizeConfig(next);
   // Keep dynamic equipment thresholds (e.g. Legendarisk Burkhjälm from nivå 4) in sync.
   syncDynamicMaxHp(next);
+  if (
+    next.phase === "playing" &&
+    "playerId" in action &&
+    typeof (action as { playerId?: unknown }).playerId === "string"
+  ) {
+    const actorId = (action as { playerId: string }).playerId;
+    const cp = currentPlayer(next);
+    if (cp && cp.id === actorId) {
+      cp.consecutiveMissedTurnTimeouts = 0;
+    }
+  }
   // Legacy: accepterad hjälp som väntade på positivt kort → assist + dual-roll.
   if (
     next.pending?.type === "combat" &&
@@ -3150,6 +3188,12 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (typeof action.turnTimeoutEnabled === "boolean") {
         next.config.turnTimeoutEnabled = action.turnTimeoutEnabled;
+      }
+      if (typeof action.missedTurnsKickAfter === "number" && Number.isFinite(action.missedTurnsKickAfter)) {
+        next.config.missedTurnsKickAfter = clampConfigNumber(
+          "missedTurnsKickAfter",
+          action.missedTurnsKickAfter,
+        );
       }
       if (typeof action.reactionSeconds === "number" && Number.isFinite(action.reactionSeconds)) {
         next.config.reactionSeconds = clampConfigNumber("reactionSeconds", action.reactionSeconds);

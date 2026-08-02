@@ -16,6 +16,12 @@ export const clientHelloSchema = z.object({
     .object({
       turnSeconds: z.number().int().min(CONFIG_NUMERIC.turnSeconds.min).max(CONFIG_NUMERIC.turnSeconds.max).optional(),
       turnTimeoutEnabled: z.boolean().optional(),
+      missedTurnsKickAfter: z
+        .number()
+        .int()
+        .min(CONFIG_NUMERIC.missedTurnsKickAfter.min)
+        .max(CONFIG_NUMERIC.missedTurnsKickAfter.max)
+        .optional(),
       reactionSeconds: z
         .number()
         .int()

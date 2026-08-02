@@ -456,6 +456,8 @@ export const en = {
     lobbyPvpBestOf: "BvB rounds",
     lobbyTurnTimeoutEnabled: "Turn timeout",
     lobbyTurnSeconds: "Time per turn",
+    lobbyMissedTurnsKickAfter: "Kick after missed turns",
+    lobbyMissedTurnsKickAfterOff: "Off",
     lobbyReactionSeconds: "Reaction timer",
     brewerDownTitle: "Downed brewer",
     brewerDownLead: "You're at zero HP. Choose how to continue.",

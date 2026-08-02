@@ -14,6 +14,7 @@ function gameConfig(overrides = {}) {
   return {
     turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
     turnTimeoutEnabled: false,
+    missedTurnsKickAfter: CONFIG_NUMERIC.missedTurnsKickAfter.default,
     reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
     gameMode: "bossKill",
     difficulty: "folkol",
@@ -90,6 +91,7 @@ describe("turn timeout + pvpBestOf config", () => {
   it("createEmptyLobby defaults: timeout off, pvpBestOf 1", () => {
     const state = createEmptyLobby("LOBBY");
     assert.equal(state.config.turnTimeoutEnabled, false);
+    assert.equal(state.config.missedTurnsKickAfter, 0);
     assert.equal(state.config.pvpBestOf, PVP_BEST_OF);
     assert.equal(state.config.turnSeconds, 60);
     assert.equal(state.turnDeadlineAt, null);
@@ -227,11 +229,79 @@ describe("turn timeout + pvpBestOf config", () => {
       pvpBestOf: 5,
       turnTimeoutEnabled: true,
       turnSeconds: 90,
+      missedTurnsKickAfter: 3,
     });
     assert.equal(res.error, undefined);
     assert.equal(res.state.config.pvpBestOf, 5);
     assert.equal(res.state.config.turnTimeoutEnabled, true);
     assert.equal(res.state.config.turnSeconds, 90);
+    assert.equal(res.state.config.missedTurnsKickAfter, 3);
+  });
+
+  it("two consecutive timeouts with missedTurnsKickAfter 2 emit afkKick", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true });
+    const p2 = mkPlayer({ id: "p2", name: "B" });
+    let state = playingState([p1, p2], null, {
+      config: { turnTimeoutEnabled: true, turnSeconds: 60, missedTurnsKickAfter: 2 },
+      turnDeadlineAt: Date.now() - 1000,
+    });
+    const first = applyTurnTimeoutIfDue(state, Date.now());
+    assert.ok(first);
+    assert.equal(first.events.some((e) => e.startsWith("afkKick:")), false);
+    assert.equal(first.state.players.find((p) => p.id === "p1")?.consecutiveMissedTurnTimeouts, 1);
+    assert.equal(first.state.currentTurnIndex, 1);
+
+    state = {
+      ...first.state,
+      currentTurnIndex: 0,
+      turnDeadlineAt: Date.now() - 1000,
+      pending: null,
+    };
+    const second = applyTurnTimeoutIfDue(state, Date.now());
+    assert.ok(second);
+    assert.ok(second.events.includes("afkKick:p1"));
+    assert.equal(second.state.players.find((p) => p.id === "p1")?.consecutiveMissedTurnTimeouts, 2);
+    assert.equal(second.state.currentTurnIndex, 0);
+    assert.equal(second.state.turnDeadlineAt, null);
+  });
+
+  it("acting on a turn resets consecutive missed timeouts", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, consecutiveMissedTurnTimeouts: 1 });
+    const p2 = mkPlayer({ id: "p2", name: "B" });
+    const afterAct = applyAction(
+      playingState([p1, p2], null, {
+        config: { turnTimeoutEnabled: true, missedTurnsKickAfter: 2 },
+      }),
+      { type: "sendEmote", playerId: "p1", emoteId: "happy" },
+    );
+    assert.equal(afterAct.error, undefined);
+    assert.equal(afterAct.state.players.find((p) => p.id === "p1")?.consecutiveMissedTurnTimeouts, 0);
+
+    const timed = applyTurnTimeoutIfDue(
+      {
+        ...afterAct.state,
+        turnDeadlineAt: Date.now() - 1000,
+        pending: null,
+      },
+      Date.now(),
+    );
+    assert.ok(timed);
+    assert.equal(timed.events.some((e) => e.startsWith("afkKick:")), false);
+    assert.equal(timed.state.players.find((p) => p.id === "p1")?.consecutiveMissedTurnTimeouts, 1);
+  });
+
+  it("missedTurnsKickAfter 0 never emits afkKick", () => {
+    const p1 = mkPlayer({ id: "p1", name: "A", isHost: true, consecutiveMissedTurnTimeouts: 99 });
+    const p2 = mkPlayer({ id: "p2", name: "B" });
+    const state = playingState([p1, p2], null, {
+      config: { turnTimeoutEnabled: true, missedTurnsKickAfter: 0 },
+      turnDeadlineAt: Date.now() - 1000,
+    });
+    const res = applyTurnTimeoutIfDue(state, Date.now());
+    assert.ok(res);
+    assert.equal(res.events.some((e) => e.startsWith("afkKick:")), false);
+    assert.equal(res.state.currentTurnIndex, 1);
+    assert.equal(res.state.players.find((p) => p.id === "p1")?.consecutiveMissedTurnTimeouts, 100);
   });
 
   it("BvB pending uses config.pvpBestOf", () => {

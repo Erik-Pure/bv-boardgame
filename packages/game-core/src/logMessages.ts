@@ -24,6 +24,7 @@ export const LOG_MESSAGE_KEYS = {
   turnRollDice: "turn.rollDice",
   turnChanged: "turn.changed",
   turnTimeout: "turn.timeout",
+  turnAfkKick: "turn.afkKick",
   tileEmpty: "tile.empty",
   tileRestHeal: "tile.restHeal",
   tileTreasureAlreadyTaken: "tile.treasureAlreadyTaken",
@@ -141,6 +142,10 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
   [LOG_MESSAGE_KEYS.turnTimeout]: {
     sv: "{name}s tur tog slut (timeout).",
     en: "{name}'s turn ended (timeout).",
+  },
+  [LOG_MESSAGE_KEYS.turnAfkKick]: {
+    sv: "{name} togs bort efter {count} missade turer.",
+    en: "{name} was removed after {count} missed turns.",
   },
   [LOG_MESSAGE_KEYS.tileEmpty]: {
     sv: "{name} hamnar på en lugn ruta.",

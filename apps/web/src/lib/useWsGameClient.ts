@@ -50,6 +50,7 @@ export function useWsGameClient(args: Args) {
           args.config.gameMode ?? "",
           args.config.turnSeconds ?? "",
           args.config.turnTimeoutEnabled === true ? "1" : "0",
+          args.config.missedTurnsKickAfter ?? "",
           args.config.pvpBestOf ?? "",
           args.config.clearPlayersOnRematch === true ? "1" : "0",
           args.config.allowLateJoin === true ? "1" : "0",

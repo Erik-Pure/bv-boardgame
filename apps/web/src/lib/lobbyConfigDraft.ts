@@ -9,6 +9,7 @@ export function defaultLobbyConfigDraft(): LobbyConfigDraft {
     difficulty: "folkol",
     turnSeconds: CONFIG_NUMERIC.turnSeconds.default,
     turnTimeoutEnabled: false,
+    missedTurnsKickAfter: CONFIG_NUMERIC.missedTurnsKickAfter.default,
     reactionSeconds: CONFIG_NUMERIC.reactionSeconds.default,
     hardcore: false,
     allowLateJoin: false,
