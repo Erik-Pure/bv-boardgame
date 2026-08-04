@@ -209,9 +209,6 @@ export function Home() {
         <Link className={styles.homeFooterLink} to="/rules">
           {ui.home.footerRules}
         </Link>
-        <Link className={styles.homeFooterLink} to="/cards">
-          {ui.home.footerCards}
-        </Link>
         <Link className={styles.homeFooterLink} to="/login">
           {ui.home.loginLink}
         </Link>
