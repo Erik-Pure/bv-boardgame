@@ -1,7 +1,7 @@
 {
-  "name": "Bryggmästarnas Mästare",
+  "name": "Bryggmästarnas mästare – Bryggverket edition",
   "short_name": "BMM",
-  "description": "Webbaserat brädspel från Bryggverket — storskärm som bord, mobil som handkontroll.",
+  "description": "Webbaserat brädspel — Bryggverket edition. Storskärm som bord, mobil som handkontroll.",
   "start_url": "/",
   "scope": "/",
   "display": "browser",

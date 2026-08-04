@@ -3,7 +3,7 @@ import { formatCanAmount } from "@bv/game-core";
 
 export const en = {
   home: {
-    title: "Brewmasters' Master",
+    title: "Master of the Brewmasters",
     subtitle: "The Bad Batches",
     primaryJoin: "Join game",
     createLobby: "Start new game",
@@ -18,7 +18,7 @@ export const en = {
       "Everyone bags a spot with their screen of choice at the ready (phone, tablet, or your trusty old laptop). Does it have a web browser? Perfect.",
     howToPlayCheersBody:
       "And hey... don't forget to stay hydrated. Fill your glass with something ice-cold, preferably from Bryggverket, of course. Cheers! 🍻",
-    explainerAlt: "Overview: how to play Brewmasters' Master with phone and big screen",
+    explainerAlt: "Overview: how to play Master of the Brewmasters with phone and big screen",
     footerCards: "Card catalog",
     footerRules: "Game rules",
     /** First visit on the home page — age gate 18+. */
@@ -34,7 +34,7 @@ export const en = {
     promoCards: [
       {
         title: "Bryggverket",
-        body: "The Umeå brewery behind the game. Read about the beers, the brewery, and book your next beer tasting.",
+        body: "This edition's brewery partner. Read about the beers, the brewery, and book your next beer tasting.",
         href: "https://www.bryggverket.se/",
         cta: "Bryggverket",
         image: "/landing/bv-bryggverket.png",
@@ -917,7 +917,7 @@ export const en = {
     view: (label: string) => `${label} (view)`,
   },
   rules: {
-    logoAlt: "Brewmasters' Master",
+    logoAlt: "Master of the Brewmasters",
     title: "Game rules",
     intro:
       "In the quest for the perfect brew, every experience counts. Whether you save a fantastic batch or are forced to drink up your failures, your wisdom grows. You learn from mistakes — but you learn faster from success.",
@@ -984,12 +984,12 @@ export const en = {
   },
   tutorial: {
     header: "Quick guide",
-    logoAlt: "Brewmasters' Master",
+    logoAlt: "Master of the Brewmasters",
     back: "Back",
     skip: "Skip",
     next: "Next",
     start: "Let's go",
-    step1Title: "Welcome to Brewmasters' Master!",
+    step1Title: "Welcome to Master of the Brewmasters!",
     step1SaveBatches: "Save the bad batches",
     step1SaveBatchesRest:
       "to collect XP and climb levels — first to defeat the final boss on the last level wins!",
@@ -1078,19 +1078,19 @@ export const en = {
     depositPrice: (slot: string, price: number) => `${slot} · ${formatCanAmount(price)}`,
   },
   seo: {
-    homeTitle: "Brewmasters' Master — board game from Bryggverket",
+    homeTitle: "Master of the Brewmasters – Bryggverket edition",
     homeDescription:
-      "Play Brewmasters' Master online: big screen as the board, phone as your controller. Beer-themed battles, cans, and sips — from Bryggverket in Umeå.",
-    rulesTitle: "Game rules — Brewmasters' Master",
+      "Play Master of the Brewmasters online: big screen as the board, phone as your controller. Beer-themed battles, cans, and sips. The Bryggverket edition from Umeå.",
+    rulesTitle: "Game rules — Master of the Brewmasters",
     rulesDescription:
-      "Read the rules for Brewmasters' Master: turns, movement, combat, cans, equipment, and how to play with a big screen and phones.",
-    cardsTitle: "Card catalog — Brewmasters' Master",
+      "Read the rules for Master of the Brewmasters: turns, movement, combat, cans, equipment, and how to play with a big screen and phones.",
+    cardsTitle: "Card catalog — Master of the Brewmasters",
     cardsDescription:
-      "Browse the Brewmasters' Master card catalog: event cards, monsters, equipment, and beer references from Bryggverket.",
-    privateTitle: "Brewmasters' Master",
-    privateDescription: "Web-based board game from Bryggverket.",
+      "Browse the Master of the Brewmasters card catalog: event cards, monsters, equipment, and beer references in the Bryggverket edition.",
+    privateTitle: "Master of the Brewmasters – Bryggverket edition",
+    privateDescription: "Web-based board game — Bryggverket edition.",
     ogImageAlt:
-      "Brewmasters' Master — web-based beer board game from Bryggverket. Big screen as the board, phone as your controller.",
+      "Master of the Brewmasters – Bryggverket edition. Big screen as the board, phone as your controller.",
     breadcrumbHome: "Home",
   },
   app: {

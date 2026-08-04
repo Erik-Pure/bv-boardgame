@@ -95,12 +95,12 @@ describe("locale", () => {
   it("formatLogEntry translates structured log keys", () => {
     const entry = {
       at: Date.now(),
-      message: "— Bryggmästarnas Mästare börjar! (seed abc) —",
+      message: "— Bryggmästarnas mästare börjar! (seed abc) —",
       key: "game.started",
       params: { seed: "abc" },
     };
     const en = formatLogEntry(entry, "en");
-    assert.match(en, /Brewmasters' Master begins/i);
+    assert.match(en, /Master of the Brewmasters begins/i);
   });
 
   it("formatLogEntry translates Plastback bottle toast", () => {

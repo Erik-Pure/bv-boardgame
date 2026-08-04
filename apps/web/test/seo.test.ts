@@ -36,8 +36,10 @@ describe("seo", () => {
     const en = getPageSeo("/", getUiStrings("en"));
 
     assert.equal(sv.robots, "index, follow");
-    assert.match(sv.title, /Bryggmästarnas Mästare/);
-    assert.match(en.title, /Brewmasters/);
+    assert.match(sv.title, /Bryggmästarnas mästare/i);
+    assert.match(en.title, /Master of the Brewmasters/);
+    assert.match(sv.title, /Bryggverket edition/);
+    assert.match(en.title, /Bryggverket edition/);
     assert.ok(sv.description.length > 20);
   });
 

@@ -116,8 +116,8 @@ const LOG_MESSAGE_TEMPLATES: Record<string, LogTemplate> = {
     en: "{name} changed avatar and is not ready.",
   },
   [LOG_MESSAGE_KEYS.gameStarted]: {
-    sv: "— Bryggmästarnas Mästare börjar! (seed {seed}) —",
-    en: "— Brewmasters' Master begins! (seed {seed}) —",
+    sv: "— Bryggmästarnas mästare börjar! (seed {seed}) —",
+    en: "— Master of the Brewmasters begins! (seed {seed}) —",
   },
   [LOG_MESSAGE_KEYS.gameReturnedToLobby]: {
     sv: "Nytt spel — tillbaka till lobbyn med samma inställningar.",

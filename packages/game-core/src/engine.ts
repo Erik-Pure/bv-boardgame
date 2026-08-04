@@ -2599,7 +2599,7 @@ export function startGame(
   next.playerKlunkBursts = [];
   next.combatEquipReplaceQueue = undefined;
   clearTableItemPlay(next);
-  log(next, `— Bryggmästarnas Mästare börjar! (seed ${seed}) —`, {
+  log(next, `— Bryggmästarnas mästare börjar! (seed ${seed}) —`, {
     key: LOG_MESSAGE_KEYS.gameStarted,
     params: { seed },
   });

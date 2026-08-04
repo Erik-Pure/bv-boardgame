@@ -32,7 +32,7 @@ function endedState(overrides: Partial<GameState> = {}): GameState {
     levels: [],
     pending: null,
     log: [
-      { at: STARTED_AT, message: "— Bryggmästarnas Mästare börjar! (seed 424242) —" },
+      { at: STARTED_AT, message: "— Bryggmästarnas mästare börjar! (seed 424242) —" },
       { at: STARTED_AT + 45 * 60_000, message: "Slut." },
     ],
     winnerId: "a",
@@ -82,7 +82,7 @@ describe("feedbackFormUrl", () => {
     const state = endedState({
       gameStartedAt: null,
       log: [
-        { at: STARTED_AT, message: "— Bryggmästarnas Mästare börjar! (seed 424242) —" },
+        { at: STARTED_AT, message: "— Bryggmästarnas mästare börjar! (seed 424242) —" },
         { at: endAt, message: "Slut." },
       ],
     });

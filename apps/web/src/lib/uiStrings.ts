@@ -118,7 +118,7 @@ export function capitalizeWord(s: string): string {
 
 export const sv = {
   home: {
-    title: "Bryggmästarnas Mästare",
+    title: "Bryggmästarnas mästare",
     subtitle: "De dåliga batcherna",
     primaryJoin: "Gå med i spel",
     createLobby: "Starta nytt spel",
@@ -133,7 +133,7 @@ export const sv = {
       "Alla bänkar sig med valfri skärm i högsta hugg (mobil, platta eller din gamla trotjänare till laptop). Har den en webbläsare? Perfekt.",
     howToPlayCheersBody:
       "Och du... glöm inte vätskeersättningen. Ladda upp med något iskallt i glaset, gärna från Bryggverket såklart. Skål! 🍻",
-    explainerAlt: "Översikt: så spelar ni Bryggmästarnas Mästare med mobil och storskärm",
+    explainerAlt: "Översikt: så spelar ni Bryggmästarnas mästare med mobil och storskärm",
     footerCards: "Kortkatalog",
     footerRules: "Spelets regler",
     /** Första besöket på startsidan — åldersgräns 18+. */
@@ -149,7 +149,7 @@ export const sv = {
     promoCards: [
       {
         title: "Bryggverket",
-        body: "Umeåbryggeriet bakom spelet. Läs om ölen, om oss på bryggeriet, och boka din nästa ölprovning.",
+        body: "Partnerbryggeri för den här utgåvan. Läs om ölen, om oss på bryggeriet, och boka din nästa ölprovning.",
         href: "https://www.bryggverket.se/",
         cta: "Bryggverket",
         image: "/landing/bv-bryggverket.png",
@@ -1033,7 +1033,7 @@ export const sv = {
     view: (label: string) => `${label} (visa)`,
   },
   rules: {
-    logoAlt: "Bryggmästarnas Mästare",
+    logoAlt: "Bryggmästarnas mästare",
     title: "Spelregler",
     intro:
       "I jakten på den perfekta brygden räknas varje erfarenhet. Oavsett om du räddar en fantastisk batch eller tvingas dricka upp dina misslyckanden, växer din visdom. Man lär sig av sina misstag – men man lär sig snabbare av framgång.",
@@ -1100,12 +1100,12 @@ export const sv = {
   },
   tutorial: {
     header: "Snabbguide",
-    logoAlt: "Bryggmästarnas Mästare",
+    logoAlt: "Bryggmästarnas mästare",
     back: "Tillbaka",
     skip: "Hoppa över",
     next: "Nästa",
     start: "Kör igång",
-    step1Title: "Välkommen till Bryggmästarnas Mästare!",
+    step1Title: "Välkommen till Bryggmästarnas mästare!",
     step1SaveBatches: "Rädda de dåliga batcherna",
     step1SaveBatchesRest:
       "för att samla XP och klättra i nivå – först att besegra slutbossen på sista nivån vinner!",
@@ -1194,19 +1194,19 @@ export const sv = {
     depositPrice: (slot: string, price: number) => `${slot} · ${price} pant`,
   },
   seo: {
-    homeTitle: "Bryggmästarnas Mästare — brädspel från Bryggverket",
+    homeTitle: "Bryggmästarnas mästare – Bryggverket edition",
     homeDescription:
-      "Spela Bryggmästarnas Mästare online: storskärm som bord, mobil som handkontroll. Öl-tema, strider, pant och klunkar — från Bryggverket i Umeå.",
-    rulesTitle: "Spelregler — Bryggmästarnas Mästare",
+      "Spela Bryggmästarnas mästare online: storskärm som bord, mobil som handkontroll. Öl-tema, strider, pant och klunkar. Bryggverket-utgåvan från Umeå.",
+    rulesTitle: "Spelregler — Bryggmästarnas mästare",
     rulesDescription:
-      "Läs reglerna för Bryggmästarnas Mästare: turordning, rörelse, strider, pant, utrustning och hur ni spelar med storskärm och mobil.",
-    cardsTitle: "Kortkatalog — Bryggmästarnas Mästare",
+      "Läs reglerna för Bryggmästarnas mästare: turordning, rörelse, strider, pant, utrustning och hur ni spelar med storskärm och mobil.",
+    cardsTitle: "Kortkatalog — Bryggmästarnas mästare",
     cardsDescription:
-      "Bläddra i kortkatalogen för Bryggmästarnas Mästare: händelsekort, monster, utrustning och ölreferenser från Bryggverket.",
-    privateTitle: "Bryggmästarnas Mästare",
-    privateDescription: "Webbaserat brädspel från Bryggverket.",
+      "Bläddra i kortkatalogen för Bryggmästarnas mästare: händelsekort, monster, utrustning och ölreferenser i Bryggverket-editionen.",
+    privateTitle: "Bryggmästarnas mästare – Bryggverket edition",
+    privateDescription: "Webbaserat brädspel — Bryggverket edition.",
     ogImageAlt:
-      "Bryggmästarnas Mästare — webbaserat ölbrädspel från Bryggverket. Storskärm som bord, mobil som handkontroll.",
+      "Bryggmästarnas mästare – Bryggverket edition. Storskärm som bord, mobil som handkontroll.",
     breadcrumbHome: "Start",
   },
   app: {

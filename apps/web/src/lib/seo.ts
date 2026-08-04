@@ -131,7 +131,7 @@ export function buildStructuredData(
     graphs.push({
       "@type": "WebApplication",
       "@id": `${siteUrl}/#webapp`,
-      name: ui.home.title,
+      name: ui.seo.homeTitle,
       url: `${siteUrl}/`,
       description: seo.description,
       applicationCategory: "GameApplication",
@@ -139,7 +139,7 @@ export function buildStructuredData(
       image,
       inLanguage,
       offers: { "@type": "Offer", price: "0", priceCurrency: "SEK" },
-      author: { "@id": `${siteUrl}/#organization` },
+      publisher: { "@id": `${siteUrl}/#organization` },
       isPartOf: { "@id": `${siteUrl}/#website` },
     });
   } else {
