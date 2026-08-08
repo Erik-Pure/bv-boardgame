@@ -2127,8 +2127,8 @@ function TableViewBody() {
                 <p className={u.gameOverWinnerLine}>
                   {ui.play.winner}: <b>{state.winnerName ?? "—"}</b>
                 </p>
-                <EndedScoreboardTable variant="table" players={state.players} winnerId={state.winnerId} />
                 <EndedSpotlightCarousel players={state.players} />
+                <EndedScoreboardTable variant="table" players={state.players} winnerId={state.winnerId} />
                 <div className={u.mt20w100} style={{ display: "flex", gap: 12 }}>
                   <div style={{ flex: "1 1 0", minWidth: 0 }}>
                     <ArcadeButton
