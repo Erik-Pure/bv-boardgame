@@ -167,7 +167,6 @@ import {
   recordPvpMatchOutcome,
 } from "./sessionStats.js";
 
-const MAX_PLAYERS = 8;
 /** `true`: boss-ruta utan klunk/pant-ingång (QA). Sätt `false` när balans ska gälla. */
 const SKIP_BOSS_RESOURCE_GATE = true;
 const PLAYER_COLORS = [
@@ -200,6 +199,7 @@ const DEFAULT_CONFIG: GameState["config"] = {
   maxHp: CONFIG_NUMERIC.maxHp.default,
   startPant: CONFIG_NUMERIC.startPant.default,
   pvpBestOf: CONFIG_NUMERIC.pvpBestOf.default,
+  maxPlayers: CONFIG_NUMERIC.maxPlayers.default,
   wakeLockBeforeStart: false,
   disabledCardIds: [],
   cardCover: "card1",
@@ -221,6 +221,7 @@ function normalizeConfig(state: GameState): void {
   state.config.maxHp = clampConfigNumber("maxHp", state.config.maxHp);
   state.config.startPant = clampConfigNumber("startPant", state.config.startPant);
   state.config.pvpBestOf = clampConfigNumber("pvpBestOf", state.config.pvpBestOf);
+  state.config.maxPlayers = clampConfigNumber("maxPlayers", state.config.maxPlayers);
   if (!["lattol", "folkol", "starkol", "imperial"].includes(state.config.difficulty)) {
     state.config.difficulty = "folkol";
   }
@@ -2438,7 +2439,9 @@ export function lobbyAddPlayer(
   opts: { id: string; name: string; isHost: boolean; avatar?: PlayerAvatar },
 ): ApplyResult {
   const next = cloneState(state);
-  if (next.players.length >= MAX_PLAYERS) {
+  normalizeConfig(next);
+  const cap = clampConfigNumber("maxPlayers", next.config.maxPlayers);
+  if (next.players.length >= cap) {
     return { state, events: [], error: "Lobbyn är full" };
   }
   const color = PLAYER_COLORS[next.players.length % PLAYER_COLORS.length]!;
@@ -2483,7 +2486,8 @@ export function playingAddPlayer(
   if (next.phase !== "playing") {
     return { state, events: [], error: "Spelet pågår inte" };
   }
-  if (next.players.length >= MAX_PLAYERS) {
+  const cap = clampConfigNumber("maxPlayers", next.config.maxPlayers);
+  if (next.players.length >= cap) {
     return { state, events: [], error: "Lobbyn är full" };
   }
   const color = PLAYER_COLORS[next.players.length % PLAYER_COLORS.length]!;
@@ -3229,6 +3233,9 @@ export function applyAction(state: GameState, action: ClientAction): ApplyResult
       }
       if (typeof action.pvpBestOf === "number" && Number.isFinite(action.pvpBestOf)) {
         next.config.pvpBestOf = clampConfigNumber("pvpBestOf", action.pvpBestOf);
+      }
+      if (typeof action.maxPlayers === "number" && Number.isFinite(action.maxPlayers)) {
+        next.config.maxPlayers = clampConfigNumber("maxPlayers", action.maxPlayers);
       }
       if (typeof action.wakeLockBeforeStart === "boolean") {
         next.config.wakeLockBeforeStart = action.wakeLockBeforeStart;

@@ -6,6 +6,7 @@ export const CONFIG_NUMERIC = {
   pvpBestOf: { min: 1, max: 5, default: 1 },
   /** 0 = av; kick efter så många missade turer i rad p.g.a. tur-timeout. */
   missedTurnsKickAfter: { min: 0, max: 5, default: 0 },
+  maxPlayers: { min: 4, max: 8, default: 8 },
 } as const;
 
 export type ConfigNumericKey = keyof typeof CONFIG_NUMERIC;

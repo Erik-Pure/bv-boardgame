@@ -38,6 +38,7 @@ export const clientHelloSchema = z.object({
       maxHp: z.number().int().min(CONFIG_NUMERIC.maxHp.min).max(CONFIG_NUMERIC.maxHp.max).optional(),
       startPant: z.number().int().min(CONFIG_NUMERIC.startPant.min).max(CONFIG_NUMERIC.startPant.max).optional(),
       pvpBestOf: z.number().int().min(CONFIG_NUMERIC.pvpBestOf.min).max(CONFIG_NUMERIC.pvpBestOf.max).optional(),
+      maxPlayers: z.number().int().min(CONFIG_NUMERIC.maxPlayers.min).max(CONFIG_NUMERIC.maxPlayers.max).optional(),
       wakeLockBeforeStart: z.boolean().optional(),
       disabledCardIds: z.array(z.string().min(1)).optional(),
       cardCover: z.string().min(1).max(64).optional(),

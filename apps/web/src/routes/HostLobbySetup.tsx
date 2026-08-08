@@ -52,6 +52,10 @@ function clampPvpBestOf(n: number): number {
   return clampConfigNumber("pvpBestOf", n);
 }
 
+function clampMaxPlayers(n: number): number {
+  return clampConfigNumber("maxPlayers", n);
+}
+
 function clampMissedTurnsKickAfter(n: number): number {
   return clampConfigNumber("missedTurnsKickAfter", n);
 }
@@ -373,6 +377,30 @@ export function HostLobbySetup() {
                     ))}
                   </select>
                 </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>
+                    {ui.play.lobbyMaxPlayers}{" "}
+                    <span className={styles.fieldHint}>
+                      ({CONFIG_NUMERIC.maxPlayers.min}–{CONFIG_NUMERIC.maxPlayers.max})
+                    </span>
+                  </span>
+                  <select
+                    value={cfg.maxPlayers}
+                    onChange={(e) =>
+                      setCfg((v) => ({ ...v, maxPlayers: clampMaxPlayers(Number(e.target.value)) }))
+                    }
+                    style={lobbyFieldControlStyle}
+                  >
+                    {Array.from(
+                      { length: CONFIG_NUMERIC.maxPlayers.max - CONFIG_NUMERIC.maxPlayers.min + 1 },
+                      (_, i) => CONFIG_NUMERIC.maxPlayers.min + i,
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className={styles.inlineCheck}>
                   <input
                     type="checkbox"
@@ -512,6 +540,7 @@ export function HostLobbySetup() {
               reactionSeconds: clampReactionSeconds(cfg.reactionSeconds),
               turnSeconds: clampTurnSeconds(cfg.turnSeconds),
               pvpBestOf: clampPvpBestOf(cfg.pvpBestOf),
+              maxPlayers: clampMaxPlayers(cfg.maxPlayers),
               missedTurnsKickAfter: clampMissedTurnsKickAfter(cfg.missedTurnsKickAfter),
             };
             setCfg(safe);

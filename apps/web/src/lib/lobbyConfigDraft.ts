@@ -19,6 +19,7 @@ export function defaultLobbyConfigDraft(): LobbyConfigDraft {
     maxHp: CONFIG_NUMERIC.maxHp.default,
     startPant: CONFIG_NUMERIC.startPant.default,
     pvpBestOf: CONFIG_NUMERIC.pvpBestOf.default,
+    maxPlayers: CONFIG_NUMERIC.maxPlayers.default,
     wakeLockBeforeStart: false,
     disabledCardIds: [],
     cardCover: "card1",

@@ -52,6 +52,7 @@ export function useWsGameClient(args: Args) {
           args.config.turnTimeoutEnabled === true ? "1" : "0",
           args.config.missedTurnsKickAfter ?? "",
           args.config.pvpBestOf ?? "",
+          args.config.maxPlayers ?? "",
           args.config.clearPlayersOnRematch === true ? "1" : "0",
           args.config.allowLateJoin === true ? "1" : "0",
           args.config.hardcore === true ? "1" : "0",

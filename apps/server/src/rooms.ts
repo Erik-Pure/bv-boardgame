@@ -312,6 +312,7 @@ type TableHelloConfig = {
   maxHp?: number;
   startPant?: number;
   pvpBestOf?: number;
+  maxPlayers?: number;
   wakeLockBeforeStart?: boolean;
   disabledCardIds?: string[];
   cardCover?: string;
@@ -363,6 +364,9 @@ function applyTableHelloConfig(room: Room, config: TableHelloConfig): void {
   }
   if (typeof config.pvpBestOf === "number") {
     room.state.config.pvpBestOf = clampConfigNumber("pvpBestOf", config.pvpBestOf);
+  }
+  if (typeof config.maxPlayers === "number") {
+    room.state.config.maxPlayers = clampConfigNumber("maxPlayers", config.maxPlayers);
   }
   if (typeof config.wakeLockBeforeStart === "boolean") {
     room.state.config.wakeLockBeforeStart = config.wakeLockBeforeStart;

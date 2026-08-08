@@ -454,6 +454,7 @@ export const en = {
     lobbyMaxHp: "Max HP",
     lobbyStartPant: "Starting cans",
     lobbyPvpBestOf: "BvB rounds",
+    lobbyMaxPlayers: "Max players",
     lobbyTurnTimeoutEnabled: "Turn timeout",
     lobbyTurnSeconds: "Time per turn",
     lobbyMissedTurnsKickAfter: "Kick after missed turns",

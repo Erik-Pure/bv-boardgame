@@ -679,6 +679,8 @@ export interface GameConfig {
   startPant: number;
   /** BvB best-of (1–5). */
   pvpBestOf: number;
+  /** Max antal spelare i lobby/match (4–8). Ghost-slots räknas. */
+  maxPlayers: number;
   wakeLockBeforeStart: boolean;
   disabledCardIds: string[];
   cardCover: string;
@@ -849,6 +851,7 @@ export type ClientAction =
       maxHp?: number;
       startPant?: number;
       pvpBestOf?: number;
+      maxPlayers?: number;
       wakeLockBeforeStart?: boolean;
       disabledCardIds?: string[];
       cardCover?: string;

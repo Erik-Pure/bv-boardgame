@@ -569,6 +569,7 @@ export const sv = {
     lobbyMaxHp: "Max HP",
     lobbyStartPant: "Startpant",
     lobbyPvpBestOf: "Antal BvB-rundor",
+    lobbyMaxPlayers: "Max antal spelare",
     lobbyTurnTimeoutEnabled: "Tur-timeout",
     lobbyTurnSeconds: "Tid per tur",
     lobbyMissedTurnsKickAfter: "Kick efter missade turer",
