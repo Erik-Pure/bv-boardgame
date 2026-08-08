@@ -177,7 +177,6 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
   if (reducedMotion) {
     return (
       <section className={styles.wrap} aria-label={ui.play.spotlightRegionAria}>
-        <p className={styles.regionLabel}>{ui.play.spotlightRegionAria}</p>
         <div className={styles.reducedGrid}>
           {spotlights.map((s) => (
             <SpotlightCard key={s.kind} spotlight={s} nameById={nameById} colorById={colorById} slideMotion="static" />
@@ -191,7 +190,6 @@ export function EndedSpotlightCarousel(props: { players: Player[] }) {
 
   return (
     <section className={styles.wrap} aria-label={ui.play.spotlightRegionAria}>
-      <p className={styles.regionLabel}>{ui.play.spotlightRegionAria}</p>
       <div className={styles.viewport}>
         <SpotlightCard
           key={`${current.kind}-${safeIdx}`}
