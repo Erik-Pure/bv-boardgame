@@ -51,6 +51,7 @@ import {
   writeBoardPreventSleepEnabled,
   writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
+  writeTileBobAnimationsEnabled,
   writeTurnBannerPlacement,
   writeTableSidebarOpen,
 } from "../lib/boardPerformancePrefs";
@@ -70,7 +71,16 @@ import { parseRolledDieFromCardText } from "../lib/eventCardDice";
 import { eventCardOutcomeToasts, type TableToastCategory } from "../lib/eventCardOutcomeToasts";
 import { localizePendingCard } from "../lib/localizePendingCard";
 import { isEventStoryCardPending } from "../lib/eventStoryCardPending";
-import { activePlayer, clamp, ringPosRect } from "../lib/tableBoard";
+import {
+  activePlayer,
+  clamp,
+  ringPathIndices,
+  ringPosRect,
+  tileBobCircuitSequenceIndex,
+  tileBobCircuitSequenceLength,
+  tileBobMoveChoiceMeta,
+  tileBobMoveChoiceSequenceLength,
+} from "../lib/tableBoard";
 import {
   type MoveChoiceCardinalArrow,
   isRingTopEdgeTile,
@@ -147,6 +157,45 @@ const TILE_SVG: Record<TileType, string> = {
 
 function tileSvgHref(type: TileType): string {
   return TILE_SVG[type];
+}
+
+/** Enkel seedad RNG (0..1) för repeterbar tile-bob-jitter per våg. */
+function tileBobRand(seed: number): () => number {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >> 17;
+    s >>>= 0;
+    s ^= s << 5;
+    s >>>= 0;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+/** Random stretch/squeeze/rotation för en tile-bob (stabil inom samma waveKey). */
+function tileBobJitterVars(seed: number): {
+  rotDeg: number;
+  sx: number;
+  sy: number;
+  sx2: number;
+  sy2: number;
+  sx3: number;
+  sy3: number;
+} {
+  const rnd = tileBobRand(seed);
+  const rotDeg = (rnd() * 2 - 1) * 3.2;
+  const stretch = 0.03 + rnd() * 0.055;
+  const invert = rnd() < 0.45;
+  const sx = invert ? 1 + stretch * 0.75 : 1 - stretch;
+  const sy = invert ? 1 - stretch * 0.7 : 1 + stretch;
+  const peak = stretch * (0.85 + rnd() * 0.55);
+  const sx2 = 1 - peak;
+  const sy2 = 1 + peak * 0.9;
+  const land = stretch * (0.7 + rnd() * 0.5);
+  const sx3 = 1 + land;
+  const sy3 = 1 - land * 0.8;
+  return { rotDeg, sx, sy, sx2, sy2, sx3, sy3 };
 }
 
 /** Flera pjäser på samma ruta — liten kluster-layout (inte på rad). */
@@ -266,21 +315,6 @@ type MoveAnim = {
   startedAt: number;
   key: string;
 };
-
-function ringPathIndices(fromTileIndex: number, toTileIndex: number, ringTileCount: number, dir?: "cw" | "ccw"): number[] {
-  const n = Math.max(1, ringTileCount);
-  const from = ((fromTileIndex % n) + n) % n;
-  const to = ((toTileIndex % n) + n) % n;
-  if (from === to) return [from];
-  const cwSteps = (to - from + n) % n;
-  const ccwSteps = (from - to + n) % n;
-  const useCw = dir ? dir === "cw" : cwSteps <= ccwSteps;
-  const steps = useCw ? cwSteps : ccwSteps;
-  const delta = useCw ? 1 : -1;
-  const out: number[] = [from];
-  for (let i = 1; i <= steps; i++) out.push(((from + i * delta) % n + n) % n);
-  return out;
-}
 
 /** Synliga tillstånd för spelare på brädet (sömn = hoppar turer). */
 function tablePlayerAfflictionLines(p: Player, ui: ReturnType<typeof useUiStrings>): string[] {
@@ -1190,6 +1224,7 @@ function TableViewBody() {
   const prevTurnPlayerIdRef = useRef<string | null>(null);
   const prevPlayerTilesRef = useRef<Map<string, { levelIndex: number; tileIndex: number }>>(new Map());
   const [moveAnimByPlayer, setMoveAnimByPlayer] = useState<Map<string, MoveAnim>>(new Map());
+  const [tileBobWaveKey, setTileBobWaveKey] = useState(0);
   const pendingMoveChoiceByPlayerRef = useRef<Map<string, Map<string, "cw" | "ccw">>>(new Map());
   const [turnBannerHandoff, setTurnBannerHandoff] = useState(false);
   const [showCenterTurnReminder, setShowCenterTurnReminder] = useState(false);
@@ -1303,6 +1338,76 @@ function TableViewBody() {
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
   }, [state?.pending?.type]);
+
+  const TILE_BOB_MAX_PX = 3;
+  const TILE_BOB_DURATION_MS = 500;
+  /** Nästa avståndssteg startar innan föregående gupp är klar. */
+  const TILE_BOB_STEP_MS = 140;
+  const TILE_BOB_PAUSE_MS = 280;
+
+  const moveChoiceBobMeta = useMemo(() => {
+    if (!pendingMoveChoice) return null;
+    const n =
+      state?.levels[pendingMoveChoice.from.levelIndex]?.tiles.length ??
+      stackLevels[pendingMoveChoice.from.levelIndex]?.tiles.length ??
+      0;
+    if (n <= 0) return null;
+    return tileBobMoveChoiceMeta(
+      pendingMoveChoice.from.tileIndex,
+      pendingMoveChoice.options.map((o) => ({
+        dir: o.dir,
+        targetTileIndex: o.target.tileIndex,
+      })),
+      n,
+    );
+  }, [pendingMoveChoice, state?.levels, stackLevels]);
+
+  const tileBobMode: "preRoll" | "moveChoice" | null = !boardPerf.tileBobAnimationsEnabled
+    ? null
+    : pendingMoveChoice
+      ? "moveChoice"
+      : highlightRollMoveOrigin && cur && isPlayerOnBoard(cur)
+        ? "preRoll"
+        : null;
+  const tileBobActive = tileBobMode != null;
+
+  const bobOriginPlayer = tileBobMode === "moveChoice" && pendingMoveChoice
+    ? { levelIndex: pendingMoveChoice.from.levelIndex, tileIndex: pendingMoveChoice.from.tileIndex }
+    : cur
+      ? { levelIndex: cur.levelIndex, tileIndex: cur.tileIndex }
+      : null;
+  const bobRingLen =
+    bobOriginPlayer != null
+      ? (stackLevels[bobOriginPlayer.levelIndex]?.tiles.length ?? 0)
+      : 0;
+  const bobSequenceLen =
+    tileBobMode === "moveChoice" && moveChoiceBobMeta
+      ? tileBobMoveChoiceSequenceLength(moveChoiceBobMeta)
+      : tileBobMode === "preRoll"
+        ? tileBobCircuitSequenceLength(bobRingLen)
+        : 0;
+  const tileBobWaveCycleMs =
+    Math.max(0, bobSequenceLen - 1) * TILE_BOB_STEP_MS + TILE_BOB_DURATION_MS + TILE_BOB_PAUSE_MS;
+  const tileBobOriginKey = [
+    tileBobMode ?? "off",
+    bobOriginPlayer ? `${bobOriginPlayer.levelIndex}:${bobOriginPlayer.tileIndex}` : "",
+    pendingMoveChoice
+      ? `${pendingMoveChoice.die}:${pendingMoveChoice.options.map((o) => `${o.dir}${o.target.tileIndex}`).join(",")}`
+      : "",
+  ].join("|");
+
+  useEffect(() => {
+    if (!tileBobActive) return;
+    setTileBobWaveKey((k) => k + 1);
+  }, [tileBobActive, tileBobOriginKey]);
+
+  useEffect(() => {
+    if (!tileBobActive || bobSequenceLen <= 0) return;
+    const id = window.setInterval(() => {
+      setTileBobWaveKey((k) => k + 1);
+    }, tileBobWaveCycleMs);
+    return () => window.clearInterval(id);
+  }, [tileBobActive, tileBobWaveCycleMs, bobSequenceLen, tileBobOriginKey]);
   useLayoutEffect(() => {
     const phase = state?.phase ?? null;
     const prev = prevPhaseForMatchStartRef.current;
@@ -1721,6 +1826,34 @@ function TableViewBody() {
 @media (prefers-reduced-motion: reduce) {
   .bv-target-ring-pulse { animation: none; }
 }
+@keyframes bvTileBob {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1, 1);
+  }
+  32% {
+    transform: translateY(calc(var(--tile-bob-amp, 0px) * -0.88))
+      rotate(calc(var(--tile-bob-rot, 0deg) * 0.8))
+      scale(var(--tile-bob-sx, 1), var(--tile-bob-sy, 1));
+  }
+  52% {
+    transform: translateY(calc(var(--tile-bob-amp, 0px) * -1))
+      rotate(var(--tile-bob-rot, 0deg))
+      scale(var(--tile-bob-sx2, 1), var(--tile-bob-sy2, 1));
+  }
+  76% {
+    transform: translateY(calc(var(--tile-bob-amp, 0px) * -0.22))
+      rotate(calc(var(--tile-bob-rot, 0deg) * 0.2))
+      scale(var(--tile-bob-sx3, 1), var(--tile-bob-sy3, 1));
+  }
+}
+.bv-tile-bob {
+  animation: bvTileBob 0.72s ease-in-out 1 both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bv-tile-bob { animation: none; }
+}
 .bv-move-choice-board-arrow {
   opacity: 0.98;
 }
@@ -1799,8 +1932,69 @@ function TableViewBody() {
                         const ringR = 14 + targetRingOutset;
                         const ringCx = x + 6 + w / 2;
                         const ringCy = y + 6 + h / 2;
+                        let shouldBob = false;
+                        let bobStyle: CSSProperties | undefined;
+                        if (tileBobMode === "preRoll" && bobOriginPlayer && li === bobOriginPlayer.levelIndex) {
+                          const nTiles = level.tiles.length;
+                          const seq = tileBobCircuitSequenceIndex(i, bobOriginPlayer.tileIndex, nTiles);
+                          if (seq != null) {
+                            const amp = 0.72;
+                            shouldBob = true;
+                            const jitter = tileBobJitterVars(
+                              (tileBobWaveKey * 1009 + li * 131 + i * 17 + bobOriginPlayer.tileIndex * 47) >>> 0,
+                            );
+                            const rot = jitter.rotDeg * amp;
+                            const scaleToward = (v: number) => 1 + (v - 1) * amp;
+                            bobStyle = {
+                              "--tile-bob-amp": `${TILE_BOB_MAX_PX * amp}px`,
+                              "--tile-bob-rot": `${rot.toFixed(2)}deg`,
+                              "--tile-bob-sx": scaleToward(jitter.sx).toFixed(3),
+                              "--tile-bob-sy": scaleToward(jitter.sy).toFixed(3),
+                              "--tile-bob-sx2": scaleToward(jitter.sx2).toFixed(3),
+                              "--tile-bob-sy2": scaleToward(jitter.sy2).toFixed(3),
+                              "--tile-bob-sx3": scaleToward(jitter.sx3).toFixed(3),
+                              "--tile-bob-sy3": scaleToward(jitter.sy3).toFixed(3),
+                              animationDelay: `${seq * TILE_BOB_STEP_MS}ms`,
+                            } as CSSProperties;
+                          }
+                        } else if (
+                          tileBobMode === "moveChoice" &&
+                          pendingMoveChoice &&
+                          moveChoiceBobMeta &&
+                          li === pendingMoveChoice.from.levelIndex
+                        ) {
+                          const meta = moveChoiceBobMeta.get(i);
+                          if (meta && meta.pathLen > 0) {
+                            const amp = Math.max(0, 1 - (meta.step - 1) / meta.pathLen) * 0.72;
+                            if (amp > 0) {
+                              shouldBob = true;
+                              const seq = meta.step - 1;
+                              const jitter = tileBobJitterVars(
+                                (tileBobWaveKey * 1009 + li * 131 + i * 17 + pendingMoveChoice.from.tileIndex * 47) >>>
+                                  0,
+                              );
+                              const rot = jitter.rotDeg * amp;
+                              const scaleToward = (v: number) => 1 + (v - 1) * amp;
+                              bobStyle = {
+                                "--tile-bob-amp": `${TILE_BOB_MAX_PX * amp}px`,
+                                "--tile-bob-rot": `${rot.toFixed(2)}deg`,
+                                "--tile-bob-sx": scaleToward(jitter.sx).toFixed(3),
+                                "--tile-bob-sy": scaleToward(jitter.sy).toFixed(3),
+                                "--tile-bob-sx2": scaleToward(jitter.sx2).toFixed(3),
+                                "--tile-bob-sy2": scaleToward(jitter.sy2).toFixed(3),
+                                "--tile-bob-sx3": scaleToward(jitter.sx3).toFixed(3),
+                                "--tile-bob-sy3": scaleToward(jitter.sy3).toFixed(3),
+                                animationDelay: `${seq * TILE_BOB_STEP_MS}ms`,
+                              } as CSSProperties;
+                            }
+                          }
+                        }
                         return (
-                          <g key={t.id}>
+                          <g
+                            key={shouldBob ? `${t.id}-bob-${tileBobWaveKey}` : t.id}
+                            className={shouldBob ? "bv-tile-bob" : undefined}
+                            style={bobStyle}
+                          >
                             <g style={{ clipPath: `url(#${clipId})` }}>
                               <image
                                 href={tileSvgHref(t.type)}
@@ -2665,6 +2859,17 @@ function TableViewBody() {
                 }}
               />
               <span>{ui.table.settingsTokenMoveAnimations}</span>
+            </label>
+            <label className={tableStyles.tableSettingsRow}>
+              <input
+                type="checkbox"
+                checked={boardPerf.tileBobAnimationsEnabled}
+                onChange={(e) => {
+                  writeTileBobAnimationsEnabled(e.target.checked);
+                  setBoardPerf(readBoardPerformancePrefs());
+                }}
+              />
+              <span>{ui.table.settingsTileBobAnimations}</span>
             </label>
             <label className={tableStyles.tableSettingsRow}>
               <input

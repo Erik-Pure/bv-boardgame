@@ -1,6 +1,7 @@
 const STORAGE_PAN = "bv.boardPanEnabled";
 const STORAGE_ANIM = "bv.boardAnimationsEnabled";
 const STORAGE_TOKEN_ANIM = "bv.tokenMoveAnimationsEnabled";
+const STORAGE_TILE_BOB_ANIM = "bv.tileBobAnimationsEnabled";
 const STORAGE_SCALE_ANIM = "bv.scaleAnimationsEnabled";
 const STORAGE_PREVENT_SLEEP = "bv.boardPreventSleepEnabled";
 const STORAGE_MOBILE_SFX = "bv.mobileSfxEnabled";
@@ -15,6 +16,8 @@ export type BoardPerformancePrefs = {
   boardPanEnabled: boolean;
   boardAnimationsEnabled: boolean;
   tokenMoveAnimationsEnabled: boolean;
+  /** Gupp-våg på tiles i bordsvyn (pre-roll / moveChoice). */
+  tileBobAnimationsEnabled: boolean;
   /** Mjuk transition när överlägg skalas om (t.ex. när solfjädern öppnas). */
   scaleAnimationsEnabled: boolean;
   /** Skärmlås / “inaktivera sömnläge” i bordsvyn — sparas mellan matcher. */
@@ -91,6 +94,7 @@ export function readBoardPerformancePrefs(): BoardPerformancePrefs {
     boardPanEnabled: readBool(STORAGE_PAN, true),
     boardAnimationsEnabled: readBool(STORAGE_ANIM, true),
     tokenMoveAnimationsEnabled: readBool(STORAGE_TOKEN_ANIM, !lite),
+    tileBobAnimationsEnabled: readBool(STORAGE_TILE_BOB_ANIM, !lite),
     scaleAnimationsEnabled: readBool(STORAGE_SCALE_ANIM, !lite),
     preventSleepEnabled: readBool(STORAGE_PREVENT_SLEEP, isMobileTouchDevice()),
     mobileSfxEnabled: readBool(STORAGE_MOBILE_SFX, true),
@@ -129,6 +133,10 @@ export function writeBoardAnimationsEnabled(value: boolean): void {
 
 export function writeTokenMoveAnimationsEnabled(value: boolean): void {
   writeBool(STORAGE_TOKEN_ANIM, value);
+}
+
+export function writeTileBobAnimationsEnabled(value: boolean): void {
+  writeBool(STORAGE_TILE_BOB_ANIM, value);
 }
 
 export function writeScaleAnimationsEnabled(value: boolean): void {

@@ -224,13 +224,15 @@ export function renderProseWithStatIcons(line: string, iconPx = 15): ReactNode {
   );
 }
 
+/** Burk-set: mekanisk set-rad duplicerar rulesText (+2/+4/+10 m.m.). */
+const BEER_SET_SHOP_IDS = new Set(["ea_can_armor", "eh_beer_cap_helm_1", "ex_buckler"]);
+
 /** Utförlig affärsdetalj: mekaniska rader med ikoner + ev. rulesText. */
 export function renderShopItemEffectDetail(
   it: ShopItem,
   locale: GameLocale,
   ui: UiStrings,
 ): ReactNode {
-  const parts = shopItemMechanicalEffectParts(it, locale, ui);
   const supplement = shopItemEffectSupplementText(it);
   let rulesText: string | undefined;
   if (it.slot === "weapon" || it.slot === "armor" || it.slot === "helmet" || it.slot === "accessory") {
@@ -242,6 +244,12 @@ export function renderShopItemEffectDetail(
       rulesText = undefined;
     }
   }
+
+  // Burk-set: hoppa över mekanisk set-sammanfattning när rulesText redan beskriver bonusen.
+  const parts =
+    BEER_SET_SHOP_IDS.has(it.id) && rulesText
+      ? []
+      : shopItemMechanicalEffectParts(it, locale, ui);
 
   const hasParts = parts.length > 0;
   const showRules =

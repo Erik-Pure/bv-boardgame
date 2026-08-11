@@ -291,7 +291,20 @@ export const en = {
       `You already have ${currentName} as ${slot}. Swap for ${newName}? The old equipment is replaced.`,
     merchantReplaceConfirm: "Yes, swap",
     merchantReplaceCancel: "Cancel",
-    lootEquipmentReplaceTitle: "New equipment — want to swap?",
+    lootEquipmentReplaceTitle: (slot: string) => {
+      switch (slot) {
+        case "weapon":
+          return "New weapon — want to swap?";
+        case "armor":
+          return "New armor — want to swap?";
+        case "helmet":
+          return "New helmet — want to swap?";
+        case "accessory":
+          return "New accessory — want to swap?";
+        default:
+          return "New equipment — want to swap?";
+      }
+    },
     equipmentReplaceCurrentEffects: "Current",
     equipmentReplaceNewEffects: "New equipment",
     lootEquipmentReplaceDecline: "No, keep what I have",
@@ -773,6 +786,7 @@ export const en = {
     settingsBoardPan: "Board panning (auto-focus and drag) — off: full floor",
     settingsBoardAnimations: "Die animations and combat panels",
     settingsTokenMoveAnimations: "Player token movement animation",
+    settingsTileBobAnimations: "Animated board tiles (bob wave)",
     settingsScaleAnimations: "Smooth card rescaling (e.g. when items are played)",
     settingsTurnBannerRight: "Show players on the right (vertical)",
     settingsClose: "Close",

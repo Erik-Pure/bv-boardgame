@@ -8,7 +8,6 @@ import {
   playerPant,
   combatReactionsAllAnswered,
   effectiveMerchantBuyPrice,
-  getEquipmentDisplay,
   getEquipmentDisplayByEquippedName,
   MERCHANT_REROLL_GOLD_COST,
   effectiveWeaponPiecePower,
@@ -289,18 +288,22 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
   const equipOffer = catalogEquipOffer ?? stealEquipOffer;
   if (equipOffer) {
     const slot = equipOffer.slot;
-    const equippedDisplayName =
-      (getEquipmentDisplayByEquippedName(merchantEquippedName(me, slot), locale)?.name ??
-        merchantEquippedName(me, slot)) ||
-      "—";
-    const newDisplayName =
-      "catalogId" in equipOffer && equipOffer.catalogId
-        ? getEquipmentDisplay(equipOffer.catalogId, locale).name
-        : getEquipmentDisplayByEquippedName(equipOffer.newName, locale)?.name ?? equipOffer.newName;
     return (
       <div className={u.stack12}>
-        <div className={`${u.textCenter} ${u.o95} ${u.fs16} ${u.lineHeight135}`}>
-          {ui.play.lootEquipmentReplaceTitle}
+        <div
+          style={{
+            fontFamily: '"Permanent Marker", var(--heading), sans-serif',
+            fontWeight: 500,
+            fontSize: "clamp(1.1rem, 4.2vw, 1.45rem)",
+            letterSpacing: "0.04em",
+            lineHeight: 1.1,
+            textTransform: "uppercase",
+            textAlign: "center",
+            color: "#ffffff",
+            textShadow: "0 3px 16px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.55)",
+          }}
+        >
+          {ui.play.lootEquipmentReplaceTitle(slot)}
         </div>
         <div className={u.flexCenterFullWidth}>
           <div className={u.box96}>
@@ -310,16 +313,6 @@ export function PlayInteractionPanel(props: PlayInteractionPanelProps) {
               className={u.fillContain}
             />
           </div>
-        </div>
-        <div
-          className={`${u.fs14} ${u.lineHeight145} ${u.colorE8}`}
-          style={{ ...effectDescPanelStyle, textAlign: "center" }}
-        >
-          {ui.play.merchantReplaceBody(
-            capitalizeWord(equipmentSlotLabel(slot, locale)),
-            equippedDisplayName,
-            newDisplayName,
-          )}
         </div>
         {renderEquipmentReplaceEffects(
           slot,

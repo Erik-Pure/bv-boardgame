@@ -406,7 +406,20 @@ export const sv = {
       `Du har redan ${currentName} som ${slot}. Vill du byta mot ${newName}? Den gamla utrustningen ersätts.`,
     merchantReplaceConfirm: "Ja, byt ut",
     merchantReplaceCancel: "Avbryt",
-    lootEquipmentReplaceTitle: "Ny utrustning — vill du byta?",
+    lootEquipmentReplaceTitle: (slot: string) => {
+      switch (slot) {
+        case "weapon":
+          return "Nytt vapen — vill du byta?";
+        case "armor":
+          return "Ny rustning — vill du byta?";
+        case "helmet":
+          return "Ny hjälm — vill du byta?";
+        case "accessory":
+          return "Nytt tillbehör — vill du byta?";
+        default:
+          return "Ny utrustning — vill du byta?";
+      }
+    },
     equipmentReplaceCurrentEffects: "Nuvarande",
     equipmentReplaceNewEffects: "Ny utrustning",
     lootEquipmentReplaceDecline: "Nej, behåll det jag har",
@@ -889,6 +902,7 @@ export const sv = {
     settingsBoardPan: "Panorering på brädet (auto-fokus och drag) — av: hel våning",
     settingsBoardAnimations: "Tärningsanimationer och stridspaneler",
     settingsTokenMoveAnimations: "Animation av spelpjäsernas förflyttning",
+    settingsTileBobAnimations: "Animerade rutor på brädet (gupp-våg)",
     settingsScaleAnimations: "Mjuk omskalning av kort (t.ex. när föremål spelas)",
     settingsTurnBannerRight: "Visa spelare till höger (vertikalt)",
     settingsClose: "Stäng",

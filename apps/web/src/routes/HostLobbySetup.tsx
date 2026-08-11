@@ -11,6 +11,7 @@ import {
   writeBoardPanEnabled,
   writeScaleAnimationsEnabled,
   writeTokenMoveAnimationsEnabled,
+  writeTileBobAnimationsEnabled,
   writeTurnBannerPlacement,
 } from "../lib/boardPerformancePrefs";
 import { lobbyFieldControlStyle } from "../lib/lobbyFormFieldStyle";
@@ -290,6 +291,18 @@ export function HostLobbySetup() {
                     style={checkboxStyle}
                   />
                   <span>{ui.table.settingsTokenMoveAnimations}</span>
+                </label>
+                <label className={styles.inlineCheck}>
+                  <input
+                    type="checkbox"
+                    checked={boardPerf.tileBobAnimationsEnabled}
+                    onChange={(e) => {
+                      writeTileBobAnimationsEnabled(e.target.checked);
+                      setBoardPerf(readBoardPerformancePrefs());
+                    }}
+                    style={checkboxStyle}
+                  />
+                  <span>{ui.table.settingsTileBobAnimations}</span>
                 </label>
                 <label className={styles.inlineCheck}>
                   <input
