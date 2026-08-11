@@ -1,23 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Fragment } from "react";
 import type { EquipmentSlot, GameLocale, Player, ShopItem, Weapon } from "@bv/game-core";
-import {
-  BEER_CAN_HELM1_NAME,
-  BEER_CAN_RUSTNING_NAME,
-  beerCanSetPiecesEquippedCount,
-  getCard,
-  getEquipmentDisplay,
-  getEquipmentDisplayByEquippedName,
-  isBeerCanShieldName,
-} from "@bv/game-core";
+import { getCard, getEquipmentDisplay, getEquipmentDisplayByEquippedName } from "@bv/game-core";
 import { CardRichText } from "../components/CardRichText";
 import {
   equipmentCatalogByEquippedName,
   equipmentCatalogById,
-  equipmentInventoryEffectBadges,
   effectBadgeIconFilter,
   ITEM_EFFECT_BADGE_ICONS,
-  shopItemEffectBadges,
   shopItemEffectSupplementText,
   type EffectBadgeData,
 } from "./inventoryEffectBadges";
@@ -317,19 +307,6 @@ function equipmentReplaceEffectSummaryLines(
   return equipmentModalDetailLines(slot, piece, pieceName, ui, locale);
 }
 
-function burkSetCountForPiece(
-  player: Player,
-  slot: EquipmentSlot,
-  pieceName: string | undefined,
-): number | undefined {
-  if (!pieceName) return undefined;
-  const isBurkPiece =
-    (slot === "armor" && pieceName === BEER_CAN_RUSTNING_NAME) ||
-    (slot === "helmet" && pieceName === BEER_CAN_HELM1_NAME) ||
-    (slot === "accessory" && isBeerCanShieldName(pieceName));
-  return isBurkPiece ? beerCanSetPiecesEquippedCount(player) : undefined;
-}
-
 function resolveNewEquipmentShopItem(
   newName: string,
   newCatalogId?: string,
@@ -339,35 +316,59 @@ function resolveNewEquipmentShopItem(
     : equipmentCatalogByEquippedName(newName);
 }
 
-function replaceEffectBlock(
+/** Fallback när prylen saknas i katalogen — samma prosa/ikon-stil som affärsdetalj. */
+function renderReplaceEffectFallback(
   label: string,
   displayName: string | undefined,
-  badges: EffectBadgeData[],
-  fallbackLines: string[],
-  ariaSummary: string | undefined,
-  supplement?: string,
+  lines: string[],
 ) {
-  const hasBadges = badges.length > 0;
-  const hasFallback = fallbackLines.length > 0;
-  if (!hasBadges && !hasFallback) return null;
+  if (lines.length === 0) return null;
   return (
-    <div>
-      <div style={{ marginBottom: hasBadges || hasFallback ? 4 : 0 }}>
+    <div className={u.stack8}>
+      <div style={{ fontSize: 14, color: "rgba(232,236,244,0.95)" }}>
         <strong>{label}</strong>
-        {displayName ? ` (${displayName}): ` : ": "}
-        {hasBadges ? (
-          <span aria-label={ariaSummary && ariaSummary !== "—" ? ariaSummary : undefined}>
-            {renderInlineEffectBadges(badges)}
-          </span>
-        ) : (
-          <span>{fallbackLines.join(" · ")}</span>
-        )}
+        {displayName ? ` (${displayName})` : null}
       </div>
-      {hasBadges && supplement ? (
-        <div style={{ fontSize: 12, opacity: 0.82, marginTop: 2 }}>{supplement}</div>
-      ) : null}
+      <div
+        className={u.stack8}
+        style={{
+          ...effectDescPanelStyle,
+          textAlign: "left",
+          fontSize: 14,
+          lineHeight: 1.45,
+          color: "rgba(232,236,244,0.95)",
+        }}
+      >
+        {lines.map((line, i) => (
+          <div key={i}>{renderProseWithStatIcons(line)}</div>
+        ))}
+      </div>
     </div>
   );
+}
+
+function renderReplaceEffectSide(
+  label: string,
+  displayName: string | undefined,
+  cat: ShopItem | undefined,
+  fallbackLines: string[],
+  locale: GameLocale,
+  ui: UiStrings,
+) {
+  if (cat) {
+    const detail = renderShopItemEffectDetail(cat, locale, ui);
+    if (!detail) return null;
+    return (
+      <div className={u.stack8}>
+        <div style={{ fontSize: 14, color: "rgba(232,236,244,0.95)" }}>
+          <strong>{label}</strong>
+          {displayName ? ` (${displayName})` : null}
+        </div>
+        {detail}
+      </div>
+    );
+  }
+  return renderReplaceEffectFallback(label, displayName, fallbackLines);
 }
 
 export function renderEquipmentReplaceEffects(
@@ -385,54 +386,32 @@ export function renderEquipmentReplaceEffects(
     ? getEquipmentDisplay(newCatalogId, locale).name
     : localizedEquippedDisplayName(newName, locale) ?? newName;
 
-  const currentBadges = equipmentInventoryEffectBadges(
-    currentPiece,
-    player.gold,
-    burkSetCountForPiece(player, slot, currentName),
-    player,
-  );
-  const currentLines = equipmentReplaceEffectSummaryLines(slot, currentPiece, currentName, ui, locale);
   const currentCat = equipmentCatalogByEquippedName(currentName);
-  const currentAria = currentCat
-    ? formatLocalizedShopItemEffectSummary(currentCat, locale, ui)
-    : currentLines.join(" · ");
+  const currentLines = equipmentReplaceEffectSummaryLines(slot, currentPiece, currentName, ui, locale);
 
   const newCat = resolveNewEquipmentShopItem(newName, newCatalogId);
-  const newBadges = newCat ? shopItemEffectBadges(newCat) : [];
-  const newSupplement = newCat ? shopItemEffectSupplementText(newCat) : undefined;
   const newLines = equipmentReplaceEffectSummaryLines(slot, undefined, newName, ui, locale, newCatalogId);
-  const newAria = newCat
-    ? formatLocalizedShopItemEffectSummary(newCat, locale, ui)
-    : newLines.join(" · ");
 
-  const currentBlock = replaceEffectBlock(
+  const currentBlock = renderReplaceEffectSide(
     ui.play.equipmentReplaceCurrentEffects,
     currentDisplayName,
-    currentBadges,
+    currentCat,
     currentLines,
-    currentAria,
+    locale,
+    ui,
   );
-  const newBlock = replaceEffectBlock(
+  const newBlock = renderReplaceEffectSide(
     ui.play.equipmentReplaceNewEffects,
     newDisplayName,
-    newBadges,
+    newCat,
     newLines,
-    newAria,
-    newSupplement,
+    locale,
+    ui,
   );
   if (!currentBlock && !newBlock) return null;
 
   return (
-    <div
-      className={u.stack8}
-      style={{
-        ...effectDescPanelStyle,
-        textAlign: "left",
-        fontSize: 13,
-        lineHeight: 1.45,
-        color: "#e8ecf4",
-      }}
-    >
+    <div className={u.stack8}>
       {currentBlock}
       {newBlock}
     </div>
@@ -470,14 +449,18 @@ function equipmentModalEffectLines(
   if ("randomOtherDamageOnWin" in piece && typeof piece.randomOtherDamageOnWin === "number" && piece.randomOtherDamageOnWin > 0) {
     lines.push(ui.play.equipmentRandomOtherDamage(piece.randomOtherDamageOnWin));
   }
-  if ("powerAtGold10" in piece && typeof piece.powerAtGold10 === "number") {
-    lines.push(ui.play.equipmentPowerAtGold10(piece.powerAtGold10));
-  }
-  if ("powerAtGold20" in piece && typeof piece.powerAtGold20 === "number") {
-    lines.push(ui.play.equipmentPowerAtGold20(piece.powerAtGold20));
-  }
-  if ("powerAtGold30" in piece && typeof piece.powerAtGold30 === "number") {
-    lines.push(ui.play.equipmentPowerAtGold30(piece.powerAtGold30));
+  {
+    const goldTiers: string[] = [];
+    if ("powerAtGold10" in piece && typeof piece.powerAtGold10 === "number") {
+      goldTiers.push(ui.play.equipmentPowerAtGold10(piece.powerAtGold10).replace(/\.$/, ""));
+    }
+    if ("powerAtGold20" in piece && typeof piece.powerAtGold20 === "number") {
+      goldTiers.push(ui.play.equipmentPowerAtGold20(piece.powerAtGold20).replace(/\.$/, ""));
+    }
+    if ("powerAtGold30" in piece && typeof piece.powerAtGold30 === "number") {
+      goldTiers.push(ui.play.equipmentPowerAtGold30(piece.powerAtGold30).replace(/\.$/, ""));
+    }
+    if (goldTiers.length > 0) lines.push(goldTiers.join(", "));
   }
   if ("combatBonus" in piece && typeof piece.combatBonus === "number" && piece.combatBonus > 0) {
     lines.push(ui.play.combatBonus(piece.combatBonus));
@@ -544,11 +527,15 @@ function equipmentModalEffectLines(
     const gpk = Math.max(0, Math.floor((piece as { gainGoldPerPenaltyKlunk?: number }).gainGoldPerPenaltyKlunk ?? 0));
     if (gpk > 0) lines.push(ui.play.equipmentGoldPerPenaltyKlunk(gpk));
   }
-  if ("klunkAttackBonus10" in piece && typeof piece.klunkAttackBonus10 === "number") {
-    lines.push(ui.play.equipmentKlunkAttack10(piece.klunkAttackBonus10));
-  }
-  if ("klunkAttackBonus20" in piece && typeof piece.klunkAttackBonus20 === "number") {
-    lines.push(ui.play.equipmentKlunkAttack20(piece.klunkAttackBonus20));
+  {
+    const klunkTiers: string[] = [];
+    if ("klunkAttackBonus10" in piece && typeof piece.klunkAttackBonus10 === "number") {
+      klunkTiers.push(ui.play.equipmentKlunkAttack10(piece.klunkAttackBonus10).replace(/\.$/, ""));
+    }
+    if ("klunkAttackBonus20" in piece && typeof piece.klunkAttackBonus20 === "number") {
+      klunkTiers.push(ui.play.equipmentKlunkAttack20(piece.klunkAttackBonus20).replace(/\.$/, ""));
+    }
+    if (klunkTiers.length > 0) lines.push(klunkTiers.join(", "));
   }
   if (slot === "helmet" && lines.length === 0) return [];
   return lines;

@@ -18,6 +18,12 @@ function localizedShopItemSupplement(it: ShopItem, locale: GameLocale, ui: UiStr
   return undefined;
 }
 
+/** Trappor (pant/klunk) på en rad med komma — undvik flera nästan identiska rader i detaljvyn. */
+function pushJoinedTierParts(parts: string[], tiers: string[]) {
+  if (tiers.length === 0) return;
+  parts.push(tiers.map((t) => t.replace(/\.$/, "")).join(", "));
+}
+
 function formatShopItemEffectSummaryEn(it: ShopItem, ui: UiStrings): string {
   const p = ui.play;
   if (it.slot === "heal") {
@@ -53,9 +59,13 @@ function formatShopItemEffectSummaryEn(it: ShopItem, ui: UiStrings): string {
   if (it.breakOnWin) {
     parts.push(p.shopBreaksAfterWin);
   }
-  if (typeof it.powerAtGold10 === "number") parts.push(p.equipmentPowerAtGold10(it.powerAtGold10));
-  if (typeof it.powerAtGold20 === "number") parts.push(p.equipmentPowerAtGold20(it.powerAtGold20));
-  if (typeof it.powerAtGold30 === "number") parts.push(p.equipmentPowerAtGold30(it.powerAtGold30));
+  {
+    const goldTiers: string[] = [];
+    if (typeof it.powerAtGold10 === "number") goldTiers.push(p.equipmentPowerAtGold10(it.powerAtGold10));
+    if (typeof it.powerAtGold20 === "number") goldTiers.push(p.equipmentPowerAtGold20(it.powerAtGold20));
+    if (typeof it.powerAtGold30 === "number") goldTiers.push(p.equipmentPowerAtGold30(it.powerAtGold30));
+    pushJoinedTierParts(parts, goldTiers);
+  }
   if (typeof it.combatBonus === "number" && it.combatBonus !== 0) {
     parts.push(p.shopAttackSigned(it.combatBonus));
   }
@@ -117,8 +127,16 @@ function formatShopItemEffectSummaryEn(it: ShopItem, ui: UiStrings): string {
   if (typeof it.gainGoldOnDamageTaken === "number" && it.gainGoldOnDamageTaken > 0) {
     parts.push(p.equipmentGoldOnDamage(it.gainGoldOnDamageTaken));
   }
-  if (typeof it.klunkAttackBonus10 === "number") parts.push(p.equipmentKlunkAttack10(it.klunkAttackBonus10));
-  if (typeof it.klunkAttackBonus20 === "number") parts.push(p.equipmentKlunkAttack20(it.klunkAttackBonus20));
+  {
+    const klunkTiers: string[] = [];
+    if (typeof it.klunkAttackBonus10 === "number") {
+      klunkTiers.push(p.equipmentKlunkAttack10(it.klunkAttackBonus10));
+    }
+    if (typeof it.klunkAttackBonus20 === "number") {
+      klunkTiers.push(p.equipmentKlunkAttack20(it.klunkAttackBonus20));
+    }
+    pushJoinedTierParts(parts, klunkTiers);
+  }
   if (it.negateAllOnce) parts.push(p.shopNegateAllOnce);
   if (it.pvpCannotBeChallenged) parts.push(p.shopCannotBeChallengedBvb);
   if (typeof it.moveBonus === "number") parts.push(p.moveSteps(it.moveBonus));
@@ -180,9 +198,13 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (it.breakOnWin) {
     parts.push("Går sönder efter vinst");
   }
-  if (typeof it.powerAtGold10 === "number") parts.push(`Vid 10+ pant: Kraft +${it.powerAtGold10}`);
-  if (typeof it.powerAtGold20 === "number") parts.push(`Vid 20+ pant: Kraft +${it.powerAtGold20}`);
-  if (typeof it.powerAtGold30 === "number") parts.push(`Vid 30+ pant: Kraft +${it.powerAtGold30}`);
+  {
+    const goldTiers: string[] = [];
+    if (typeof it.powerAtGold10 === "number") goldTiers.push(`Vid 10+ pant: Kraft +${it.powerAtGold10}`);
+    if (typeof it.powerAtGold20 === "number") goldTiers.push(`Vid 20+ pant: Kraft +${it.powerAtGold20}`);
+    if (typeof it.powerAtGold30 === "number") goldTiers.push(`Vid 30+ pant: Kraft +${it.powerAtGold30}`);
+    pushJoinedTierParts(parts, goldTiers);
+  }
   if (typeof it.combatBonus === "number" && it.combatBonus !== 0) {
     parts.push(it.combatBonus > 0 ? `Attack +${it.combatBonus}` : `Attack ${it.combatBonus}`);
   }
@@ -245,8 +267,16 @@ export function formatShopItemEffectSummary(it: ShopItem): string {
   if (typeof it.gainGoldOnDamageTaken === "number" && it.gainGoldOnDamageTaken > 0) {
     parts.push(`När du tar skada: +${it.gainGoldOnDamageTaken} pant`);
   }
-  if (typeof it.klunkAttackBonus10 === "number") parts.push(`Vid 10+ klunkar: +${it.klunkAttackBonus10} attack`);
-  if (typeof it.klunkAttackBonus20 === "number") parts.push(`Vid 20+ klunkar: +${it.klunkAttackBonus20} attack`);
+  {
+    const klunkTiers: string[] = [];
+    if (typeof it.klunkAttackBonus10 === "number") {
+      klunkTiers.push(`Vid 10+ klunkar: +${it.klunkAttackBonus10} attack`);
+    }
+    if (typeof it.klunkAttackBonus20 === "number") {
+      klunkTiers.push(`Vid 20+ klunkar: +${it.klunkAttackBonus20} attack`);
+    }
+    pushJoinedTierParts(parts, klunkTiers);
+  }
   if (it.negateAllOnce) parts.push("Blockar all skada en gång");
   if (it.pvpCannotBeChallenged) parts.push("Kan inte utmanas i BvB");
   if (typeof it.moveBonus === "number") parts.push(`Rörelse +${it.moveBonus}`);
