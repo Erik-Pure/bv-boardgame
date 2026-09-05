@@ -50,3 +50,11 @@ PR/main blockeras om något av följande fallerar:
 - **Många hello rate-limits:** höj `HELLO_RATE_LIMIT_PER_MIN` tillfälligt vid känd trafikspik, annars undersök missbruk.
 - **Backpressure disconnects:** undersök nätverk/latenta klienter, minska broadcast-volym vid behov.
 
+## Statistik / analytics
+
+- **UI:** olänkad sida `/stats` (admin-token i `sessionStorage`, header `x-admin-token`).
+- **API:** `GET /admin/analytics?range=7d|30d|week|month` (samma token-krav som övriga admin-routes). Returnerar aggregerade periodmått + live-snapshot + senaste events.
+- **Lagring:** append-only JSON (`ANALYTICS_PATH`, default `./.data/analytics.json`), retention ca 90 dagar. Events skrivs vid matchstart, matchslut (`playing`→`ended`) och abandon (admin-stäng / idle-prune under pågående match).
+- **Tolkning:** `uniquePlayerNames` är normaliserad namnuppskattning (inte auth-konton). Historik finns först efter att instrumentation körts i produktion (ingen backfill).
+- **Smoke:** när `ADMIN_TOKEN` är satt verifierar `smoke-check` även `/admin/analytics`.
+

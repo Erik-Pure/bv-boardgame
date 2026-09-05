@@ -32,6 +32,12 @@ import {
 import { loadRoomSnapshot, saveRoomSnapshot } from "./roomPersistence.js";
 import type { PersistedRoom } from "./rooms.js";
 import { AuthService, resolveAuthConfigFromEnv } from "./auth/service.js";
+import {
+  aggregateAnalytics,
+  getAnalyticsStore,
+  parseAnalyticsRange,
+  recentEvents,
+} from "./analytics/index.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 /** 0.0.0.0 = lyssna på alla nätverksgränssnitt så mobiler på LAN kan ansluta. Sätt HOST=127.0.0.1 om du bara vill lokalt. */
@@ -198,6 +204,24 @@ function hasValidAdminToken(req: { headers: Record<string, unknown> }): boolean 
 app.get("/admin/rooms", async (req, reply) => {
   if (!hasValidAdminToken(req)) return reply.code(401).send({ ok: false, error: "unauthorized" });
   return { ok: true, rooms: listRoomSummaries() };
+});
+
+app.get("/admin/analytics", async (req, reply) => {
+  if (!hasValidAdminToken(req)) return reply.code(401).send({ ok: false, error: "unauthorized" });
+  const range = parseAnalyticsRange((req.query as { range?: unknown } | undefined)?.range);
+  const events = await getAnalyticsStore().listEvents();
+  const rooms = listRoomSummaries();
+  const livePlayingRooms = rooms.filter((r) => r.phase === "playing");
+  return {
+    ok: true,
+    aggregate: aggregateAnalytics(events, range),
+    live: {
+      liveRooms: rooms.length,
+      livePlaying: livePlayingRooms.length,
+      livePlayers: livePlayingRooms.reduce((sum, r) => sum + r.players, 0),
+    },
+    recentEvents: recentEvents(events, 20),
+  };
 });
 
 app.post("/admin/rooms/:code/close", async (req, reply) => {

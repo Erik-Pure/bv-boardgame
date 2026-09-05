@@ -96,6 +96,21 @@ async function main() {
     if (!adminJson?.ok || !Array.isArray(adminJson.rooms)) {
       throw new Error("/admin/rooms failed: invalid payload");
     }
+
+    const analyticsRes = await fetch(`${BASE_URL}/admin/analytics?range=7d`, {
+      method: "GET",
+      headers: { "x-admin-token": ADMIN_TOKEN },
+    });
+    if (!analyticsRes.ok) throw new Error(`/admin/analytics failed: HTTP ${analyticsRes.status}`);
+    const analyticsJson = await analyticsRes.json();
+    if (
+      !analyticsJson?.ok ||
+      !analyticsJson.aggregate ||
+      !analyticsJson.live ||
+      !Array.isArray(analyticsJson.recentEvents)
+    ) {
+      throw new Error("/admin/analytics failed: invalid payload");
+    }
   }
   await delay(20);
   console.log("smoke-check ok");

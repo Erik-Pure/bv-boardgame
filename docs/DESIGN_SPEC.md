@@ -4,8 +4,8 @@ Referensdokument för projektet. Uppdatera version och datum vid större ändrin
 
 | Fält | Värde |
 |------|--------|
-| Version | 0.84 |
-| Senast uppdaterad | 2026-07-31 |
+| Version | 0.85 |
+| Senast uppdaterad | 2026-09-05 |
 
 ---
 
@@ -118,7 +118,14 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 - **Höjdpunkts-UI:** flex-rutnät med **centrerade ofullständiga rader** (undviker tomma hål vid t.ex. 5 kort i 3-kolumnsläge); **5 → 3 → 2** kolumner beroende på bredd; värden som **siffra** i **Permanent Marker**; titel med ikon ovanför avatar och namn.
 - **Detaljer (under höjdpunkterna):** summeringsrad (live-bord, aktiva spelare, monstersegrar, BvB-segrar, klunkar totalt) samt **en panel per lobby** med anslutningsstatus, fas, spelartabell (avatar, HP, pant, klunk, bryggnivå, våning, monster V/F, BvB V/F, sabotage, bästa slag). Lokalisering via `festDashboard` i `uiStrings` / `uiStringsEn`.
 
-**Sessionsflöde**
+### 2.3 Statistikdashboard (`/stats`)
+
+- **Syfte:** olänkad ops-yta för **historik först** (starter/avslut/spelardeltaganden per period) plus en **sekundär live-rad** (rum, spelande, spelare i match). Samma hemliga URL-mönster som `/fest` (bokmärke, inte länkad från startsidan).
+- **Auth:** admin-token (`ADMIN_TOKEN`) anges i UI och sparas i `sessionStorage` (`bv:adminToken`); skickas som header `x-admin-token` till `GET /admin/analytics`.
+- **Perioder:** `7d`, `30d`, ISO-`week`, kalender-`month` (UTC). Mått: starter, avslutade (exkl. abandoned), övergivna, spelardeltaganden, unika namn (normaliserad uppskattning), snittlängd.
+- **Datakälla:** append-only eventlogg på server (`ANALYTICS_PATH`, default `./.data/analytics.json`); historik börjar samlas efter deploy (ingen backfill). Unika spelare är **namnbaserad uppskattning**, inte konton.
+
+### 2.4 Sessionsflöde
 
 1. Värd öppnar sidan → väljer **Skapa lobby** → går till en **dedikerad pre-game-inställningsvy** (ingen kod/QR i detta steg).
 2. Värd väljer lobbyinställningar (svårighet, hardcore, bräde, nivåer, utseende, extra inställningar) och fortsätter till bordsvyn.
@@ -145,7 +152,7 @@ Fullständig teknisk spec med stack, hosting, kostnad, portabilitet och Vercel: 
 - **Idle-room städning:** rum utan aktiva anslutningar hålls kvar kort för reconnect men städas automatiskt efter TTL (nuvarande: ca 10 min inaktivitet).
 - **Recoverability (nuvarande implementation):** servern tar periodiska snapshots av aktiva rum till disk och kan återställa dessa vid restart (`ROOM_SNAPSHOT_PATH`, `ROOM_SNAPSHOT_INTERVAL_MS`).
 - **Autentisering av WS-klienter (baseline):** om `SERVER_AUTH_TOKEN` är satt måste klient skicka `authToken` i `hello`; annars nekas anslutningen.
-- **Admin/drift API (utan UI):** servern kan exponera token-skyddade admin-endpoints med `ADMIN_TOKEN` i headern `x-admin-token` (ex. lista rum och stäng rum kontrollerat).
+- **Admin/drift API:** token-skyddade endpoints med `ADMIN_TOKEN` i headern `x-admin-token` (`GET /admin/rooms`, `POST /admin/rooms/:code/close`, `GET /admin/analytics`). Läs-UI för analytics: olänkad `/stats` (§2.3).
 - **Lokalt:** `npm run dev` — Vite på **5173**, WebSocket i dev proxas via **`/bv-ws`** till servern (se `apps/web/vite.config.ts`).
 - **Deploy:** webben sker via **Vercel** (kopplat till GitHub; push triggar bygge) eller manuellt med **Vercel CLI** (`npx vercel --prod` från repo-roten efter `npx vercel login` / ev. `npx vercel link`). Spelservern: **CapRover CLI** med `npm run deploy:caprover` / `npm run deploy:caprover:staging` (läser **`.env`** via `dotenv-cli`; se `.env.example`).
 
@@ -530,10 +537,10 @@ Ny utrustning i en **ledig** slot utrustas direkt. Om slotten redan är fylld sk
 - **Protokollpolicy (P1):** servern håller ett explicit supportfönster (`MIN_SUPPORTED_CLIENT_PROTOCOL`..`CURRENT_PROTOCOL_VERSION`), loggar/metric-inkrementerar mismatch och avvisar inkompatibla klienter konsekvent.
 - **Snapshot-migrering (P1):** snapshots har versionsfält och lastas via migreringspipeline för bakåtkompatibilitet; okänd framtida version hanteras fail-safe (tom restore i stället för krasch).
 - **Privilegierade actions:** känsliga åtgärder (`startGame`, `setConfig`, `tableKickPlayer`, `returnToLobby`, `endMatch`) kräver trusted anslutning (auth-token när servern kör i token-läge).
-- **Admin-endpoints (P1 baseline):** `GET /admin/rooms` (översikt), `POST /admin/rooms/:code/close` (driftstängning). Avsett för drift/ops, inte spelar-UI.
+- **Admin-endpoints (P1 baseline):** `GET /admin/rooms` (översikt), `POST /admin/rooms/:code/close` (driftstängning), `GET /admin/analytics?range=` (aggregerad historik + live-snapshot). Avsett för drift/ops; läs-UI på `/stats`.
 - **Release-gate i CI (P1):** smoke + full E2E + snapshot-migration-check + load-check + metrics-threshold-check måste passera innan release-steg.
 - **SLO baseline (P1):** action roundtrip **p95 <= 300 ms** i CI-loadprofil, error-rate **<= 5%**, snapshot-save-failures **= 0**.
-- Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`, **`/fest`** för festöversikt).
+- Hemsidor för **board** vs **controller** kan vara samma app med olika routes eller layouts (`/table`, `/play`, **`/fest`** för festöversikt, **`/stats`** för statistik).
 
 **Lokal utveckling:** kör från monoreporoten **`npm run dev`** så startas **både** Vite (**webben**, port **5173**, `--host 0.0.0.0`) **och** spelservern (**WebSocket + HTTP health**, port **3001**). Öppna UI via **`http://127.0.0.1:5173`** eller **`http://<datorns-LAN-IP>:5173`**. I **dev** går WebSocket från webbläsaren till **`ws(s)://<samma host:5173>/bv-ws`** — Vite **proxar** till spelservern så mobiler oftast **inte** behöver nå port **3001** direkt (macOS-brandvägg brukar annars blockera 3001). **`?ws=…`** eller byggtidsvariabel **`VITE_WS_URL`** kan fortfarande överstyra (t.ex. produktion). **`npm run dev:server` endast** ger ingen webb — kör då `npm run dev` eller byggd statisk front med vald WS-URL.
 
@@ -695,4 +702,5 @@ Följande värden ska ses som **tuning-variabler** (inte hårda designregler). J
 | 0.82 | 2026-07-27 | §9.1 mobil strid: **vinstchans %** till höger om tärningen (`monsterCombatWinChancePercent`); attackmod vänster; uppdateras med buffar/hjälp |
 | 0.83 | 2026-07-29 | §19 **skatt-tiles per nivå: 1** (ned från 2) — `tileCountsForLevel` i `game-core/board.ts` |
 | 0.84 | 2026-07-31 | Lobby: **`pvpBestOf`** (1–5) + **tur-timeout**-toggle (`turnTimeoutEnabled` + `turnSeconds`); §6 timeout-beteende + brädnedräkning; §9.2 best-of från config |
+| 0.85 | 2026-09-05 | §2.3 **Statistikdashboard** (`/stats`): historik per 7d/30d/vecka/månad + live-rad; `GET /admin/analytics`; append-only analytics-fil (`ANALYTICS_PATH`) |
 
