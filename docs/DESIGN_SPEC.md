@@ -121,7 +121,7 @@ Webbaserat brädspel i stil med Talisman med **öltema**: spelplan på stor skä
 ### 2.3 Statistikdashboard (`/stats`)
 
 - **Syfte:** olänkad ops-yta för **historik först** (starter/avslut/spelardeltaganden per period) plus en **sekundär live-rad** (rum, spelande, spelare i match). Samma hemliga URL-mönster som `/fest` (bokmärke, inte länkad från startsidan).
-- **Auth:** lösenordsskyddad via `ADMIN_TOKEN` (anges i UI som lösenord, sparas i `sessionStorage` som `bv:statsPassword`); skickas som header `x-admin-token` till `GET /admin/analytics`. Sätt värdet i CapRover/hosting — inte i git.
+- **Auth:** admin-token (`ADMIN_TOKEN`) anges i UI och sparas i `sessionStorage` (`bv:adminToken`); skickas som header `x-admin-token` till `GET /admin/analytics`.
 - **Perioder:** `7d`, `30d`, ISO-`week`, kalender-`month` (UTC). Mått: starter, avslutade (exkl. abandoned), övergivna, spelardeltaganden, unika namn (normaliserad uppskattning), snittlängd.
 - **Datakälla:** append-only eventlogg på server (`ANALYTICS_PATH`, default `./.data/analytics.json`); historik börjar samlas efter deploy (ingen backfill). Unika spelare är **namnbaserad uppskattning**, inte konton.
 
