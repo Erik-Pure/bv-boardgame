@@ -6,6 +6,8 @@ export type PlayToastPayload = {
   itemId?: ItemId | string;
   /** Visas ovanför message när satt (t.ex. föremålsnamn). */
   itemTitle?: string;
+  /** Grön/röd ton för föremål spelat på dig. */
+  tone?: "positive" | "negative";
 };
 
 export type ShowPlayToast = (payload: string | PlayToastPayload, durationMs?: number) => void;
