@@ -19,6 +19,10 @@ import {
   type Player,
 } from "@bv/game-core";
 import { v4 as uuidv4 } from "uuid";
+import {
+  getAnalyticsStore,
+  type GameEndedOutcome,
+} from "./analytics/index.js";
 
 export type ClientRole = "table" | "controller";
 
@@ -33,6 +37,8 @@ export interface ClientConn {
 export interface Room {
   code: string;
   state: GameState;
+  /** Active match analytics id while phase is playing (or until ended is recorded). */
+  matchId: string | null;
   conns: Set<ClientConn>;
   broadcastQueued: boolean;
   /** Ytterligare broadcast begärd medan en köad redan väntar (snabba lobby-joins). */
@@ -264,6 +270,68 @@ function collectChangedPlayers(room: Room): { changed: Player[]; rosterChanged: 
   return { changed, rosterChanged: false };
 }
 
+
+function activePlayerNames(state: GameState): string[] {
+  return state.players
+    .filter((p) => !p.leftVoluntarily)
+    .map((p) => p.name)
+    .filter((name) => typeof name === "string" && name.trim().length > 0);
+}
+
+function matchDurationMs(state: GameState, endedAt: number): number | undefined {
+  const startedAt = state.gameStartedAt;
+  if (typeof startedAt !== "number" || !Number.isFinite(startedAt) || startedAt <= 0) return undefined;
+  return Math.max(0, endedAt - startedAt);
+}
+
+function outcomeForEndedState(state: GameState): GameEndedOutcome {
+  if (state.winnerId) return "winner";
+  return "draw";
+}
+
+function recordMatchStarted(room: Room): void {
+  const matchId = uuidv4();
+  room.matchId = matchId;
+  const playerNames = activePlayerNames(room.state);
+  void getAnalyticsStore()
+    .recordGameStarted({
+      roomCode: room.code,
+      matchId,
+      playerNames,
+    })
+    .catch(() => {
+      // Analytics must not affect gameplay.
+    });
+}
+
+function recordMatchEnded(room: Room, outcome: GameEndedOutcome): void {
+  const matchId = room.matchId;
+  if (!matchId) return;
+  room.matchId = null;
+  const at = Date.now();
+  const playerNames = activePlayerNames(room.state);
+  void getAnalyticsStore()
+    .recordGameEnded({
+      roomCode: room.code,
+      matchId,
+      playerNames,
+      outcome,
+      durationMs: matchDurationMs(room.state, at),
+      at,
+    })
+    .catch(() => {
+      // Analytics must not affect gameplay.
+    });
+}
+
+function recordMatchEndedIfPlaying(room: Room, outcome: GameEndedOutcome = "abandoned"): void {
+  if (room.state.phase === "playing" && room.matchId) {
+    recordMatchEnded(room, outcome);
+  } else if (room.state.phase === "ended" && room.matchId) {
+    recordMatchEnded(room, outcomeForEndedState(room.state));
+  }
+}
+
 export function getOrCreateRoom(code: string): { room: Room; created: boolean } {
   const roomCode = code.trim().toUpperCase();
   const existing = rooms.get(roomCode);
@@ -277,6 +345,7 @@ export function getOrCreateRoom(code: string): { room: Room; created: boolean } 
   const room: Room = {
     code: roomCode,
     state,
+    matchId: null,
     conns: new Set(),
     broadcastQueued: false,
     lastActivityAt: Date.now(),
@@ -402,6 +471,7 @@ export function listRoomSummaries(): AdminRoomSummary[] {
 export function closeRoomByCode(code: string, reason = "stängd av admin"): boolean {
   const room = rooms.get(code.trim().toUpperCase());
   if (!room) return false;
+  recordMatchEndedIfPlaying(room, "abandoned");
   pushLogEntry(room.state, {
     message: `Lobby stängdes (${reason}).`,
     key: LOG_MESSAGE_KEYS.lobbyClosed,
@@ -429,6 +499,7 @@ export function restorePersistedRooms(entries: PersistedRoom[]): number {
     const room: Room = {
       code,
       state,
+      matchId: null,
       conns: new Set(),
       broadcastQueued: false,
       lastActivityAt: Number.isFinite(entry.lastActivityAt) ? entry.lastActivityAt : Date.now(),
@@ -642,6 +713,7 @@ export function pruneIdleRooms(now = Date.now()): number {
   for (const [code, room] of rooms) {
     if (room.conns.size > 0) continue;
     if (now - room.lastActivityAt < IDLE_ROOM_TTL_MS) continue;
+    recordMatchEndedIfPlaying(room, "abandoned");
     rooms.delete(code);
     removed += 1;
   }
@@ -655,7 +727,11 @@ export function tickTurnTimeouts(now = Date.now()): number {
     if (room.state.phase !== "playing" || !room.state.config.turnTimeoutEnabled) continue;
     const result = applyTurnTimeoutIfDue(room.state, now);
     if (!result) continue;
+    const phaseBeforeTimeout = room.state.phase;
     room.state = result.state;
+    if (phaseBeforeTimeout === "playing" && room.state.phase === "ended") {
+      recordMatchEnded(room, outcomeForEndedState(room.state));
+    }
     const afkKickEvent = result.events.find((e) => e.startsWith("afkKick:"));
     if (afkKickEvent) {
       const playerId = afkKickEvent.slice("afkKick:".length);
@@ -980,6 +1056,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       const res = returnToLobby(room.state);
       if (res.error) return res.error;
       room.state = res.state;
+      room.matchId = null;
       if (room.state.config.clearPlayersOnRematch === true) {
         for (const c of [...room.conns]) {
           if (c.role === "controller") {
@@ -997,6 +1074,7 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       const res = endMatch(room.state);
       if (res.error) return res.error;
       room.state = res.state;
+      recordMatchEnded(room, "aborted");
       scheduleBroadcastState(room);
       return null;
     }
@@ -1010,12 +1088,17 @@ export function handleAction(room: Room, conn: ClientConn, raw: unknown): string
       const res = startGame(room.state, conn.playerId, seed);
       if (res.error) return res.error;
       room.state = res.state;
+      recordMatchStarted(room);
       scheduleBroadcastState(room);
       return null;
     }
 
+    const phaseBefore = room.state.phase;
     const res = applyAction(room.state, action as ClientAction);
     room.state = res.state;
+    if (phaseBefore === "playing" && room.state.phase === "ended") {
+      recordMatchEnded(room, outcomeForEndedState(room.state));
+    }
     scheduleBroadcastState(room);
     if (res.error) {
       stats.actionErrors += 1;
