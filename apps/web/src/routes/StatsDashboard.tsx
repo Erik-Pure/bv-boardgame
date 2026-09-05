@@ -4,7 +4,7 @@ import { ArcadeButton } from "../components/ArcadeButton";
 import { useLocale, useUiStrings } from "../lib/locale/LocaleContext";
 import styles from "./StatsDashboard.module.css";
 
-const TOKEN_STORAGE_KEY = "bv:adminToken";
+const TOKEN_STORAGE_KEY = "bv:statsPassword";
 
 type AnalyticsRange = "7d" | "30d" | "week" | "month";
 
@@ -172,15 +172,15 @@ export function StatsDashboard() {
 
       {!token ? (
         <section className={styles.tokenPanel} aria-label={s.tokenAria}>
-          <label className={styles.label} htmlFor="admin-token">
+          <label className={styles.label} htmlFor="stats-password">
             {s.tokenLabel}
           </label>
           <div className={styles.tokenRow}>
             <input
-              id="admin-token"
+              id="stats-password"
               className={styles.tokenInput}
               type="password"
-              autoComplete="off"
+              autoComplete="current-password"
               value={tokenInput}
               placeholder={s.tokenPlaceholder}
               onChange={(e) => setTokenInput(e.target.value)}
